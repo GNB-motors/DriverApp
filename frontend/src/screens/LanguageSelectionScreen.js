@@ -3,21 +3,36 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-na
 import { theme } from '../theme/theme';
 import { useLanguage } from '../context/LanguageContext';
 
-export default function LanguageSelectionScreen() {
+export default function LanguageSelectionScreen({ navigation }) {
   const { setLanguage } = useLanguage();
+
+  const selectLang = (lang) => {
+    setLanguage(lang);
+    if (navigation && navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
+        {navigation && navigation.canGoBack() && (
+          <TouchableOpacity
+            style={{ position: 'absolute', top: 20, left: 20 }}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={{ color: '#fff', fontSize: 28 }}>←</Text>
+          </TouchableOpacity>
+        )}
         <Text style={styles.title}>Welcome</Text>
         <Text style={styles.subtitle}>Choose your language</Text>
         <Text style={styles.subtitleHindi}>(अपनी भाषा चुनें)</Text>
 
-        <TouchableOpacity style={styles.btn} onPress={() => setLanguage('en')}>
+        <TouchableOpacity style={styles.btn} onPress={() => selectLang('en')}>
           <Text style={styles.btnText}>English</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.btn} onPress={() => setLanguage('hi')}>
+        <TouchableOpacity style={styles.btn} onPress={() => selectLang('hi')}>
           <Text style={styles.btnText}>हिंदी</Text>
         </TouchableOpacity>
       </View>
