@@ -5,8 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator } from 'react-native';
 import { theme } from '../theme/theme';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 
 import LanguageSelectionScreen from '../screens/LanguageSelectionScreen';
+import LoginScreen from '../screens/LoginScreen';
+import WelcomeScreen from '../screens/WelcomeScreen';
 import HomeScreen from '../screens/HomeScreen';
 import DocumentsScreen from '../screens/DocumentsScreen';
 import RefuelDetailsScreen from '../screens/RefuelDetailsScreen';
@@ -43,8 +46,9 @@ function BottomTabs() {
 
 export default function AppNavigator() {
   const { language, isLoaded } = useLanguage();
+  const { user, loading: authLoading, isNewLogin } = useAuth();
 
-  if (!isLoaded) {
+  if (!isLoaded || authLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.colors.primary, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#fff" />
@@ -52,20 +56,22 @@ export default function AppNavigator() {
     );
   }
 
-  // If no language is selected, force the user to pick one
-  if (!language) {
-    return <LanguageSelectionScreen />;
-  }
-
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Main" component={BottomTabs} />
-      <Stack.Screen name="Vehicle" component={VehicleScreen} />
-      <Stack.Screen name="RefuelDetails" component={RefuelDetailsScreen} />
-      <Stack.Screen name="UploadPhotos" component={UploadPhotosScreen} />
-      <Stack.Screen name="PhotoPreview" component={PhotoPreviewScreen} />
-      <Stack.Screen name="SOSOptions" component={SOSOptionsScreen} options={{ presentation: 'transparentModal' }} />
-      <Stack.Screen name="SOSEmergencyActive" component={SOSEmergencyActiveScreen} options={{ presentation: 'fullScreenModal' }} />
+      {!user ? (
+        <Stack.Screen name="Login" component={LoginScreen} />
+      ) : (
+        <>
+          {isNewLogin && <Stack.Screen name="Welcome" component={WelcomeScreen} />}
+          <Stack.Screen name="Main" component={BottomTabs} />
+          <Stack.Screen name="Vehicle" component={VehicleScreen} />
+          <Stack.Screen name="RefuelDetails" component={RefuelDetailsScreen} />
+          <Stack.Screen name="UploadPhotos" component={UploadPhotosScreen} />
+          <Stack.Screen name="PhotoPreview" component={PhotoPreviewScreen} />
+          <Stack.Screen name="SOSOptions" component={SOSOptionsScreen} options={{ presentation: 'transparentModal' }} />
+          <Stack.Screen name="SOSEmergencyActive" component={SOSEmergencyActiveScreen} options={{ presentation: 'fullScreenModal' }} />
+        </>
+      )}
     </Stack.Navigator>
   );
 }
