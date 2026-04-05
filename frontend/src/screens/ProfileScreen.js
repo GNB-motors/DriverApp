@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StatusBar, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StatusBar, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -44,10 +44,9 @@ export default function ProfileScreen({ navigation }) {
 
         {/* Avatar & Name */}
         <View style={styles.profileAvatarContainer}>
-          <Image
-            source={{ uri: 'https://placehold.co/150x150/png' }}
-            style={styles.avatar}
-          />
+          <View style={styles.avatar}>
+            <Ionicons name="person" size={52} color={COLORS.white} />
+          </View>
           <Text style={styles.nameText}>{driverName}</Text>
           <Text style={styles.usernameText}>{driverHandle}</Text>
         </View>

@@ -83,7 +83,9 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     borderWidth: 3,
     borderColor: COLORS.white,
-    backgroundColor: '#ddd',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   nameText: {
     color: COLORS.white,

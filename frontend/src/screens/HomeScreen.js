@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../context/LanguageContext';
@@ -29,10 +29,9 @@ export default function HomeScreen({ navigation }) {
       <View style={styles.headerContainer}>
         <View style={styles.headerLeft}>
           {/* Avatar Placeholder */}
-          <Image 
-            source={{ uri: 'https://placehold.co/150x150/png' }} 
-            style={styles.avatar} 
-          />
+          <View style={styles.avatar}>
+            <Ionicons name="person" size={28} color={COLORS.primary} />
+          </View>
           <View>
             <Text style={styles.greetingText}>Welcome!</Text>
             <Text style={styles.nameText}>{driverName}</Text>

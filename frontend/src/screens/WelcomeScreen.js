@@ -1,109 +1,133 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
-import { theme } from '../theme/theme';
-import { useAuth } from '../context/AuthContext';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, Animated, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext';
+import styles, { COLORS } from '../styles/WelcomeScreen.styles';
 
 export default function WelcomeScreen({ navigation }) {
   const { user, setIsNewLogin } = useAuth();
-  const fadeAnim = new Animated.Value(0);
-  const slideAnim = new Animated.Value(30);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(40)).current;
+  const scaleAnim = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
         duration: 800,
         useNativeDriver: true,
-      })
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 6,
+        useNativeDriver: true,
+      }),
     ]).start();
-  }, [fadeAnim, slideAnim]);
+  }, [fadeAnim, slideAnim, scaleAnim]);
 
   const handleContinue = () => {
     setIsNewLogin(false);
   };
 
+  const driverName = user?.name || 'Driver';
+  const phoneDisplay = user?.phoneNumber ? `+91 ${user.phoneNumber}` : '';
+
   return (
     <View style={styles.container}>
-      <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-        <View style={styles.iconContainer}>
-          <Ionicons name="checkmark-circle" size={80} color={theme.colors.success} />
-        </View>
+      <StatusBar barStyle="light-content" />
 
-        <Text style={styles.title}>Welcome Back!</Text>
-        <Text style={styles.username}>{user?.phoneNumber || 'Driver'}</Text>
-        
-        <Text style={styles.message}>
-          Great to see you again. Get ready for a smooth and efficient driving experience today.
-        </Text>
+      {/* Green Top Section */}
+      <View style={styles.topSection}>
+        <View style={styles.circleOne} />
+        <View style={styles.circleTwo} />
+        <View style={styles.circleThree} />
+      </View>
 
-        <TouchableOpacity style={styles.button} onPress={handleContinue}>
-          <Text style={styles.buttonText}>Get Started</Text>
-          <Ionicons name="arrow-forward" size={20} color="#fff" />
-        </TouchableOpacity>
-      </Animated.View>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        {/* Top Content - Checkmark & Greeting */}
+        <Animated.View
+          style={[
+            styles.topContent,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <Animated.View
+            style={[
+              styles.checkCircleOuter,
+              { transform: [{ scale: scaleAnim }] },
+            ]}
+          >
+            <View style={styles.checkCircleInner}>
+              <Ionicons name="checkmark" size={40} color={COLORS.white} />
+            </View>
+          </Animated.View>
+
+          <Text style={styles.title}>Welcome Back!</Text>
+          <Text style={styles.username}>{driverName}</Text>
+        </Animated.View>
+
+        {/* Bottom White Card */}
+        <Animated.View
+          style={[
+            styles.bottomCard,
+            { opacity: fadeAnim },
+          ]}
+        >
+          <View style={styles.messageContainer}>
+            <View style={styles.messageIconWrap}>
+              <Ionicons name="sunny-outline" size={26} color={COLORS.primary} />
+            </View>
+            <Text style={styles.message}>
+              Great to see you again. Get ready for a smooth and efficient driving experience today.
+            </Text>
+
+            {/* Info Chips */}
+            <View style={styles.infoRow}>
+              <View style={styles.infoChip}>
+                <View style={styles.infoChipIcon}>
+                  <Ionicons name="person-outline" size={18} color={COLORS.primary} />
+                </View>
+                <View style={styles.infoChipTextWrap}>
+                  <Text style={styles.infoChipText}>Driver</Text>
+                  <Text style={styles.infoChipValue} numberOfLines={1}>{driverName}</Text>
+                </View>
+              </View>
+              {phoneDisplay ? (
+                <View style={styles.infoChip}>
+                  <View style={styles.infoChipIcon}>
+                    <Ionicons name="call-outline" size={18} color={COLORS.primary} />
+                  </View>
+                  <View style={styles.infoChipTextWrap}>
+                    <Text style={styles.infoChipText}>Phone</Text>
+                    <Text style={styles.infoChipValue} numberOfLines={1}>{phoneDisplay}</Text>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          </View>
+
+          {/* Get Started Button */}
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleContinue}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.buttonText}>Get Started</Text>
+            <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+          </TouchableOpacity>
+        </Animated.View>
+      </SafeAreaView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.lg,
-  },
-  content: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  iconContainer: {
-    marginBottom: theme.spacing.lg,
-    padding: 10,
-  },
-  title: {
-    ...theme.typography.large,
-    fontSize: 28,
-    color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.sm,
-  },
-  username: {
-    ...theme.typography.medium,
-    fontSize: 22,
-    color: theme.colors.primary,
-    marginBottom: theme.spacing.md,
-  },
-  message: {
-    ...theme.typography.normal,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: theme.spacing.xl,
-    paddingHorizontal: theme.spacing.md,
-  },
-  button: {
-    flexDirection: 'row',
-    height: theme.components.buttonHeight,
-    backgroundColor: theme.colors.primary,
-    width: '80%',
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  buttonText: {
-    ...theme.typography.medium,
-    color: '#fff',
-    marginRight: 8,
-  },
-});
