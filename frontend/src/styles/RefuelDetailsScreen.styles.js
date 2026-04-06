@@ -150,6 +150,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: COLORS.textMuted,
   },
+  hintText: {
+    fontSize: 12,
+    color: COLORS.primary,
+    marginTop: 6,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
 
   // ── Dropdown Modal ──
   modalOverlay: {

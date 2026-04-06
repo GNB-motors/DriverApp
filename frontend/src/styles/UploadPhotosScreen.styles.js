@@ -226,6 +226,58 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
 
+  // ── Input Fields ──
+  inputFieldContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  textInput: {
+    backgroundColor: COLORS.background,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    height: 50,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    fontWeight: '500',
+    color: COLORS.textDark,
+  },
+  textInputError: {
+    borderColor: '#ea4335',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#ea4335',
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.selectedBg,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+  },
+  totalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+  },
+  totalValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+
   // ── Footer ──
   footer: {
     paddingHorizontal: 22,
