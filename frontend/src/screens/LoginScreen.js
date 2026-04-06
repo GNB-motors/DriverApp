@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   Platform,
   ScrollView,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -15,11 +17,82 @@ import { Ionicons } from '@expo/vector-icons';
 import Truck from '../Assets/Truck';
 import styles, { COLORS } from '../styles/LoginScreen.styles';
 
+// ── Step indicator ──────────────────────────────────────────────────────
+function StepDots({ step }) {
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 24 }}>
+      {[1, 2].map((s) => (
+        <View
+          key={s}
+          style={{
+            width: step === s ? 24 : 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: step === s ? COLORS.primary : COLORS.border,
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+// ── OTP input (6 boxes) ─────────────────────────────────────────────────
+function OtpInput({ value, onChange }) {
+  const inputRef = useRef(null);
+  const digits = value.padEnd(6, ' ').split('');
+
+  return (
+    <TouchableOpacity
+      activeOpacity={1}
+      onPress={() => inputRef.current?.focus()}
+      style={{ position: 'relative' }}
+    >
+      {/* Hidden real input */}
+      <TextInput
+        ref={inputRef}
+        value={value}
+        onChangeText={(t) => onChange(t.replace(/[^0-9]/g, '').slice(0, 6))}
+        keyboardType="number-pad"
+        maxLength={6}
+        style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }}
+        autoFocus
+      />
+      {/* Visual boxes */}
+      <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center' }}>
+        {digits.map((d, i) => (
+          <View
+            key={i}
+            style={{
+              width: 48,
+              height: 58,
+              borderRadius: 14,
+              backgroundColor: COLORS.inputBg,
+              borderWidth: 1.5,
+              borderColor: value.length === i ? COLORS.primary : COLORS.border,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 22, fontWeight: '800', color: COLORS.textDark }}>
+              {d.trim()}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// ── Main screen ─────────────────────────────────────────────────────────
 export default function LoginScreen() {
+  const [step, setStep] = useState(1); // 1 = phone, 2 = OTP
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuth();
+  const [normalisedPhone, setNormalisedPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const { sendOtp, verifyOtp } = useAuth();
   const { language, setLanguage, t } = useLanguage();
 
   const lt = (key) => {
@@ -30,9 +103,12 @@ export default function LoginScreen() {
       subtitle: 'Driver Portal Login',
       phoneLabel: 'ENTER PHONE NUMBER',
       phonePlaceholder: '00000 00000',
-      passwordLabel: 'ENTER PASSWORD',
-      passwordPlaceholder: 'Enter your password',
-      loginButton: 'Login (लॉगिन करें)',
+      sendOtpButton: 'Send OTP',
+      otpLabel: 'ENTER OTP',
+      otpSubtitle: 'sent to',
+      verifyButton: 'Verify & Login',
+      resend: 'Resend OTP',
+      changeNumber: 'Change Number',
       help: 'Help / Login Issues?',
       secureAccess: 'SECURE DRIVER ACCESS',
       support: 'SUPPORT',
@@ -40,12 +116,6 @@ export default function LoginScreen() {
       language: 'LANGUAGE',
     };
     return fallback[key] || '';
-  };
-
-  const handleLogin = async () => {
-    if (phoneNumber.length >= 10 && password.length > 0) {
-      await login(phoneNumber, password);
-    }
   };
 
   const formatPhone = (text) => {
@@ -56,8 +126,49 @@ export default function LoginScreen() {
 
   const handlePhoneChange = (text) => {
     const cleaned = text.replace(/[^0-9]/g, '');
-    if (cleaned.length <= 10) {
-      setPhoneNumber(cleaned);
+    if (cleaned.length <= 10) setPhoneNumber(cleaned);
+  };
+
+  const handleSendOtp = async () => {
+    if (phoneNumber.length < 10) return;
+    setError('');
+    setLoading(true);
+    try {
+      const normalised = await sendOtp(phoneNumber);
+      setNormalisedPhone(normalised);
+      setStep(2);
+    } catch (err) {
+      setError(err.message || 'Failed to send OTP. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otp.length < 6) return;
+    setError('');
+    setLoading(true);
+    try {
+      await verifyOtp(normalisedPhone, otp);
+      // Navigation is handled by AppNavigator watching user state
+    } catch (err) {
+      setError(err.message || 'Invalid OTP. Please try again.');
+      setOtp('');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setError('');
+    setOtp('');
+    setLoading(true);
+    try {
+      await sendOtp(phoneNumber);
+    } catch (err) {
+      setError(err.message || 'Failed to resend OTP.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -95,66 +206,102 @@ export default function LoginScreen() {
 
         {/* Login Card */}
         <View style={styles.card}>
+          <StepDots step={step} />
+
           <View style={styles.inputSection}>
-            {/* Phone Number */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>{lt('phoneLabel')}</Text>
-              <View style={styles.phoneInputContainer}>
-                <View style={styles.countryCode}>
-                  <Text style={styles.countryCodeText}>+91</Text>
-                  <View style={styles.countryCodeDivider} />
+            {step === 1 ? (
+              /* ── Step 1: Phone Number ── */
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>{lt('phoneLabel')}</Text>
+                  <View style={styles.phoneInputContainer}>
+                    <View style={styles.countryCode}>
+                      <Text style={styles.countryCodeText}>+91</Text>
+                      <View style={styles.countryCodeDivider} />
+                    </View>
+                    <TextInput
+                      style={styles.phoneInput}
+                      placeholder={lt('phonePlaceholder')}
+                      placeholderTextColor={COLORS.placeholder}
+                      value={formatPhone(phoneNumber)}
+                      onChangeText={handlePhoneChange}
+                      keyboardType="phone-pad"
+                      maxLength={11}
+                      editable={!loading}
+                    />
+                  </View>
                 </View>
-                <TextInput
-                  style={styles.phoneInput}
-                  placeholder={lt('phonePlaceholder')}
-                  placeholderTextColor={COLORS.placeholder}
-                  value={formatPhone(phoneNumber)}
-                  onChangeText={handlePhoneChange}
-                  keyboardType="phone-pad"
-                  maxLength={11}
-                />
-              </View>
-            </View>
 
-            {/* Password */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>{lt('passwordLabel')}</Text>
-              <View style={styles.passwordInputContainer}>
-                <TextInput
-                  style={styles.passwordInput}
-                  placeholder={lt('passwordPlaceholder')}
-                  placeholderTextColor={COLORS.placeholder}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                />
+                {error ? (
+                  <Text style={errorStyle}>{error}</Text>
+                ) : null}
+
                 <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={styles.eyeButton}
+                  style={[
+                    styles.loginButton,
+                    (phoneNumber.length < 10 || loading) && styles.loginButtonDisabled,
+                  ]}
+                  onPress={handleSendOtp}
+                  activeOpacity={0.8}
+                  disabled={phoneNumber.length < 10 || loading}
                 >
-                  <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    size={22}
-                    color={COLORS.textMuted}
-                  />
+                  {loading ? (
+                    <ActivityIndicator color={COLORS.white} />
+                  ) : (
+                    <>
+                      <Text style={styles.loginButtonText}>{lt('sendOtpButton')}</Text>
+                      <Ionicons name="arrow-forward" size={18} color={COLORS.white} />
+                    </>
+                  )}
                 </TouchableOpacity>
-              </View>
-            </View>
+              </>
+            ) : (
+              /* ── Step 2: OTP Entry ── */
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>{lt('otpLabel')}</Text>
+                  <Text style={otpSubtitleStyle}>
+                    {lt('otpSubtitle')} {normalisedPhone}
+                  </Text>
+                  <View style={{ marginTop: 12 }}>
+                    <OtpInput value={otp} onChange={setOtp} />
+                  </View>
+                </View>
 
-            {/* Login Button */}
-            <TouchableOpacity
-              style={[
-                styles.loginButton,
-                (phoneNumber.length < 10 || password.length === 0) &&
-                  styles.loginButtonDisabled,
-              ]}
-              onPress={handleLogin}
-              activeOpacity={0.8}
-              disabled={phoneNumber.length < 10 || password.length === 0}
-            >
-              <Text style={styles.loginButtonText}>{lt('loginButton')}</Text>
-              <Ionicons name="arrow-forward" size={18} color={COLORS.white} />
-            </TouchableOpacity>
+                {error ? (
+                  <Text style={errorStyle}>{error}</Text>
+                ) : null}
+
+                <TouchableOpacity
+                  style={[
+                    styles.loginButton,
+                    (otp.length < 6 || loading) && styles.loginButtonDisabled,
+                  ]}
+                  onPress={handleVerifyOtp}
+                  activeOpacity={0.8}
+                  disabled={otp.length < 6 || loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color={COLORS.white} />
+                  ) : (
+                    <>
+                      <Text style={styles.loginButtonText}>{lt('verifyButton')}</Text>
+                      <Ionicons name="checkmark" size={18} color={COLORS.white} />
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                {/* Resend + Change number */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                  <TouchableOpacity onPress={handleResend} disabled={loading}>
+                    <Text style={linkStyle}>{lt('resend')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { setStep(1); setOtp(''); setError(''); }} disabled={loading}>
+                    <Text style={linkStyle}>{lt('changeNumber')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
 
           {/* Help Section */}
@@ -190,34 +337,18 @@ export default function LoginScreen() {
                 <Text style={styles.infoLabel}>{lt('language')}</Text>
                 <View style={styles.langToggle}>
                   <TouchableOpacity
-                    style={[
-                      styles.langOption,
-                      currentLang === 'hi' && styles.langOptionActive,
-                    ]}
+                    style={[styles.langOption, currentLang === 'hi' && styles.langOptionActive]}
                     onPress={() => setLanguage('hi')}
                   >
-                    <Text
-                      style={[
-                        styles.langOptionText,
-                        currentLang === 'hi' && styles.langOptionTextActive,
-                      ]}
-                    >
+                    <Text style={[styles.langOptionText, currentLang === 'hi' && styles.langOptionTextActive]}>
                       हिन्दी
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[
-                      styles.langOption,
-                      currentLang === 'en' && styles.langOptionActive,
-                    ]}
+                    style={[styles.langOption, currentLang === 'en' && styles.langOptionActive]}
                     onPress={() => setLanguage('en')}
                   >
-                    <Text
-                      style={[
-                        styles.langOptionText,
-                        currentLang === 'en' && styles.langOptionTextActive,
-                      ]}
-                    >
+                    <Text style={[styles.langOptionText, currentLang === 'en' && styles.langOptionTextActive]}>
                       English
                     </Text>
                   </TouchableOpacity>
@@ -236,3 +367,25 @@ export default function LoginScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+const errorStyle = {
+  fontSize: 13,
+  fontWeight: '600',
+  color: '#D32F2F',
+  textAlign: 'center',
+  paddingHorizontal: 8,
+};
+
+const otpSubtitleStyle = {
+  fontSize: 13,
+  color: COLORS.textMuted,
+  fontWeight: '500',
+  marginTop: 2,
+};
+
+const linkStyle = {
+  fontSize: 13,
+  fontWeight: '600',
+  color: COLORS.primary,
+  paddingVertical: 4,
+};
