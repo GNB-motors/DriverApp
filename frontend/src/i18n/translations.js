@@ -1,5 +1,19 @@
 export const translations = {
   en: {
+    login: {
+      brandName: 'HIGHWAY SAHAYAK',
+      subtitle: 'Driver Portal Login',
+      phoneLabel: 'ENTER PHONE NUMBER',
+      phonePlaceholder: '00000 00000',
+      passwordLabel: 'ENTER PASSWORD',
+      passwordPlaceholder: 'Enter your password',
+      loginButton: 'Login (लॉगिन करें)',
+      help: 'Help / Login Issues?',
+      secureAccess: 'SECURE DRIVER ACCESS',
+      support: 'SUPPORT',
+      supportValue: '24/7 Active',
+      language: 'LANGUAGE',
+    },
     home: {
       greeting: "Hello, Driver",
       subGreeting: "Good morning! Ready for today?",
@@ -56,6 +70,20 @@ export const translations = {
     }
   },
   hi: {
+    login: {
+      brandName: 'हाईवे सहायक',
+      subtitle: 'ड्राइवर पोर्टल लॉगिन',
+      phoneLabel: 'फ़ोन नंबर दर्ज करें',
+      phonePlaceholder: '00000 00000',
+      passwordLabel: 'पासवर्ड दर्ज करें',
+      passwordPlaceholder: 'अपना पासवर्ड दर्ज करें',
+      loginButton: 'लॉगिन करें (Login)',
+      help: 'मदद / लॉगिन समस्या?',
+      secureAccess: 'सुरक्षित ड्राइवर एक्सेस',
+      support: 'सहायता',
+      supportValue: '24/7 सक्रिय',
+      language: 'भाषा',
+    },
     home: {
       greeting: "नमस्ते, ड्राइवर",
       subGreeting: "सुप्रभात! क्या आप आज के लिए तैयार हैं?",
