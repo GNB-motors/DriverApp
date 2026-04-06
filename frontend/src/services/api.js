@@ -7,7 +7,7 @@
  * - Physical device (dev):        http://<your-machine-ip>:3000
  * - Production:                   https://api.yourfleetedge.com
  */
-const API_BASE_URL = 'http://10.0.2.2:3000/api';
+const API_BASE_URL = 'https://nmnk1tkn-3000.inc1.devtunnels.ms/api';
 
 class ApiError extends Error {
   constructor(message, statusCode) {
