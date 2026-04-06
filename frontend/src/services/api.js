@@ -24,7 +24,13 @@ async function request(method, path, body = null, token = null) {
   if (body) options.body = JSON.stringify(body);
 
   const response = await fetch(`${API_BASE_URL}${path}`, options);
-  const data = await response.json();
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new ApiError('Unable to reach server. Please check your connection.', response.status);
+  }
 
   if (!response.ok) {
     throw new ApiError(data.message || 'Something went wrong', response.status);
