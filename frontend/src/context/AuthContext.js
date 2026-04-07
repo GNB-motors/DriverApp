@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { requestDriverOtp, verifyDriverOtp } from '../services/api';
+import { loginDriver } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -36,30 +36,14 @@ export function AuthProvider({ children }) {
   }, []);
 
   /**
-   * Step 1 of driver OTP login.
-   * Calls POST /api/auth/driver/request-otp.
-   * Throws on failure so the UI can show an error.
+   * Login with email/mobile + password.
+   * Calls POST /api/auth/login and persists the session to AsyncStorage.
    *
-   * @param {string} mobileNumber  e.g. "9876543210" (10-digit) or "+919876543210"
+   * @param {string} emailOrMobile  Email or mobile number
+   * @param {string} password
    */
-  const sendOtp = async (mobileNumber) => {
-    // Normalise to E.164 for the API
-    const normalised = mobileNumber.startsWith('+')
-      ? mobileNumber
-      : `+91${mobileNumber.replace(/\s/g, '')}`;
-    await requestDriverOtp(normalised);
-    return normalised; // return so the screen can cache it
-  };
-
-  /**
-   * Step 2 of driver OTP login.
-   * Calls POST /api/auth/driver/verify-otp and persists the session.
-   *
-   * @param {string} mobileNumber  E.164 format (returned from sendOtp)
-   * @param {string} otp           6-digit string
-   */
-  const verifyOtp = async (mobileNumber, otp) => {
-    const result = await verifyDriverOtp(mobileNumber, otp);
+  const login = async (emailOrMobile, password) => {
+    const result = await loginDriver(emailOrMobile, password);
     const { user: loggedInUser, token: jwt, organization: org } = result;
 
     await Promise.all([
@@ -86,7 +70,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, organization, loading, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, logout }}>
+    <AuthContext.Provider value={{ user, token, organization, loading, isNewLogin, setIsNewLogin, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

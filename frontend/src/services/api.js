@@ -7,7 +7,7 @@
  * - Physical device (dev):        http://<your-machine-ip>:3000
  * - Production:                   https://api.yourfleetedge.com
  */
-const API_BASE_URL = 'https://3.6.86.184.nip.io/v1/api';
+const API_BASE_URL = 'http://192.168.1.103:3000/api';
 
 class ApiError extends Error {
   constructor(message, statusCode) {
@@ -42,21 +42,14 @@ async function request(method, path, body = null, token = null) {
 // ── Auth ───────────────────────────────────────────────────────────────
 
 /**
- * Request OTP — sent to driver's registered mobile number via SMS.
- * @param {string} mobileNumber  e.g. "+919876543210"
- */
-export async function requestDriverOtp(mobileNumber) {
-  return request('POST', '/auth/driver/request-otp', { mobileNumber });
-}
-
-/**
- * Verify OTP and receive a 30-day JWT token.
- * @param {string} mobileNumber
- * @param {string} otp  6-digit string
+ * Login with email/mobile number and password.
+ * Mirrors the web frontend's auth flow exactly.
+ * @param {string} emailOrMobile  Email address or mobile number (e.g. "9876543210")
+ * @param {string} password
  * @returns {{ user, token, organization }}
  */
-export async function verifyDriverOtp(mobileNumber, otp) {
-  const res = await request('POST', '/auth/driver/verify-otp', { mobileNumber, otp });
+export async function loginDriver(emailOrMobile, password) {
+  const res = await request('POST', '/auth/login', { emailOrMobile, password });
   return res.data; // { user, token, organization }
 }
 
