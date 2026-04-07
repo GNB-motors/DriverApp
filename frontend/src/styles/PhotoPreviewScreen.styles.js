@@ -1,4 +1,4 @@
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet, Dimensions, Platform } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -196,6 +196,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.white,
+  },
+
+  // ── Watermark ──
+  watermarkBar: {
+    position: 'absolute',
+    bottom: 12,   // aligns with imagePreview margin
+    left: 12,
+    right: 12,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    backgroundColor: 'rgba(0,0,0,0.52)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  watermarkText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    letterSpacing: 0.3,
   },
 });
 

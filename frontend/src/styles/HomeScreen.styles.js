@@ -159,6 +159,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+
+  // ── My Vehicle Card ──
+  vehicleCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(66,150,144,0.12)',
+  },
+  vehicleCardIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(66,150,144,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  vehicleCardInfo: {
+    flex: 1,
+  },
+  vehicleCardLabel: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: '500',
+    marginBottom: 3,
+  },
+  vehicleCardValue: {
+    fontSize: 16,
+    color: COLORS.textDark,
+    fontWeight: '700',
+  },
+  vehicleCardEmpty: {
+    fontSize: 15,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
 });
 
 export default styles;

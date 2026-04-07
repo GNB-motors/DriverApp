@@ -12,8 +12,8 @@ export default function ProfileScreen({ navigation }) {
   const { user, logout } = useAuth();
   const { t } = useLanguage();
 
-  const driverName = user?.name || 'Alfredo Curtis';
-  const driverHandle = user?.phoneNumber ? `+91 ${user.phoneNumber}` : '@alfredo_curtis';
+  const driverName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Driver';
+  const driverHandle = user?.mobileNumber || '';
 
   const navigateToDocs = () => {
     navigation.navigate('DocsScreen');

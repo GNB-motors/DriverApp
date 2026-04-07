@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,33 +6,57 @@ import {
   StatusBar,
   Modal,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
+import { fetchVehicles } from '../services/api';
 import styles, { COLORS } from '../styles/RefuelDetailsScreen.styles';
-
-const VEHICLES = [
-  { label: 'MH 12 AB 1234', value: 'MH 12 AB 1234' },
-  { label: 'MH 14 XY 9876', value: 'MH 14 XY 9876' },
-  { label: 'DL 01 AA 1111', value: 'DL 01 AA 1111' },
-];
 
 export default function RefuelDetailsScreen({ navigation, route }) {
   const { t } = useLanguage();
-  const { vehicleAssigned } = route.params || {};
-  const [vehicleNumber, setVehicleNumber] = useState('MH 12 AB 1234');
+  const { token, user } = useAuth();
+  const {
+    vehicleAssigned,
+    vehicleId: preselectedId,
+    vehicleLabel: preselectedLabel,
+  } = route.params || {};
+
+  // Pre-populate from saved vehicle if HomeScreen passed one
+  const [vehicles, setVehicles] = useState([]);
+  const [vehiclesLoading, setVehiclesLoading] = useState(true);
+  const [selectedVehicle, setSelectedVehicle] = useState(
+    preselectedId && preselectedLabel ? { label: preselectedLabel, value: preselectedId } : null,
+  );
   const [refuelType, setRefuelType] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
+  useEffect(() => {
+    fetchVehicles(token)
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data?.vehicles || []);
+        setVehicles(list.map((v) => ({ label: v.registrationNumber, value: v._id })));
+      })
+      .catch(() => {})
+      .finally(() => setVehiclesLoading(false));
+  }, [token]);
+
   const handleNext = () => {
-    navigation.navigate('UploadPhotos', { refuelType });
+    navigation.navigate('UploadPhotos', {
+      refuelType,
+      vehicleId: selectedVehicle?.value,
+      vehicleLabel: selectedVehicle?.label,
+    });
   };
 
-  const selectVehicle = (value) => {
-    setVehicleNumber(value);
+  const selectVehicle = (item) => {
+    setSelectedVehicle(item);
     setDropdownOpen(false);
   };
+
+  const driverName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '';
 
   return (
     <View style={styles.container}>
@@ -70,17 +94,19 @@ export default function RefuelDetailsScreen({ navigation, route }) {
             <Text style={styles.label}>{t('refuel', 'vehicleInput')}</Text>
             <TouchableOpacity
               style={[styles.dropdownButton, vehicleAssigned && styles.inputWrapperDisabled]}
-              onPress={() => !vehicleAssigned && setDropdownOpen(true)}
+              onPress={() => !vehicleAssigned && !vehiclesLoading && setDropdownOpen(true)}
               activeOpacity={vehicleAssigned ? 1 : 0.7}
             >
               <View style={styles.dropdownIconLeft}>
-                <Ionicons name="car-sport" size={18} color={COLORS.primary} />
+                {vehiclesLoading
+                  ? <ActivityIndicator size="small" color={COLORS.primary} />
+                  : <Ionicons name="car-sport" size={18} color={COLORS.primary} />}
               </View>
               <Text style={[
                 styles.dropdownText,
-                !vehicleNumber && styles.dropdownPlaceholder,
+                !selectedVehicle && styles.dropdownPlaceholder,
               ]}>
-                {vehicleNumber || t('refuel', 'selectVehicle')}
+                {selectedVehicle?.label || t('refuel', 'selectVehicle')}
               </Text>
               {!vehicleAssigned && (
                 <Ionicons name="chevron-down" size={20} color={COLORS.primary} />
@@ -95,7 +121,7 @@ export default function RefuelDetailsScreen({ navigation, route }) {
               <View style={styles.dropdownIconLeft}>
                 <Ionicons name="person" size={18} color={COLORS.primary} />
               </View>
-              <Text style={styles.disabledText}>Rajesh Kumar</Text>
+              <Text style={styles.disabledText}>{driverName || 'Driver'}</Text>
             </View>
           </View>
 
@@ -143,8 +169,8 @@ export default function RefuelDetailsScreen({ navigation, route }) {
         {/* Footer */}
         <View style={styles.footer}>
           <TouchableOpacity
-            style={[styles.nextBtn, (!vehicleNumber || !refuelType) && styles.nextBtnDisabled]}
-            disabled={!vehicleNumber || !refuelType}
+            style={[styles.nextBtn, (!selectedVehicle || !refuelType) && styles.nextBtnDisabled]}
+            disabled={!selectedVehicle || !refuelType}
             onPress={handleNext}
             activeOpacity={0.8}
           >
@@ -169,31 +195,31 @@ export default function RefuelDetailsScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
             <FlatList
-              data={VEHICLES}
+              data={vehicles}
               keyExtractor={(item) => item.value}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[
                     styles.modalItem,
-                    vehicleNumber === item.value && styles.modalItemSelected,
+                    selectedVehicle?.value === item.value && styles.modalItemSelected,
                   ]}
-                  onPress={() => selectVehicle(item.value)}
+                  onPress={() => selectVehicle(item)}
                   activeOpacity={0.7}
                 >
                   <Ionicons
                     name="car-sport"
                     size={20}
-                    color={vehicleNumber === item.value ? COLORS.primaryDark : COLORS.textMuted}
+                    color={selectedVehicle?.value === item.value ? COLORS.primaryDark : COLORS.textMuted}
                   />
                   <Text
                     style={[
                       styles.modalItemText,
-                      vehicleNumber === item.value && styles.modalItemTextSelected,
+                      selectedVehicle?.value === item.value && styles.modalItemTextSelected,
                     ]}
                   >
                     {item.label}
                   </Text>
-                  {vehicleNumber === item.value && (
+                  {selectedVehicle?.value === item.value && (
                     <Ionicons name="checkmark-circle" size={22} color={COLORS.primary} />
                   )}
                 </TouchableOpacity>

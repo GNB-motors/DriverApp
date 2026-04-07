@@ -3,61 +3,118 @@ import { View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Location from 'expo-location';
+import ViewShot from 'react-native-view-shot';
 import { useLanguage } from '../context/LanguageContext';
 import styles, { COLORS } from '../styles/PhotoPreviewScreen.styles';
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function buildWatermark(ts, coords) {
+  const d = ts ? new Date(ts) : new Date();
+  const date = `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const loc = coords
+    ? `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
+    : 'Location N/A';
+  return `${date}  ${time}  |  ${loc}`;
+}
 
 export default function PhotoPreviewScreen({ navigation, route }) {
   const { t } = useLanguage();
   const { type, refuelType, odometerPhoto, billPhoto } = route.params || {};
-  const [photoUri, setPhotoUri] = useState(null);
-  const [isCapturing, setIsCapturing] = useState(false);
 
-  const [permission, requestPermission] = useCameraPermissions();
+  const [photoUri, setPhotoUri] = useState(null);
+  const [photoTimestamp, setPhotoTimestamp] = useState(null);
+  const [photoLocation, setPhotoLocation] = useState(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
+
   const cameraRef = useRef(null);
+  const viewShotRef = useRef(null);
+
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [locationGranted, setLocationGranted] = useState(false);
 
   useEffect(() => {
-    if (permission && !permission.granted && permission.canAskAgain) {
-      requestPermission();
+    // Request camera permission (existing behaviour)
+    if (cameraPermission && !cameraPermission.granted && cameraPermission.canAskAgain) {
+      requestCameraPermission();
     }
-  }, [permission]);
+    // Request location permission (best-effort — watermark still works without it)
+    Location.requestForegroundPermissionsAsync()
+      .then(({ status }) => setLocationGranted(status === 'granted'))
+      .catch(() => {});
+  }, [cameraPermission]);
 
   const takePhoto = async () => {
-    if (cameraRef.current && !isCapturing) {
-      setIsCapturing(true);
-      try {
-        const photo = await cameraRef.current.takePictureAsync({ base64: false });
-        if (photo && photo.uri) {
-          setPhotoUri(photo.uri);
+    if (!cameraRef.current || isCapturing) return;
+    setIsCapturing(true);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ base64: false });
+      if (photo?.uri) {
+        setPhotoUri(photo.uri);
+        setPhotoTimestamp(Date.now());
+
+        // Fetch GPS concurrently — 3 s timeout, never blocks the photo flow
+        if (locationGranted) {
+          Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          })
+            .then((pos) => setPhotoLocation(pos.coords))
+            .catch(() => setPhotoLocation(null));
         }
-      } catch (e) {
-        console.error('Failed to take photo', e);
-      } finally {
-        setIsCapturing(false);
       }
+    } catch (e) {
+      console.error('Failed to take photo', e);
+    } finally {
+      setIsCapturing(false);
     }
   };
 
-  const handleAccept = () => {
-    navigation.navigate({
-      name: 'UploadPhotos',
-      params: {
-        capturedPhoto: { type, uri: photoUri },
-        refuelType,
-        odometerPhoto,
-        billPhoto,
-      },
-      merge: true,
-    });
+  const handleAccept = async () => {
+    if (!viewShotRef.current || isAccepting) return;
+    setIsAccepting(true);
+    try {
+      // Capture the preview view with the watermark burned in
+      const watermarkedUri = await viewShotRef.current.capture();
+      navigation.navigate({
+        name: 'UploadPhotos',
+        params: {
+          capturedPhoto: { type, uri: watermarkedUri },
+          refuelType,
+          odometerPhoto,
+          billPhoto,
+        },
+        merge: true,
+      });
+    } catch (e) {
+      // Fallback: use original if ViewShot fails for any reason
+      console.warn('[PhotoPreview] ViewShot capture failed, using original URI', e);
+      navigation.navigate({
+        name: 'UploadPhotos',
+        params: {
+          capturedPhoto: { type, uri: photoUri },
+          refuelType,
+          odometerPhoto,
+          billPhoto,
+        },
+        merge: true,
+      });
+    } finally {
+      setIsAccepting(false);
+    }
   };
 
   const handleRetake = () => {
     setPhotoUri(null);
+    setPhotoTimestamp(null);
+    setPhotoLocation(null);
   };
 
   const photoLabel = type === 'odometer' ? t('upload', 'odometer') : t('upload', 'fuelBill');
 
-  // Loading state
-  if (!permission) {
+  if (!cameraPermission) {
     return (
       <View style={styles.centeredContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -65,15 +122,14 @@ export default function PhotoPreviewScreen({ navigation, route }) {
     );
   }
 
-  // Permission denied state
-  if (!permission.granted) {
+  if (!cameraPermission.granted) {
     return (
       <SafeAreaView style={styles.centeredContainer}>
         <View style={styles.permissionIconWrap}>
           <Ionicons name="camera-outline" size={48} color={COLORS.primary} />
         </View>
         <Text style={styles.permissionTitle}>Camera Access Required</Text>
-        {!permission.canAskAgain && (
+        {!cameraPermission.canAskAgain && (
           <Text style={styles.permissionSubtitle}>
             Permission denied. Please enable camera access in your device settings.
           </Text>
@@ -86,7 +142,6 @@ export default function PhotoPreviewScreen({ navigation, route }) {
     );
   }
 
-  // Camera / Preview
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {!photoUri ? (
@@ -94,7 +149,6 @@ export default function PhotoPreviewScreen({ navigation, route }) {
         <View style={styles.cameraContainer}>
           <CameraView style={styles.cameraView} ref={cameraRef} facing="back">
             <View style={styles.cameraOverlay}>
-              {/* Top Bar */}
               <View style={styles.cameraTopBar}>
                 <TouchableOpacity
                   style={styles.cameraCloseBtn}
@@ -108,7 +162,6 @@ export default function PhotoPreviewScreen({ navigation, route }) {
                 <View style={{ width: 40 }} />
               </View>
 
-              {/* Capture Button */}
               <View style={styles.cameraBottomBar}>
                 <TouchableOpacity
                   style={[styles.captureBtn, isCapturing && styles.captureBtnDisabled]}
@@ -122,13 +175,22 @@ export default function PhotoPreviewScreen({ navigation, route }) {
           </CameraView>
         </View>
       ) : (
-        /* ── Preview Mode ── */
+        /* ── Preview Mode — watermark burned on Accept ── */
         <View style={styles.previewContainer}>
-          <Image
-            source={{ uri: photoUri }}
-            style={styles.imagePreview}
-            resizeMode="contain"
-          />
+          <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.85 }} style={{ flex: 1 }}>
+            <Image
+              source={{ uri: photoUri }}
+              style={styles.imagePreview}
+              resizeMode="contain"
+            />
+            {/* Watermark — positioned over the image, captured by ViewShot */}
+            <View style={styles.watermarkBar} pointerEvents="none">
+              <Text style={styles.watermarkText}>
+                {buildWatermark(photoTimestamp, photoLocation)}
+              </Text>
+            </View>
+          </ViewShot>
+
           <View style={styles.actionBar}>
             <TouchableOpacity
               style={[styles.actionBtn, styles.retakeBtn]}
@@ -140,15 +202,23 @@ export default function PhotoPreviewScreen({ navigation, route }) {
               </View>
               <Text style={styles.retakeBtnText}>{t('camera', 'retake')}</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.actionBtn, styles.acceptBtn]}
               onPress={handleAccept}
               activeOpacity={0.7}
+              disabled={isAccepting}
             >
-              <View style={[styles.actionIcon, styles.acceptIcon]}>
-                <Ionicons name="checkmark" size={20} color={COLORS.white} />
-              </View>
-              <Text style={styles.acceptBtnText}>{t('camera', 'accept')}</Text>
+              {isAccepting ? (
+                <ActivityIndicator size="small" color={COLORS.white} />
+              ) : (
+                <>
+                  <View style={[styles.actionIcon, styles.acceptIcon]}>
+                    <Ionicons name="checkmark" size={20} color={COLORS.white} />
+                  </View>
+                  <Text style={styles.acceptBtnText}>{t('camera', 'accept')}</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         </View>

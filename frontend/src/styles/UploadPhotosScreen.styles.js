@@ -257,6 +257,26 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
   },
+
+  // ── Fuel Details Form ──
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  input: {
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: COLORS.textDark,
+    backgroundColor: COLORS.white,
+  },
 });
 
 export default styles;
