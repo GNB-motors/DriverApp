@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { scanDocument, uploadDocument, submitFuelLog } from '../services/api';
+import { SELECTED_VEHICLE_KEY } from './VehicleScreen';
 import styles, { COLORS } from '../styles/UploadPhotosScreen.styles';
 
 function makeFileObj(uri) {
@@ -108,7 +110,14 @@ export default function UploadPhotosScreen({ navigation, route }) {
   const isComplete = needsOdometer ? odometerPhoto && billPhoto : billPhoto;
 
   const handleSubmit = async () => {
-    const vehicleId = cachedVehicleIdRef.current;
+    let vehicleId = cachedVehicleIdRef.current;
+    if (!vehicleId) {
+      // Fallback: read from persisted selection in AsyncStorage
+      try {
+        const raw = await AsyncStorage.getItem(SELECTED_VEHICLE_KEY);
+        if (raw) vehicleId = JSON.parse(raw)._id;
+      } catch {}
+    }
     if (!vehicleId) {
       Alert.alert('Error', 'Vehicle not selected. Please go back and select a vehicle.');
       return;

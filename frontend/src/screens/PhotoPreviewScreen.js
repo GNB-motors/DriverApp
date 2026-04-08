@@ -22,7 +22,7 @@ function buildWatermark(ts, coords) {
 
 export default function PhotoPreviewScreen({ navigation, route }) {
   const { t } = useLanguage();
-  const { type, refuelType, odometerPhoto, billPhoto } = route.params || {};
+  const { type, refuelType, vehicleId, odometerPhoto, billPhoto } = route.params || {};
 
   const [photoUri, setPhotoUri] = useState(null);
   const [photoTimestamp, setPhotoTimestamp] = useState(null);
@@ -83,6 +83,7 @@ export default function PhotoPreviewScreen({ navigation, route }) {
         params: {
           capturedPhoto: { type, uri: watermarkedUri },
           refuelType,
+          vehicleId,
           odometerPhoto,
           billPhoto,
         },
@@ -96,6 +97,7 @@ export default function PhotoPreviewScreen({ navigation, route }) {
         params: {
           capturedPhoto: { type, uri: photoUri },
           refuelType,
+          vehicleId,
           odometerPhoto,
           billPhoto,
         },
@@ -147,32 +149,31 @@ export default function PhotoPreviewScreen({ navigation, route }) {
       {!photoUri ? (
         /* ── Camera Mode ── */
         <View style={styles.cameraContainer}>
-          <CameraView style={styles.cameraView} ref={cameraRef} facing="back">
-            <View style={styles.cameraOverlay}>
-              <View style={styles.cameraTopBar}>
-                <TouchableOpacity
-                  style={styles.cameraCloseBtn}
-                  onPress={() => navigation.goBack()}
-                >
-                  <Ionicons name="close" size={22} color={COLORS.white} />
-                </TouchableOpacity>
-                <View style={styles.cameraLabel}>
-                  <Text style={styles.cameraLabelText}>{photoLabel}</Text>
-                </View>
-                <View style={{ width: 40 }} />
+          <CameraView style={styles.cameraView} ref={cameraRef} facing="back" />
+          <View style={[styles.cameraOverlay, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+            <View style={styles.cameraTopBar}>
+              <TouchableOpacity
+                style={styles.cameraCloseBtn}
+                onPress={() => navigation.goBack()}
+              >
+                <Ionicons name="close" size={22} color={COLORS.white} />
+              </TouchableOpacity>
+              <View style={styles.cameraLabel}>
+                <Text style={styles.cameraLabelText}>{photoLabel}</Text>
               </View>
-
-              <View style={styles.cameraBottomBar}>
-                <TouchableOpacity
-                  style={[styles.captureBtn, isCapturing && styles.captureBtnDisabled]}
-                  onPress={takePhoto}
-                  disabled={isCapturing}
-                >
-                  <View style={styles.captureInner} />
-                </TouchableOpacity>
-              </View>
+              <View style={{ width: 40 }} />
             </View>
-          </CameraView>
+
+            <View style={styles.cameraBottomBar}>
+              <TouchableOpacity
+                style={[styles.captureBtn, isCapturing && styles.captureBtnDisabled]}
+                onPress={takePhoto}
+                disabled={isCapturing}
+              >
+                <View style={styles.captureInner} />
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       ) : (
         /* ── Preview Mode — watermark burned on Accept ── */
