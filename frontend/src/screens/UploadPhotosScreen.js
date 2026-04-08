@@ -49,14 +49,15 @@ export default function UploadPhotosScreen({ navigation, route }) {
     if (route.params?.billPhoto) setBillPhoto(route.params.billPhoto);
 
     if (route.params?.capturedPhoto) {
-      const { type, uri } = route.params.capturedPhoto;
+      const { type, uri, originalUri } = route.params.capturedPhoto;
+      const ocrUri = originalUri || uri;
       if (type === 'odometer') {
         setOdometerPhoto(uri);
-        runOcrOdometer(uri);
+        runOcrOdometer(ocrUri);
       }
       if (type === 'bill') {
         setBillPhoto(uri);
-        runOcrBill(uri);
+        runOcrBill(ocrUri);
       }
     }
   }, [route.params]);

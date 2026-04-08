@@ -25,6 +25,8 @@ async function request(method, path, body = null, token = null) {
 
   const response = await fetch(`${API_BASE_URL}${path}`, options);
 
+  if (response.status === 304) return null;
+
   let data;
   try {
     data = await response.json();

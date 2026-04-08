@@ -51,7 +51,7 @@ export default function PhotoPreviewScreen({ navigation, route }) {
     if (!cameraRef.current || isCapturing) return;
     setIsCapturing(true);
     try {
-      const photo = await cameraRef.current.takePictureAsync({ base64: false });
+      const photo = await cameraRef.current.takePictureAsync({ base64: false, quality: 1 });
       if (photo?.uri) {
         setPhotoUri(photo.uri);
         setPhotoTimestamp(Date.now());
@@ -76,12 +76,11 @@ export default function PhotoPreviewScreen({ navigation, route }) {
     if (!viewShotRef.current || isAccepting) return;
     setIsAccepting(true);
     try {
-      // Capture the preview view with the watermark burned in
       const watermarkedUri = await viewShotRef.current.capture();
       navigation.navigate({
         name: 'UploadPhotos',
         params: {
-          capturedPhoto: { type, uri: watermarkedUri },
+          capturedPhoto: { type, uri: watermarkedUri, originalUri: photoUri },
           refuelType,
           vehicleId,
           odometerPhoto,
@@ -90,12 +89,11 @@ export default function PhotoPreviewScreen({ navigation, route }) {
         merge: true,
       });
     } catch (e) {
-      // Fallback: use original if ViewShot fails for any reason
       console.warn('[PhotoPreview] ViewShot capture failed, using original URI', e);
       navigation.navigate({
         name: 'UploadPhotos',
         params: {
-          capturedPhoto: { type, uri: photoUri },
+          capturedPhoto: { type, uri: photoUri, originalUri: photoUri },
           refuelType,
           vehicleId,
           odometerPhoto,
@@ -178,7 +176,7 @@ export default function PhotoPreviewScreen({ navigation, route }) {
       ) : (
         /* ── Preview Mode — watermark burned on Accept ── */
         <View style={styles.previewContainer}>
-          <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.85 }} style={{ flex: 1 }}>
+          <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 1 }} style={{ flex: 1 }}>
             <Image
               source={{ uri: photoUri }}
               style={styles.imagePreview}
