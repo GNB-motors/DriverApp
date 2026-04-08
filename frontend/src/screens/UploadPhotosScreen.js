@@ -76,7 +76,8 @@ export default function UploadPhotosScreen({ navigation, route }) {
     if (!uri || !token) return;
     try {
       const result = await scanDocument(token, makeFileObj(uri), 'FUEL_RECEIPT');
-      if (result?.litres != null) setOcrLitres(parseFloat(result.litres));
+      // OCR returns `volume` (litres) and `rate` from the fuel receipt parser
+      if (result?.volume != null) setOcrLitres(parseFloat(result.volume));
       if (result?.rate != null) setOcrRate(parseFloat(result.rate));
     } catch {
       // OCR failure is non-fatal — manager reviews if data missing
@@ -87,7 +88,8 @@ export default function UploadPhotosScreen({ navigation, route }) {
     if (!uri || !token) return;
     try {
       const result = await scanDocument(token, makeFileObj(uri), 'ODOMETER');
-      if (result?.odometerReading != null) setOcrOdometer(parseFloat(result.odometerReading));
+      // OCR returns `reading` from the odometer parser
+      if (result?.reading != null) setOcrOdometer(parseFloat(result.reading));
     } catch {
       // Non-fatal
     }
