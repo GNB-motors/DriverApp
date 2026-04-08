@@ -95,6 +95,22 @@ export default function HomeScreen({ navigation }) {
           </View>
           <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
         </TouchableOpacity>
+
+        {/* Fuel Logs History Card */}
+        <TouchableOpacity
+          style={styles.historyCard}
+          onPress={() => navigation.navigate('FuelHistory')}
+          activeOpacity={0.75}
+        >
+          <View style={styles.historyCardIcon}>
+            <Ionicons name="list" size={22} color={COLORS.primary} />
+          </View>
+          <View style={styles.historyCardInfo}>
+            <Text style={styles.historyCardLabel}>Fuel History</Text>
+            <Text style={styles.historyCardSubtitle}>View past logs</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
+        </TouchableOpacity>
       </View>
     </View>
   );

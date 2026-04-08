@@ -204,6 +204,46 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: '600',
   },
+  
+  // ── Fuel History Card ──
+  historyCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(66,150,144,0.12)',
+  },
+  historyCardIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(66,150,144,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  historyCardInfo: {
+    flex: 1,
+  },
+  historyCardLabel: {
+    fontSize: 16,
+    color: COLORS.textDark,
+    fontWeight: '700',
+  },
+  historyCardSubtitle: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    fontWeight: '400',
+    marginTop: 2,
+  },
 });
 
 export default styles;

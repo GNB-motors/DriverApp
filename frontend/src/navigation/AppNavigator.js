@@ -20,6 +20,7 @@ import SOSOptionsScreen from '../screens/SOSOptionsScreen';
 import SOSEmergencyActiveScreen from '../screens/SOSEmergencyActiveScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ChooseLanguageScreen from '../screens/ChooseLanguageScreen';
+import FuelHistoryScreen from '../screens/FuelHistoryScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -89,6 +90,7 @@ export default function AppNavigator() {
           <Stack.Screen name="RefuelDetails" component={RefuelDetailsScreen} />
           <Stack.Screen name="UploadPhotos" component={UploadPhotosScreen} />
           <Stack.Screen name="PhotoPreview" component={PhotoPreviewScreen} />
+          <Stack.Screen name="FuelHistory" component={FuelHistoryScreen} />
           <Stack.Screen name="SOSOptions" component={SOSOptionsScreen} options={{ presentation: 'transparentModal' }} />
           <Stack.Screen name="SOSEmergencyActive" component={SOSEmergencyActiveScreen} options={{ presentation: 'fullScreenModal' }} />
         </>
