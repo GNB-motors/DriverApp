@@ -7,13 +7,19 @@ import {
   BackHandler,
   StatusBar,
   ActivityIndicator,
+  ScrollView,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { scanDocument, uploadDocument, submitFuelLog } from '../services/api';
+import { scanDocument, uploadDocument, submitFuelLog, fetchLastOdometer } from '../services/api';
+import { compressImage } from '../utils/imageUtils';
+import * as ImagePicker from 'expo-image-picker';
 import { SELECTED_VEHICLE_KEY } from './VehicleScreen';
 import styles, { COLORS } from '../styles/UploadPhotosScreen.styles';
 
@@ -25,13 +31,16 @@ export default function UploadPhotosScreen({ navigation, route }) {
   const { t } = useLanguage();
   const { token, user } = useAuth();
 
-  // Cache refuelType + vehicleId across navigation merges
+  // Cache refuelType + vehicleId + vehicleLabel across navigation merges
   const cachedTypeRef = useRef(route.params?.refuelType);
   const cachedVehicleIdRef = useRef(route.params?.vehicleId);
+  const cachedVehicleLabelRef = useRef(route.params?.vehicleLabel);
   if (route.params?.refuelType) cachedTypeRef.current = route.params.refuelType;
   if (route.params?.vehicleId) cachedVehicleIdRef.current = route.params.vehicleId;
+  if (route.params?.vehicleLabel) cachedVehicleLabelRef.current = route.params.vehicleLabel;
 
   const needsOdometer = cachedTypeRef.current === 'full';
+  const driverName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Driver' : 'Driver';
 
   const [odometerPhoto, setOdometerPhoto] = useState(null);
   const [billPhoto, setBillPhoto] = useState(null);
@@ -40,8 +49,48 @@ export default function UploadPhotosScreen({ navigation, route }) {
   const [ocrLitres, setOcrLitres] = useState(null);
   const [ocrRate, setOcrRate] = useState(null);
   const [ocrOdometer, setOcrOdometer] = useState(null);
+  const [ocrLocation, setOcrLocation] = useState(null);
 
   const [submitting, setSubmitting] = useState(false);
+
+  // ── Last-odometer guard (mirrors main-frontend MileageFuelLogPage) ────────
+  // Fetched once when the screen mounts with a vehicleId. Used to block
+  // submissions where the new reading ≤ the previous recorded reading.
+  const [lastOdometer, setLastOdometer] = useState(null);   // { odometerReading, refuelTime }
+  const [odometerError, setOdometerError] = useState(null); // string | null
+
+  // ── Dev-only payload override state ──────────────────────────────────────
+  // In __DEV__ mode the preview panel exposes editable TextInputs so engineers
+  // can tweak OCR-extracted values before hitting submit.
+  // In production this object is never mutated — the raw OCR state is used directly.
+  const [devPayload, setDevPayload] = useState({
+    fuelType: 'DIESEL',
+    litres: '',
+    rate: '',
+    odometerReading: '',
+    location: '',
+  });
+
+  // Keep devPayload in sync whenever OCR values arrive
+  useEffect(() => {
+    if (!__DEV__) return;
+    setDevPayload(prev => ({
+      ...prev,
+      litres: ocrLitres != null ? String(ocrLitres) : prev.litres,
+      rate: ocrRate != null ? String(ocrRate) : prev.rate,
+      odometerReading: ocrOdometer != null ? String(ocrOdometer) : prev.odometerReading,
+      location: ocrLocation != null ? ocrLocation : prev.location,
+    }));
+  }, [ocrLitres, ocrRate, ocrOdometer, ocrLocation]);
+
+  // ── Fetch last odometer when vehicleId is available ────────────────────────
+  useEffect(() => {
+    const vehicleId = cachedVehicleIdRef.current;
+    if (!vehicleId || !token) return;
+    fetchLastOdometer(token, vehicleId)
+      .then((data) => setLastOdometer(data || null))
+      .catch(() => {}); // Non-fatal — just means no prior logs
+  }, [token]);
 
   // Pick up captured photos returned from PhotoPreviewScreen
   useEffect(() => {
@@ -78,10 +127,13 @@ export default function UploadPhotosScreen({ navigation, route }) {
   const runOcrBill = async (uri) => {
     if (!uri || !token) return;
     try {
-      const result = await scanDocument(token, makeFileObj(uri), 'FUEL_RECEIPT');
-      // OCR returns `volume` (litres) and `rate` from the fuel receipt parser
+      // Compress before OCR — 0.7 quality keeps text crisp while cutting file size
+      const compressed = await compressImage(uri, 0.7);
+      const result = await scanDocument(token, makeFileObj(compressed), 'FUEL_RECEIPT');
+      // OCR returns `volume` (litres), `rate`, and `location` from the fuel receipt parser
       if (result?.volume != null) setOcrLitres(parseFloat(result.volume));
       if (result?.rate != null) setOcrRate(parseFloat(result.rate));
+      if (result?.location) setOcrLocation(result.location);
     } catch {
       // OCR failure is non-fatal — manager reviews if data missing
     }
@@ -89,12 +141,32 @@ export default function UploadPhotosScreen({ navigation, route }) {
 
   const runOcrOdometer = async (uri) => {
     if (!uri || !token) return;
+    setOdometerError(null); // Clear previous validation error on new scan
     try {
-      const result = await scanDocument(token, makeFileObj(uri), 'ODOMETER');
-      // OCR returns `reading` from the odometer parser
-      if (result?.reading != null) setOcrOdometer(parseFloat(result.reading));
+      // Compress before OCR — 0.7 quality keeps digits crisp while cutting file size
+      const compressed = await compressImage(uri, 0.7);
+      const result = await scanDocument(token, makeFileObj(compressed), 'ODOMETER');
+      // OCR may return reading as a string like "1,05,450", "105450 km", or "9195.7 km"
+      // Preserve the decimal point so parseFloat works correctly, then round to nearest integer
+      if (result?.reading != null) {
+        const raw = result.reading.toString().replace(/[^\d.]/g, ''); // strip non-numeric except '.'
+        const sanitized = Math.round(parseFloat(raw));                // e.g. "9195.7" → 9196
+        if (!isNaN(sanitized)) {
+          setOcrOdometer(sanitized);
+          // ── Validate immediately against last recorded odometer ──────────
+          if (lastOdometer?.odometerReading != null && sanitized <= lastOdometer.odometerReading) {
+            setOdometerError(
+              `Odometer reading (${sanitized} km) must be greater than the last recorded reading (${lastOdometer.odometerReading} km). Please retake or upload a clearer image.`
+            );
+          }
+        } else {
+          setOdometerError('Could not read odometer value from this image. Please retake or upload a clearer image.');
+        }
+      } else {
+        setOdometerError('No odometer reading detected. Please retake or upload a clearer image.');
+      }
     } catch {
-      // Non-fatal
+      setOdometerError('Odometer scan failed. Please retake or upload a clearer image.');
     }
   };
 
@@ -106,6 +178,28 @@ export default function UploadPhotosScreen({ navigation, route }) {
       odometerPhoto,
       billPhoto,
     });
+  };
+
+  const pickFromGallery = async (type) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow access to your photo library in Settings.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 1,
+      allowsEditing: false,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    const uri = result.assets[0].uri;
+    if (type === 'odometer') {
+      setOdometerPhoto(uri);
+      runOcrOdometer(uri);
+    } else {
+      setBillPhoto(uri);
+      runOcrBill(uri);
+    }
   };
 
   const isComplete = needsOdometer ? odometerPhoto && billPhoto : billPhoto;
@@ -126,30 +220,61 @@ export default function UploadPhotosScreen({ navigation, route }) {
 
     setSubmitting(true);
     try {
-      // Upload bill photo
-      const billDoc = await uploadDocument(token, makeFileObj(billPhoto), vehicleId, 'FUEL_SLIP');
+      // Compress then upload bill photo to AWS S3
+      const compressedBill = await compressImage(billPhoto, 0.75);
+      const billDoc = await uploadDocument(token, makeFileObj(compressedBill), vehicleId, 'FUEL_SLIP');
       const documentId = billDoc?._id;
 
-      // Upload odometer photo (FULL_TANK only)
+      // Compress then upload odometer photo to AWS S3 (FULL_TANK only)
       let odometerDocId = null;
       if (needsOdometer && odometerPhoto) {
+        const compressedOdometer = await compressImage(odometerPhoto, 0.75);
         const odomDoc = await uploadDocument(
-          token, makeFileObj(odometerPhoto), vehicleId, 'ODOMETER',
+          token, makeFileObj(compressedOdometer), vehicleId, 'ODOMETER',
         );
         odometerDocId = odomDoc?._id;
       }
 
-      // Submit fuel log — include OCR-extracted values if available
+      // ── Odometer guard — same rule as main-frontend ────────────────────────
+      // In __DEV__ mode use the editable override; in prod use raw OCR value.
+      const devL = __DEV__ && devPayload.litres !== '' ? parseFloat(devPayload.litres) : ocrLitres;
+      const devR = __DEV__ && devPayload.rate !== '' ? parseFloat(devPayload.rate) : ocrRate;
+      const devO = __DEV__ && devPayload.odometerReading !== ''
+        ? Math.round(parseFloat(devPayload.odometerReading))
+        : ocrOdometer;
+      const devLoc = __DEV__ ? devPayload.location || ocrLocation : ocrLocation;
+      const devFt = __DEV__ ? (devPayload.fuelType || 'DIESEL') : 'DIESEL';
+
+      if (needsOdometer && lastOdometer?.odometerReading != null) {
+        if (devO == null || isNaN(devO)) {
+          Alert.alert(
+            'Odometer Required',
+            'No odometer reading was detected. Please retake or upload a clearer photo of the odometer.',
+          );
+          setSubmitting(false);
+          return;
+        }
+        if (devO <= lastOdometer.odometerReading) {
+          Alert.alert(
+            'Invalid Odometer Reading',
+            `The odometer reading (${devO} km) must be strictly greater than the last recorded reading (${lastOdometer.odometerReading} km).\n\nPlease retake the odometer photo or enter the correct value.`,
+          );
+          setSubmitting(false);
+          return;
+        }
+      }
+
       await submitFuelLog(token, {
         vehicleId,
         driverId: user._id,
-        fuelType: 'DIESEL',
+        fuelType: devFt,
         fillingType: needsOdometer ? 'FULL_TANK' : 'PARTIAL',
-        ...(ocrLitres != null && { litres: ocrLitres }),
-        ...(ocrRate != null && { rate: ocrRate }),
-        ...(needsOdometer && ocrOdometer != null && { odometerReading: ocrOdometer }),
-        documentId,
-        odometerDocId,
+        ...(devL != null && !isNaN(devL) && { litres: devL }),
+        ...(devR != null && !isNaN(devR) && { rate: devR }),
+        ...(needsOdometer && devO != null && !isNaN(devO) && { odometerReading: devO }),
+        ...(devLoc && { location: devLoc }),
+        documentId: documentId || null,
+        odometerDocId: odometerDocId || null,
       });
 
       Alert.alert('Success', t('upload', 'successMsg'), [
@@ -172,25 +297,167 @@ export default function UploadPhotosScreen({ navigation, route }) {
         <View style={styles.taskInfo}>
           <Text style={styles.taskTitle}>{title}</Text>
           <Text style={[styles.taskStatus, done && styles.taskStatusComplete]}>
-            {done ? 'Photo captured' : 'Tap camera to capture'}
+            {done ? 'Photo captured' : 'Camera or gallery'}
           </Text>
         </View>
         {done ? (
-          /* Accept is final — no retake option here */
+          /* Captured — show tick */
           <View style={styles.checkCircle}>
             <Ionicons name="checkmark" size={20} color={COLORS.success} />
           </View>
         ) : (
-          <TouchableOpacity style={styles.cameraBtn} onPress={() => openCamera(type)}>
-            <Ionicons name="camera" size={24} color={COLORS.white} />
-          </TouchableOpacity>
+          /* Not captured — show Camera + Gallery buttons */
+          <View style={styles.photoActionButtons}>
+            <TouchableOpacity
+              style={styles.cameraBtn}
+              onPress={() => openCamera(type)}
+              accessibilityLabel={`Take ${type} photo`}
+            >
+              <Ionicons name="camera" size={22} color={COLORS.white} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.galleryBtn}
+              onPress={() => pickFromGallery(type)}
+              accessibilityLabel={`Upload ${type} from gallery`}
+            >
+              <Ionicons name="image-outline" size={22} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     );
   };
 
+  // ── Payload Preview ─────────────────────────────────────────────────────────
+  const renderPayloadPreview = () => {
+    const vehicleLabel = cachedVehicleLabelRef.current || '—';
+    const fillingType = needsOdometer ? 'Full Tank' : 'Partial Fill';
+    const fillingColor = needsOdometer ? COLORS.primary : '#F59E0B';
+
+    const editableRows = [
+      { label: 'Litres',    key: 'litres',          value: devPayload.litres,          placeholder: 'Not captured', unit: 'L'  },
+      { label: 'Rate',      key: 'rate',             value: devPayload.rate,            placeholder: 'Not captured', unit: '₹/L' },
+      ...(needsOdometer ? [{ label: 'Odometer', key: 'odometerReading', value: devPayload.odometerReading, placeholder: 'Not captured', unit: 'km', isOdo: true }] : []),
+      { label: 'Location',  key: 'location',         value: devPayload.location,        placeholder: 'Not captured', unit: null },
+    ];
+
+    return (
+      <View style={styles.previewCard}>
+
+        {/* ── Header ── */}
+        <View style={styles.previewHeader}>
+          <View style={styles.previewHeaderLeft}>
+            <Ionicons name="receipt-outline" size={17} color={COLORS.primary} />
+            <Text style={styles.previewTitle}>Entry Summary</Text>
+          </View>
+          {__DEV__ && (
+            <View style={styles.devBadge}>
+              <Text style={styles.devBadgeText}>DEV • EDITABLE</Text>
+            </View>
+          )}
+        </View>
+
+        {/* ── Identity chips: Vehicle + Driver + Filling type ── */}
+        <View style={styles.previewChips}>
+          <View style={styles.previewChip}>
+            <Ionicons name="car-outline" size={13} color={COLORS.primary} />
+            <Text style={styles.previewChipText}>{vehicleLabel}</Text>
+          </View>
+          <View style={styles.previewChip}>
+            <Ionicons name="person-outline" size={13} color={COLORS.primary} />
+            <Text style={styles.previewChipText}>{driverName}</Text>
+          </View>
+          <View style={[styles.previewChip, { borderColor: fillingColor, backgroundColor: fillingColor + '18' }]}>
+            <Ionicons name={needsOdometer ? 'speedometer-outline' : 'water-outline'} size={13} color={fillingColor} />
+            <Text style={[styles.previewChipText, { color: fillingColor }]}>{fillingType}</Text>
+          </View>
+          {__DEV__ && (
+            <View style={[styles.previewChip, { borderColor: '#64748B' }]}>
+              <Text style={[styles.previewChipText, { color: '#64748B' }]}>{devPayload.fuelType}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* ── Odometer guard banner ── */}
+        {needsOdometer && (
+          <View style={[
+            styles.odoContextBanner,
+            odometerError ? styles.odoContextBannerError : styles.odoContextBannerInfo,
+          ]}>
+            <Ionicons
+              name={odometerError ? 'alert-circle' : 'speedometer-outline'}
+              size={13}
+              color={odometerError ? COLORS.errorText : COLORS.primary}
+            />
+            <Text style={[
+              styles.odoContextText,
+              odometerError && styles.odoContextTextError,
+            ]}>
+              {odometerError
+                ? odometerError
+                : lastOdometer?.odometerReading != null
+                  ? `Last recorded: ${lastOdometer.odometerReading} km — new reading must exceed this.`
+                  : 'No prior full-tank logs found. Starting fresh.'}
+            </Text>
+          </View>
+        )}
+
+        {/* ── Divider ── */}
+        <View style={styles.previewDivider} />
+
+        {/* ── Editable / read-only data rows ── */}
+        {editableRows.map(({ label, key, value, placeholder, unit, isOdo }, idx) => {
+          const isLast = idx === editableRows.length - 1;
+          const hasError = isOdo && !!odometerError;
+          return (
+            <View key={key} style={[styles.previewRow, isLast && styles.previewRowLast]}>
+              <Text style={styles.previewLabel}>{label}</Text>
+              {__DEV__ ? (
+                <View style={styles.previewInputWrapper}>
+                  <TextInput
+                    style={[
+                      styles.previewInput,
+                      hasError && styles.previewInputError,
+                    ]}
+                    value={value}
+                    onChangeText={(txt) => {
+                      setDevPayload(prev => ({ ...prev, [key]: txt }));
+                      if (isOdo && lastOdometer?.odometerReading != null) {
+                        const parsed = Math.round(parseFloat(txt));
+                        if (!txt || isNaN(parsed)) setOdometerError('Odometer reading is required for FULL_TANK.');
+                        else if (parsed <= lastOdometer.odometerReading) setOdometerError(`Must be > ${lastOdometer.odometerReading} km (last recorded).`);
+                        else setOdometerError(null);
+                      }
+                    }}
+                    placeholder={placeholder}
+                    placeholderTextColor={COLORS.textMuted}
+                    autoCapitalize="none"
+                    keyboardType={['litres', 'rate', 'odometerReading'].includes(key) ? 'numeric' : 'default'}
+                    returnKeyType="done"
+                  />
+                  {unit && <Text style={styles.previewInputUnit}>{unit}</Text>}
+                </View>
+              ) : (
+                <View style={styles.previewInputWrapper}>
+                  <Text style={[styles.previewValue, !value && styles.previewValueMissing]}>
+                    {value || placeholder}
+                  </Text>
+                  {unit && !!value && <Text style={styles.previewInputUnit}>{unit}</Text>}
+                </View>
+              )}
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+    >
       <StatusBar barStyle="light-content" />
 
       <View style={styles.topSection}>
@@ -225,20 +492,32 @@ export default function UploadPhotosScreen({ navigation, route }) {
           <View style={[styles.progressSegment, styles.progressSegmentActive]} />
         </View>
 
-        {/* Photo Tasks */}
+        {/* Photo Tasks + Payload Preview (scrollable) */}
         <View style={styles.contentCard}>
-          <Text style={styles.sectionLabel}>Required Photos</Text>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.scrollContent}
+          >
+            <Text style={styles.sectionLabel}>Required Photos</Text>
 
-          {needsOdometer &&
-            renderPhotoTask(t('upload', 'odometer'), 'speedometer-outline', 'odometer', odometerPhoto)}
-          {renderPhotoTask(t('upload', 'fuelBill'), 'receipt-outline', 'bill', billPhoto)}
+            {needsOdometer &&
+              renderPhotoTask(t('upload', 'odometer'), 'speedometer-outline', 'odometer', odometerPhoto)}
+            {renderPhotoTask(t('upload', 'fuelBill'), 'receipt-outline', 'bill', billPhoto)}
+
+            {/* Show payload summary once all required photos are captured */}
+            {isComplete && renderPayloadPreview()}
+          </ScrollView>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
           <TouchableOpacity
-            style={[styles.submitBtn, (!isComplete || submitting) && styles.submitBtnDisabled]}
-            disabled={!isComplete || submitting}
+            style={[
+              styles.submitBtn,
+              (!isComplete || submitting || (needsOdometer && !!odometerError)) && styles.submitBtnDisabled,
+            ]}
+            disabled={!isComplete || submitting || (needsOdometer && !!odometerError)}
             onPress={handleSubmit}
             activeOpacity={0.8}
           >
@@ -255,6 +534,6 @@ export default function UploadPhotosScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
       </SafeAreaView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
