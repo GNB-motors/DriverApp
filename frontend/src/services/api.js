@@ -107,6 +107,15 @@ export async function fetchMileageIntervals(token, page = 1, limit = 50) {
   return request('GET', `/mileage/intervals?page=${page}&limit=${limit}`, null, token);
 }
 
+export async function fetchMyFuelLogs(token, driverId, page = 1, limit = 50) {
+  return request(
+    'GET',
+    `/mileage/intervals?driverId=${driverId}&page=${page}&limit=${limit}`,
+    null,
+    token,
+  );
+}
+
 // ── OCR / Documents ────────────────────────────────────────────────────
 
 export async function scanDocument(token, file, docType) {

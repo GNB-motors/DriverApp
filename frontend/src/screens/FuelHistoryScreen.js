@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,77 +6,103 @@ import {
   StatusBar,
   FlatList,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { fetchMileageIntervals } from '../services/api';
+import { fetchMyFuelLogs } from '../services/api';
 import styles, { COLORS } from '../styles/FuelHistoryScreen.styles';
 
 export default function FuelHistoryScreen({ navigation }) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async (isRefresh = false) => {
+    if (!user?._id) return;
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     try {
-      setLoading(true);
-      const limit = 50;
-      const res = await fetchMileageIntervals(token, 1, limit);
-      // Assuming response structure matches { data: [...] } typical for intervals
-      setLogs(res.data || []);
+      const res = await fetchMyFuelLogs(token, user._id, 1, 50);
+      setLogs(res?.data || []);
     } catch (err) {
-      console.log('Error fetching fuel logs:', err);
+      console.warn('[FuelHistory] fetch error:', err.message);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [token, user]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const formatDate = (isoString) => {
-    if (!isoString) return '';
+    if (!isoString) return '—';
     const d = new Date(isoString);
     return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   };
 
   const renderLogCard = ({ item }) => {
-    const isFull = item.fillingType === 'FULL_TANK';
+    // item is a VehicleMileageInterval
+    const isCompleted = item.status === 'COMPLETED';
     return (
-      <View style={styles.logCard}>
+      <View style={[styles.logCard, isCompleted && { borderLeftColor: COLORS.success, borderLeftWidth: 3 }]}>
+        {/* Header: status badge + date */}
         <View style={styles.logHeader}>
-          <Text style={styles.dateText}>
-            {formatDate(item.createdAt)}
-          </Text>
-          <View style={styles.typeBadge}>
-            <Text style={styles.typeBadgeText}>
-              {item.fillingType ? item.fillingType.replace('_', ' ') : 'LOG'}
-            </Text>
+          <Text style={styles.dateText}>{formatDate(item.startDate)}</Text>
+          <View style={[styles.typeBadge, { backgroundColor: isCompleted ? COLORS.success : COLORS.primary }]}>
+            <Text style={styles.typeBadgeText}>{item.status === 'COMPLETED' ? 'DONE' : 'ONGOING'}</Text>
           </View>
         </View>
 
+        {/* Vehicle */}
         {item.vehicleId?.registrationNumber && (
           <View style={styles.logRow}>
             <Ionicons name="car-sport-outline" size={16} color={COLORS.textMuted} />
             <Text style={styles.logRowLabel}>Vehicle</Text>
-            <Text style={styles.logRowValue}>{item.vehicleId?.registrationNumber}</Text>
+            <Text style={styles.logRowValue}>{item.vehicleId.registrationNumber}</Text>
           </View>
         )}
 
-        {item.litres && (
-          <View style={styles.logRow}>
-            <Ionicons name="water-outline" size={16} color={COLORS.textMuted} />
-            <Text style={styles.logRowLabel}>Fuel Volume</Text>
-            <Text style={styles.logRowValue}>{item.litres} L</Text>
-          </View>
-        )}
-
-        {isFull && item.odometerReading && (
+        {/* Odometer range */}
+        {item.startOdometer != null && (
           <View style={styles.logRow}>
             <Ionicons name="speedometer-outline" size={16} color={COLORS.textMuted} />
             <Text style={styles.logRowLabel}>Odometer</Text>
-            <Text style={styles.logRowValue}>{item.odometerReading} km</Text>
+            <Text style={styles.logRowValue}>
+              {item.startOdometer} km
+              {item.endOdometer != null ? ` → ${item.endOdometer} km` : ' (open)'}
+            </Text>
+          </View>
+        )}
+
+        {/* Distance covered */}
+        {item.distanceKm != null && (
+          <View style={styles.logRow}>
+            <Ionicons name="navigate-outline" size={16} color={COLORS.textMuted} />
+            <Text style={styles.logRowLabel}>Distance</Text>
+            <Text style={styles.logRowValue}>{item.distanceKm.toFixed(1)} km</Text>
+          </View>
+        )}
+
+        {/* Fuel consumed */}
+        {item.fuelConsumedLiters != null && (
+          <View style={styles.logRow}>
+            <Ionicons name="water-outline" size={16} color={COLORS.textMuted} />
+            <Text style={styles.logRowLabel}>Fuel Used</Text>
+            <Text style={styles.logRowValue}>{item.fuelConsumedLiters.toFixed(2)} L</Text>
+          </View>
+        )}
+
+        {/* Mileage (km/L) — only on completed intervals */}
+        {isCompleted && item.mileageKmPerL != null && (
+          <View style={[styles.logRow, { marginTop: 4 }]}>
+            <Ionicons name="analytics-outline" size={16} color={COLORS.primary} />
+            <Text style={[styles.logRowLabel, { color: COLORS.primary, fontWeight: '700' }]}>Mileage</Text>
+            <Text style={[styles.logRowValue, { color: COLORS.primary, fontWeight: '700' }]}>
+              {item.mileageKmPerL.toFixed(2)} km/L
+            </Text>
           </View>
         )}
       </View>
@@ -86,14 +112,14 @@ export default function FuelHistoryScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      
+
       {/* Header */}
       <View style={styles.headerContainer}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={22} color={COLORS.white} />
         </TouchableOpacity>
         <View style={styles.headerTitleBlock}>
-          <Text style={styles.headerTitle}>Fuel History</Text>
+          <Text style={styles.headerTitle}>Mileage History</Text>
         </View>
       </View>
 
@@ -107,12 +133,17 @@ export default function FuelHistoryScreen({ navigation }) {
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContainer}
           renderItem={renderLogCard}
-          refreshing={loading}
-          onRefresh={loadData}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadData(true)}
+              tintColor={COLORS.primary}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="list-circle-outline" size={60} color={COLORS.textMuted} />
-              <Text style={styles.emptyText}>No fuel logs found.</Text>
+              <Text style={styles.emptyText}>No mileage records found.</Text>
             </View>
           }
         />
