@@ -1,12 +1,3 @@
-/**
- * API service for FleetEdge DriverApp
- *
- * Base URL: update API_BASE_URL for your environment.
- * - Local dev (Android emulator): http://10.0.2.2:3000
- * - Local dev (iOS simulator):    http://localhost:3000
- * - Physical device (dev):        http://<your-machine-ip>:3000
- * - Production:                   https://api.yourfleetedge.com
- */
 const API_BASE_URL = 'https://3.6.86.184.nip.io/v1/api';
 
 class ApiError extends Error {
@@ -41,25 +32,49 @@ async function request(method, path, body = null, token = null) {
   return data;
 }
 
+// Multipart upload helper. Optional timeout aborts the request.
+// Backend response shape is inconsistent — most endpoints wrap in {data:...},
+// but /documents returns the raw doc — so unwrap defensively.
+async function multipart(path, formData, token, { timeoutMs } = {}) {
+  const controller = timeoutMs ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+      signal: controller?.signal,
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') throw new ApiError('Request timed out. Please try again.', 408);
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+
+  const data = await response.json();
+  if (!response.ok) throw new ApiError(data.message || 'Upload failed', response.status);
+  return data?.data ?? data;
+}
+
+function buildFileForm(file, fields = {}) {
+  const fd = new FormData();
+  fd.append('file', { uri: file.uri, name: file.name, type: file.type });
+  for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+  return fd;
+}
+
 // ── Auth ───────────────────────────────────────────────────────────────
 
-/**
- * Request OTP — sent to driver's registered mobile number via SMS.
- * @param {string} mobileNumber  e.g. "+919876543210"
- */
 export async function requestDriverOtp(mobileNumber) {
   return request('POST', '/auth/driver/request-otp', { mobileNumber });
 }
 
-/**
- * Verify OTP and receive a 30-day JWT token.
- * @param {string} mobileNumber
- * @param {string} otp  6-digit string
- * @returns {{ user, token, organization }}
- */
 export async function verifyDriverOtp(mobileNumber, otp) {
   const res = await request('POST', '/auth/driver/verify-otp', { mobileNumber, otp });
-  return res.data; // { user, token, organization }
+  return res.data;
 }
 
 // ── Vehicles ───────────────────────────────────────────────────────────
@@ -80,7 +95,7 @@ export async function fetchDrivers(token, limit = 100) {
 
 export async function fetchLastOdometer(token, vehicleId) {
   const res = await request('GET', `/mileage/last-odometer/${vehicleId}`, null, token);
-  return res.data; // { odometerReading, refuelTime } or null
+  return res.data;
 }
 
 export async function submitFuelLog(token, payload) {
@@ -89,54 +104,19 @@ export async function submitFuelLog(token, payload) {
 }
 
 export async function fetchMileageIntervals(token, page = 1, limit = 50) {
-  const res = await request('GET', `/mileage/intervals?page=${page}&limit=${limit}`, null, token);
-  return res; // { data, meta }
+  return request('GET', `/mileage/intervals?page=${page}&limit=${limit}`, null, token);
 }
 
-// ── OCR ────────────────────────────────────────────────────────────────
+// ── OCR / Documents ────────────────────────────────────────────────────
 
-/**
- * Upload image for OCR scanning.
- * @param {string} token
- * @param {Object} file  { uri, name, type }
- * @param {'FUEL_RECEIPT'|'ODOMETER'} docType
- */
 export async function scanDocument(token, file, docType) {
-  const formData = new FormData();
-  formData.append('file', { uri: file.uri, name: file.name, type: file.type });
-  formData.append('docType', docType);
-
-  const response = await fetch(`${API_BASE_URL}/ocr/scan`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
-  });
-  const data = await response.json();
-  if (!response.ok) throw new ApiError(data.message || 'OCR failed', response.status);
-  return data.data;
+  return multipart('/ocr/scan', buildFileForm(file, { docType }), token, { timeoutMs: 60000 });
 }
 
-/**
- * Upload document to S3 and create a Document record.
- * @param {string} token
- * @param {Object} file        { uri, name, type }
- * @param {string} entityId    Vehicle ObjectId
- * @param {'FUEL_SLIP'|'ODOMETER'} docType
- * @returns {{ _id, publicUrl }}
- */
 export async function uploadDocument(token, file, entityId, docType) {
-  const formData = new FormData();
-  formData.append('file', { uri: file.uri, name: file.name, type: file.type });
-  formData.append('entityType', 'VEHICLE');
-  formData.append('entityId', entityId);
-  formData.append('docType', docType);
-
-  const response = await fetch(`${API_BASE_URL}/documents`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
-  });
-  const data = await response.json();
-  if (!response.ok) throw new ApiError(data.message || 'Upload failed', response.status);
-  return data;
+  return multipart(
+    '/documents',
+    buildFileForm(file, { entityType: 'VEHICLE', entityId, docType }),
+    token,
+  );
 }
