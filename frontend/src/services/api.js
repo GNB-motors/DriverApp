@@ -138,5 +138,5 @@ export async function uploadDocument(token, file, entityId, docType) {
   });
   const data = await response.json();
   if (!response.ok) throw new ApiError(data.message || 'Upload failed', response.status);
-  return data.data;
+  return data;
 }
