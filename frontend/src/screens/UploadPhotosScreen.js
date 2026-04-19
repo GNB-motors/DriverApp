@@ -281,7 +281,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
 
       await submitFuelLog(token, {
         vehicleId,
-        driverId: user._id,
+        driverId: user?._id,
         fuelType: devFt,
         fillingType: needsOdometer ? 'FULL_TANK' : 'PARTIAL',
         ...(devL != null && !isNaN(devL) && { litres: devL }),

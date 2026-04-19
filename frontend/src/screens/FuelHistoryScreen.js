@@ -44,19 +44,16 @@ export default function FuelHistoryScreen({ navigation }) {
   };
 
   const renderLogCard = ({ item }) => {
-    // item is a VehicleMileageInterval
-    const isCompleted = item.status === 'COMPLETED';
+    const isFull = item.fillingType === 'FULL_TANK';
     return (
-      <View style={[styles.logCard, isCompleted && { borderLeftColor: COLORS.success, borderLeftWidth: 3 }]}>
-        {/* Header: status badge + date */}
+      <View style={[styles.logCard, isFull && { borderLeftColor: COLORS.success, borderLeftWidth: 3 }]}>
         <View style={styles.logHeader}>
-          <Text style={styles.dateText}>{formatDate(item.startDate)}</Text>
-          <View style={[styles.typeBadge, { backgroundColor: isCompleted ? COLORS.success : COLORS.primary }]}>
-            <Text style={styles.typeBadgeText}>{item.status === 'COMPLETED' ? 'DONE' : 'ONGOING'}</Text>
+          <Text style={styles.dateText}>{formatDate(item.refuelTime)}</Text>
+          <View style={[styles.typeBadge, { backgroundColor: isFull ? COLORS.success : COLORS.primary }]}>
+            <Text style={styles.typeBadgeText}>{isFull ? 'FULL' : 'PARTIAL'}</Text>
           </View>
         </View>
 
-        {/* Vehicle */}
         {item.vehicleId?.registrationNumber && (
           <View style={styles.logRow}>
             <Ionicons name="car-sport-outline" size={16} color={COLORS.textMuted} />
@@ -65,44 +62,43 @@ export default function FuelHistoryScreen({ navigation }) {
           </View>
         )}
 
-        {/* Odometer range */}
-        {item.startOdometer != null && (
+        {item.litres != null && (
+          <View style={styles.logRow}>
+            <Ionicons name="water-outline" size={16} color={COLORS.textMuted} />
+            <Text style={styles.logRowLabel}>Litres</Text>
+            <Text style={styles.logRowValue}>{item.litres.toFixed(2)} L</Text>
+          </View>
+        )}
+
+        {item.rate != null && (
+          <View style={styles.logRow}>
+            <Ionicons name="pricetag-outline" size={16} color={COLORS.textMuted} />
+            <Text style={styles.logRowLabel}>Rate</Text>
+            <Text style={styles.logRowValue}>₹{item.rate.toFixed(2)}/L</Text>
+          </View>
+        )}
+
+        {item.totalAmount != null && (
+          <View style={styles.logRow}>
+            <Ionicons name="receipt-outline" size={16} color={COLORS.textMuted} />
+            <Text style={styles.logRowLabel}>Total</Text>
+            <Text style={styles.logRowValue}>₹{item.totalAmount.toFixed(2)}</Text>
+          </View>
+        )}
+
+        {item.odometerReading != null && (
           <View style={styles.logRow}>
             <Ionicons name="speedometer-outline" size={16} color={COLORS.textMuted} />
             <Text style={styles.logRowLabel}>Odometer</Text>
-            <Text style={styles.logRowValue}>
-              {item.startOdometer} km
-              {item.endOdometer != null ? ` → ${item.endOdometer} km` : ' (open)'}
-            </Text>
+            <Text style={styles.logRowValue}>{item.odometerReading} km</Text>
           </View>
         )}
 
-        {/* Distance covered */}
-        {item.distanceKm != null && (
+        {item.location && (
           <View style={styles.logRow}>
-            <Ionicons name="navigate-outline" size={16} color={COLORS.textMuted} />
-            <Text style={styles.logRowLabel}>Distance</Text>
-            <Text style={styles.logRowValue}>{item.distanceKm.toFixed(1)} km</Text>
-          </View>
-        )}
-
-        {/* Fuel consumed */}
-        {item.fuelConsumedLiters != null && (
-          <View style={styles.logRow}>
-            <Ionicons name="water-outline" size={16} color={COLORS.textMuted} />
-            <Text style={styles.logRowLabel}>Fuel Used</Text>
-            <Text style={styles.logRowValue}>{item.fuelConsumedLiters.toFixed(2)} L</Text>
-          </View>
-        )}
-
-        {/* Mileage (km/L) — only on completed intervals */}
-        {isCompleted && item.mileageKmPerL != null && (
-          <View style={[styles.logRow, { marginTop: 4 }]}>
-            <Ionicons name="analytics-outline" size={16} color={COLORS.primary} />
-            <Text style={[styles.logRowLabel, { color: COLORS.primary, fontWeight: '700' }]}>Mileage</Text>
-            <Text style={[styles.logRowValue, { color: COLORS.primary, fontWeight: '700' }]}>
-              {item.mileageKmPerL.toFixed(2)} km/L
-            </Text>
+            <Ionicons name="location-outline" size={16} color={COLORS.textMuted} />
+            <Text style={styles.logRowLabel}>Location</Text>
+            <Text style={styles.logRowValue}>{item.location}</Text>
           </View>
         )}
       </View>
@@ -130,7 +126,7 @@ export default function FuelHistoryScreen({ navigation }) {
       ) : (
         <FlatList
           data={logs}
-          keyExtractor={(item) => item._id}
+          keyExtractor={(item) => String(item._id)}
           contentContainerStyle={styles.listContainer}
           renderItem={renderLogCard}
           refreshControl={
