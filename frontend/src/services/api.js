@@ -54,7 +54,12 @@ async function multipart(path, formData, token, { timeoutMs } = {}) {
     if (timer) clearTimeout(timer);
   }
 
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new ApiError('Unable to reach server. Please check your connection.', response.status);
+  }
   if (!response.ok) throw new ApiError(data.message || 'Upload failed', response.status);
   return data?.data ?? data;
 }
