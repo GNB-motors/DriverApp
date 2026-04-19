@@ -79,33 +79,33 @@ export async function requestDriverOtp(mobileNumber) {
 
 export async function verifyDriverOtp(mobileNumber, otp) {
   const res = await request('POST', '/auth/driver/verify-otp', { mobileNumber, otp });
-  return res.data;
+  return res?.data;
 }
 
 // ── Vehicles ───────────────────────────────────────────────────────────
 
 export async function fetchVehicles(token, limit = 100) {
   const res = await request('GET', `/vehicles?limit=${limit}`, null, token);
-  return res.data;
+  return res?.data;
 }
 
 // ── Employees / Drivers ────────────────────────────────────────────────
 
 export async function fetchDrivers(token, limit = 100) {
   const res = await request('GET', `/employees?role=DRIVER&limit=${limit}`, null, token);
-  return res.data;
+  return res?.data;
 }
 
 // ── Mileage ────────────────────────────────────────────────────────────
 
 export async function fetchLastOdometer(token, vehicleId) {
   const res = await request('GET', `/mileage/last-odometer/${vehicleId}`, null, token);
-  return res.data;
+  return res?.data;
 }
 
 export async function submitFuelLog(token, payload) {
   const res = await request('POST', '/mileage/fuel-log', payload, token);
-  return res.data;
+  return res?.data;
 }
 
 export async function fetchMileageIntervals(token, page = 1, limit = 50) {
