@@ -75,33 +75,33 @@ export async function requestDriverOtp(mobileNumber) {
 
 export async function verifyDriverOtp(mobileNumber, otp) {
   const res = await request('POST', '/auth/driver/verify-otp', { mobileNumber, otp });
-  return res.data;
+  return res?.data;
 }
 
 // ── Vehicles ───────────────────────────────────────────────────────────
 
 export async function fetchVehicles(token, limit = 100) {
   const res = await request('GET', `/vehicles?limit=${limit}`, null, token);
-  return res.data;
+  return res?.data;
 }
 
 // ── Employees / Drivers ────────────────────────────────────────────────
 
 export async function fetchDrivers(token, limit = 100) {
   const res = await request('GET', `/employees?role=DRIVER&limit=${limit}`, null, token);
-  return res.data;
+  return res?.data;
 }
 
 // ── Mileage ────────────────────────────────────────────────────────────
 
 export async function fetchLastOdometer(token, vehicleId) {
   const res = await request('GET', `/mileage/last-odometer/${vehicleId}`, null, token);
-  return res.data;
+  return res?.data;
 }
 
 export async function submitFuelLog(token, payload) {
   const res = await request('POST', '/mileage/fuel-log', payload, token);
-  return res.data;
+  return res?.data;
 }
 
 export async function fetchMileageIntervals(token, page = 1, limit = 50) {
@@ -111,7 +111,7 @@ export async function fetchMileageIntervals(token, page = 1, limit = 50) {
 export async function fetchMyFuelLogs(token, driverId, page = 1, limit = 50) {
   return request(
     'GET',
-    `/mileage/intervals?driverId=${driverId}&page=${page}&limit=${limit}`,
+    `/fuel-logs?driverId=${driverId}&page=${page}&limit=${limit}`,
     null,
     token,
   );
@@ -123,10 +123,8 @@ export async function scanDocument(token, file, docType) {
   return multipart('/ocr/scan', buildFileForm(file, { docType }), token, { timeoutMs: 60000 });
 }
 
-export async function uploadDocument(token, file, entityId, docType) {
-  return multipart(
-    '/documents',
-    buildFileForm(file, { entityType: 'VEHICLE', entityId, docType }),
-    token,
-  );
+export async function uploadDocument(token, file, entityId, docType, ocrData = null) {
+  const fields = { entityType: 'VEHICLE', entityId, docType };
+  if (ocrData) fields.ocrData = JSON.stringify(ocrData);
+  return multipart('/documents', buildFileForm(file, fields), token);
 }

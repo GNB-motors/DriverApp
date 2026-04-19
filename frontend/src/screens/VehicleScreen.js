@@ -120,7 +120,7 @@ export default function VehicleScreen({ navigation }) {
               <Text style={styles.sectionLabel}>Select Your Vehicle</Text>
               <FlatList
                 data={vehicles}
-                keyExtractor={(item) => item._id}
+                keyExtractor={(item) => String(item._id)}
                 renderItem={renderVehicle}
                 showsVerticalScrollIndicator={false}
               />
