@@ -260,15 +260,8 @@ export default function UploadPhotosScreen({ navigation, route }) {
       const devLoc = __DEV__ ? devPayload.location || ocrLocation : ocrLocation;
       const devFt = __DEV__ ? (devPayload.fuelType || 'DIESEL') : 'DIESEL';
 
-      if (needsOdometer && lastOdometer?.odometerReading != null) {
-        if (devO == null || isNaN(devO)) {
-          Alert.alert(
-            'Odometer Required',
-            'No odometer reading was detected. Please retake or upload a clearer photo of the odometer.',
-          );
-          setSubmitting(false);
-          return;
-        }
+      // Only hard-block if we have a reading AND it goes backwards — OCR failure is allowed through
+      if (needsOdometer && lastOdometer?.odometerReading != null && devO != null && !isNaN(devO)) {
         if (devO <= lastOdometer.odometerReading) {
           Alert.alert(
             'Invalid Odometer Reading',
@@ -530,9 +523,9 @@ export default function UploadPhotosScreen({ navigation, route }) {
           <TouchableOpacity
             style={[
               styles.submitBtn,
-              (!isComplete || submitting || billOcrPending || odometerOcrPending || (needsOdometer && !!odometerError)) && styles.submitBtnDisabled,
+              (!isComplete || submitting || billOcrPending || odometerOcrPending) && styles.submitBtnDisabled,
             ]}
-            disabled={!isComplete || submitting || billOcrPending || odometerOcrPending || (needsOdometer && !!odometerError)}
+            disabled={!isComplete || submitting || billOcrPending || odometerOcrPending}
             onPress={handleSubmit}
             activeOpacity={0.8}
           >
