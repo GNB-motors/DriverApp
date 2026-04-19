@@ -52,6 +52,8 @@ export default function UploadPhotosScreen({ navigation, route }) {
   const [ocrLocation, setOcrLocation] = useState(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const [billOcrPending, setBillOcrPending] = useState(false);
+  const [odometerOcrPending, setOdometerOcrPending] = useState(false);
 
   // ── Last-odometer guard (mirrors main-frontend MileageFuelLogPage) ────────
   // Fetched once when the screen mounts with a vehicleId. Used to block
@@ -126,24 +128,25 @@ export default function UploadPhotosScreen({ navigation, route }) {
   // Silent OCR — pre-extracts values, no driver interaction needed
   const runOcrBill = async (uri) => {
     if (!uri || !token) return;
+    setBillOcrPending(true);
     try {
-      // Compress before OCR — 0.7 quality keeps text crisp while cutting file size
       const compressed = await compressImage(uri, 0.7);
       const result = await scanDocument(token, makeFileObj(compressed), 'FUEL_RECEIPT');
-      // OCR returns `volume` (litres), `rate`, and `location` from the fuel receipt parser
       if (result?.volume != null) setOcrLitres(parseFloat(result.volume));
       if (result?.rate != null) setOcrRate(parseFloat(result.rate));
       if (result?.location) setOcrLocation(result.location);
     } catch {
       // OCR failure is non-fatal — manager reviews if data missing
+    } finally {
+      setBillOcrPending(false);
     }
   };
 
   const runOcrOdometer = async (uri) => {
     if (!uri || !token) return;
-    setOdometerError(null); // Clear previous validation error on new scan
+    setOdometerError(null);
+    setOdometerOcrPending(true);
     try {
-      // Compress before OCR — 0.7 quality keeps digits crisp while cutting file size
       const compressed = await compressImage(uri, 0.7);
       const result = await scanDocument(token, makeFileObj(compressed), 'ODOMETER');
       // OCR may return reading as a string like "1,05,450", "105450 km", or "9195.7 km"
@@ -167,6 +170,8 @@ export default function UploadPhotosScreen({ navigation, route }) {
       }
     } catch {
       setOdometerError('Odometer scan failed. Please retake or upload a clearer image.');
+    } finally {
+      setOdometerOcrPending(false);
     }
   };
 
@@ -220,17 +225,27 @@ export default function UploadPhotosScreen({ navigation, route }) {
 
     setSubmitting(true);
     try {
-      // Compress then upload bill photo to AWS S3
+      // Compress then upload bill photo — forward app-side OCR so DB document is always populated
       const compressedBill = await compressImage(billPhoto, 0.75);
-      const billDoc = await uploadDocument(token, makeFileObj(compressedBill), vehicleId, 'FUEL_SLIP');
+      const billOcrPayload = {};
+      if (ocrLitres != null && !isNaN(ocrLitres)) billOcrPayload.volume = ocrLitres;
+      if (ocrRate != null && !isNaN(ocrRate)) billOcrPayload.rate = ocrRate;
+      if (ocrLocation) billOcrPayload.location = ocrLocation;
+      const billDoc = await uploadDocument(
+        token, makeFileObj(compressedBill), vehicleId, 'FUEL_SLIP',
+        Object.keys(billOcrPayload).length ? billOcrPayload : null,
+      );
       const documentId = billDoc?._id;
 
-      // Compress then upload odometer photo to AWS S3 (FULL_TANK only)
+      // Compress then upload odometer photo (FULL_TANK only)
       let odometerDocId = null;
       if (needsOdometer && odometerPhoto) {
         const compressedOdometer = await compressImage(odometerPhoto, 0.75);
+        const odomOcrPayload = ocrOdometer != null && !isNaN(ocrOdometer)
+          ? { reading: ocrOdometer }
+          : null;
         const odomDoc = await uploadDocument(
-          token, makeFileObj(compressedOdometer), vehicleId, 'ODOMETER',
+          token, makeFileObj(compressedOdometer), vehicleId, 'ODOMETER', odomOcrPayload,
         );
         odometerDocId = odomDoc?._id;
       }
@@ -515,9 +530,9 @@ export default function UploadPhotosScreen({ navigation, route }) {
           <TouchableOpacity
             style={[
               styles.submitBtn,
-              (!isComplete || submitting || (needsOdometer && !!odometerError)) && styles.submitBtnDisabled,
+              (!isComplete || submitting || billOcrPending || odometerOcrPending || (needsOdometer && !!odometerError)) && styles.submitBtnDisabled,
             ]}
-            disabled={!isComplete || submitting || (needsOdometer && !!odometerError)}
+            disabled={!isComplete || submitting || billOcrPending || odometerOcrPending || (needsOdometer && !!odometerError)}
             onPress={handleSubmit}
             activeOpacity={0.8}
           >

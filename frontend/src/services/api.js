@@ -127,10 +127,8 @@ export async function scanDocument(token, file, docType) {
   return multipart('/ocr/scan', buildFileForm(file, { docType }), token, { timeoutMs: 60000 });
 }
 
-export async function uploadDocument(token, file, entityId, docType) {
-  return multipart(
-    '/documents',
-    buildFileForm(file, { entityType: 'VEHICLE', entityId, docType }),
-    token,
-  );
+export async function uploadDocument(token, file, entityId, docType, ocrData = null) {
+  const fields = { entityType: 'VEHICLE', entityId, docType };
+  if (ocrData) fields.ocrData = JSON.stringify(ocrData);
+  return multipart('/documents', buildFileForm(file, fields), token);
 }
