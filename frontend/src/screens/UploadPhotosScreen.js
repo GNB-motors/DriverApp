@@ -130,6 +130,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
       // Compress before OCR — 0.7 quality keeps text crisp while cutting file size
       const compressed = await compressImage(uri, 0.7);
       const result = await scanDocument(token, makeFileObj(compressed), 'FUEL_RECEIPT');
+      console.log('[OCR FUEL_RECEIPT] Full result:', JSON.stringify(result, null, 2));
       // OCR returns `volume` (litres), `rate`, and `location` from the fuel receipt parser
       if (result?.volume != null) setOcrLitres(parseFloat(result.volume));
       if (result?.rate != null) setOcrRate(parseFloat(result.rate));
@@ -146,6 +147,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
       // Compress before OCR — 0.7 quality keeps digits crisp while cutting file size
       const compressed = await compressImage(uri, 0.7);
       const result = await scanDocument(token, makeFileObj(compressed), 'ODOMETER');
+      console.log('[OCR ODOMETER] Full result:', JSON.stringify(result, null, 2));
       // OCR may return reading as a string like "1,05,450", "105450 km", or "9195.7 km"
       // Preserve the decimal point so parseFloat works correctly, then round to nearest integer
       if (result?.reading != null) {

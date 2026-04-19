@@ -55,6 +55,7 @@ async function multipart(path, formData, token, { timeoutMs } = {}) {
   }
 
   const data = await response.json();
+  console.log(`[API] ${path} — status: ${response.status}, full response:`, JSON.stringify(data, null, 2));
   if (!response.ok) throw new ApiError(data.message || 'Upload failed', response.status);
   return data?.data ?? data;
 }
