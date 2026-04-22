@@ -50,8 +50,11 @@ export default function UploadPhotosScreen({ navigation, route }) {
   const [ocrRate, setOcrRate] = useState(null);
   const [ocrOdometer, setOcrOdometer] = useState(null);
   const [ocrLocation, setOcrLocation] = useState(null);
+  const [ocrDatetime, setOcrDatetime] = useState(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const [billOcrPending, setBillOcrPending] = useState(false);
+  const [odometerOcrPending, setOdometerOcrPending] = useState(false);
 
   // ── Last-odometer guard (mirrors main-frontend MileageFuelLogPage) ────────
   // Fetched once when the screen mounts with a vehicleId. Used to block
@@ -69,6 +72,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
     rate: '',
     odometerReading: '',
     location: '',
+    refuelTime: '',
   });
 
   // Keep devPayload in sync whenever OCR values arrive
@@ -80,8 +84,9 @@ export default function UploadPhotosScreen({ navigation, route }) {
       rate: ocrRate != null ? String(ocrRate) : prev.rate,
       odometerReading: ocrOdometer != null ? String(ocrOdometer) : prev.odometerReading,
       location: ocrLocation != null ? ocrLocation : prev.location,
+      refuelTime: ocrDatetime != null ? ocrDatetime : prev.refuelTime,
     }));
-  }, [ocrLitres, ocrRate, ocrOdometer, ocrLocation]);
+  }, [ocrLitres, ocrRate, ocrOdometer, ocrLocation, ocrDatetime]);
 
   // ── Fetch last odometer when vehicleId is available ────────────────────────
   useEffect(() => {
@@ -89,7 +94,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
     if (!vehicleId || !token) return;
     fetchLastOdometer(token, vehicleId)
       .then((data) => setLastOdometer(data || null))
-      .catch(() => {}); // Non-fatal — just means no prior logs
+      .catch(() => { }); // Non-fatal — just means no prior logs
   }, [token]);
 
   // Pick up captured photos returned from PhotoPreviewScreen
@@ -126,26 +131,32 @@ export default function UploadPhotosScreen({ navigation, route }) {
   // Silent OCR — pre-extracts values, no driver interaction needed
   const runOcrBill = async (uri) => {
     if (!uri || !token) return;
+    setBillOcrPending(true);
     try {
-      // Compress before OCR — 0.7 quality keeps text crisp while cutting file size
       const compressed = await compressImage(uri, 0.7);
       const result = await scanDocument(token, makeFileObj(compressed), 'FUEL_RECEIPT');
+      console.log('[OCR FUEL_RECEIPT] Full result:', JSON.stringify(result, null, 2));
       // OCR returns `volume` (litres), `rate`, and `location` from the fuel receipt parser
       if (result?.volume != null) setOcrLitres(parseFloat(result.volume));
       if (result?.rate != null) setOcrRate(parseFloat(result.rate));
       if (result?.location) setOcrLocation(result.location);
+      const extractedDatetime = result?.datetime || result?.extractedData?.datetime;
+      if (extractedDatetime) setOcrDatetime(extractedDatetime);
     } catch {
       // OCR failure is non-fatal — manager reviews if data missing
+    } finally {
+      setBillOcrPending(false);
     }
   };
 
   const runOcrOdometer = async (uri) => {
     if (!uri || !token) return;
-    setOdometerError(null); // Clear previous validation error on new scan
+    setOdometerError(null);
+    setOdometerOcrPending(true);
     try {
-      // Compress before OCR — 0.7 quality keeps digits crisp while cutting file size
       const compressed = await compressImage(uri, 0.7);
       const result = await scanDocument(token, makeFileObj(compressed), 'ODOMETER');
+      console.log('[OCR ODOMETER] Full result:', JSON.stringify(result, null, 2));
       // OCR may return reading as a string like "1,05,450", "105450 km", or "9195.7 km"
       // Preserve the decimal point so parseFloat works correctly, then round to nearest integer
       if (result?.reading != null) {
@@ -167,6 +178,8 @@ export default function UploadPhotosScreen({ navigation, route }) {
       }
     } catch {
       setOdometerError('Odometer scan failed. Please retake or upload a clearer image.');
+    } finally {
+      setOdometerOcrPending(false);
     }
   };
 
@@ -211,7 +224,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
       try {
         const raw = await AsyncStorage.getItem(SELECTED_VEHICLE_KEY);
         if (raw) vehicleId = JSON.parse(raw)._id;
-      } catch {}
+      } catch { }
     }
     if (!vehicleId) {
       Alert.alert('Error', 'Vehicle not selected. Please go back and select a vehicle.');
@@ -220,17 +233,20 @@ export default function UploadPhotosScreen({ navigation, route }) {
 
     setSubmitting(true);
     try {
-      // Compress then upload bill photo to AWS S3
+      // Compress then upload bill photo — forward app-side OCR so DB document is always populated
       const compressedBill = await compressImage(billPhoto, 0.75);
-      const billDoc = await uploadDocument(token, makeFileObj(compressedBill), vehicleId, 'FUEL_SLIP');
+      const billDoc = await uploadDocument(
+        token, makeFileObj(compressedBill), vehicleId, 'FUEL_SLIP',
+        null // Fix: Do not send ocrData, backend auto-OCRs
+      );
       const documentId = billDoc?._id;
 
-      // Compress then upload odometer photo to AWS S3 (FULL_TANK only)
+      // Compress then upload odometer photo (FULL_TANK only)
       let odometerDocId = null;
       if (needsOdometer && odometerPhoto) {
         const compressedOdometer = await compressImage(odometerPhoto, 0.75);
         const odomDoc = await uploadDocument(
-          token, makeFileObj(compressedOdometer), vehicleId, 'ODOMETER',
+          token, makeFileObj(compressedOdometer), vehicleId, 'ODOMETER', null
         );
         odometerDocId = odomDoc?._id;
       }
@@ -244,16 +260,18 @@ export default function UploadPhotosScreen({ navigation, route }) {
         : ocrOdometer;
       const devLoc = __DEV__ ? devPayload.location || ocrLocation : ocrLocation;
       const devFt = __DEV__ ? (devPayload.fuelType || 'DIESEL') : 'DIESEL';
+      const devDt = __DEV__ && devPayload.refuelTime !== '' ? devPayload.refuelTime : ocrDatetime;
 
-      if (needsOdometer && lastOdometer?.odometerReading != null) {
-        if (devO == null || isNaN(devO)) {
-          Alert.alert(
-            'Odometer Required',
-            'No odometer reading was detected. Please retake or upload a clearer photo of the odometer.',
-          );
-          setSubmitting(false);
-          return;
+      let refuelTimeStr;
+      if (devDt) {
+        const parsed = new Date(String(devDt).trim().replace(' ', 'T') + '+05:30');
+        if (!isNaN(parsed.getTime())) {
+          refuelTimeStr = parsed.toISOString();
         }
+      }
+
+      // Only hard-block if we have a reading AND it goes backwards — OCR failure is allowed through
+      if (needsOdometer && lastOdometer?.odometerReading != null && devO != null && !isNaN(devO)) {
         if (devO <= lastOdometer.odometerReading) {
           Alert.alert(
             'Invalid Odometer Reading',
@@ -266,13 +284,14 @@ export default function UploadPhotosScreen({ navigation, route }) {
 
       await submitFuelLog(token, {
         vehicleId,
-        driverId: user._id,
+        driverId: user?._id,
         fuelType: devFt,
         fillingType: needsOdometer ? 'FULL_TANK' : 'PARTIAL',
         ...(devL != null && !isNaN(devL) && { litres: devL }),
         ...(devR != null && !isNaN(devR) && { rate: devR }),
         ...(needsOdometer && devO != null && !isNaN(devO) && { odometerReading: devO }),
         ...(devLoc && { location: devLoc }),
+        ...(refuelTimeStr && { refuelTime: refuelTimeStr }),
         documentId: documentId || null,
         odometerDocId: odometerDocId || null,
       });
@@ -335,10 +354,10 @@ export default function UploadPhotosScreen({ navigation, route }) {
     const fillingColor = needsOdometer ? COLORS.primary : '#F59E0B';
 
     const editableRows = [
-      { label: 'Litres',    key: 'litres',          value: devPayload.litres,          placeholder: 'Not captured', unit: 'L'  },
-      { label: 'Rate',      key: 'rate',             value: devPayload.rate,            placeholder: 'Not captured', unit: '₹/L' },
+      { label: 'Litres', key: 'litres', value: devPayload.litres, placeholder: 'Not captured', unit: 'L' },
+      { label: 'Rate', key: 'rate', value: devPayload.rate, placeholder: 'Not captured', unit: '₹/L' },
       ...(needsOdometer ? [{ label: 'Odometer', key: 'odometerReading', value: devPayload.odometerReading, placeholder: 'Not captured', unit: 'km', isOdo: true }] : []),
-      { label: 'Location',  key: 'location',         value: devPayload.location,        placeholder: 'Not captured', unit: null },
+      { label: 'Location', key: 'location', value: devPayload.location, placeholder: 'Not captured', unit: null },
     ];
 
     return (
@@ -515,9 +534,9 @@ export default function UploadPhotosScreen({ navigation, route }) {
           <TouchableOpacity
             style={[
               styles.submitBtn,
-              (!isComplete || submitting || (needsOdometer && !!odometerError)) && styles.submitBtnDisabled,
+              (!isComplete || submitting || billOcrPending || odometerOcrPending) && styles.submitBtnDisabled,
             ]}
-            disabled={!isComplete || submitting || (needsOdometer && !!odometerError)}
+            disabled={!isComplete || submitting || billOcrPending || odometerOcrPending}
             onPress={handleSubmit}
             activeOpacity={0.8}
           >
