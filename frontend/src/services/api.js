@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://3.6.86.184.nip.io/v1/api';
+const API_BASE_URL = 'http://172.27.54.112:3000/api';
 
 class ApiError extends Error {
   constructor(message, statusCode) {
