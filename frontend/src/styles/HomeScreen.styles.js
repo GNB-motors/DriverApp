@@ -244,6 +244,77 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     marginTop: 2,
   },
+  // ── On Duty Card ──
+  dutyCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(66,150,144,0.12)',
+  },
+  dutyCardActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primaryDark,
+  },
+  dutyCardIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(66,150,144,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dutyCardIconActive: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  dutyCardInfo: {
+    flex: 1,
+  },
+  dutyCardLabel: {
+    fontSize: 14,
+    color: COLORS.textDark,
+    fontWeight: '700',
+  },
+  dutyCardLabelActive: {
+    color: COLORS.white,
+  },
+  dutyCardSubtitle: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  dutyCardSubtitleActive: {
+    color: 'rgba(255,255,255,0.7)',
+  },
+  dutyToggle: {
+    width: 50,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#DDD',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  dutyToggleActive: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  dutyToggleKnob: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: COLORS.white,
+  },
+  dutyToggleKnobActive: {
+    alignSelf: 'flex-end',
+  },
 });
 
 export default styles;
