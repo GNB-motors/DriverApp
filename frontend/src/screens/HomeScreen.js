@@ -1,18 +1,21 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import styles, { COLORS } from '../styles/HomeScreen.styles';
 import { SELECTED_VEHICLE_KEY } from './VehicleScreen';
+import { startLocationTracking, stopLocationTracking, isTracking } from '../services/locationTracker';
 
 export default function HomeScreen({ navigation }) {
   const { t } = useLanguage();
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const [savedVehicle, setSavedVehicle] = useState(null); // { _id, registrationNumber }
+  const [onDuty, setOnDuty] = useState(isTracking);
 
   // Re-read saved vehicle every time this screen comes into focus
   // (so it updates immediately after returning from VehicleScreen)
@@ -23,6 +26,20 @@ export default function HomeScreen({ navigation }) {
         .catch(() => setSavedVehicle(null));
     }, []),
   );
+
+  const toggleDuty = async () => {
+    if (onDuty) {
+      stopLocationTracking();
+      setOnDuty(false);
+      return;
+    }
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Location permission is needed to go On Duty.');
+    }
+    startLocationTracking(token);
+    setOnDuty(true);
+  };
 
   const startRefuel = () => {
     navigation.navigate('RefuelDetails', {
@@ -60,6 +77,28 @@ export default function HomeScreen({ navigation }) {
       </View>
 
       <View style={styles.content}>
+        {/* On Duty Toggle */}
+        <TouchableOpacity
+          style={[styles.dutyCard, onDuty && styles.dutyCardActive]}
+          onPress={toggleDuty}
+          activeOpacity={0.75}
+        >
+          <View style={[styles.dutyCardIcon, onDuty && styles.dutyCardIconActive]}>
+            <Ionicons name={onDuty ? 'location' : 'location-outline'} size={22} color={onDuty ? COLORS.white : COLORS.primary} />
+          </View>
+          <View style={styles.dutyCardInfo}>
+            <Text style={[styles.dutyCardLabel, onDuty && styles.dutyCardLabelActive]}>
+              {onDuty ? 'ON DUTY' : 'OFF DUTY'}
+            </Text>
+            <Text style={[styles.dutyCardSubtitle, onDuty && styles.dutyCardSubtitleActive]}>
+              {onDuty ? 'Sharing location every 2 min' : 'Tap to start sharing location'}
+            </Text>
+          </View>
+          <View style={[styles.dutyToggle, onDuty && styles.dutyToggleActive]}>
+            <View style={[styles.dutyToggleKnob, onDuty && styles.dutyToggleKnobActive]} />
+          </View>
+        </TouchableOpacity>
+
         {/* Start Refuel Card */}
         <View style={styles.refuelCard}>
           <View>
