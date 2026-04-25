@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -11,11 +11,13 @@ import styles, { COLORS } from '../styles/HomeScreen.styles';
 import { SELECTED_VEHICLE_KEY } from './VehicleScreen';
 import { startLocationTracking, stopLocationTracking, isTracking } from '../services/locationTracker';
 
+const LOCATION_SHARING_PREFERENCE_KEY = 'driverLocationSharingPreference';
+
 export default function HomeScreen({ navigation }) {
   const { t } = useLanguage();
   const { user, token, logout } = useAuth();
   const [savedVehicle, setSavedVehicle] = useState(null); // { _id, registrationNumber }
-  const [onDuty, setOnDuty] = useState(isTracking);
+  const [onDuty, setOnDuty] = useState(isTracking());
 
   // Re-read saved vehicle every time this screen comes into focus
   // (so it updates immediately after returning from VehicleScreen)
@@ -27,16 +29,97 @@ export default function HomeScreen({ navigation }) {
     }, []),
   );
 
+  const requestForegroundLocationPermission = async () => {
+    const current = await Location.getForegroundPermissionsAsync();
+    if (current.status === 'granted') return true;
+
+    if (!current.canAskAgain) {
+      Alert.alert(
+        'Location Permission Blocked',
+        'Please enable location access in your phone settings to go On Duty.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ],
+      );
+      return false;
+    }
+
+    const requested = await Location.requestForegroundPermissionsAsync();
+    if (requested.status === 'granted') return true;
+
+    Alert.alert('Permission Required', 'Location permission is needed to go On Duty.');
+    return false;
+  };
+
+  const requestAlwaysLocationPermission = async () => {
+    const hasForegroundPermission = await requestForegroundLocationPermission();
+    if (!hasForegroundPermission) return false;
+
+    const currentBackground = await Location.getBackgroundPermissionsAsync();
+    if (currentBackground.status === 'granted') return true;
+
+    if (!currentBackground.canAskAgain) {
+      Alert.alert(
+        'Always Location Blocked',
+        'Please enable Always Allow location access in your phone settings.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ],
+      );
+      return false;
+    }
+
+    const requestedBackground = await Location.requestBackgroundPermissionsAsync();
+    if (requestedBackground.status === 'granted') return true;
+
+    Alert.alert(
+      'Always Location Not Enabled',
+      'You can still share location while using the app. To share in the background, enable Always Allow in settings.',
+    );
+    return true;
+  };
+
+  const askLocationSharingChoice = () =>
+    new Promise((resolve) => {
+      Alert.alert(
+        'Share Location',
+        'Choose how you want to share your location while on duty.',
+        [
+          { text: "Don't Share", style: 'cancel', onPress: () => resolve('none') },
+          { text: 'While Using App', onPress: () => resolve('foreground') },
+          { text: 'Always', onPress: () => resolve('always') },
+        ],
+      );
+    });
+
+  const getLocationSharingChoice = async () => {
+    const savedChoice = await AsyncStorage.getItem(LOCATION_SHARING_PREFERENCE_KEY);
+    if (savedChoice === 'foreground' || savedChoice === 'always') return savedChoice;
+
+    const choice = await askLocationSharingChoice();
+    if (choice === 'foreground' || choice === 'always') {
+      await AsyncStorage.setItem(LOCATION_SHARING_PREFERENCE_KEY, choice);
+    }
+    return choice;
+  };
+
   const toggleDuty = async () => {
     if (onDuty) {
       stopLocationTracking();
       setOnDuty(false);
       return;
     }
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Location permission is needed to go On Duty.');
-    }
+
+    const choice = await getLocationSharingChoice();
+    if (choice === 'none') return;
+
+    const hasPermission = choice === 'always'
+      ? await requestAlwaysLocationPermission()
+      : await requestForegroundLocationPermission();
+    if (!hasPermission) return;
+
     startLocationTracking(token);
     setOnDuty(true);
   };
