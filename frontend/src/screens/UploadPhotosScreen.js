@@ -50,6 +50,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
   const [ocrRate, setOcrRate] = useState(null);
   const [ocrOdometer, setOcrOdometer] = useState(null);
   const [ocrLocation, setOcrLocation] = useState(null);
+  const [ocrDatetime, setOcrDatetime] = useState(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [billOcrPending, setBillOcrPending] = useState(false);
@@ -137,6 +138,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
       if (result?.volume != null) setOcrLitres(parseFloat(result.volume));
       if (result?.rate != null) setOcrRate(parseFloat(result.rate));
       if (result?.location) setOcrLocation(result.location);
+      if (result?.datetime) setOcrDatetime(result.datetime);
     } catch {
       // OCR failure is non-fatal — manager reviews if data missing
     } finally {
@@ -234,6 +236,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
       if (ocrLitres != null && !isNaN(ocrLitres)) billOcrPayload.volume = ocrLitres;
       if (ocrRate != null && !isNaN(ocrRate)) billOcrPayload.rate = ocrRate;
       if (ocrLocation) billOcrPayload.location = ocrLocation;
+      if (ocrDatetime) billOcrPayload.datetime = ocrDatetime;
       const billDoc = await uploadDocument(
         token, makeFileObj(compressedBill), vehicleId, 'FUEL_SLIP',
         Object.keys(billOcrPayload).length ? billOcrPayload : null,
@@ -284,6 +287,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
         ...(devR != null && !isNaN(devR) && { rate: devR }),
         ...(needsOdometer && devO != null && !isNaN(devO) && { odometerReading: devO }),
         ...(devLoc && { location: devLoc }),
+        ...(ocrDatetime && { refuelTime: ocrDatetime }),
         documentId: documentId || null,
         odometerDocId: odometerDocId || null,
       });
