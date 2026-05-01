@@ -1,4 +1,5 @@
-const API_BASE_URL = 'https://3.6.86.184.nip.io/v1/api';
+const API_BASE_URL = 'http://192.168.29.18:3000/api';
+
 
 class ApiError extends Error {
   constructor(message, statusCode) {
@@ -115,6 +116,18 @@ export async function fetchMyFuelLogs(token, driverId, page = 1, limit = 50) {
     null,
     token,
   );
+}
+
+// ── Driver Location ───────────────────────────────────────────────────
+
+export async function sendDriverLocation(token, { locationPermission, latitude, longitude }) {
+  const body = { locationPermission };
+  if (locationPermission && latitude != null && longitude != null) {
+    body.latitude = latitude;
+    body.longitude = longitude;
+  }
+  const res = await request('POST', '/driver/location', body, token);
+  return res?.data;
 }
 
 // ── OCR / Documents ────────────────────────────────────────────────────
