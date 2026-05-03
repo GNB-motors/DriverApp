@@ -50,6 +50,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
   const [ocrRate, setOcrRate] = useState(null);
   const [ocrOdometer, setOcrOdometer] = useState(null);
   const [ocrLocation, setOcrLocation] = useState(null);
+  const [ocrDatetime, setOcrDatetime] = useState(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [billOcrPending, setBillOcrPending] = useState(false);
@@ -71,6 +72,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
     rate: '',
     odometerReading: '',
     location: '',
+    refuelTime: '',
   });
 
   // Keep devPayload in sync whenever OCR values arrive
@@ -82,8 +84,9 @@ export default function UploadPhotosScreen({ navigation, route }) {
       rate: ocrRate != null ? String(ocrRate) : prev.rate,
       odometerReading: ocrOdometer != null ? String(ocrOdometer) : prev.odometerReading,
       location: ocrLocation != null ? ocrLocation : prev.location,
+      refuelTime: ocrDatetime != null ? ocrDatetime : prev.refuelTime,
     }));
-  }, [ocrLitres, ocrRate, ocrOdometer, ocrLocation]);
+  }, [ocrLitres, ocrRate, ocrOdometer, ocrLocation, ocrDatetime]);
 
   // ── Fetch last odometer when vehicleId is available ────────────────────────
   useEffect(() => {
@@ -137,6 +140,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
       if (result?.volume != null) setOcrLitres(parseFloat(result.volume));
       if (result?.rate != null) setOcrRate(parseFloat(result.rate));
       if (result?.location) setOcrLocation(result.location);
+      if (result?.datetime) setOcrDatetime(result.datetime);
     } catch {
       // OCR failure is non-fatal — manager reviews if data missing
     } finally {
@@ -234,9 +238,10 @@ export default function UploadPhotosScreen({ navigation, route }) {
       if (ocrLitres != null && !isNaN(ocrLitres)) billOcrPayload.volume = ocrLitres;
       if (ocrRate != null && !isNaN(ocrRate)) billOcrPayload.rate = ocrRate;
       if (ocrLocation) billOcrPayload.location = ocrLocation;
+      if (ocrDatetime) billOcrPayload.datetime = ocrDatetime;
       const billDoc = await uploadDocument(
         token, makeFileObj(compressedBill), vehicleId, 'FUEL_SLIP',
-        Object.keys(billOcrPayload).length ? billOcrPayload : null,
+        null // Fix: Do not send ocrData, backend auto-OCRs
       );
       const documentId = billDoc?._id;
 
@@ -244,11 +249,8 @@ export default function UploadPhotosScreen({ navigation, route }) {
       let odometerDocId = null;
       if (needsOdometer && odometerPhoto) {
         const compressedOdometer = await compressImage(odometerPhoto, 0.75);
-        const odomOcrPayload = ocrOdometer != null && !isNaN(ocrOdometer)
-          ? { reading: ocrOdometer }
-          : null;
         const odomDoc = await uploadDocument(
-          token, makeFileObj(compressedOdometer), vehicleId, 'ODOMETER', odomOcrPayload,
+          token, makeFileObj(compressedOdometer), vehicleId, 'ODOMETER', null
         );
         odometerDocId = odomDoc?._id;
       }
@@ -262,6 +264,15 @@ export default function UploadPhotosScreen({ navigation, route }) {
         : ocrOdometer;
       const devLoc = __DEV__ ? devPayload.location || ocrLocation : ocrLocation;
       const devFt = __DEV__ ? (devPayload.fuelType || 'DIESEL') : 'DIESEL';
+      const devDt = __DEV__ && devPayload.refuelTime !== '' ? devPayload.refuelTime : ocrDatetime;
+
+      let refuelTimeStr;
+      if (devDt) {
+        const parsed = new Date(String(devDt).trim().replace(' ', 'T') + '+05:30');
+        if (!isNaN(parsed.getTime())) {
+          refuelTimeStr = parsed.toISOString();
+        }
+      }
 
       // Only hard-block if we have a reading AND it goes backwards — OCR failure is allowed through
       if (needsOdometer && lastOdometer?.odometerReading != null && devO != null && !isNaN(devO)) {
@@ -284,6 +295,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
         ...(devR != null && !isNaN(devR) && { rate: devR }),
         ...(needsOdometer && devO != null && !isNaN(devO) && { odometerReading: devO }),
         ...(devLoc && { location: devLoc }),
+        ...(ocrDatetime && { refuelTime: ocrDatetime }),
         documentId: documentId || null,
         odometerDocId: odometerDocId || null,
       });
