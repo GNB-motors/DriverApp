@@ -47,7 +47,15 @@ export function AuthProvider({ children }) {
     const normalised = mobileNumber.startsWith('+')
       ? mobileNumber
       : `+91${mobileNumber.replace(/\s/g, '')}`;
-    await requestDriverOtp(normalised);
+    console.log(`[Auth] sendOtp called`);
+    console.log(`[Auth] Raw input number: "${mobileNumber}"`);
+    console.log(`[Auth] Normalised number sent to API: "${normalised}"`);
+    try {
+      await requestDriverOtp(normalised);
+    } catch (err) {
+      console.error(`[Auth] requestDriverOtp failed — status: ${err.statusCode}, message: "${err.message}"`);
+      throw err;
+    }
     return normalised; // return so the screen can cache it
   };
 

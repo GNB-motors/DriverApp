@@ -39,8 +39,9 @@ export function LanguageProvider({ children }) {
 
   // Translation function helper
   const t = (screen, key) => {
-    if (!language || !translations[language]) return '';
-    return translations[language][screen]?.[key] || '';
+    const lang = language && translations[language] ? language : 'en';
+    if (!translations[lang] || !translations[lang][screen]) return '';
+    return translations[lang][screen][key] || '';
   };
 
   return (

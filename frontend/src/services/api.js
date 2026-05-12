@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://192.168.29.18:3000/api';
+const API_BASE_URL = 'https://api.app.gnbedge.in/v1/api';
 
 
 class ApiError extends Error {
@@ -9,24 +9,39 @@ class ApiError extends Error {
 }
 
 async function request(method, path, body = null, token = null) {
+  const fullUrl = `${API_BASE_URL}${path}`;
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const options = { method, headers };
   if (body) options.body = JSON.stringify(body);
 
-  const response = await fetch(`${API_BASE_URL}${path}`, options);
+  console.log(`\n[API] >>> ${method} ${fullUrl}`);
+  if (body) console.log(`[API] Request body:`, JSON.stringify(body));
+
+  let response;
+  try {
+    response = await fetch(fullUrl, options);
+  } catch (networkErr) {
+    console.error(`[API] NETWORK ERROR — could not reach ${fullUrl}:`, networkErr.message);
+    throw new ApiError('Unable to reach server. Please check your connection.', 0);
+  }
+
+  console.log(`[API] <<< Status: ${response.status} ${response.statusText}`);
 
   if (response.status === 304) return null;
 
   let data;
   try {
     data = await response.json();
+    console.log(`[API] Response body:`, JSON.stringify(data));
   } catch {
+    console.error(`[API] Failed to parse JSON response from ${fullUrl}`);
     throw new ApiError('Unable to reach server. Please check your connection.', response.status);
   }
 
   if (!response.ok) {
+    console.error(`[API] ERROR ${response.status} from ${fullUrl}:`, data?.message || data);
     throw new ApiError(data.message || 'Something went wrong', response.status);
   }
 
