@@ -77,7 +77,6 @@ export default function UploadPhotosScreen({ navigation, route }) {
 
   // Keep devPayload in sync whenever OCR values arrive
   useEffect(() => {
-    if (!__DEV__) return;
     setDevPayload(prev => ({
       ...prev,
       litres: ocrLitres != null ? String(ocrLitres) : prev.litres,
