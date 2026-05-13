@@ -159,7 +159,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
       // Preserve the decimal point so parseFloat works correctly, then round to nearest integer
       if (result?.reading != null) {
         const raw = result.reading.toString().replace(/[^\d.]/g, ''); // strip non-numeric except '.'
-        const sanitized = Math.round(parseFloat(raw));                // e.g. "9195.7" → 9196
+        const sanitized = parseFloat(raw);                            // e.g. "9195.7"
         if (!isNaN(sanitized)) {
           setOcrOdometer(sanitized);
           // ── Validate immediately against last recorded odometer ──────────
@@ -259,7 +259,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
       const devL = __DEV__ && devPayload.litres !== '' ? parseFloat(devPayload.litres) : ocrLitres;
       const devR = __DEV__ && devPayload.rate !== '' ? parseFloat(devPayload.rate) : ocrRate;
       const devO = __DEV__ && devPayload.odometerReading !== ''
-        ? Math.round(parseFloat(devPayload.odometerReading))
+        ? parseFloat(devPayload.odometerReading)
         : ocrOdometer;
       const devLoc = __DEV__ ? devPayload.location || ocrLocation : ocrLocation;
       const devFt = __DEV__ ? (devPayload.fuelType || 'DIESEL') : 'DIESEL';
@@ -445,7 +445,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
                     onChangeText={(txt) => {
                       setDevPayload(prev => ({ ...prev, [key]: txt }));
                       if (isOdo && lastOdometer?.odometerReading != null) {
-                        const parsed = Math.round(parseFloat(txt));
+                        const parsed = parseFloat(txt);
                         if (!txt || isNaN(parsed)) setOdometerError('Odometer reading is required for FULL_TANK.');
                         else if (parsed <= lastOdometer.odometerReading) setOdometerError(`Must be > ${lastOdometer.odometerReading} km (last recorded).`);
                         else setOdometerError(null);
