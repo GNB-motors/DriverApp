@@ -62,10 +62,9 @@ export default function UploadPhotosScreen({ navigation, route }) {
   const [lastOdometer, setLastOdometer] = useState(null);   // { odometerReading, refuelTime }
   const [odometerError, setOdometerError] = useState(null); // string | null
 
-  // ── Dev-only payload override state ──────────────────────────────────────
-  // In __DEV__ mode the preview panel exposes editable TextInputs so engineers
+  // ── Payload override state ──────────────────────────────────────────────
+  // The preview panel exposes editable TextInputs so drivers
   // can tweak OCR-extracted values before hitting submit.
-  // In production this object is never mutated — the raw OCR state is used directly.
   const [devPayload, setDevPayload] = useState({
     fuelType: 'DIESEL',
     litres: '',
@@ -255,15 +254,15 @@ export default function UploadPhotosScreen({ navigation, route }) {
       }
 
       // ── Odometer guard — same rule as main-frontend ────────────────────────
-      // In __DEV__ mode use the editable override; in prod use raw OCR value.
-      const devL = __DEV__ && devPayload.litres !== '' ? parseFloat(devPayload.litres) : ocrLitres;
-      const devR = __DEV__ && devPayload.rate !== '' ? parseFloat(devPayload.rate) : ocrRate;
-      const devO = __DEV__ && devPayload.odometerReading !== ''
+      // Use the editable override if provided, otherwise use raw OCR value.
+      const devL = devPayload.litres !== '' ? parseFloat(devPayload.litres) : ocrLitres;
+      const devR = devPayload.rate !== '' ? parseFloat(devPayload.rate) : ocrRate;
+      const devO = devPayload.odometerReading !== ''
         ? parseFloat(devPayload.odometerReading)
         : ocrOdometer;
-      const devLoc = __DEV__ ? devPayload.location || ocrLocation : ocrLocation;
-      const devFt = __DEV__ ? (devPayload.fuelType || 'DIESEL') : 'DIESEL';
-      const devDt = __DEV__ && devPayload.refuelTime !== '' ? devPayload.refuelTime : ocrDatetime;
+      const devLoc = devPayload.location || ocrLocation;
+      const devFt = devPayload.fuelType || 'DIESEL';
+      const devDt = devPayload.refuelTime !== '' ? devPayload.refuelTime : ocrDatetime;
 
       let refuelTimeStr;
       if (devDt) {
@@ -372,11 +371,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
             <Ionicons name="receipt-outline" size={17} color={COLORS.primary} />
             <Text style={styles.previewTitle}>Entry Summary</Text>
           </View>
-          {__DEV__ && (
-            <View style={styles.devBadge}>
-              <Text style={styles.devBadgeText}>DEV • EDITABLE</Text>
-            </View>
-          )}
+          
         </View>
 
         {/* ── Identity chips: Vehicle + Driver + Filling type ── */}
@@ -393,11 +388,9 @@ export default function UploadPhotosScreen({ navigation, route }) {
             <Ionicons name={needsOdometer ? 'speedometer-outline' : 'water-outline'} size={13} color={fillingColor} />
             <Text style={[styles.previewChipText, { color: fillingColor }]}>{fillingType}</Text>
           </View>
-          {__DEV__ && (
-            <View style={[styles.previewChip, { borderColor: '#64748B' }]}>
-              <Text style={[styles.previewChipText, { color: '#64748B' }]}>{devPayload.fuelType}</Text>
-            </View>
-          )}
+          <View style={[styles.previewChip, { borderColor: '#64748B' }]}>
+            <Text style={[styles.previewChipText, { color: '#64748B' }]}>{devPayload.fuelType}</Text>
+          </View>
         </View>
 
         {/* ── Odometer guard banner ── */}
@@ -434,39 +427,30 @@ export default function UploadPhotosScreen({ navigation, route }) {
           return (
             <View key={key} style={[styles.previewRow, isLast && styles.previewRowLast]}>
               <Text style={styles.previewLabel}>{label}</Text>
-              {__DEV__ ? (
-                <View style={styles.previewInputWrapper}>
-                  <TextInput
-                    style={[
-                      styles.previewInput,
-                      hasError && styles.previewInputError,
-                    ]}
-                    value={value}
-                    onChangeText={(txt) => {
-                      setDevPayload(prev => ({ ...prev, [key]: txt }));
-                      if (isOdo && lastOdometer?.odometerReading != null) {
-                        const parsed = parseFloat(txt);
-                        if (!txt || isNaN(parsed)) setOdometerError('Odometer reading is required for FULL_TANK.');
-                        else if (parsed <= lastOdometer.odometerReading) setOdometerError(`Must be > ${lastOdometer.odometerReading} km (last recorded).`);
-                        else setOdometerError(null);
-                      }
-                    }}
-                    placeholder={placeholder}
-                    placeholderTextColor={COLORS.textMuted}
-                    autoCapitalize="none"
-                    keyboardType={['litres', 'rate', 'odometerReading'].includes(key) ? 'numeric' : 'default'}
-                    returnKeyType="done"
-                  />
-                  {unit && <Text style={styles.previewInputUnit}>{unit}</Text>}
-                </View>
-              ) : (
-                <View style={styles.previewInputWrapper}>
-                  <Text style={[styles.previewValue, !value && styles.previewValueMissing]}>
-                    {value || placeholder}
-                  </Text>
-                  {unit && !!value && <Text style={styles.previewInputUnit}>{unit}</Text>}
-                </View>
-              )}
+              <View style={styles.previewInputWrapper}>
+                <TextInput
+                  style={[
+                    styles.previewInput,
+                    hasError && styles.previewInputError,
+                  ]}
+                  value={value}
+                  onChangeText={(txt) => {
+                    setDevPayload(prev => ({ ...prev, [key]: txt }));
+                    if (isOdo && lastOdometer?.odometerReading != null) {
+                      const parsed = parseFloat(txt);
+                      if (!txt || isNaN(parsed)) setOdometerError('Odometer reading is required for FULL_TANK.');
+                      else if (parsed <= lastOdometer.odometerReading) setOdometerError(`Must be > ${lastOdometer.odometerReading} km (last recorded).`);
+                      else setOdometerError(null);
+                    }
+                  }}
+                  placeholder={placeholder}
+                  placeholderTextColor={COLORS.textMuted}
+                  autoCapitalize="none"
+                  keyboardType={['litres', 'rate', 'odometerReading'].includes(key) ? 'numeric' : 'default'}
+                  returnKeyType="done"
+                />
+                {unit && <Text style={styles.previewInputUnit}>{unit}</Text>}
+              </View>
             </View>
           );
         })}
