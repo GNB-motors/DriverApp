@@ -1,3 +1,5 @@
+import * as Sentry from '@sentry/react-native';
+
 const API_BASE_URL = 'https://api.app.gnbedge.in/v1/api';
 
 
@@ -6,6 +8,16 @@ class ApiError extends Error {
     super(message);
     this.statusCode = statusCode;
   }
+}
+
+function reportApiError(err, { method, path, status, body }) {
+  Sentry.withScope((scope) => {
+    scope.setTag('api.method', method);
+    scope.setTag('api.path', path);
+    if (status != null) scope.setTag('api.status', String(status));
+    scope.setContext('api', { method, path, status, body });
+    Sentry.captureException(err);
+  });
 }
 
 async function request(method, path, body = null, token = null) {
@@ -24,6 +36,7 @@ async function request(method, path, body = null, token = null) {
     response = await fetch(fullUrl, options);
   } catch (networkErr) {
     console.error(`[API] NETWORK ERROR — could not reach ${fullUrl}:`, networkErr.message);
+    reportApiError(networkErr, { method, path, status: 0, body: null });
     throw new ApiError('Unable to reach server. Please check your connection.', 0);
   }
 
@@ -35,14 +48,17 @@ async function request(method, path, body = null, token = null) {
   try {
     data = await response.json();
     console.log(`[API] Response body:`, JSON.stringify(data));
-  } catch {
+  } catch (parseErr) {
     console.error(`[API] Failed to parse JSON response from ${fullUrl}`);
+    reportApiError(parseErr, { method, path, status: response.status, body: null });
     throw new ApiError('Unable to reach server. Please check your connection.', response.status);
   }
 
   if (!response.ok) {
     console.error(`[API] ERROR ${response.status} from ${fullUrl}:`, data?.message || data);
-    throw new ApiError(data.message || 'Something went wrong', response.status);
+    const apiErr = new ApiError(data.message || 'Something went wrong', response.status);
+    reportApiError(apiErr, { method, path, status: response.status, body: data });
+    throw apiErr;
   }
 
   return data;
@@ -64,7 +80,12 @@ async function multipart(path, formData, token, { timeoutMs } = {}) {
       signal: controller?.signal,
     });
   } catch (err) {
-    if (err.name === 'AbortError') throw new ApiError('Request timed out. Please try again.', 408);
+    if (err.name === 'AbortError') {
+      const timeoutErr = new ApiError('Request timed out. Please try again.', 408);
+      reportApiError(timeoutErr, { method: 'POST', path, status: 408, body: null });
+      throw timeoutErr;
+    }
+    reportApiError(err, { method: 'POST', path, status: 0, body: null });
     throw err;
   } finally {
     if (timer) clearTimeout(timer);
@@ -72,7 +93,11 @@ async function multipart(path, formData, token, { timeoutMs } = {}) {
 
   const data = await response.json();
   console.log(`[API] ${path} — status: ${response.status}, full response:`, JSON.stringify(data, null, 2));
-  if (!response.ok) throw new ApiError(data.message || 'Upload failed', response.status);
+  if (!response.ok) {
+    const apiErr = new ApiError(data.message || 'Upload failed', response.status);
+    reportApiError(apiErr, { method: 'POST', path, status: response.status, body: data });
+    throw apiErr;
+  }
   return data?.data ?? data;
 }
 
