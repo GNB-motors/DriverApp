@@ -35,28 +35,18 @@ apiClient.interceptors.request.use(
     if (config.token) {
       config.headers['Authorization'] = `Bearer ${config.token}`;
     }
-    console.log(`\n[API] >>> ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
-    if (config.data && !(config.data instanceof FormData)) {
-      console.log(`[API] Request body:`, JSON.stringify(config.data));
-    }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Error handling & logging
+// Response Interceptor: Error handling
 apiClient.interceptors.response.use(
   (response) => {
-    console.log(`[API] <<< Status: ${response.status} ${response.statusText}`);
-    // Only log small responses or omit this in prod later
-    if (response.data && typeof response.data === 'object') {
-      console.log(`[API] Response body snippet...`); 
-    }
     return response;
   },
   (error) => {
     if (error.response) {
-      console.error(`[API] ERROR ${error.response.status} from ${error.config?.url}:`, error.response.data);
       const message = error.response.data?.message || 'Something went wrong';
       const apiErr = new ApiError(message, error.response.status);
       reportApiError(apiErr, { 
@@ -67,7 +57,6 @@ apiClient.interceptors.response.use(
       });
       return Promise.reject(apiErr);
     } else if (error.request) {
-      console.error(`[API] NETWORK ERROR — could not reach ${error.config?.url}:`, error.message);
       const apiErr = new ApiError('Unable to reach server. Please check your connection.', 0);
       reportApiError(apiErr, { 
         method: error.config?.method?.toUpperCase(), 
