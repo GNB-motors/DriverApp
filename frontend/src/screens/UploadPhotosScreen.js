@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useReducer } from 'react';
+import React, { useState, useEffect, useRef, useReducer, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -115,17 +116,19 @@ export default function UploadPhotosScreen({ navigation, route }) {
     }
   }, [route.params]);
 
-  useEffect(() => {
-    const backAction = () => {
-      Alert.alert(t('upload', 'discardTitle'), t('upload', 'discardMsg'), [
-        { text: t('upload', 'cancel'), onPress: () => null, style: 'cancel' },
-        { text: t('upload', 'yesGoBack'), onPress: () => navigation.goBack() },
-      ]);
-      return true;
-    };
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
-    return () => backHandler.remove();
-  }, [t, navigation]);
+  useFocusEffect(
+    useCallback(() => {
+      const backAction = () => {
+        Alert.alert(t('upload', 'discardTitle'), t('upload', 'discardMsg'), [
+          { text: t('upload', 'cancel'), onPress: () => null, style: 'cancel' },
+          { text: t('upload', 'yesGoBack'), onPress: () => navigation.goBack() },
+        ]);
+        return true;
+      };
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+      return () => backHandler.remove();
+    }, [t, navigation])
+  );
 
   const runOcrBill = async (uri) => {
     if (!uri || !token) return;
@@ -285,7 +288,15 @@ export default function UploadPhotosScreen({ navigation, route }) {
       });
 
       Alert.alert(t('upload', 'success'), t('upload', 'successMsg'), [
-        { text: 'OK', onPress: () => navigation.navigate('Main') },
+        { 
+          text: 'OK', 
+          onPress: () => {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Main' }],
+            });
+          }
+        },
       ]);
     } catch (err) {
       Alert.alert(t('upload', 'error'), err.message || 'Failed to submit. Please try again.');
