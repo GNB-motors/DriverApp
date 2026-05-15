@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import * as Sentry from '@sentry/react-native';
 
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -38,6 +39,7 @@ const initialState = {
   location: '',
   refuelTime: '',
   odometerError: null,
+  originalOcrData: {},
 };
 
 function formReducer(state, action) {
@@ -53,12 +55,23 @@ function formReducer(state, action) {
         rate: action.payload.rate != null ? String(action.payload.rate) : state.rate,
         location: action.payload.location || state.location,
         refuelTime: action.payload.datetime || state.refuelTime,
+        originalOcrData: {
+          ...state.originalOcrData,
+          litres: action.payload.volume != null ? String(action.payload.volume) : state.originalOcrData.litres,
+          rate: action.payload.rate != null ? String(action.payload.rate) : state.originalOcrData.rate,
+          location: action.payload.location || state.originalOcrData.location,
+          refuelTime: action.payload.datetime || state.originalOcrData.refuelTime,
+        }
       };
     case 'OCR_ODOMETER_SUCCESS':
       return {
         ...state,
         odometerReading: action.payload.reading != null ? String(action.payload.reading) : state.odometerReading,
         odometerError: action.payload.error || state.odometerError,
+        originalOcrData: {
+          ...state.originalOcrData,
+          odometerReading: action.payload.reading != null ? String(action.payload.reading) : state.originalOcrData.odometerReading,
+        }
       };
     default:
       return state;
@@ -271,6 +284,39 @@ export default function UploadPhotosScreen({ navigation, route }) {
           setSubmitting(false);
           return;
         }
+      }
+
+      // Check for manual OCR edits
+      const original = state.originalOcrData;
+      const edited = {
+        litres: state.litres,
+        rate: state.rate,
+        odometerReading: state.odometerReading,
+        location: state.location,
+        refuelTime: state.refuelTime,
+      };
+
+      let isEdited = false;
+      const edits = {};
+      
+      for (const key of Object.keys(edited)) {
+        if (original[key] != null && original[key] !== '' && edited[key] !== original[key]) {
+          isEdited = true;
+          edits[key] = { original: original[key], edited: edited[key] };
+        }
+      }
+
+      if (isEdited) {
+        Sentry.withScope((scope) => {
+          scope.setTag('vehicleId', vehicleId);
+          if (user?._id) scope.setTag('driverId', user._id);
+          scope.setContext('ocr_edits', {
+            originalData: original,
+            submittedData: edited,
+            changes: edits,
+          });
+          Sentry.captureMessage('OCR_DATA_EDITED');
+        });
       }
 
       await submitFuelLog(token, {
