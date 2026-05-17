@@ -1,79 +1,95 @@
-const API_BASE_URL = 'https://api.app.gnbedge.in/v1/api';
+import * as Sentry from '@sentry/react-native';
+import axios from 'axios';
 
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(message, statusCode) {
     super(message);
     this.statusCode = statusCode;
   }
 }
 
-async function request(method, path, body = null, token = null) {
-  const fullUrl = `${API_BASE_URL}${path}`;
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const options = { method, headers };
-  if (body) options.body = JSON.stringify(body);
-
-  console.log(`\n[API] >>> ${method} ${fullUrl}`);
-  if (body) console.log(`[API] Request body:`, JSON.stringify(body));
-
-  let response;
-  try {
-    response = await fetch(fullUrl, options);
-  } catch (networkErr) {
-    console.error(`[API] NETWORK ERROR — could not reach ${fullUrl}:`, networkErr.message);
-    throw new ApiError('Unable to reach server. Please check your connection.', 0);
-  }
-
-  console.log(`[API] <<< Status: ${response.status} ${response.statusText}`);
-
-  if (response.status === 304) return null;
-
-  let data;
-  try {
-    data = await response.json();
-    console.log(`[API] Response body:`, JSON.stringify(data));
-  } catch {
-    console.error(`[API] Failed to parse JSON response from ${fullUrl}`);
-    throw new ApiError('Unable to reach server. Please check your connection.', response.status);
-  }
-
-  if (!response.ok) {
-    console.error(`[API] ERROR ${response.status} from ${fullUrl}:`, data?.message || data);
-    throw new ApiError(data.message || 'Something went wrong', response.status);
-  }
-
-  return data;
+function reportApiError(err, { method, path, status, body }) {
+  Sentry.withScope((scope) => {
+    scope.setTag('api.method', method);
+    scope.setTag('api.path', path);
+    if (status != null) scope.setTag('api.status', String(status));
+    scope.setContext('api', { method, path, status, body });
+    Sentry.captureException(err);
+  });
 }
 
-// Multipart upload helper. Optional timeout aborts the request.
-// Backend response shape is inconsistent — most endpoints wrap in {data:...},
-// but /documents returns the raw doc — so unwrap defensively.
-async function multipart(path, formData, token, { timeoutMs } = {}) {
-  const controller = timeoutMs ? new AbortController() : null;
-  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+// Create an Axios instance
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-  let response;
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-      signal: controller?.signal,
-    });
-  } catch (err) {
-    if (err.name === 'AbortError') throw new ApiError('Request timed out. Please try again.', 408);
-    throw err;
-  } finally {
-    if (timer) clearTimeout(timer);
+// Request Interceptor: Logging & dynamic token
+apiClient.interceptors.request.use(
+  (config) => {
+    // If we passed a token via config.token (custom property), attach it
+    if (config.token) {
+      config.headers['Authorization'] = `Bearer ${config.token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response Interceptor: Error handling
+apiClient.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response) {
+      const message = error.response.data?.message || 'Something went wrong';
+      const apiErr = new ApiError(message, error.response.status);
+      reportApiError(apiErr, {
+        method: error.config?.method?.toUpperCase(),
+        path: error.config?.url,
+        status: error.response.status,
+        body: error.response.data
+      });
+      return Promise.reject(apiErr);
+    } else if (error.request) {
+      const apiErr = new ApiError('Unable to reach server. Please check your connection.', 0);
+      reportApiError(apiErr, {
+        method: error.config?.method?.toUpperCase(),
+        path: error.config?.url,
+        status: 0,
+        body: null
+      });
+      return Promise.reject(apiErr);
+    }
+    return Promise.reject(error);
   }
+);
 
-  const data = await response.json();
-  console.log(`[API] ${path} — status: ${response.status}, full response:`, JSON.stringify(data, null, 2));
-  if (!response.ok) throw new ApiError(data.message || 'Upload failed', response.status);
-  return data?.data ?? data;
+// Helper for multipart forms
+async function multipart(path, formData, token, { timeoutMs } = {}) {
+  try {
+    const config = {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      token, // custom property handled by interceptor
+    };
+    if (timeoutMs) config.timeout = timeoutMs;
+
+    const response = await apiClient.post(path, formData, config);
+    return response.data?.data ?? response.data;
+  } catch (error) {
+    if (error.code === 'ECONNABORTED') {
+      const apiErr = new ApiError('Request timed out. Please try again.', 408);
+      reportApiError(apiErr, { method: 'POST', path, status: 408, body: null });
+      throw apiErr;
+    }
+    // other errors are already reported by the response interceptor
+    throw error;
+  }
 }
 
 function buildFileForm(file, fields = {}) {
@@ -86,51 +102,49 @@ function buildFileForm(file, fields = {}) {
 // ── Auth ───────────────────────────────────────────────────────────────
 
 export async function requestDriverOtp(mobileNumber) {
-  return request('POST', '/auth/driver/request-otp', { mobileNumber });
+  const res = await apiClient.post('/auth/driver/request-otp', { mobileNumber });
+  return res.data;
 }
 
 export async function verifyDriverOtp(mobileNumber, otp) {
-  const res = await request('POST', '/auth/driver/verify-otp', { mobileNumber, otp });
-  return res?.data;
+  const res = await apiClient.post('/auth/driver/verify-otp', { mobileNumber, otp });
+  return res.data?.data;
 }
 
 // ── Vehicles ───────────────────────────────────────────────────────────
 
 export async function fetchVehicles(token, limit = 100) {
-  const res = await request('GET', `/vehicles?limit=${limit}`, null, token);
-  return res?.data;
+  const res = await apiClient.get(`/vehicles?limit=${limit}`, { token });
+  return res.data?.data;
 }
 
 // ── Employees / Drivers ────────────────────────────────────────────────
 
 export async function fetchDrivers(token, limit = 100) {
-  const res = await request('GET', `/employees?role=DRIVER&limit=${limit}`, null, token);
-  return res?.data;
+  const res = await apiClient.get(`/employees?role=DRIVER&limit=${limit}`, { token });
+  return res.data?.data;
 }
 
 // ── Mileage ────────────────────────────────────────────────────────────
 
 export async function fetchLastOdometer(token, vehicleId) {
-  const res = await request('GET', `/mileage/last-odometer/${vehicleId}`, null, token);
-  return res?.data;
+  const res = await apiClient.get(`/mileage/last-odometer/${vehicleId}`, { token });
+  return res.data?.data;
 }
 
 export async function submitFuelLog(token, payload) {
-  const res = await request('POST', '/mileage/fuel-log', payload, token);
-  return res?.data;
+  const res = await apiClient.post('/mileage/fuel-log', payload, { token });
+  return res.data?.data;
 }
 
 export async function fetchMileageIntervals(token, page = 1, limit = 50) {
-  return request('GET', `/mileage/intervals?page=${page}&limit=${limit}`, null, token);
+  const res = await apiClient.get(`/mileage/intervals?page=${page}&limit=${limit}`, { token });
+  return res.data;
 }
 
 export async function fetchMyFuelLogs(token, driverId, page = 1, limit = 50) {
-  return request(
-    'GET',
-    `/fuel-logs?driverId=${driverId}&page=${page}&limit=${limit}`,
-    null,
-    token,
-  );
+  const res = await apiClient.get(`/fuel-logs?driverId=${driverId}&page=${page}&limit=${limit}`, { token });
+  return res.data;
 }
 
 // ── Driver Location ───────────────────────────────────────────────────
@@ -141,8 +155,8 @@ export async function sendDriverLocation(token, { locationPermission, latitude, 
     body.latitude = latitude;
     body.longitude = longitude;
   }
-  const res = await request('POST', '/driver/location', body, token);
-  return res?.data;
+  const res = await apiClient.post('/driver/location', body, { token });
+  return res.data?.data;
 }
 
 // ── OCR / Documents ────────────────────────────────────────────────────

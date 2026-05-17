@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '../utils/storage';
 import { useAuth } from '../context/AuthContext';
 import { fetchVehicles } from '../services/api';
 import styles, { COLORS } from '../styles/VehicleScreen.styles';
@@ -24,10 +24,9 @@ export default function VehicleScreen({ navigation }) {
 
   useEffect(() => {
     // Load current saved vehicle
-    AsyncStorage.getItem(SELECTED_VEHICLE_KEY)
-      .then((raw) => {
-        if (raw) {
-          const saved = JSON.parse(raw);
+    storage.getItem(SELECTED_VEHICLE_KEY)
+      .then((saved) => {
+        if (saved) {
           setSelectedId(saved._id);
         }
       })
@@ -45,9 +44,9 @@ export default function VehicleScreen({ navigation }) {
 
   const selectVehicle = useCallback(async (vehicle) => {
     setSelectedId(vehicle._id);
-    await AsyncStorage.setItem(
+    await storage.setItem(
       SELECTED_VEHICLE_KEY,
-      JSON.stringify({ _id: vehicle._id, registrationNumber: vehicle.registrationNumber }),
+      { _id: vehicle._id, registrationNumber: vehicle.registrationNumber }
     );
     // Go back so HomeScreen (via useFocusEffect) picks up the change
     navigation.goBack();

@@ -17,7 +17,8 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "GNB Motors needs your location while you are on duty so managers can see your live driver position.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "GNB Motors needs Always location access only when you choose Always sharing for on-duty driver tracking."
-      }
+      },
+      "bundleIdentifier": "com.gnbedge.driverapp"
     },
     "android": {
       "permissions": [
@@ -35,7 +36,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.dpoddar2004.driverapp"
+      "package": "com.gnbedge.driverapp"
     },
     "plugins": [
       [
@@ -45,7 +46,8 @@
           "locationAlwaysAndWhenInUsePermission": "GNB Motors needs Always location access only when you choose Always sharing for on-duty driver tracking.",
           "isAndroidBackgroundLocationEnabled": true
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

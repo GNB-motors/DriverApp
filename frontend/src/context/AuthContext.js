@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '../utils/storage';
 import { requestDriverOtp, verifyDriverOtp } from '../services/api';
 
 const AuthContext = createContext();
@@ -19,11 +19,11 @@ export function AuthProvider({ children }) {
     const loadSession = async () => {
       try {
         const [storedUser, storedToken] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEY_USER),
-          AsyncStorage.getItem(STORAGE_KEY_TOKEN),
+          storage.getItem(STORAGE_KEY_USER),
+          storage.getItem(STORAGE_KEY_TOKEN),
         ]);
         if (storedUser && storedToken) {
-          setUser(JSON.parse(storedUser));
+          setUser(storedUser);
           setToken(storedToken);
         }
       } catch (err) {
@@ -71,8 +71,8 @@ export function AuthProvider({ children }) {
     const { user: loggedInUser, token: jwt, organization: org } = result;
 
     await Promise.all([
-      AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(loggedInUser)),
-      AsyncStorage.setItem(STORAGE_KEY_TOKEN, jwt),
+      storage.setItem(STORAGE_KEY_USER, loggedInUser),
+      storage.setItem(STORAGE_KEY_TOKEN, jwt),
     ]);
 
     setUser(loggedInUser);
@@ -84,8 +84,8 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     await Promise.all([
-      AsyncStorage.removeItem(STORAGE_KEY_USER),
-      AsyncStorage.removeItem(STORAGE_KEY_TOKEN),
+      storage.removeItem(STORAGE_KEY_USER),
+      storage.removeItem(STORAGE_KEY_TOKEN),
     ]);
     setUser(null);
     setToken(null);
