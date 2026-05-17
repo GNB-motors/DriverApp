@@ -8,7 +8,7 @@ import { LanguageProvider } from './src/context/LanguageContext';
 import { AuthProvider } from './src/context/AuthContext';
 
 Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://4d3822fa54487763a34397e80131924b@o4511382719234048.ingest.de.sentry.io/4511383324262480',
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
   enableAutoSessionTracking: true,
   // We only want API errors — disable automatic JS error capture.
   enableNative: true,

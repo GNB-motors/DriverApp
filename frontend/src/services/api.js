@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/react-native';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.app.gnbedge.in/v1/api';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export class ApiError extends Error {
   constructor(message, statusCode) {
@@ -49,20 +49,20 @@ apiClient.interceptors.response.use(
     if (error.response) {
       const message = error.response.data?.message || 'Something went wrong';
       const apiErr = new ApiError(message, error.response.status);
-      reportApiError(apiErr, { 
-        method: error.config?.method?.toUpperCase(), 
-        path: error.config?.url, 
-        status: error.response.status, 
-        body: error.response.data 
+      reportApiError(apiErr, {
+        method: error.config?.method?.toUpperCase(),
+        path: error.config?.url,
+        status: error.response.status,
+        body: error.response.data
       });
       return Promise.reject(apiErr);
     } else if (error.request) {
       const apiErr = new ApiError('Unable to reach server. Please check your connection.', 0);
-      reportApiError(apiErr, { 
-        method: error.config?.method?.toUpperCase(), 
-        path: error.config?.url, 
-        status: 0, 
-        body: null 
+      reportApiError(apiErr, {
+        method: error.config?.method?.toUpperCase(),
+        path: error.config?.url,
+        status: 0,
+        body: null
       });
       return Promise.reject(apiErr);
     }
@@ -78,7 +78,7 @@ async function multipart(path, formData, token, { timeoutMs } = {}) {
       token, // custom property handled by interceptor
     };
     if (timeoutMs) config.timeout = timeoutMs;
-    
+
     const response = await apiClient.post(path, formData, config);
     return response.data?.data ?? response.data;
   } catch (error) {
