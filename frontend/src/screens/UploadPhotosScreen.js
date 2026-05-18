@@ -212,7 +212,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
     }
   };
 
-  const isComplete = needsOdometer ? odometerPhoto && billPhoto : billPhoto;
+  const isComplete = !!billPhoto;
 
   const handleSubmit = async () => {
     let vehicleId = cachedVehicleIdRef.current;
