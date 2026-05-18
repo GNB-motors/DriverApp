@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '../utils/storage';
 import * as Location from 'expo-location';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -23,8 +23,8 @@ export default function HomeScreen({ navigation }) {
   // (so it updates immediately after returning from VehicleScreen)
   useFocusEffect(
     useCallback(() => {
-      AsyncStorage.getItem(SELECTED_VEHICLE_KEY)
-        .then((raw) => setSavedVehicle(raw ? JSON.parse(raw) : null))
+      storage.getItem(SELECTED_VEHICLE_KEY)
+        .then((saved) => setSavedVehicle(saved))
         .catch(() => setSavedVehicle(null));
     }, []),
   );
@@ -95,12 +95,12 @@ export default function HomeScreen({ navigation }) {
     });
 
   const getLocationSharingChoice = async () => {
-    const savedChoice = await AsyncStorage.getItem(LOCATION_SHARING_PREFERENCE_KEY);
+    const savedChoice = await storage.getItem(LOCATION_SHARING_PREFERENCE_KEY);
     if (savedChoice === 'foreground' || savedChoice === 'always') return savedChoice;
 
     const choice = await askLocationSharingChoice();
     if (choice === 'foreground' || choice === 'always') {
-      await AsyncStorage.setItem(LOCATION_SHARING_PREFERENCE_KEY, choice);
+      await storage.setItem(LOCATION_SHARING_PREFERENCE_KEY, choice);
     }
     return choice;
   };
