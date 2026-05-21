@@ -1,11 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { storage } from '../utils/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestDriverOtp, verifyDriverOtp } from '../services/api';
 
 const AuthContext = createContext();
 
-const STORAGE_KEY_USER  = 'fleetedge_user';
-const STORAGE_KEY_TOKEN = 'fleetedge_token';
+const STORAGE_KEY_USER     = 'fleetedge_user';
+const STORAGE_KEY_TOKEN    = 'fleetedge_token';
+const STORAGE_KEY_IDENTITY = 'fleetedge_last_identity'; // "<userId>:<orgId>"
+
+// Keys that hold per-account state. Wipe these whenever the logged-in
+// identity changes or the user logs out. Add new keys here as they appear.
+const PER_ACCOUNT_KEYS = [
+  'fleetedge_selected_vehicle',
+  // future: 'fleetedge_draft_refuel', 'fleetedge_recent_locations', etc.
+];
+
+const wipePerAccountState = () =>
+  Promise.all(PER_ACCOUNT_KEYS.map((k) => AsyncStorage.removeItem(k)));
 
 export function AuthProvider({ children }) {
   const [user, setUser]           = useState(null);
@@ -14,16 +25,25 @@ export function AuthProvider({ children }) {
   const [loading, setLoading]     = useState(true);
   const [isNewLogin, setIsNewLogin] = useState(false);
 
-  // Rehydrate session from AsyncStorage on mount
   useEffect(() => {
     const loadSession = async () => {
       try {
-        const [storedUser, storedToken] = await Promise.all([
-          storage.getItem(STORAGE_KEY_USER),
-          storage.getItem(STORAGE_KEY_TOKEN),
+        const [storedUser, storedToken, storedIdentity] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEY_USER),
+          AsyncStorage.getItem(STORAGE_KEY_TOKEN),
+          AsyncStorage.getItem(STORAGE_KEY_IDENTITY),
         ]);
         if (storedUser && storedToken) {
-          setUser(storedUser);
+          const parsed = JSON.parse(storedUser);
+          const currentIdentity = `${parsed._id}:${parsed.orgId}`;
+          // Belt-and-braces: if identity drifted from what we last saw
+          // (e.g. user was rebound to a new org server-side), wipe per-
+          // account state so we don't carry stale ids forward.
+          if (storedIdentity && storedIdentity !== currentIdentity) {
+            await wipePerAccountState();
+            await AsyncStorage.setItem(STORAGE_KEY_IDENTITY, currentIdentity);
+          }
+          setUser(parsed);
           setToken(storedToken);
         }
       } catch (err) {
@@ -35,44 +55,30 @@ export function AuthProvider({ children }) {
     loadSession();
   }, []);
 
-  /**
-   * Step 1 of driver OTP login.
-   * Calls POST /api/auth/driver/request-otp.
-   * Throws on failure so the UI can show an error.
-   *
-   * @param {string} mobileNumber  e.g. "9876543210" (10-digit) or "+919876543210"
-   */
   const sendOtp = async (mobileNumber) => {
-    // Normalise to E.164 for the API
     const normalised = mobileNumber.startsWith('+')
       ? mobileNumber
       : `+91${mobileNumber.replace(/\s/g, '')}`;
-    console.log(`[Auth] sendOtp called`);
-    console.log(`[Auth] Raw input number: "${mobileNumber}"`);
-    console.log(`[Auth] Normalised number sent to API: "${normalised}"`);
-    try {
-      await requestDriverOtp(normalised);
-    } catch (err) {
-      console.error(`[Auth] requestDriverOtp failed — status: ${err.statusCode}, message: "${err.message}"`);
-      throw err;
-    }
-    return normalised; // return so the screen can cache it
+    await requestDriverOtp(normalised);
+    return normalised;
   };
 
-  /**
-   * Step 2 of driver OTP login.
-   * Calls POST /api/auth/driver/verify-otp and persists the session.
-   *
-   * @param {string} mobileNumber  E.164 format (returned from sendOtp)
-   * @param {string} otp           6-digit string
-   */
   const verifyOtp = async (mobileNumber, otp) => {
     const result = await verifyDriverOtp(mobileNumber, otp);
     const { user: loggedInUser, token: jwt, organization: org } = result;
+    const newIdentity = `${loggedInUser._id}:${loggedInUser.orgId}`;
+
+    // If the device previously belonged to a different identity, wipe its
+    // per-account state before persisting the new session.
+    const prevIdentity = await AsyncStorage.getItem(STORAGE_KEY_IDENTITY);
+    if (prevIdentity && prevIdentity !== newIdentity) {
+      await wipePerAccountState();
+    }
 
     await Promise.all([
-      storage.setItem(STORAGE_KEY_USER, loggedInUser),
-      storage.setItem(STORAGE_KEY_TOKEN, jwt),
+      AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(loggedInUser)),
+      AsyncStorage.setItem(STORAGE_KEY_TOKEN, jwt),
+      AsyncStorage.setItem(STORAGE_KEY_IDENTITY, newIdentity),
     ]);
 
     setUser(loggedInUser);
@@ -84,8 +90,10 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     await Promise.all([
-      storage.removeItem(STORAGE_KEY_USER),
-      storage.removeItem(STORAGE_KEY_TOKEN),
+      AsyncStorage.removeItem(STORAGE_KEY_USER),
+      AsyncStorage.removeItem(STORAGE_KEY_TOKEN),
+      AsyncStorage.removeItem(STORAGE_KEY_IDENTITY),
+      wipePerAccountState(),
     ]);
     setUser(null);
     setToken(null);
