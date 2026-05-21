@@ -170,3 +170,8 @@ export async function uploadDocument(token, file, entityId, docType, ocrData = n
   if (ocrData) fields.ocrData = JSON.stringify(ocrData);
   return multipart('/documents', buildFileForm(file, fields), token);
 }
+
+export async function fetchDocuments(token, entityType, entityId) {
+  const res = await apiClient.get(`/documents?entityType=${entityType}&entityId=${entityId}`, { token });
+  return res.data?.data || res.data || [];
+}
