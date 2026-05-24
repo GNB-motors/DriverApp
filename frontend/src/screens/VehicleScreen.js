@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { storage } from '../utils/storage';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { fetchVehicles } from '../services/api';
 import styles, { COLORS } from '../styles/VehicleScreen.styles';
 
@@ -18,6 +19,7 @@ export const SELECTED_VEHICLE_KEY = 'fleetedge_selected_vehicle';
 
 export default function VehicleScreen({ navigation }) {
   const { token } = useAuth();
+  const { t } = useLanguage();
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
@@ -99,8 +101,8 @@ export default function VehicleScreen({ navigation }) {
             <Ionicons name="arrow-back" size={22} color={COLORS.white} />
           </TouchableOpacity>
           <View style={styles.headerTitleBlock}>
-            <Text style={styles.headerTitle}>My Vehicle</Text>
-            <Text style={styles.headerSubtitle}>Tap a vehicle to set it as your default</Text>
+            <Text style={styles.headerTitle}>{t('vehicle', 'title')}</Text>
+            <Text style={styles.headerSubtitle}>{t('vehicle', 'subtitle')}</Text>
           </View>
         </View>
 
@@ -112,11 +114,11 @@ export default function VehicleScreen({ navigation }) {
           ) : vehicles.length === 0 ? (
             <View style={styles.centered}>
               <Ionicons name="car-outline" size={48} color={COLORS.border} />
-              <Text style={styles.emptyText}>No vehicles found for your organization.</Text>
+              <Text style={styles.emptyText}>{t('vehicle', 'noVehicles')}</Text>
             </View>
           ) : (
             <>
-              <Text style={styles.sectionLabel}>Select Your Vehicle</Text>
+              <Text style={styles.sectionLabel}>{t('vehicle', 'selectVehicle')}</Text>
               <FlatList
                 data={vehicles}
                 keyExtractor={(item) => String(item._id)}

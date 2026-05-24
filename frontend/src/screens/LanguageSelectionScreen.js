@@ -26,7 +26,7 @@ export default function LanguageSelectionScreen({ navigation }) {
         )}
         <Text style={styles.title}>Welcome</Text>
         <Text style={styles.subtitle}>Choose your language</Text>
-        <Text style={styles.subtitleHindi}>(अपनी भाषा चुनें)</Text>
+        <Text style={styles.subtitleHindi}>(अपनी भाषा चुनें / আপনার ভাষা বেছে নিন)</Text>
 
         <TouchableOpacity style={styles.btn} onPress={() => selectLang('en')}>
           <Text style={styles.btnText}>English</Text>
@@ -34,6 +34,10 @@ export default function LanguageSelectionScreen({ navigation }) {
 
         <TouchableOpacity style={styles.btn} onPress={() => selectLang('hi')}>
           <Text style={styles.btnText}>हिंदी</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.btn} onPress={() => selectLang('bn')}>
+          <Text style={styles.btnText}>বাংলা</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

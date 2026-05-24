@@ -148,7 +148,7 @@ export default function HomeScreen({ navigation }) {
             <Ionicons name="person" size={28} color={COLORS.primary} />
           </View>
           <View>
-            <Text style={styles.greetingText}>Welcome!</Text>
+            <Text style={styles.greetingText}>{t('home', 'greeting')}</Text>
             <Text style={styles.nameText}>{driverName}</Text>
           </View>
         </View>
@@ -171,10 +171,10 @@ export default function HomeScreen({ navigation }) {
           </View>
           <View style={styles.dutyCardInfo}>
             <Text style={[styles.dutyCardLabel, onDuty && styles.dutyCardLabelActive]}>
-              {onDuty ? 'ON DUTY' : 'OFF DUTY'}
+              {onDuty ? t('home', 'onDuty') : t('home', 'offDuty')}
             </Text>
             <Text style={[styles.dutyCardSubtitle, onDuty && styles.dutyCardSubtitleActive]}>
-              {onDuty ? 'Sharing location every 2 min' : 'Tap to start sharing location'}
+              {onDuty ? t('home', 'dutyActiveSub') : t('home', 'dutyInactiveSub')}
             </Text>
           </View>
           <View style={[styles.dutyToggle, onDuty && styles.dutyToggleActive]}>
@@ -189,12 +189,12 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.refuelTitle}>{t('home', 'startRefuel')}</Text>
               <Ionicons name="water" size={32} color={COLORS.white} />
             </View>
-            <Text style={styles.refuelSubtitle}>Record your latest diesel fill-up</Text>
+            <Text style={styles.refuelSubtitle}>{t('home', 'refuelSubtitle')}</Text>
           </View>
 
           <TouchableOpacity style={styles.refuelAction} onPress={startRefuel}>
             <Ionicons name="add-circle" size={24} color={COLORS.primaryDark} />
-            <Text style={styles.refuelActionText}>Tap to Start</Text>
+            <Text style={styles.refuelActionText}>{t('home', 'tapToStart')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -208,11 +208,11 @@ export default function HomeScreen({ navigation }) {
             <Ionicons name="car-sport" size={22} color={COLORS.primary} />
           </View>
           <View style={styles.vehicleCardInfo}>
-            <Text style={styles.vehicleCardLabel}>MY VEHICLE</Text>
+            <Text style={styles.vehicleCardLabel}>{t('home', 'myVehicle')}</Text>
             {savedVehicle ? (
               <Text style={styles.vehicleCardValue}>{savedVehicle.registrationNumber}</Text>
             ) : (
-              <Text style={styles.vehicleCardEmpty}>Set your vehicle →</Text>
+              <Text style={styles.vehicleCardEmpty}>{t('home', 'setVehicle')}</Text>
             )}
           </View>
           <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
@@ -228,8 +228,8 @@ export default function HomeScreen({ navigation }) {
             <Ionicons name="list" size={22} color={COLORS.primary} />
           </View>
           <View style={styles.historyCardInfo}>
-            <Text style={styles.historyCardLabel}>Fuel History</Text>
-            <Text style={styles.historyCardSubtitle}>View past logs</Text>
+            <Text style={styles.historyCardLabel}>{t('home', 'fuelHistory')}</Text>
+            <Text style={styles.historyCardSubtitle}>{t('home', 'fuelHistorySub')}</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
         </TouchableOpacity>

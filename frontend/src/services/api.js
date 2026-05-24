@@ -175,3 +175,49 @@ export async function fetchDocuments(token, entityType, entityId) {
   const res = await apiClient.get(`/documents?entityType=${entityType}&entityId=${entityId}`, { token });
   return res.data?.data || res.data || [];
 }
+
+export async function fetchVehicleDocuments(token, vehicleId) {
+  const res = await apiClient.get(`/vehicles/${vehicleId}/documents`, { token });
+  return res.data?.data || res.data || [];
+}
+
+// ── Maintenance / Repairs ──────────────────────────────────────────────
+
+export async function submitRepair(token, payload, photos = []) {
+  try {
+    if (photos.length === 0) {
+      const res = await apiClient.post('/maintenance', payload, { token });
+      return res.data?.data;
+    }
+    
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(payload)) {
+      if (v !== undefined && v !== null && v !== '') {
+        fd.append(k, v);
+      }
+    }
+    for (const photo of photos) {
+      fd.append('files', {
+        uri: photo.uri,
+        name: photo.uri.split('/').pop() || 'photo.jpg',
+        type: 'image/jpeg',
+      });
+    }
+    return await multipart('/maintenance', fd, token);
+  } catch (error) {
+    console.error('[API Error] submitRepair failed:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+export async function fetchRepairLogs(token, search = '') {
+  try {
+    // Assuming the backend supports recordType=REPAIR
+    const query = search ? `&search=${encodeURIComponent(search)}` : '';
+    const res = await apiClient.get(`/maintenance?recordType=REPAIR${query}`, { token });
+    return res.data?.data || res.data || [];
+  } catch (error) {
+    console.error('[API Error] fetchRepairLogs failed:', error.response?.data || error.message);
+    throw error;
+  }
+}

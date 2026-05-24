@@ -15,8 +15,8 @@ export default function ProfileScreen({ navigation }) {
   const driverName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Driver';
   const driverHandle = user?.mobileNumber || '';
 
-  const navigateToDocs = () => {
-    navigation.navigate('DocsScreen');
+  const navigateToDocs = (docType) => {
+    navigation.navigate('DocsScreen', { docType });
   };
 
   const navigateToLanguage = () => {
@@ -37,7 +37,7 @@ export default function ProfileScreen({ navigation }) {
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Header */}
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Profile</Text>
+          <Text style={styles.headerTitle}>{t('profile', 'title')}</Text>
         </View>
 
 
@@ -53,12 +53,21 @@ export default function ProfileScreen({ navigation }) {
 
         {/* White bottom sheet - fills remaining space */}
         <View style={styles.bottomContent}>
-          {/* Documents */}
-          <TouchableOpacity style={styles.menuItem} onPress={navigateToDocs} activeOpacity={0.7}>
+          {/* Personal Documents */}
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigateToDocs('PERSONAL')} activeOpacity={0.7}>
             <View style={styles.iconContainer}>
-              <Ionicons name="document-text-outline" size={24} color={COLORS.primary} />
+              <Ionicons name="person-outline" size={24} color={COLORS.primary} />
             </View>
-            <Text style={styles.menuTitle}>{t('docs', 'title') || 'Documents'}</Text>
+            <Text style={styles.menuTitle}>{t('docs', 'personalTitle')}</Text>
+            <Ionicons name="chevron-forward" size={22} color="#333" style={styles.chevron} />
+          </TouchableOpacity>
+
+          {/* Vehicle Documents */}
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigateToDocs('VEHICLE')} activeOpacity={0.7}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="car-outline" size={24} color={COLORS.primary} />
+            </View>
+            <Text style={styles.menuTitle}>{t('docs', 'vehicleTitle')}</Text>
             <Ionicons name="chevron-forward" size={22} color="#333" style={styles.chevron} />
           </TouchableOpacity>
 
@@ -67,7 +76,7 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.iconContainer}>
               <Ionicons name="language-outline" size={24} color={COLORS.primary} />
             </View>
-            <Text style={styles.menuTitle}>Change Language</Text>
+            <Text style={styles.menuTitle}>{t('profile', 'changeLanguage')}</Text>
             <Ionicons name="chevron-forward" size={22} color="#333" style={styles.chevron} />
           </TouchableOpacity>
 
@@ -76,7 +85,7 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.iconContainer}>
               <Ionicons name="log-out-outline" size={24} color="#E74C3C" />
             </View>
-            <Text style={[styles.menuTitle, styles.menuTitleDanger]}>Logout</Text>
+            <Text style={[styles.menuTitle, styles.menuTitleDanger]}>{t('profile', 'logout')}</Text>
             <Ionicons name="chevron-forward" size={22} color="#E74C3C" style={styles.chevron} />
           </TouchableOpacity>
         </View>

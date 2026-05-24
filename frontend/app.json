@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -46,8 +46,7 @@
           "locationAlwaysAndWhenInUsePermission": "GNB Motors needs Always location access only when you choose Always sharing for on-duty driver tracking.",
           "isAndroidBackgroundLocationEnabled": true
         }
-      ],
-      "@sentry/react-native"
+      ]
     ],
     "web": {
       "favicon": "./assets/favicon.png"

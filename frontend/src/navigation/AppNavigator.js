@@ -21,6 +21,9 @@ import SOSEmergencyActiveScreen from '../screens/SOSEmergencyActiveScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ChooseLanguageScreen from '../screens/ChooseLanguageScreen';
 import FuelHistoryScreen from '../screens/FuelHistoryScreen';
+import RepairsMenuScreen from '../screens/RepairsMenuScreen';
+import AddRepairScreen from '../screens/AddRepairScreen';
+import RepairLogsScreen from '../screens/RepairLogsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -33,6 +36,7 @@ function BottomTabs() {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
           if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
+          else if (route.name === 'Repairs') iconName = focused ? 'build' : 'build-outline';
           else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
           return <Ionicons name={iconName} size={size} color={color} />;
         },
@@ -58,8 +62,9 @@ function BottomTabs() {
         }
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: t('home', 'tabName') || 'Home' }} />
+      <Tab.Screen name="Repairs" component={RepairsMenuScreen} options={{ tabBarLabel: t('repairs', 'tabName') || 'Repairs' }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('profile', 'title') || 'Profile' }} />
     </Tab.Navigator>
   );
 }
@@ -91,6 +96,8 @@ export default function AppNavigator() {
           <Stack.Screen name="UploadPhotos" component={UploadPhotosScreen} />
           <Stack.Screen name="PhotoPreview" component={PhotoPreviewScreen} />
           <Stack.Screen name="FuelHistory" component={FuelHistoryScreen} />
+          <Stack.Screen name="AddRepair" component={AddRepairScreen} />
+          <Stack.Screen name="RepairLogs" component={RepairLogsScreen} />
           <Stack.Screen name="SOSOptions" component={SOSOptionsScreen} options={{ presentation: 'transparentModal' }} />
           <Stack.Screen name="SOSEmergencyActive" component={SOSEmergencyActiveScreen} options={{ presentation: 'fullScreenModal' }} />
         </>

@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     opacity: 0.1,
   },
-  
+
   // ── Header Content ──
   headerContainer: {
     flexDirection: 'row',
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
   },
-  
+
   // ── Document Cards ──
   listContainer: {
     paddingBottom: 40,
@@ -157,6 +157,63 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
   },
+  sectionHeader: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.primaryDark,
+    marginTop: 16,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  sectionContainer: {
+    marginBottom: 16,
+  },
+  noVehicleCard: {
+    backgroundColor: 'rgba(66, 150, 144, 0.05)',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(66, 150, 144, 0.15)',
+    borderStyle: 'dashed',
+    marginBottom: 24,
+  },
+  noVehicleTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.textDark,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  noVehicleSubtitle: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 10,
+  },
+  setVehicleBtn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  setVehicleBtnText: {
+    color: COLORS.white,
+    fontWeight: '600',
+    fontSize: 14,
+    marginRight: 6,
+  },
 });
 
 export default styles;
+

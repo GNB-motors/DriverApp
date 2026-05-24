@@ -41,7 +41,7 @@ export default function ChooseLanguageScreen({ navigation }) {
         </View>
 
         <Text style={styles.subtitle}>Select your preferred language</Text>
-        <Text style={styles.subtitleHindi}>अपनी पसंदीदा भाषा चुनें</Text>
+        <Text style={styles.subtitleHindi}>अपनी पसंदीदा भाषा चुनें / আপনার পছন্দের ভাষা বেছে নিন</Text>
 
         {/* Language Cards */}
         <View style={styles.cardsContainer}>
@@ -54,7 +54,7 @@ export default function ChooseLanguageScreen({ navigation }) {
             onPress={() => selectLang('en')}
           >
             <View style={styles.langIconContainer}>
-              <Text style={styles.langFlag}>🇬🇧</Text>
+              <Text style={styles.langIconText}>A</Text>
             </View>
             <View style={styles.langInfo}>
               <Text style={styles.langName}>English</Text>
@@ -77,7 +77,7 @@ export default function ChooseLanguageScreen({ navigation }) {
             onPress={() => selectLang('hi')}
           >
             <View style={styles.langIconContainer}>
-              <Text style={styles.langFlag}>🇮🇳</Text>
+              <Text style={styles.langIconText}>अ</Text>
             </View>
             <View style={styles.langInfo}>
               <Text style={styles.langName}>Hindi</Text>
@@ -88,6 +88,29 @@ export default function ChooseLanguageScreen({ navigation }) {
               currentLang === 'hi' && styles.radioActive,
             ]}>
               {currentLang === 'hi' && <View style={styles.radioInner} />}
+            </View>
+          </TouchableOpacity>
+
+          {/* Bengali */}
+          <TouchableOpacity
+            style={[
+              styles.langCard,
+              currentLang === 'bn' && styles.langCardActive,
+            ]}
+            onPress={() => selectLang('bn')}
+          >
+            <View style={styles.langIconContainer}>
+              <Text style={styles.langIconText}>অ</Text>
+            </View>
+            <View style={styles.langInfo}>
+              <Text style={styles.langName}>Bangla</Text>
+              <Text style={styles.langNative}>বাংলা</Text>
+            </View>
+            <View style={[
+              styles.radio,
+              currentLang === 'bn' && styles.radioActive,
+            ]}>
+              {currentLang === 'bn' && <View style={styles.radioInner} />}
             </View>
           </TouchableOpacity>
         </View>
@@ -165,8 +188,10 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  langFlag: {
-    fontSize: 24,
+  langIconText: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: COLORS.primaryDark,
   },
   langInfo: {
     flex: 1,

@@ -11,11 +11,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { fetchMyFuelLogs } from '../services/api';
 import styles, { COLORS } from '../styles/FuelHistoryScreen.styles';
 
 export default function FuelHistoryScreen({ navigation }) {
   const { token, user } = useAuth();
+  const { t } = useLanguage();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -57,7 +59,7 @@ export default function FuelHistoryScreen({ navigation }) {
         {item.vehicleId?.registrationNumber && (
           <View style={styles.logRow}>
             <Ionicons name="car-sport-outline" size={16} color={COLORS.textMuted} />
-            <Text style={styles.logRowLabel}>Vehicle</Text>
+            <Text style={styles.logRowLabel}>{t('fuelHistory', 'vehicle')}</Text>
             <Text style={styles.logRowValue}>{item.vehicleId.registrationNumber}</Text>
           </View>
         )}
@@ -65,7 +67,7 @@ export default function FuelHistoryScreen({ navigation }) {
         {item.litres != null && (
           <View style={styles.logRow}>
             <Ionicons name="water-outline" size={16} color={COLORS.textMuted} />
-            <Text style={styles.logRowLabel}>Litres</Text>
+            <Text style={styles.logRowLabel}>{t('fuelHistory', 'litres')}</Text>
             <Text style={styles.logRowValue}>{item.litres.toFixed(2)} L</Text>
           </View>
         )}
@@ -73,7 +75,7 @@ export default function FuelHistoryScreen({ navigation }) {
         {item.rate != null && (
           <View style={styles.logRow}>
             <Ionicons name="pricetag-outline" size={16} color={COLORS.textMuted} />
-            <Text style={styles.logRowLabel}>Rate</Text>
+            <Text style={styles.logRowLabel}>{t('fuelHistory', 'rate')}</Text>
             <Text style={styles.logRowValue}>₹{item.rate.toFixed(2)}/L</Text>
           </View>
         )}
@@ -81,7 +83,7 @@ export default function FuelHistoryScreen({ navigation }) {
         {item.totalAmount != null && (
           <View style={styles.logRow}>
             <Ionicons name="receipt-outline" size={16} color={COLORS.textMuted} />
-            <Text style={styles.logRowLabel}>Total</Text>
+            <Text style={styles.logRowLabel}>{t('fuelHistory', 'total')}</Text>
             <Text style={styles.logRowValue}>₹{item.totalAmount.toFixed(2)}</Text>
           </View>
         )}
@@ -89,7 +91,7 @@ export default function FuelHistoryScreen({ navigation }) {
         {item.odometerReading != null && (
           <View style={styles.logRow}>
             <Ionicons name="speedometer-outline" size={16} color={COLORS.textMuted} />
-            <Text style={styles.logRowLabel}>Odometer</Text>
+            <Text style={styles.logRowLabel}>{t('fuelHistory', 'odometer')}</Text>
             <Text style={styles.logRowValue}>{item.odometerReading} km</Text>
           </View>
         )}
@@ -97,7 +99,7 @@ export default function FuelHistoryScreen({ navigation }) {
         {item.location && (
           <View style={styles.logRow}>
             <Ionicons name="location-outline" size={16} color={COLORS.textMuted} />
-            <Text style={styles.logRowLabel}>Location</Text>
+            <Text style={styles.logRowLabel}>{t('fuelHistory', 'location')}</Text>
             <Text style={styles.logRowValue}>{item.location}</Text>
           </View>
         )}
@@ -115,7 +117,7 @@ export default function FuelHistoryScreen({ navigation }) {
           <Ionicons name="arrow-back" size={22} color={COLORS.white} />
         </TouchableOpacity>
         <View style={styles.headerTitleBlock}>
-          <Text style={styles.headerTitle}>Mileage History</Text>
+          <Text style={styles.headerTitle}>{t('fuelHistory', 'title')}</Text>
         </View>
       </View>
 
@@ -139,7 +141,7 @@ export default function FuelHistoryScreen({ navigation }) {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="list-circle-outline" size={60} color={COLORS.textMuted} />
-              <Text style={styles.emptyText}>No mileage records found.</Text>
+              <Text style={styles.emptyText}>{t('fuelHistory', 'noRecords')}</Text>
             </View>
           }
         />
