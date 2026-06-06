@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import { sendDriverLocation } from './api';
+import logger from '../utils/logger';
 
 const INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 
@@ -25,11 +26,11 @@ async function sendLocation(token) {
         longitude: loc.coords.longitude,
       });
     } catch {
-      // GPS on but no fix — Scenario C
+      // GPS on but no fix â€” Scenario C
       await sendDriverLocation(token, { locationPermission: true });
     }
   } catch (err) {
-    console.warn('[LocationTracker] Failed to send location:', err.message);
+    logger.warn('LocationTracker', `Failed to send location: ${err?.message}`);
   }
 }
 

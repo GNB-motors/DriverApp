@@ -53,23 +53,27 @@ export default function ProfileScreen({ navigation }) {
 
         {/* White bottom sheet - fills remaining space */}
         <View style={styles.bottomContent}>
-          {/* Personal Documents */}
-          <TouchableOpacity style={styles.menuItem} onPress={() => navigateToDocs('PERSONAL')} activeOpacity={0.7}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="person-outline" size={24} color={COLORS.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{t('docs', 'personalTitle')}</Text>
-            <Ionicons name="chevron-forward" size={22} color="#333" style={styles.chevron} />
-          </TouchableOpacity>
+          {/* Personal Documents — hidden for field agents */}
+          {user?.role !== 'FIELD_AGENT' && (
+            <TouchableOpacity style={styles.menuItem} onPress={() => navigateToDocs('PERSONAL')} activeOpacity={0.7}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="person-outline" size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.menuTitle}>{t('docs', 'personalTitle')}</Text>
+              <Ionicons name="chevron-forward" size={22} color="#333" style={styles.chevron} />
+            </TouchableOpacity>
+          )}
 
-          {/* Vehicle Documents */}
-          <TouchableOpacity style={styles.menuItem} onPress={() => navigateToDocs('VEHICLE')} activeOpacity={0.7}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="car-outline" size={24} color={COLORS.primary} />
-            </View>
-            <Text style={styles.menuTitle}>{t('docs', 'vehicleTitle')}</Text>
-            <Ionicons name="chevron-forward" size={22} color="#333" style={styles.chevron} />
-          </TouchableOpacity>
+          {/* Vehicle Documents — hidden for field agents */}
+          {user?.role !== 'FIELD_AGENT' && (
+            <TouchableOpacity style={styles.menuItem} onPress={() => navigateToDocs('VEHICLE')} activeOpacity={0.7}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="car-outline" size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.menuTitle}>{t('docs', 'vehicleTitle')}</Text>
+              <Ionicons name="chevron-forward" size={22} color="#333" style={styles.chevron} />
+            </TouchableOpacity>
+          )}
 
           {/* Change Language */}
           <TouchableOpacity style={styles.menuItem} onPress={navigateToLanguage} activeOpacity={0.7}>

@@ -91,6 +91,16 @@ export default function AddRepairScreen({ navigation }) {
     }
   };
 
+  const resetForm = () => {
+    setSelectedVehicle(null);
+    setDate(new Date());
+    setWorkshop('');
+    setRepairType('');
+    setAmount('');
+    setNotes('');
+    setPhotos([]);
+  };
+
   const handleSubmit = async () => {
     if (!selectedVehicle || !workshop || !repairType || !amount) {
       Alert.alert(t('repairs', 'missingFieldsTitle'), t('repairs', 'missingFieldsMsg'));
@@ -108,6 +118,7 @@ export default function AddRepairScreen({ navigation }) {
         amount: Number(amount),
         notes,
       }, photos);
+      resetForm();
       Alert.alert(t('repairs', 'successTitle'), t('repairs', 'successMsg'), [
         { text: 'OK', onPress: () => navigation.goBack() }
       ]);

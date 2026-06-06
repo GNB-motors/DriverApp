@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { fetchRepairLogs } from '../services/api';
+import logger from '../utils/logger';
 
 const { height } = Dimensions.get('window');
 
@@ -41,7 +42,7 @@ export default function RepairLogsScreen({ navigation }) {
       const data = await fetchRepairLogs(token);
       setLogs(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.log('Failed to fetch repair logs:', err);
+      logger.error('RepairLogs', `Failed to fetch repair logs: ${err?.message}`);
     } finally {
       setLoading(false);
       setRefreshing(false);

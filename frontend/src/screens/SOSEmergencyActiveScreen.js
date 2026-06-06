@@ -16,7 +16,7 @@ export default function SOSEmergencyActiveScreen({ navigation, route }) {
         Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
       ])
     ).start();
-  }, []);
+  }, [pulseAnim]);
 
   return (
     <View style={[styles.container, { backgroundColor: isBreakdown ? theme.colors.warning : theme.colors.error }]}>

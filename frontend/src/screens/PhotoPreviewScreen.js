@@ -6,6 +6,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import ViewShot from 'react-native-view-shot';
 import { useLanguage } from '../context/LanguageContext';
+import logger from '../utils/logger';
 import styles, { COLORS } from '../styles/PhotoPreviewScreen.styles';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -66,7 +67,7 @@ export default function PhotoPreviewScreen({ navigation, route }) {
         }
       }
     } catch (e) {
-      console.error('Failed to take photo', e);
+      logger.error('PhotoPreview', `Failed to take photo: ${e?.message}`);
     } finally {
       setIsCapturing(false);
     }
@@ -89,7 +90,7 @@ export default function PhotoPreviewScreen({ navigation, route }) {
         merge: true,
       });
     } catch (e) {
-      console.warn('[PhotoPreview] ViewShot capture failed, using original URI', e);
+      logger.warn('PhotoPreview', `ViewShot capture failed, using original URI: ${e?.message}`);
       navigation.navigate({
         name: 'UploadPhotos',
         params: {

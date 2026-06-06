@@ -12,7 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { fetchMyFuelLogs } from '../services/api';
+import { fetchMyFuelLogs, fetchFieldAgentFuelLogs } from '../services/api';
+import logger from '../utils/logger';
 import styles, { COLORS } from '../styles/FuelHistoryScreen.styles';
 
 export default function FuelHistoryScreen({ navigation }) {
@@ -27,10 +28,14 @@ export default function FuelHistoryScreen({ navigation }) {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const res = await fetchMyFuelLogs(token, user._id, 1, 50);
+      const isFieldAgent = user.role === 'FIELD_AGENT';
+      const res = isFieldAgent
+        ? await fetchFieldAgentFuelLogs(token, 1, 50)
+        : await fetchMyFuelLogs(token, user._id, 1, 50);
       setLogs(res?.data || []);
+      logger.info('FuelHistory', `Loaded ${res?.data?.length ?? 0} logs (${isFieldAgent ? 'field-agent' : 'driver'})`);
     } catch (err) {
-      console.warn('[FuelHistory] fetch error:', err.message);
+      logger.warn('FuelHistory', `fetch error: ${err.message}`);
     } finally {
       setLoading(false);
       setRefreshing(false);

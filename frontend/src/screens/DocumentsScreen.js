@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { storage } from '../utils/storage';
 import { SELECTED_VEHICLE_KEY } from './VehicleScreen';
 import { fetchDocuments, fetchVehicleDocuments } from '../services/api';
+import logger from '../utils/logger';
 import styles, { COLORS } from '../styles/DocumentsScreen.styles';
 
 export default function DocumentsScreen({ route, navigation }) {
@@ -123,7 +124,7 @@ export default function DocumentsScreen({ route, navigation }) {
         setVehicleDocs([]);
       }
     } catch (error) {
-      console.warn('[DocumentsScreen] Error loading documents:', error);
+      logger.error('DocumentsScreen', `Error loading documents: ${error?.message}`);
     } finally {
       setLoading(false);
     }

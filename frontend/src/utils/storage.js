@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import logger from './logger';
 
 export const storage = {
   async getItem(key, defaultValue = null) {
@@ -13,7 +14,7 @@ export const storage = {
       }
       return defaultValue;
     } catch (error) {
-      console.error(`[Storage] Error reading ${key}:`, error);
+      logger.error('Storage', `Error reading ${key}: ${error?.message}`);
       return defaultValue;
     }
   },
@@ -23,7 +24,7 @@ export const storage = {
       const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
       await AsyncStorage.setItem(key, stringValue);
     } catch (error) {
-      console.error(`[Storage] Error saving ${key}:`, error);
+      logger.error('Storage', `Error saving ${key}: ${error?.message}`);
     }
   },
 
@@ -31,7 +32,7 @@ export const storage = {
     try {
       await AsyncStorage.removeItem(key);
     } catch (error) {
-      console.error(`[Storage] Error removing ${key}:`, error);
+      logger.error('Storage', `Error removing ${key}: ${error?.message}`);
     }
   },
 
@@ -39,7 +40,7 @@ export const storage = {
     try {
       await AsyncStorage.clear();
     } catch (error) {
-      console.error('[Storage] Error clearing storage:', error);
+      logger.error('Storage', `Error clearing storage: ${error?.message}`);
     }
   }
 };

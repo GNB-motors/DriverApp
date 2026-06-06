@@ -125,11 +125,15 @@ export default function HomeScreen({ navigation }) {
   };
 
   const startRefuel = () => {
-    navigation.navigate('RefuelDetails', {
-      vehicleId: savedVehicle?._id || null,
-      vehicleLabel: savedVehicle?.registrationNumber || null,
-      vehicleAssigned: !!savedVehicle,
-    });
+    if (user?.role === 'FIELD_AGENT') {
+      navigation.navigate('RefuelDetails', {});
+    } else {
+      navigation.navigate('RefuelDetails', {
+        vehicleId: savedVehicle?._id || null,
+        vehicleLabel: savedVehicle?.registrationNumber || null,
+        vehicleAssigned: !!savedVehicle,
+      });
+    }
   };
 
   const driverName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Driver';
@@ -160,27 +164,29 @@ export default function HomeScreen({ navigation }) {
       </View>
 
       <View style={styles.content}>
-        {/* On Duty Toggle */}
-        <TouchableOpacity
-          style={[styles.dutyCard, onDuty && styles.dutyCardActive]}
-          onPress={toggleDuty}
-          activeOpacity={0.75}
-        >
-          <View style={[styles.dutyCardIcon, onDuty && styles.dutyCardIconActive]}>
-            <Ionicons name={onDuty ? 'location' : 'location-outline'} size={22} color={onDuty ? COLORS.white : COLORS.primary} />
-          </View>
-          <View style={styles.dutyCardInfo}>
-            <Text style={[styles.dutyCardLabel, onDuty && styles.dutyCardLabelActive]}>
-              {onDuty ? t('home', 'onDuty') : t('home', 'offDuty')}
-            </Text>
-            <Text style={[styles.dutyCardSubtitle, onDuty && styles.dutyCardSubtitleActive]}>
-              {onDuty ? t('home', 'dutyActiveSub') : t('home', 'dutyInactiveSub')}
-            </Text>
-          </View>
-          <View style={[styles.dutyToggle, onDuty && styles.dutyToggleActive]}>
-            <View style={[styles.dutyToggleKnob, onDuty && styles.dutyToggleKnobActive]} />
-          </View>
-        </TouchableOpacity>
+        {/* On Duty Toggle — hidden for field agents */}
+        {user?.role !== 'FIELD_AGENT' && (
+          <TouchableOpacity
+            style={[styles.dutyCard, onDuty && styles.dutyCardActive]}
+            onPress={toggleDuty}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.dutyCardIcon, onDuty && styles.dutyCardIconActive]}>
+              <Ionicons name={onDuty ? 'location' : 'location-outline'} size={22} color={onDuty ? COLORS.white : COLORS.primary} />
+            </View>
+            <View style={styles.dutyCardInfo}>
+              <Text style={[styles.dutyCardLabel, onDuty && styles.dutyCardLabelActive]}>
+                {onDuty ? t('home', 'onDuty') : t('home', 'offDuty')}
+              </Text>
+              <Text style={[styles.dutyCardSubtitle, onDuty && styles.dutyCardSubtitleActive]}>
+                {onDuty ? t('home', 'dutyActiveSub') : t('home', 'dutyInactiveSub')}
+              </Text>
+            </View>
+            <View style={[styles.dutyToggle, onDuty && styles.dutyToggleActive]}>
+              <View style={[styles.dutyToggleKnob, onDuty && styles.dutyToggleKnobActive]} />
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* Start Refuel Card */}
         <View style={styles.refuelCard}>
@@ -198,25 +204,27 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* My Vehicle Card */}
-        <TouchableOpacity
-          style={styles.vehicleCard}
-          onPress={() => navigation.navigate('Vehicle')}
-          activeOpacity={0.75}
-        >
-          <View style={styles.vehicleCardIcon}>
-            <Ionicons name="car-sport" size={22} color={COLORS.primary} />
-          </View>
-          <View style={styles.vehicleCardInfo}>
-            <Text style={styles.vehicleCardLabel}>{t('home', 'myVehicle')}</Text>
-            {savedVehicle ? (
-              <Text style={styles.vehicleCardValue}>{savedVehicle.registrationNumber}</Text>
-            ) : (
-              <Text style={styles.vehicleCardEmpty}>{t('home', 'setVehicle')}</Text>
-            )}
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
-        </TouchableOpacity>
+        {/* My Vehicle Card — hidden for field agents */}
+        {user?.role !== 'FIELD_AGENT' && (
+          <TouchableOpacity
+            style={styles.vehicleCard}
+            onPress={() => navigation.navigate('Vehicle')}
+            activeOpacity={0.75}
+          >
+            <View style={styles.vehicleCardIcon}>
+              <Ionicons name="car-sport" size={22} color={COLORS.primary} />
+            </View>
+            <View style={styles.vehicleCardInfo}>
+              <Text style={styles.vehicleCardLabel}>{t('home', 'myVehicle')}</Text>
+              {savedVehicle ? (
+                <Text style={styles.vehicleCardValue}>{savedVehicle.registrationNumber}</Text>
+              ) : (
+                <Text style={styles.vehicleCardEmpty}>{t('home', 'setVehicle')}</Text>
+              )}
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
+          </TouchableOpacity>
+        )}
 
         {/* Fuel Logs History Card */}
         <TouchableOpacity

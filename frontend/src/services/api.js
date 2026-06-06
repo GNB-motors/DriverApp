@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/react-native';
 import axios from 'axios';
+import logger from '../utils/logger';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -28,27 +29,38 @@ const apiClient = axios.create({
   },
 });
 
-// Request Interceptor: Logging & dynamic token
+// Request Interceptor: token injection + logging
 apiClient.interceptors.request.use(
   (config) => {
-    // If we passed a token via config.token (custom property), attach it
     if (config.token) {
       config.headers['Authorization'] = `Bearer ${config.token}`;
     }
+    logger.api(
+      (config.method || 'GET').toUpperCase(),
+      config.url,
+      'REQ',
+      config.params || undefined,
+    );
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Error handling
+// Response Interceptor: logging + error handling
 apiClient.interceptors.response.use(
   (response) => {
+    logger.api(
+      (response.config.method || 'GET').toUpperCase(),
+      response.config.url,
+      response.status,
+    );
     return response;
   },
   (error) => {
     if (error.response) {
       const message = error.response.data?.message || 'Something went wrong';
       const apiErr = new ApiError(message, error.response.status);
+      logger.error('API', `${error.config?.method?.toUpperCase()} ${error.config?.url} → ${error.response.status}: ${message}`);
       reportApiError(apiErr, {
         method: error.config?.method?.toUpperCase(),
         path: error.config?.url,
@@ -58,6 +70,7 @@ apiClient.interceptors.response.use(
       return Promise.reject(apiErr);
     } else if (error.request) {
       const apiErr = new ApiError('Unable to reach server. Please check your connection.', 0);
+      logger.error('API', `${error.config?.method?.toUpperCase()} ${error.config?.url} → no response (network error)`);
       reportApiError(apiErr, {
         method: error.config?.method?.toUpperCase(),
         path: error.config?.url,
@@ -71,10 +84,10 @@ apiClient.interceptors.response.use(
 );
 
 // Helper for multipart forms
-async function multipart(path, formData, token, { timeoutMs } = {}) {
+async function multipart(path, formData, token, { timeoutMs, extraHeaders = {} } = {}) {
   try {
     const config = {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 'Content-Type': 'multipart/form-data', ...extraHeaders },
       token, // custom property handled by interceptor
     };
     if (timeoutMs) config.timeout = timeoutMs;
@@ -118,6 +131,12 @@ export async function fetchVehicles(token, limit = 100) {
   return res.data?.data;
 }
 
+// Vehicles across all orgs a field agent belongs to
+export async function fetchFieldAgentVehicles(token) {
+  const res = await apiClient.get('/field-agent/fuel-logs/all-vehicles', { token });
+  return res.data?.data ?? [];
+}
+
 // ── Employees / Drivers ────────────────────────────────────────────────
 
 export async function fetchDrivers(token, limit = 100) {
@@ -125,15 +144,25 @@ export async function fetchDrivers(token, limit = 100) {
   return res.data?.data;
 }
 
+// Drivers across all orgs a field agent belongs to
+export async function fetchFieldAgentDrivers(token) {
+  const res = await apiClient.get('/field-agent/fuel-logs/all-drivers', { token });
+  return res.data?.data ?? [];
+}
+
 // ── Mileage ────────────────────────────────────────────────────────────
 
-export async function fetchLastOdometer(token, vehicleId) {
-  const res = await apiClient.get(`/mileage/last-odometer/${vehicleId}`, { token });
+export async function fetchLastOdometer(token, vehicleId, orgId = null) {
+  const config = { token };
+  if (orgId) config.headers = { 'X-Org-Id': orgId };
+  const res = await apiClient.get(`/mileage/last-odometer/${vehicleId}`, config);
   return res.data?.data;
 }
 
-export async function submitFuelLog(token, payload) {
-  const res = await apiClient.post('/mileage/fuel-log', payload, { token });
+export async function submitFuelLog(token, payload, orgId = null) {
+  const config = { token };
+  if (orgId) config.headers = { 'X-Org-Id': orgId };
+  const res = await apiClient.post('/mileage/fuel-log', payload, config);
   return res.data?.data;
 }
 
@@ -144,6 +173,12 @@ export async function fetchMileageIntervals(token, page = 1, limit = 50) {
 
 export async function fetchMyFuelLogs(token, driverId, page = 1, limit = 50) {
   const res = await apiClient.get(`/fuel-logs?driverId=${driverId}&page=${page}&limit=${limit}`, { token });
+  return res.data;
+}
+
+// Field agent cross-org fuel log history (uses loggedBy filter server-side)
+export async function fetchFieldAgentFuelLogs(token, page = 1, limit = 50) {
+  const res = await apiClient.get(`/field-agent/fuel-logs/all-fuel-logs?page=${page}&limit=${limit}`, { token });
   return res.data;
 }
 
@@ -161,14 +196,16 @@ export async function sendDriverLocation(token, { locationPermission, latitude, 
 
 // ── OCR / Documents ────────────────────────────────────────────────────
 
-export async function scanDocument(token, file, docType) {
-  return multipart('/ocr/scan', buildFileForm(file, { docType }), token, { timeoutMs: 60000 });
+export async function scanDocument(token, file, docType, orgId = null) {
+  const extraHeaders = orgId ? { 'X-Org-Id': orgId } : {};
+  return multipart('/ocr/scan', buildFileForm(file, { docType }), token, { timeoutMs: 60000, extraHeaders });
 }
 
-export async function uploadDocument(token, file, entityId, docType, ocrData = null) {
+export async function uploadDocument(token, file, entityId, docType, ocrData = null, orgId = null) {
   const fields = { entityType: 'VEHICLE', entityId, docType };
   if (ocrData) fields.ocrData = JSON.stringify(ocrData);
-  return multipart('/documents', buildFileForm(file, fields), token);
+  const extraHeaders = orgId ? { 'X-Org-Id': orgId } : {};
+  return multipart('/documents', buildFileForm(file, fields), token, { extraHeaders });
 }
 
 export async function fetchDocuments(token, entityType, entityId) {
@@ -205,7 +242,7 @@ export async function submitRepair(token, payload, photos = []) {
     }
     return await multipart('/maintenance', fd, token);
   } catch (error) {
-    console.error('[API Error] submitRepair failed:', error.response?.data || error.message);
+    logger.error('API', `submitRepair failed: ${error.response?.data?.message || error.message}`);
     throw error;
   }
 }
@@ -217,7 +254,7 @@ export async function fetchRepairLogs(token, search = '') {
     const res = await apiClient.get(`/maintenance?recordType=REPAIR${query}`, { token });
     return res.data?.data || res.data || [];
   } catch (error) {
-    console.error('[API Error] fetchRepairLogs failed:', error.response?.data || error.message);
+    logger.error('API', `fetchRepairLogs failed: ${error.response?.data?.message || error.message}`);
     throw error;
   }
 }
