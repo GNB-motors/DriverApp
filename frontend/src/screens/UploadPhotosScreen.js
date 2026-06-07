@@ -16,9 +16,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Sentry from '@sentry/react-native';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { scanDocument, uploadDocument, submitFuelLog, fetchLastOdometer } from '../services/api';
+import logger from '../utils/logger';
 import { compressImage } from '../utils/imageUtils';
 import * as ImagePicker from 'expo-image-picker';
 import dayjs from 'dayjs';
@@ -85,9 +87,13 @@ export default function UploadPhotosScreen({ navigation, route }) {
   const cachedTypeRef = useRef(route.params?.refuelType);
   const cachedVehicleIdRef = useRef(route.params?.vehicleId);
   const cachedVehicleLabelRef = useRef(route.params?.vehicleLabel);
+  const cachedDriverIdRef = useRef(route.params?.driverId || null);
+  const cachedOrgIdRef = useRef(route.params?.orgId || null);
   if (route.params?.refuelType) cachedTypeRef.current = route.params.refuelType;
   if (route.params?.vehicleId) cachedVehicleIdRef.current = route.params.vehicleId;
   if (route.params?.vehicleLabel) cachedVehicleLabelRef.current = route.params.vehicleLabel;
+  if (route.params?.driverId) cachedDriverIdRef.current = route.params.driverId;
+  if (route.params?.orgId) cachedOrgIdRef.current = route.params.orgId;
 
   const needsOdometer = cachedTypeRef.current === 'full';
   const driverName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Driver' : 'Driver';
@@ -106,7 +112,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
   useEffect(() => {
     const vehicleId = cachedVehicleIdRef.current;
     if (!vehicleId || !token) return;
-    fetchLastOdometer(token, vehicleId)
+    fetchLastOdometer(token, vehicleId, cachedOrgIdRef.current)
       .then((data) => setLastOdometer(data || null))
       .catch(() => { });
   }, [token]);
@@ -127,7 +133,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
         runOcrBill(ocrUri);
       }
     }
-  }, [route.params]);
+  }, [route.params, runOcrBill, runOcrOdometer]);
 
   useFocusEffect(
     useCallback(() => {
@@ -143,29 +149,29 @@ export default function UploadPhotosScreen({ navigation, route }) {
     }, [t, navigation])
   );
 
-  const runOcrBill = async (uri) => {
+  const runOcrBill = useCallback(async (uri) => {
     if (!uri || !token) return;
     setBillOcrPending(true);
     try {
       const compressed = await compressImage(uri, 0.7);
-      const result = await scanDocument(token, makeFileObj(compressed), 'FUEL_RECEIPT');
-      console.log('[OCR FUEL_RECEIPT] Full result:', JSON.stringify(result, null, 2));
+      const result = await scanDocument(token, makeFileObj(compressed), 'FUEL_RECEIPT', cachedOrgIdRef.current);
+      logger.info('OCR', `FUEL_RECEIPT result: confidence=${result?.confidence ?? 'n/a'} litres=${result?.volume ?? '-'} rate=${result?.rate ?? '-'}`);
       dispatch({ type: 'OCR_BILL_SUCCESS', payload: result || {} });
     } catch {
     } finally {
       setBillOcrPending(false);
     }
-  };
+  }, [token, dispatch]);
 
-  const runOcrOdometer = async (uri) => {
+  const runOcrOdometer = useCallback(async (uri) => {
     if (!uri || !token) return;
     dispatch({ type: 'SET_ODOMETER_ERROR', error: null });
     setOdometerOcrPending(true);
     try {
       const compressed = await compressImage(uri, 0.7);
-      const result = await scanDocument(token, makeFileObj(compressed), 'ODOMETER');
-      console.log('[OCR ODOMETER] Full result:', JSON.stringify(result, null, 2));
-      
+      const result = await scanDocument(token, makeFileObj(compressed), 'ODOMETER', cachedOrgIdRef.current);
+      logger.info('OCR', `ODOMETER result: reading=${result?.reading ?? '-'} confidence=${result?.confidence ?? 'n/a'}`);
+
       let error = null;
       let sanitized = null;
       if (result?.reading != null) {
@@ -182,17 +188,17 @@ export default function UploadPhotosScreen({ navigation, route }) {
       } else {
         error = 'No odometer reading detected. Please retake or upload a clearer image.';
       }
-      
-      dispatch({ 
-        type: 'OCR_ODOMETER_SUCCESS', 
-        payload: { reading: sanitized, error } 
+
+      dispatch({
+        type: 'OCR_ODOMETER_SUCCESS',
+        payload: { reading: sanitized, error }
       });
     } catch {
       dispatch({ type: 'SET_ODOMETER_ERROR', error: 'Odometer scan failed. Please retake or upload a clearer image.' });
     } finally {
       setOdometerOcrPending(false);
     }
-  };
+  }, [token, lastOdometer, dispatch]);
 
   const openCamera = (type) => {
     navigation.navigate('PhotoPreview', {
@@ -230,6 +236,9 @@ export default function UploadPhotosScreen({ navigation, route }) {
 
   const handleSubmit = async () => {
     let vehicleId = cachedVehicleIdRef.current;
+    const orgId = cachedOrgIdRef.current;     // set for field agents, null for drivers
+    const isFieldAgent = user?.role === 'FIELD_AGENT';
+
     if (!vehicleId) {
       try {
         const raw = await AsyncStorage.getItem(SELECTED_VEHICLE_KEY);
@@ -241,21 +250,28 @@ export default function UploadPhotosScreen({ navigation, route }) {
       return;
     }
 
+    logger.info('UploadPhotos', `Submit started — vehicleId=${vehicleId} isFieldAgent=${isFieldAgent} orgId=${orgId ?? 'n/a'}`);
     setSubmitting(true);
     try {
       const compressedBill = await compressImage(billPhoto, 0.75);
+      logger.info('UploadPhotos', 'Uploading fuel slip document');
       const billDoc = await uploadDocument(
-        token, makeFileObj(compressedBill), vehicleId, 'FUEL_SLIP', null
+        token, makeFileObj(compressedBill), vehicleId, 'FUEL_SLIP', null,
+        isFieldAgent ? orgId : null,
       );
       const documentId = billDoc?._id;
+      logger.info('UploadPhotos', `Fuel slip uploaded — documentId=${documentId}`);
 
       let odometerDocId = null;
       if (needsOdometer && odometerPhoto) {
+        logger.info('UploadPhotos', 'Uploading odometer document');
         const compressedOdometer = await compressImage(odometerPhoto, 0.75);
         const odomDoc = await uploadDocument(
-          token, makeFileObj(compressedOdometer), vehicleId, 'ODOMETER', null
+          token, makeFileObj(compressedOdometer), vehicleId, 'ODOMETER', null,
+          isFieldAgent ? orgId : null,
         );
         odometerDocId = odomDoc?._id;
+        logger.info('UploadPhotos', `Odometer uploaded — odometerDocId=${odometerDocId}`);
       }
 
       const devL = state.litres !== '' ? parseFloat(state.litres) : null;
@@ -286,6 +302,9 @@ export default function UploadPhotosScreen({ navigation, route }) {
         }
       }
 
+      // Field agents pass the selected driver; regular drivers pass themselves
+      const driverId = isFieldAgent ? cachedDriverIdRef.current : user?._id;
+
       // Check for manual OCR edits
       const original = state.originalOcrData;
       const edited = {
@@ -298,7 +317,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
 
       let isEdited = false;
       const edits = {};
-      
+
       for (const key of Object.keys(edited)) {
         if (original[key] != null && original[key] !== '' && edited[key] !== original[key]) {
           isEdited = true;
@@ -309,7 +328,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
       if (isEdited) {
         Sentry.withScope((scope) => {
           scope.setTag('vehicleId', vehicleId);
-          if (user?._id) scope.setTag('driverId', user._id);
+          if (driverId) scope.setTag('driverId', driverId);
           scope.setContext('ocr_edits', {
             originalData: original,
             submittedData: edited,
@@ -319,23 +338,29 @@ export default function UploadPhotosScreen({ navigation, route }) {
         });
       }
 
-      await submitFuelLog(token, {
-        vehicleId,
-        driverId: user?._id,
-        fuelType: devFt,
-        fillingType: needsOdometer ? 'FULL_TANK' : 'PARTIAL',
-        ...(devL != null && !isNaN(devL) && { litres: devL }),
-        ...(devR != null && !isNaN(devR) && { rate: devR }),
-        ...(needsOdometer && devO != null && !isNaN(devO) && { odometerReading: devO }),
-        ...(devLoc && { location: devLoc }),
-        ...(refuelTimeIso && { refuelTime: refuelTimeIso }),
-        documentId: documentId || null,
-        odometerDocId: odometerDocId || null,
-      });
+      logger.info('UploadPhotos', `Submitting fuel log — driverId=${driverId} fillingType=${needsOdometer ? 'FULL_TANK' : 'PARTIAL'}`);
+      await submitFuelLog(
+        token,
+        {
+          vehicleId,
+          driverId,
+          fuelType: devFt,
+          fillingType: needsOdometer ? 'FULL_TANK' : 'PARTIAL',
+          ...(devL != null && !isNaN(devL) && { litres: devL }),
+          ...(devR != null && !isNaN(devR) && { rate: devR }),
+          ...(needsOdometer && devO != null && !isNaN(devO) && { odometerReading: devO }),
+          ...(devLoc && { location: devLoc }),
+          ...(refuelTimeIso && { refuelTime: refuelTimeIso }),
+          ...(documentId && { documentId }),
+          ...(odometerDocId && { odometerDocId }),
+        },
+        isFieldAgent ? orgId : null,  // X-Org-Id header for field agents
+      );
 
+      logger.info('UploadPhotos', 'Fuel log submitted successfully');
       Alert.alert(t('upload', 'success'), t('upload', 'successMsg'), [
-        { 
-          text: 'OK', 
+        {
+          text: 'OK',
           onPress: () => {
             navigation.reset({
               index: 0,
@@ -345,6 +370,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
         },
       ]);
     } catch (err) {
+      logger.error('UploadPhotos', `Submit failed: ${err.message}`);
       Alert.alert(t('upload', 'error'), err.message || 'Failed to submit. Please try again.');
     } finally {
       setSubmitting(false);

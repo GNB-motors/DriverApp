@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../context/LanguageContext';
@@ -16,12 +16,12 @@ export default function EntrySummaryCard({
   const fillingType = needsOdometer ? t('summary', 'fullTank') : t('summary', 'partialFill');
   const fillingColor = needsOdometer ? COLORS.primary : '#F59E0B';
 
-  const editableRows = [
+  const editableRows = useMemo(() => [
     { label: t('summary', 'litres'), key: 'litres', value: state.litres, placeholder: t('summary', 'notCaptured'), unit: 'L' },
     { label: t('summary', 'rate'), key: 'rate', value: state.rate, placeholder: t('summary', 'notCaptured'), unit: '₹/L' },
     ...(needsOdometer ? [{ label: t('summary', 'odometer'), key: 'odometerReading', value: state.odometerReading, placeholder: t('summary', 'notCaptured'), unit: 'km', isOdo: true }] : []),
     { label: t('summary', 'location'), key: 'location', value: state.location, placeholder: t('summary', 'notCaptured'), unit: null },
-  ];
+  ], [needsOdometer, state.litres, state.rate, state.odometerReading, state.location, t]);
 
   return (
     <View style={styles.previewCard}>

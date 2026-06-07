@@ -242,6 +242,43 @@ const styles = StyleSheet.create({
     color: COLORS.primaryDark,
   },
 
+  // ── Search Modal ──
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 22,
+    marginVertical: 12,
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    paddingHorizontal: 14,
+    height: 44,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: COLORS.textDark,
+    padding: 0,
+  },
+  modalItemSubtitle: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  modalItemContent: {
+    flex: 1,
+  },
+  modalEmptyText: {
+    textAlign: 'center',
+    color: COLORS.textMuted,
+    padding: 24,
+    fontSize: 14,
+  },
+
   // ── Footer ──
   footer: {
     paddingHorizontal: 22,

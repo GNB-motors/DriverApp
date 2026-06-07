@@ -37,7 +37,7 @@ export default function WelcomeScreen({ navigation }) {
     setIsNewLogin(false);
   };
 
-  const driverName = user?.name || 'Driver';
+  const driverName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Driver' : 'Driver';
   const phoneDisplay = user?.phoneNumber ? `+91 ${user.phoneNumber}` : '';
 
   return (

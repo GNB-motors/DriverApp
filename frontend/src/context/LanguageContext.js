@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { storage } from '../utils/storage';
 import { translations } from '../i18n/translations';
+import logger from '../utils/logger';
 
 const LanguageContext = createContext();
 
@@ -16,7 +17,7 @@ export function LanguageProvider({ children }) {
           setLanguage(storedLang);
         }
       } catch (e) {
-        console.error('Failed to load language', e);
+        logger.error('Language', `Failed to load language: ${e?.message}`);
       } finally {
         setIsLoaded(true);
       }
@@ -33,7 +34,7 @@ export function LanguageProvider({ children }) {
       }
       setLanguage(lang);
     } catch (e) {
-      console.error('Failed to save language', e);
+      logger.error('Language', `Failed to save language: ${e?.message}`);
     }
   };
 

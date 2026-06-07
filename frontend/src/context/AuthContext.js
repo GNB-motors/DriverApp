@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestDriverOtp, verifyDriverOtp } from '../services/api';
+import logger from '../utils/logger';
 
 const AuthContext = createContext();
 
@@ -36,18 +37,17 @@ export function AuthProvider({ children }) {
         if (storedUser && storedToken) {
           const parsed = JSON.parse(storedUser);
           const currentIdentity = `${parsed._id}:${parsed.orgId}`;
-          // Belt-and-braces: if identity drifted from what we last saw
-          // (e.g. user was rebound to a new org server-side), wipe per-
-          // account state so we don't carry stale ids forward.
           if (storedIdentity && storedIdentity !== currentIdentity) {
             await wipePerAccountState();
             await AsyncStorage.setItem(STORAGE_KEY_IDENTITY, currentIdentity);
+            logger.warn('Auth', 'Identity drift detected — per-account state wiped', { prev: storedIdentity, curr: currentIdentity });
           }
           setUser(parsed);
           setToken(storedToken);
+          logger.info('Auth', `Session restored — role=${parsed.role} id=${parsed._id}`);
         }
       } catch (err) {
-        console.error('[Auth] Failed to restore session:', err);
+        logger.error('Auth', `Failed to restore session: ${err?.message}`);
       } finally {
         setLoading(false);
       }
@@ -85,6 +85,7 @@ export function AuthProvider({ children }) {
     setToken(jwt);
     setOrg(org);
     setIsNewLogin(true);
+    logger.info('Auth', `Login success — role=${loggedInUser.role} id=${loggedInUser._id}`);
     return true;
   };
 
@@ -99,6 +100,7 @@ export function AuthProvider({ children }) {
     setToken(null);
     setOrg(null);
     setIsNewLogin(false);
+    logger.info('Auth', 'User logged out — session cleared');
   };
 
   return (

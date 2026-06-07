@@ -28,6 +28,25 @@ import RepairLogsScreen from '../screens/RepairLogsScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
+const TAB_BAR_STYLE = {
+  height: 90,
+  paddingTop: 10,
+  paddingBottom: 30,
+  borderTopWidth: 0,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: -10 },
+  shadowOpacity: 0.05,
+  shadowRadius: 20,
+  elevation: 10,
+  backgroundColor: '#FFFFFF',
+};
+
+const TAB_LABEL_STYLE = {
+  fontSize: 11,
+  fontWeight: '500',
+  marginTop: 5,
+};
+
 function BottomTabs() {
   const { t } = useLanguage();
   return (
@@ -43,27 +62,36 @@ function BottomTabs() {
         tabBarActiveTintColor: '#429690',
         tabBarInactiveTintColor: '#B6BFC9',
         headerShown: false,
-        tabBarStyle: {
-          height: 90,
-          paddingTop: 10,
-          paddingBottom: 30,
-          borderTopWidth: 0,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -10 },
-          shadowOpacity: 0.05,
-          shadowRadius: 20,
-          elevation: 10,
-          backgroundColor: '#FFFFFF',
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '500',
-          marginTop: 5,
-        }
+        tabBarStyle: TAB_BAR_STYLE,
+        tabBarLabelStyle: TAB_LABEL_STYLE,
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: t('home', 'tabName') || 'Home' }} />
       <Tab.Screen name="Repairs" component={RepairsMenuScreen} options={{ tabBarLabel: t('repairs', 'tabName') || 'Repairs' }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('profile', 'title') || 'Profile' }} />
+    </Tab.Navigator>
+  );
+}
+
+function FieldAgentTabs() {
+  const { t } = useLanguage();
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
+          else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#429690',
+        tabBarInactiveTintColor: '#B6BFC9',
+        headerShown: false,
+        tabBarStyle: TAB_BAR_STYLE,
+        tabBarLabelStyle: TAB_LABEL_STYLE,
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: t('home', 'tabName') || 'Home' }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('profile', 'title') || 'Profile' }} />
     </Tab.Navigator>
   );
@@ -88,7 +116,10 @@ export default function AppNavigator() {
       ) : (
         <>
           {isNewLogin && <Stack.Screen name="Welcome" component={WelcomeScreen} />}
-          <Stack.Screen name="Main" component={BottomTabs} />
+          <Stack.Screen
+            name="Main"
+            component={user?.role === 'FIELD_AGENT' ? FieldAgentTabs : BottomTabs}
+          />
           <Stack.Screen name="DocsScreen" component={DocumentsScreen} />
           <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} />
           <Stack.Screen name="Vehicle" component={VehicleScreen} />
