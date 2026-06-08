@@ -96,6 +96,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
   if (route.params?.orgId) cachedOrgIdRef.current = route.params.orgId;
 
   const needsOdometer = cachedTypeRef.current === 'full';
+  const isFieldAgent = user?.role === 'FIELD_AGENT';
   const driverName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Driver' : 'Driver';
 
   const [odometerPhoto, setOdometerPhoto] = useState(null);
@@ -237,7 +238,6 @@ export default function UploadPhotosScreen({ navigation, route }) {
   const handleSubmit = async () => {
     let vehicleId = cachedVehicleIdRef.current;
     const orgId = cachedOrgIdRef.current;     // set for field agents, null for drivers
-    const isFieldAgent = user?.role === 'FIELD_AGENT';
 
     if (!vehicleId) {
       try {
@@ -441,7 +441,7 @@ export default function UploadPhotosScreen({ navigation, route }) {
               />
             )}
             <PhotoTaskCard
-              title={t('upload', 'fuelBill')}
+              title={t('upload', isFieldAgent ? 'fuelBillFieldAgent' : 'fuelBill')}
               icon="receipt-outline"
               type="bill"
               photoUri={billPhoto}

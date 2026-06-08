@@ -74,6 +74,7 @@ export const translations = {
       analyzing: "Analyzing Image...",
       odometer: "Odometer Photo",
       fuelBill: "Fuel Bill Photo",
+      fuelBillFieldAgent: "Meter Reading/Fuel Bill Photo",
       retake: "Retake",
       submit: "Submit Refuel",
       submitDisabled: "Upload required photos",
