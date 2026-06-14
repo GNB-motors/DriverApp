@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
   View,
+  Text,
   TextInput,
   KeyboardAvoidingView,
   Platform,
@@ -35,7 +36,6 @@ function OtpInput({ value, onChange }) {
 
   return (
     <Pressable onPress={() => inputRef.current?.focus()} style={{ position: 'relative' }}>
-      {/* Hidden real input */}
       <TextInput
         ref={inputRef}
         value={value}
@@ -45,7 +45,6 @@ function OtpInput({ value, onChange }) {
         style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }}
         autoFocus
       />
-      {/* Visual boxes */}
       <View style={styles.otpRow}>
         {digits.map((d, i) => (
           <View key={i} style={[styles.otpBox, value.length === i && styles.otpBoxActive]}>
@@ -59,7 +58,7 @@ function OtpInput({ value, onChange }) {
 
 // ── Main screen ─────────────────────────────────────────────────────────
 export default function LoginScreen() {
-  const [step, setStep] = useState(1); // 1 = phone, 2 = OTP
+  const [step, setStep] = useState(1);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [normalisedPhone, setNormalisedPhone] = useState('');
   const [otp, setOtp] = useState('');
@@ -125,7 +124,6 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await verifyOtp(normalisedPhone, otp);
-      // Navigation is handled by AppNavigator watching user state
     } catch (err) {
       setError(err.message || 'Invalid OTP. Please try again.');
       setOtp('');
@@ -185,11 +183,10 @@ export default function LoginScreen() {
         </LinearGradient>
 
         {/* ── White card overlapping header ── */}
-        <View style={styles.card}>
+        <View style={[styles.card, { paddingBottom: insets.bottom + 60 }]}>
           <StepDots step={step} />
 
           {step === 1 ? (
-            /* ── Step 1: Phone Number ── */
             <>
               <AppText variant="label" muted style={styles.label}>{lt('phoneLabel')}</AppText>
               <View style={styles.phoneField}>
@@ -223,7 +220,6 @@ export default function LoginScreen() {
               />
             </>
           ) : (
-            /* ── Step 2: OTP Entry ── */
             <>
               <AppText variant="label" muted style={styles.label}>{lt('otpLabel')}</AppText>
               <AppText variant="small" muted style={styles.otpSubtitle}>
@@ -248,7 +244,6 @@ export default function LoginScreen() {
                 size="lg"
               />
 
-              {/* Resend + Change number */}
               <View style={styles.linkRow}>
                 <Pressable onPress={handleResend} disabled={loading} hitSlop={8}>
                   <AppText variant="small" weight="bold" color={colors.primary}>{lt('resend')}</AppText>
@@ -269,7 +264,6 @@ export default function LoginScreen() {
 
           {/* Info cards: Support + Language */}
           <View style={styles.infoCards}>
-            {/* Support */}
             <View style={styles.infoCard}>
               <View style={styles.infoIcon}>
                 <Ionicons name="headset" size={18} color={colors.primary} />
@@ -280,7 +274,6 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Language toggle */}
             <View style={styles.infoCard}>
               <View style={styles.infoIcon}>
                 <Ionicons name="language" size={18} color={colors.primary} />
@@ -308,9 +301,8 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* Footer */}
-          <View style={styles.footerSpacer} />
-          <AppText weight="extrabold" center style={styles.gnb}>GNB</AppText>
+          {/* GNB watermark */}
+          <Text style={styles.gnb}>GNB</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -429,7 +421,13 @@ const styles = StyleSheet.create({
   langPill: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 9 },
   langPillActive: { backgroundColor: colors.primary },
 
-  // Footer
-  footerSpacer: { flex: 1, minHeight: 20 },
-  gnb: { fontSize: 34, letterSpacing: 4, color: '#E7ECEA', marginBottom: 8 },
+  // GNB watermark
+  gnb: {
+    marginTop: 280,
+    fontSize: 34,
+    letterSpacing: 4,
+    color: '#E7ECEA',
+    textAlign: 'center',
+    fontWeight: '800',
+  },
 });

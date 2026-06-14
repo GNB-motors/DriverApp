@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Animated, StyleSheet } from 'react-native';
+import { View, Text, Animated, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -81,7 +81,7 @@ export default function WelcomeScreen() {
             </Animated.View>
           </View>
 
-          <AppText weight="extrabold" color={colors.white} style={styles.title}>Welcome back!</AppText>
+          <Text style={styles.title}>Welcome back!</Text>
           <AppText variant="h3" weight="medium" color={colors.onPrimaryMuted} style={styles.username}>
             {driverName}
           </AppText>
@@ -148,9 +148,9 @@ const styles = StyleSheet.create({
   hero: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xxl,
+    paddingBottom: 62,
   },
   checkWrap: {
     width: 92,
@@ -175,7 +175,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: { fontSize: 33, letterSpacing: -0.5, marginTop: 30 },
+  title: {
+    fontSize: 33,
+    letterSpacing: -0.5,
+    marginTop: 30,
+    color: '#ffffff',
+    fontWeight: '800',
+    textAlign: 'center',
+  },
   username: { marginTop: 6 },
 
   // Card

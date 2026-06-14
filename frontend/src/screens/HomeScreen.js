@@ -170,12 +170,10 @@ export default function HomeScreen({ navigation }) {
     !isFieldAgent && { icon: 'car-sport', label: t('home', 'myVehicle') || 'My Vehicle', onPress: () => navigation.navigate('Vehicle') },
     { icon: 'time-outline', label: t('home', 'fuelHistory') || 'Fuel History', onPress: () => navigation.navigate('FuelHistory') },
     !isFieldAgent && { icon: 'build-outline', label: t('repairs', 'tabName') || 'Repairs', onPress: () => navigation.navigate('Repairs') },
-    {
+    !isFieldAgent && {
       icon: 'document-text-outline',
       label: 'Documents',
-      onPress: () => (isFieldAgent
-        ? navigation.navigate('DocsScreen', { docType: 'PERSONAL' })
-        : navigation.navigate('Documents')),
+      onPress: () => navigation.navigate('Documents'),
     },
   ].filter(Boolean);
 
