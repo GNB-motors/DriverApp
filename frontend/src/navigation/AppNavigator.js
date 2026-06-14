@@ -2,10 +2,10 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { View, ActivityIndicator } from 'react-native';
-import { theme } from '../theme/theme';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
+import SplashScreen from '../components/ui/SplashScreen';
+import FloatingTabBar from './FloatingTabBar';
 
 import LanguageSelectionScreen from '../screens/LanguageSelectionScreen';
 import LoginScreen from '../screens/LoginScreen';
@@ -24,72 +24,48 @@ import FuelHistoryScreen from '../screens/FuelHistoryScreen';
 import RepairsMenuScreen from '../screens/RepairsMenuScreen';
 import AddRepairScreen from '../screens/AddRepairScreen';
 import RepairLogsScreen from '../screens/RepairLogsScreen';
+import RefuelSuccessScreen from '../screens/RefuelSuccessScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const TAB_BAR_STYLE = {
-  height: 90,
-  paddingTop: 10,
-  paddingBottom: 30,
-  borderTopWidth: 0,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: -10 },
-  shadowOpacity: 0.05,
-  shadowRadius: 20,
-  elevation: 10,
-  backgroundColor: '#FFFFFF',
+const tabIcon = (routeName) => ({ focused, color, size }) => {
+  let iconName;
+  if (routeName === 'Home') iconName = focused ? 'home' : 'home-outline';
+  else if (routeName === 'Repairs') iconName = focused ? 'build' : 'build-outline';
+  else if (routeName === 'Documents') iconName = focused ? 'document-text' : 'document-text-outline';
+  else if (routeName === 'Profile') iconName = focused ? 'person' : 'person-outline';
+  return <Ionicons name={iconName} size={size} color={color} />;
 };
 
-const TAB_LABEL_STYLE = {
-  fontSize: 11,
-  fontWeight: '500',
-  marginTop: 5,
-};
-
+// Driver: Home · Repairs · [Refuel FAB] · Docs · Profile
 function BottomTabs() {
   const { t } = useLanguage();
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-          if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
-          else if (route.name === 'Repairs') iconName = focused ? 'build' : 'build-outline';
-          else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: '#429690',
-        tabBarInactiveTintColor: '#B6BFC9',
-        headerShown: false,
-        tabBarStyle: TAB_BAR_STYLE,
-        tabBarLabelStyle: TAB_LABEL_STYLE,
-      })}
+      tabBar={(props) => <FloatingTabBar {...props} showFab />}
+      screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: tabIcon(route.name) })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: t('home', 'tabName') || 'Home' }} />
       <Tab.Screen name="Repairs" component={RepairsMenuScreen} options={{ tabBarLabel: t('repairs', 'tabName') || 'Repairs' }} />
+      <Tab.Screen
+        name="Documents"
+        component={DocumentsScreen}
+        initialParams={{ docType: 'PERSONAL' }}
+        options={{ tabBarLabel: 'Docs' }}
+      />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('profile', 'title') || 'Profile' }} />
     </Tab.Navigator>
   );
 }
 
+// Field agent: floating bar, Home · Profile, no FAB
 function FieldAgentTabs() {
   const { t } = useLanguage();
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-          if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
-          else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: '#429690',
-        tabBarInactiveTintColor: '#B6BFC9',
-        headerShown: false,
-        tabBarStyle: TAB_BAR_STYLE,
-        tabBarLabelStyle: TAB_LABEL_STYLE,
-      })}
+      tabBar={(props) => <FloatingTabBar {...props} />}
+      screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: tabIcon(route.name) })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: t('home', 'tabName') || 'Home' }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('profile', 'title') || 'Profile' }} />
@@ -102,11 +78,7 @@ export default function AppNavigator() {
   const { user, loading: authLoading, isNewLogin } = useAuth();
 
   if (!isLoaded || authLoading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: theme.colors.primary, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#fff" />
-      </View>
-    );
+    return <SplashScreen />;
   }
 
   return (
@@ -122,10 +94,19 @@ export default function AppNavigator() {
           />
           <Stack.Screen name="DocsScreen" component={DocumentsScreen} />
           <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} />
-          <Stack.Screen name="Vehicle" component={VehicleScreen} />
+          <Stack.Screen
+            name="Vehicle"
+            component={VehicleScreen}
+            options={{ presentation: 'transparentModal', animation: 'slide_from_bottom' }}
+          />
           <Stack.Screen name="RefuelDetails" component={RefuelDetailsScreen} />
           <Stack.Screen name="UploadPhotos" component={UploadPhotosScreen} />
           <Stack.Screen name="PhotoPreview" component={PhotoPreviewScreen} />
+          <Stack.Screen
+            name="RefuelSuccess"
+            component={RefuelSuccessScreen}
+            options={{ gestureEnabled: false, animation: 'fade' }}
+          />
           <Stack.Screen name="FuelHistory" component={FuelHistoryScreen} />
           <Stack.Screen name="AddRepair" component={AddRepairScreen} />
           <Stack.Screen name="RepairLogs" component={RepairLogsScreen} />

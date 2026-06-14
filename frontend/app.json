@@ -46,7 +46,8 @@
           "locationAlwaysAndWhenInUsePermission": "GNB Motors needs Always location access only when you choose Always sharing for on-duty driver tracking.",
           "isAndroidBackgroundLocationEnabled": true
         }
-      ]
+      ],
+      "expo-font"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

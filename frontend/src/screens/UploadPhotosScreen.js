@@ -1,17 +1,15 @@
 import React, { useState, useEffect, useRef, useReducer, useCallback } from 'react';
 import {
   View,
-  Text,
-  TouchableOpacity,
   Alert,
   BackHandler,
-  StatusBar,
-  ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Sentry from '@sentry/react-native';
@@ -25,9 +23,9 @@ import { compressImage } from '../utils/imageUtils';
 import * as ImagePicker from 'expo-image-picker';
 import dayjs from 'dayjs';
 import { SELECTED_VEHICLE_KEY } from './VehicleScreen';
-import styles, { COLORS } from '../styles/UploadPhotosScreen.styles';
 import PhotoTaskCard from '../components/PhotoTaskCard';
 import EntrySummaryCard from '../components/EntrySummaryCard';
+import { AppText, Button, ScreenHeader, colors } from '../components/ui';
 
 function makeFileObj(uri) {
   return { uri, name: uri.split('/').pop() || 'photo.jpg', type: 'image/jpeg' };
@@ -83,6 +81,7 @@ function formReducer(state, action) {
 export default function UploadPhotosScreen({ navigation, route }) {
   const { t } = useLanguage();
   const { token, user } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const cachedTypeRef = useRef(route.params?.refuelType);
   const cachedVehicleIdRef = useRef(route.params?.vehicleId);
@@ -117,38 +116,6 @@ export default function UploadPhotosScreen({ navigation, route }) {
       .then((data) => setLastOdometer(data || null))
       .catch(() => { });
   }, [token]);
-
-  useEffect(() => {
-    if (route.params?.odometerPhoto) setOdometerPhoto(route.params.odometerPhoto);
-    if (route.params?.billPhoto) setBillPhoto(route.params.billPhoto);
-
-    if (route.params?.capturedPhoto) {
-      const { type, uri, originalUri } = route.params.capturedPhoto;
-      const ocrUri = originalUri || uri;
-      if (type === 'odometer') {
-        setOdometerPhoto(uri);
-        runOcrOdometer(ocrUri);
-      }
-      if (type === 'bill') {
-        setBillPhoto(uri);
-        runOcrBill(ocrUri);
-      }
-    }
-  }, [route.params, runOcrBill, runOcrOdometer]);
-
-  useFocusEffect(
-    useCallback(() => {
-      const backAction = () => {
-        Alert.alert(t('upload', 'discardTitle'), t('upload', 'discardMsg'), [
-          { text: t('upload', 'cancel'), onPress: () => null, style: 'cancel' },
-          { text: t('upload', 'yesGoBack'), onPress: () => navigation.goBack() },
-        ]);
-        return true;
-      };
-      const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
-      return () => backHandler.remove();
-    }, [t, navigation])
-  );
 
   const runOcrBill = useCallback(async (uri) => {
     if (!uri || !token) return;
@@ -200,6 +167,45 @@ export default function UploadPhotosScreen({ navigation, route }) {
       setOdometerOcrPending(false);
     }
   }, [token, lastOdometer, dispatch]);
+
+  useEffect(() => {
+    if (route.params?.odometerPhoto) setOdometerPhoto(route.params.odometerPhoto);
+    if (route.params?.billPhoto) setBillPhoto(route.params.billPhoto);
+
+    if (route.params?.capturedPhoto) {
+      const { type, uri, originalUri } = route.params.capturedPhoto;
+      const ocrUri = originalUri || uri;
+      if (type === 'odometer') {
+        setOdometerPhoto(uri);
+        runOcrOdometer(ocrUri);
+      }
+      if (type === 'bill') {
+        setBillPhoto(uri);
+        runOcrBill(ocrUri);
+      }
+    }
+  }, [route.params, runOcrBill, runOcrOdometer]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const backAction = () => {
+        Alert.alert(t('upload', 'discardTitle'), t('upload', 'discardMsg'), [
+          { text: t('upload', 'cancel'), onPress: () => null, style: 'cancel' },
+          { text: t('upload', 'yesGoBack'), onPress: () => navigation.goBack() },
+        ]);
+        return true;
+      };
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+      return () => backHandler.remove();
+    }, [t, navigation])
+  );
+
+  const confirmDiscard = () => {
+    Alert.alert(t('upload', 'discardTitle'), t('upload', 'discardMsg'), [
+      { text: t('upload', 'cancel'), style: 'cancel' },
+      { text: t('upload', 'yesGoBack'), onPress: () => navigation.goBack() },
+    ]);
+  };
 
   const openCamera = (type) => {
     navigation.navigate('PhotoPreview', {
@@ -358,17 +364,23 @@ export default function UploadPhotosScreen({ navigation, route }) {
       );
 
       logger.info('UploadPhotos', 'Fuel log submitted successfully');
-      Alert.alert(t('upload', 'success'), t('upload', 'successMsg'), [
-        {
-          text: 'OK',
-          onPress: () => {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Main' }],
-            });
-          }
-        },
-      ]);
+      // Replace the old success Alert with the dedicated success screen.
+      // reset → [Main, RefuelSuccess] so back/Home lands on the dashboard.
+      const totalAmount = (devL != null && !isNaN(devL) && devR != null && !isNaN(devR)) ? devL * devR : null;
+      navigation.reset({
+        index: 1,
+        routes: [
+          { name: 'Main' },
+          {
+            name: 'RefuelSuccess',
+            params: {
+              vehicleLabel: cachedVehicleLabelRef.current || null,
+              litres: (devL != null && !isNaN(devL)) ? devL : null,
+              amount: totalAmount,
+            },
+          },
+        ],
+      });
     } catch (err) {
       logger.error('UploadPhotos', `Submit failed: ${err.message}`);
       Alert.alert(t('upload', 'error'), err.message || 'Failed to submit. Please try again.');
@@ -377,120 +389,134 @@ export default function UploadPhotosScreen({ navigation, route }) {
     }
   };
 
+  const submitDisabled = !isComplete || submitting || billOcrPending || odometerOcrPending;
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
     >
-      <StatusBar barStyle="light-content" />
+      <StatusBar style="light" />
 
-      <View style={styles.topSection}>
-        <View style={styles.circleOne} />
-        <View style={styles.circleTwo} />
-        <View style={styles.circleThree} />
-      </View>
-
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* Header */}
-        <View style={styles.headerContainer}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => {
-              Alert.alert(t('upload', 'discardTitle'), t('upload', 'discardMsg'), [
-                { text: t('upload', 'cancel'), style: 'cancel' },
-                { text: t('upload', 'yesGoBack'), onPress: () => navigation.goBack() },
-              ]);
-            }}
-          >
-            <Ionicons name="arrow-back" size={22} color={COLORS.white} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleBlock}>
-            <Text style={styles.headerTitle}>{t('upload', 'title')}</Text>
-            <Text style={styles.headerStep}>{t('upload', 'step')}</Text>
-          </View>
+      <ScreenHeader title={t('upload', 'title')} subtitle={t('upload', 'step')} onBack={confirmDiscard}>
+        <View style={styles.progress}>
+          <View style={[styles.segment, styles.segmentActive]} />
+          <View style={[styles.segment, styles.segmentActive]} />
         </View>
+      </ScreenHeader>
 
-        {/* Progress Bar */}
-        <View style={styles.progressBarContainer}>
-          <View style={[styles.progressSegment, styles.progressSegmentActive]} />
-          <View style={[styles.progressSegment, styles.progressSegmentActive]} />
-        </View>
+      <View style={styles.card}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scroll}
+        >
+          <AppText variant="label" muted style={styles.sectionLabel}>{t('upload', 'requiredPhotos')}</AppText>
 
-        {/* Photo Tasks + Payload Preview (scrollable) */}
-        <View style={styles.contentCard}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.scrollContent}
-          >
-            <Text style={styles.sectionLabel}>{t('upload', 'requiredPhotos')}</Text>
-
-            {needsOdometer && (
-              <PhotoTaskCard
-                title={t('upload', 'odometer')}
-                icon="speedometer-outline"
-                type="odometer"
-                photoUri={odometerPhoto}
-                onCameraPress={openCamera}
-                onGalleryPress={pickFromGallery}
-                capturedText={t('upload', 'photoCaptured')}
-                pendingText={t('upload', 'cameraOrGallery')}
-                isLoading={odometerOcrPending}
-                analyzingText={t('upload', 'analyzing')}
-              />
-            )}
+          {needsOdometer && (
             <PhotoTaskCard
-              title={t('upload', isFieldAgent ? 'fuelBillFieldAgent' : 'fuelBill')}
-              icon="receipt-outline"
-              type="bill"
-              photoUri={billPhoto}
+              title={t('upload', 'odometer')}
+              icon="speedometer-outline"
+              type="odometer"
+              photoUri={odometerPhoto}
               onCameraPress={openCamera}
               onGalleryPress={pickFromGallery}
               capturedText={t('upload', 'photoCaptured')}
               pendingText={t('upload', 'cameraOrGallery')}
-              isLoading={billOcrPending}
+              isLoading={odometerOcrPending}
               analyzingText={t('upload', 'analyzing')}
+              retakeText={t('upload', 'retake')}
             />
+          )}
+          <PhotoTaskCard
+            title={t('upload', isFieldAgent ? 'fuelBillFieldAgent' : 'fuelBill')}
+            icon="receipt-outline"
+            type="bill"
+            photoUri={billPhoto}
+            onCameraPress={openCamera}
+            onGalleryPress={pickFromGallery}
+            capturedText={t('upload', 'photoCaptured')}
+            pendingText={t('upload', 'cameraOrGallery')}
+            isLoading={billOcrPending}
+            analyzingText={t('upload', 'analyzing')}
+            retakeText={t('upload', 'retake')}
+          />
 
-            {/* Show payload summary once all required photos are captured */}
-            {isComplete && (
-              <EntrySummaryCard
-                state={state}
-                dispatch={dispatch}
-                driverName={driverName}
-                vehicleLabel={cachedVehicleLabelRef.current || '—'}
-                needsOdometer={needsOdometer}
-                lastOdometer={lastOdometer}
-              />
-            )}
-          </ScrollView>
-        </View>
+          {/* Readability hint */}
+          <View style={styles.hint}>
+            <Ionicons name="information-circle" size={18} color="#A9781C" style={{ marginTop: 1 }} />
+            <AppText variant="small" weight="medium" style={styles.hintText}>
+              Make sure the odometer and bill numbers are clearly readable before submitting.
+            </AppText>
+          </View>
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[
-              styles.submitBtn,
-              (!isComplete || submitting || billOcrPending || odometerOcrPending) && styles.submitBtnDisabled,
-            ]}
-            disabled={!isComplete || submitting || billOcrPending || odometerOcrPending}
-            onPress={handleSubmit}
-            activeOpacity={0.8}
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color={COLORS.white} />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={22} color={COLORS.white} />
-                <Text style={styles.submitText}>
-                  {isComplete ? t('upload', 'submit') : t('upload', 'submitDisabled')}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+          {/* Payload summary once all required photos are captured */}
+          {isComplete && (
+            <EntrySummaryCard
+              state={state}
+              dispatch={dispatch}
+              driverName={driverName}
+              vehicleLabel={cachedVehicleLabelRef.current || '—'}
+              needsOdometer={needsOdometer}
+              lastOdometer={lastOdometer}
+            />
+          )}
+        </ScrollView>
+      </View>
+
+      {/* Footer */}
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <Button
+          icon="checkmark-circle"
+          label={isComplete ? t('upload', 'submit') : t('upload', 'submitDisabled')}
+          onPress={handleSubmit}
+          loading={submitting}
+          disabled={submitDisabled}
+          size="lg"
+        />
+      </View>
     </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+
+  progress: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  segment: { flex: 1, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.3)' },
+  segmentActive: { backgroundColor: colors.white },
+
+  card: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    marginTop: -18,
+  },
+  scroll: { paddingHorizontal: 22, paddingTop: 24, paddingBottom: 24 },
+  sectionLabel: { marginBottom: 16 },
+
+  hint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: colors.pendingBg,
+    borderRadius: 13,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    marginTop: 18,
+  },
+  hintText: { flex: 1, color: '#8A6E22', lineHeight: 18 },
+
+  footer: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: 22,
+    paddingTop: 16,
+    shadowColor: '#102824',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+});

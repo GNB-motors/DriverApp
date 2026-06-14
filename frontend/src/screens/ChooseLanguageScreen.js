@@ -1,228 +1,127 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState } from 'react';
+import { View, Pressable, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../context/LanguageContext';
+import { AppText, Button, colors, spacing, radius } from '../components/ui';
 
-const COLORS = {
-  primary: '#429690',
-  primaryDark: '#2A7C76',
-  white: '#FFFFFF',
-  bg: '#F5F5F5',
-  textDark: '#222222',
-  textMuted: '#888888',
-  cardBg: 'rgba(67, 136, 131, 0.10)',
-  activeBorder: '#429690',
-};
+const LANGUAGES = [
+  { code: 'en', glyph: 'A', name: 'English', native: 'English' },
+  { code: 'hi', glyph: 'अ', name: 'Hindi', native: 'हिन्दी' },
+  { code: 'bn', glyph: 'অ', name: 'Bangla', native: 'বাংলা' },
+];
 
 export default function ChooseLanguageScreen({ navigation }) {
   const { language, setLanguage } = useLanguage();
+  const insets = useSafeAreaInsets();
+  const [selected, setSelected] = useState(language || 'en');
 
-  const currentLang = language || 'en';
-
-  const selectLang = (lang) => {
-    setLanguage(lang);
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
+  const save = () => {
+    setLanguage(selected);
+    if (navigation.canGoBack()) navigation.goBack();
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      <SafeAreaView style={{ flex: 1 }}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.textDark} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Choose Language</Text>
-          <View style={{ width: 40 }} />
-        </View>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <StatusBar style="dark" />
 
-        <Text style={styles.subtitle}>Select your preferred language</Text>
-        <Text style={styles.subtitleHindi}>अपनी पसंदीदा भाषा चुनें / আপনার পছন্দের ভাষা বেছে নিন</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable style={styles.backBtn} onPress={() => navigation.goBack()} hitSlop={8}>
+          <Ionicons name="arrow-back" size={20} color={colors.text} />
+        </Pressable>
+        <AppText variant="h2" weight="extrabold">Choose Language</AppText>
+      </View>
 
-        {/* Language Cards */}
-        <View style={styles.cardsContainer}>
-          {/* English */}
-          <TouchableOpacity
-            style={[
-              styles.langCard,
-              currentLang === 'en' && styles.langCardActive,
-            ]}
-            onPress={() => selectLang('en')}
-          >
-            <View style={styles.langIconContainer}>
-              <Text style={styles.langIconText}>A</Text>
-            </View>
-            <View style={styles.langInfo}>
-              <Text style={styles.langName}>English</Text>
-              <Text style={styles.langNative}>English</Text>
-            </View>
-            <View style={[
-              styles.radio,
-              currentLang === 'en' && styles.radioActive,
-            ]}>
-              {currentLang === 'en' && <View style={styles.radioInner} />}
-            </View>
-          </TouchableOpacity>
+      <View style={styles.intro}>
+        <AppText variant="body" weight="medium" color="#566661" center>Select your preferred language</AppText>
+        <AppText variant="body" weight="medium" muted center>अपनी पसंदीदा भाषा चुनें</AppText>
+      </View>
 
-          {/* Hindi */}
-          <TouchableOpacity
-            style={[
-              styles.langCard,
-              currentLang === 'hi' && styles.langCardActive,
-            ]}
-            onPress={() => selectLang('hi')}
-          >
-            <View style={styles.langIconContainer}>
-              <Text style={styles.langIconText}>अ</Text>
-            </View>
-            <View style={styles.langInfo}>
-              <Text style={styles.langName}>Hindi</Text>
-              <Text style={styles.langNative}>हिन्दी</Text>
-            </View>
-            <View style={[
-              styles.radio,
-              currentLang === 'hi' && styles.radioActive,
-            ]}>
-              {currentLang === 'hi' && <View style={styles.radioInner} />}
-            </View>
-          </TouchableOpacity>
+      <View style={styles.list}>
+        {LANGUAGES.map((lang) => {
+          const active = selected === lang.code;
+          return (
+            <Pressable
+              key={lang.code}
+              style={[styles.langCard, active ? styles.langCardActive : styles.langCardIdle]}
+              onPress={() => setSelected(lang.code)}
+            >
+              <View style={styles.glyphTile}>
+                <AppText weight="semibold" color={colors.primaryDeep} style={styles.glyph}>{lang.glyph}</AppText>
+              </View>
+              <View style={{ flex: 1 }}>
+                <AppText variant="h3" weight="bold">{lang.name}</AppText>
+                <AppText variant="small" muted>{lang.native}</AppText>
+              </View>
+              <View style={[styles.radio, active && styles.radioActive]}>
+                {active ? <View style={styles.radioInner} /> : null}
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
 
-          {/* Bengali */}
-          <TouchableOpacity
-            style={[
-              styles.langCard,
-              currentLang === 'bn' && styles.langCardActive,
-            ]}
-            onPress={() => selectLang('bn')}
-          >
-            <View style={styles.langIconContainer}>
-              <Text style={styles.langIconText}>অ</Text>
-            </View>
-            <View style={styles.langInfo}>
-              <Text style={styles.langName}>Bangla</Text>
-              <Text style={styles.langNative}>বাংলা</Text>
-            </View>
-            <View style={[
-              styles.radio,
-              currentLang === 'bn' && styles.radioActive,
-            ]}>
-              {currentLang === 'bn' && <View style={styles.radioInner} />}
-            </View>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
+        <Button label="Save" onPress={save} size="lg" />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
+  container: { flex: 1, backgroundColor: colors.surface },
+
+  header: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 22, paddingTop: 8 },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.bg,
-    justifyContent: 'center',
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: colors.background,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.textDark,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: COLORS.textMuted,
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  subtitleHindi: {
-    fontSize: 14,
-    color: COLORS.textMuted,
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 32,
-  },
-  cardsContainer: {
-    paddingHorizontal: 20,
-    gap: 16,
-  },
+
+  intro: { paddingHorizontal: 22, paddingTop: 26, gap: 2 },
+
+  list: { paddingHorizontal: 22, paddingTop: 28, gap: 14 },
   langCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.bg,
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    gap: 14,
+    borderRadius: 18,
+    padding: 17,
+    borderWidth: 1.5,
   },
-  langCardActive: {
-    borderColor: COLORS.activeBorder,
-    backgroundColor: COLORS.cardBg,
-  },
-  langIconContainer: {
+  langCardIdle: { backgroundColor: colors.background, borderColor: colors.border },
+  langCardActive: { backgroundColor: colors.tealTint, borderColor: colors.primary },
+  glyphTile: {
     width: 48,
     height: 48,
-    borderRadius: 14,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
+    borderRadius: 13,
+    backgroundColor: colors.surface,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.06,
     shadowRadius: 6,
-    elevation: 2,
+    elevation: 1,
   },
-  langIconText: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: COLORS.primaryDark,
-  },
-  langInfo: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  langName: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: COLORS.textDark,
-  },
-  langNative: {
-    fontSize: 13,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
+  glyph: { fontSize: 22 },
+
   radio: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     borderWidth: 2,
-    borderColor: '#D0D0D0',
-    justifyContent: 'center',
+    borderColor: '#CDD7D3',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  radioActive: {
-    borderColor: COLORS.primary,
-  },
-  radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: COLORS.primary,
-  },
+  radioActive: { borderColor: colors.primary },
+  radioInner: { width: 13, height: 13, borderRadius: 7, backgroundColor: colors.primary },
+
+  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 22, paddingTop: 16 },
 });
