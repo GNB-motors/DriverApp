@@ -1,25 +1,27 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
-  StatusBar,
   Modal,
   FlatList,
   ActivityIndicator,
+  StyleSheet,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { fetchVehicles, fetchFieldAgentVehicles, fetchFieldAgentDrivers } from '../services/api';
 import logger from '../utils/logger';
-import styles, { COLORS } from '../styles/RefuelDetailsScreen.styles';
+import { AppText, Button, ScreenHeader, colors, radius, fontFamily } from '../components/ui';
 
 export default function RefuelDetailsScreen({ navigation, route }) {
   const { t } = useLanguage();
   const { token, user } = useAuth();
+  const insets = useSafeAreaInsets();
   const isFieldAgent = user?.role === 'FIELD_AGENT';
 
   const {
@@ -149,229 +151,181 @@ export default function RefuelDetailsScreen({ navigation, route }) {
   // ── Render ────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar style="light" />
 
-      {/* Green Top Section */}
-      <View style={styles.topSection}>
-        <View style={styles.circleOne} />
-        <View style={styles.circleTwo} />
-        <View style={styles.circleThree} />
+      <ScreenHeader
+        title={t('refuel', 'title')}
+        subtitle={t('refuel', 'step')}
+        onBack={() => navigation.goBack()}
+      >
+        <View style={styles.progress}>
+          <View style={[styles.segment, styles.segmentActive]} />
+          <View style={styles.segment} />
+        </View>
+      </ScreenHeader>
+
+      <View style={styles.card}>
+            {isFieldAgent ? (
+              // ── Field Agent Form ───────────────────────────────────────
+              <>
+                {/* Vehicle Number */}
+                <Field label="Vehicle Number *">
+                  <TouchableOpacity
+                    style={styles.selectRow}
+                    onPress={() => !faLoading && setVehicleModalOpen(true)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.selectLeft}>
+                      <View style={styles.iconTile}>
+                        {faLoading
+                          ? <ActivityIndicator size="small" color={colors.primary} />
+                          : <Ionicons name="car-sport" size={18} color={colors.primary} />}
+                      </View>
+                      <AppText mono={!!faSelectedVehicle} weight="semibold" muted={!faSelectedVehicle} style={styles.selectValue} numberOfLines={1}>
+                        {faSelectedVehicle?.label || 'Select vehicle number'}
+                      </AppText>
+                    </View>
+                    <Ionicons name="chevron-down" size={20} color={colors.primary} />
+                  </TouchableOpacity>
+                </Field>
+
+                {/* Organization (auto) */}
+                <Field label="Organization">
+                  <View style={[styles.selectRow, styles.selectDisabled]}>
+                    <View style={styles.selectLeft}>
+                      <View style={styles.iconTile}>
+                        <Ionicons name="business" size={18} color={colors.primary} />
+                      </View>
+                      <AppText weight="semibold" muted style={styles.selectValue} numberOfLines={1}>
+                        {faSelectedVehicle?.orgName || 'Auto-filled from vehicle'}
+                      </AppText>
+                    </View>
+                  </View>
+                </Field>
+
+                {/* Driver Name */}
+                <Field label="Driver Name *">
+                  <TouchableOpacity
+                    style={[styles.selectRow, !faSelectedVehicle && styles.selectDisabled]}
+                    onPress={() => faSelectedVehicle && setDriverModalOpen(true)}
+                    activeOpacity={faSelectedVehicle ? 0.7 : 1}
+                  >
+                    <View style={styles.selectLeft}>
+                      <View style={styles.iconTile}>
+                        <Ionicons name="person" size={18} color={colors.primary} />
+                      </View>
+                      <AppText weight="semibold" muted={!faSelectedDriver} style={styles.selectValue} numberOfLines={1}>
+                        {faSelectedDriver?.label || (faSelectedVehicle ? 'Select driver' : 'Select vehicle first')}
+                      </AppText>
+                    </View>
+                    {faSelectedVehicle ? <Ionicons name="chevron-down" size={20} color={colors.primary} /> : null}
+                  </TouchableOpacity>
+                </Field>
+              </>
+            ) : (
+              // ── Driver Form ────────────────────────────────────────────
+              <>
+                {/* Vehicle Number */}
+                <Field label={t('refuel', 'vehicleInput')}>
+                  <TouchableOpacity
+                    style={[styles.selectRow, vehicleAssigned && styles.selectDisabled]}
+                    onPress={() => !vehicleAssigned && !vehiclesLoading && setDropdownOpen(true)}
+                    activeOpacity={vehicleAssigned ? 1 : 0.7}
+                  >
+                    <View style={styles.selectLeft}>
+                      <View style={styles.iconTile}>
+                        {vehiclesLoading
+                          ? <ActivityIndicator size="small" color={colors.primary} />
+                          : <Ionicons name="car-sport" size={18} color={colors.primary} />}
+                      </View>
+                      <AppText mono={!!selectedVehicle} weight="semibold" muted={!selectedVehicle} style={styles.selectValue} numberOfLines={1}>
+                        {selectedVehicle?.label || t('refuel', 'selectVehicle')}
+                      </AppText>
+                    </View>
+                    {!vehicleAssigned ? <Ionicons name="chevron-down" size={20} color={colors.primary} /> : null}
+                  </TouchableOpacity>
+                </Field>
+
+                {/* Driver Name (read-only) */}
+                <Field label={t('refuel', 'driverInput')}>
+                  <View style={[styles.selectRow, styles.selectDisabled]}>
+                    <View style={styles.selectLeft}>
+                      <View style={styles.iconTile}>
+                        <Ionicons name="person" size={18} color={colors.primary} />
+                      </View>
+                      <AppText weight="semibold" style={styles.selectValue} numberOfLines={1}>
+                        {driverName || 'Driver'}
+                      </AppText>
+                    </View>
+                  </View>
+                </Field>
+              </>
+            )}
+
+            {/* Refuel Type — both roles */}
+            <Field label={t('refuel', 'typeInput')}>
+              <View style={styles.typeRow}>
+                <TypeCard
+                  selected={refuelType === 'full'}
+                  onPress={() => setRefuelType('full')}
+                  icon="speedometer"
+                  label={t('refuel', 'full')}
+                />
+                <TypeCard
+                  selected={refuelType === 'partial'}
+                  onPress={() => setRefuelType('partial')}
+                  icon="water"
+                  label={t('refuel', 'partial')}
+                />
+              </View>
+            </Field>
+          </View>
+
+      {/* Footer */}
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <LinearGradient
+          pointerEvents="none"
+          colors={['rgba(255,255,255,0)', colors.surface]}
+          style={StyleSheet.absoluteFill}
+        />
+        <Button
+          label={t('refuel', 'next')}
+          iconRight="arrow-forward"
+          disabled={!isNextEnabled}
+          onPress={handleNext}
+          size="lg"
+        />
       </View>
-
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* Header */}
-        <View style={styles.headerContainer}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={22} color={COLORS.white} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleBlock}>
-            <Text style={styles.headerTitle}>{t('refuel', 'title')}</Text>
-            <Text style={styles.headerStep}>{t('refuel', 'step')}</Text>
-          </View>
-        </View>
-
-        {/* Progress Bar */}
-        <View style={styles.progressBarContainer}>
-          <View style={[styles.progressSegment, styles.progressSegmentActive]} />
-          <View style={styles.progressSegment} />
-        </View>
-
-        {/* Form Card */}
-        <View style={styles.formCard}>
-          {isFieldAgent ? (
-            // ── Field Agent Form ───────────────────────────────────────
-            <>
-              {/* Vehicle Number */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Vehicle Number *</Text>
-                <TouchableOpacity
-                  style={styles.dropdownButton}
-                  onPress={() => !faLoading && setVehicleModalOpen(true)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.dropdownIconLeft}>
-                    {faLoading
-                      ? <ActivityIndicator size="small" color={COLORS.primary} />
-                      : <Ionicons name="car-sport" size={18} color={COLORS.primary} />}
-                  </View>
-                  <Text style={[styles.dropdownText, !faSelectedVehicle && styles.dropdownPlaceholder]}>
-                    {faSelectedVehicle?.label || 'Select vehicle number'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color={COLORS.primary} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Organization (auto-populated) */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Organization</Text>
-                <View style={[styles.dropdownButton, styles.inputWrapperDisabled]}>
-                  <View style={styles.dropdownIconLeft}>
-                    <Ionicons name="business" size={18} color={COLORS.primary} />
-                  </View>
-                  <Text style={styles.disabledText}>
-                    {faSelectedVehicle?.orgName || 'Auto-filled from vehicle'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Driver Name */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Driver Name *</Text>
-                <TouchableOpacity
-                  style={[styles.dropdownButton, !faSelectedVehicle && styles.inputWrapperDisabled]}
-                  onPress={() => faSelectedVehicle && setDriverModalOpen(true)}
-                  activeOpacity={faSelectedVehicle ? 0.7 : 1}
-                >
-                  <View style={styles.dropdownIconLeft}>
-                    <Ionicons name="person" size={18} color={COLORS.primary} />
-                  </View>
-                  <Text style={[styles.dropdownText, !faSelectedDriver && styles.dropdownPlaceholder]}>
-                    {faSelectedDriver?.label || (faSelectedVehicle ? 'Select driver' : 'Select vehicle first')}
-                  </Text>
-                  {faSelectedVehicle && (
-                    <Ionicons name="chevron-down" size={20} color={COLORS.primary} />
-                  )}
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            // ── Driver Form ────────────────────────────────────────────
-            <>
-              {/* Vehicle Number */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>{t('refuel', 'vehicleInput')}</Text>
-                <TouchableOpacity
-                  style={[styles.dropdownButton, vehicleAssigned && styles.inputWrapperDisabled]}
-                  onPress={() => !vehicleAssigned && !vehiclesLoading && setDropdownOpen(true)}
-                  activeOpacity={vehicleAssigned ? 1 : 0.7}
-                >
-                  <View style={styles.dropdownIconLeft}>
-                    {vehiclesLoading
-                      ? <ActivityIndicator size="small" color={COLORS.primary} />
-                      : <Ionicons name="car-sport" size={18} color={COLORS.primary} />}
-                  </View>
-                  <Text style={[styles.dropdownText, !selectedVehicle && styles.dropdownPlaceholder]}>
-                    {selectedVehicle?.label || t('refuel', 'selectVehicle')}
-                  </Text>
-                  {!vehicleAssigned && (
-                    <Ionicons name="chevron-down" size={20} color={COLORS.primary} />
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              {/* Driver Name (read-only) */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>{t('refuel', 'driverInput')}</Text>
-                <View style={[styles.dropdownButton, styles.inputWrapperDisabled]}>
-                  <View style={styles.dropdownIconLeft}>
-                    <Ionicons name="person" size={18} color={COLORS.primary} />
-                  </View>
-                  <Text style={styles.disabledText}>{driverName || 'Driver'}</Text>
-                </View>
-              </View>
-            </>
-          )}
-
-          {/* Refuel Type — same for both roles */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>{t('refuel', 'typeInput')}</Text>
-            <View style={styles.optionsRow}>
-              <TouchableOpacity
-                style={[styles.optionCard, refuelType === 'full' && styles.optionSelected]}
-                onPress={() => setRefuelType('full')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.optionIcon, refuelType === 'full' && styles.optionIconSelected]}>
-                  <Ionicons
-                    name="speedometer"
-                    size={22}
-                    color={refuelType === 'full' ? COLORS.primaryDark : COLORS.primary}
-                  />
-                </View>
-                <Text style={[styles.optionText, refuelType === 'full' && styles.optionTextSelected]}>
-                  {t('refuel', 'full')}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.optionCard, refuelType === 'partial' && styles.optionSelected]}
-                onPress={() => setRefuelType('partial')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.optionIcon, refuelType === 'partial' && styles.optionIconSelected]}>
-                  <Ionicons
-                    name="water"
-                    size={22}
-                    color={refuelType === 'partial' ? COLORS.primaryDark : COLORS.primary}
-                  />
-                </View>
-                <Text style={[styles.optionText, refuelType === 'partial' && styles.optionTextSelected]}>
-                  {t('refuel', 'partial')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.nextBtn, !isNextEnabled && styles.nextBtnDisabled]}
-            disabled={!isNextEnabled}
-            onPress={handleNext}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.nextText}>{t('refuel', 'next')}</Text>
-            <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
 
       {/* ── Driver Vehicle Dropdown Modal ─────────────────────────────── */}
       <Modal visible={dropdownOpen} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setDropdownOpen(false)}
-        >
-          <View style={styles.modalContent}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDropdownOpen(false)}>
+          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t('refuel', 'vehicleInput')}</Text>
-              <TouchableOpacity onPress={() => setDropdownOpen(false)}>
-                <Ionicons name="close" size={24} color={COLORS.textDark} />
+              <AppText variant="h3" weight="bold">{t('refuel', 'vehicleInput')}</AppText>
+              <TouchableOpacity onPress={() => setDropdownOpen(false)} hitSlop={8}>
+                <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
             <FlatList
               data={vehicles}
               keyExtractor={(item) => item.value}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.modalItem,
-                    selectedVehicle?.value === item.value && styles.modalItemSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedVehicle(item);
-                    setDropdownOpen(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name="car-sport"
-                    size={20}
-                    color={selectedVehicle?.value === item.value ? COLORS.primaryDark : COLORS.textMuted}
-                  />
-                  <Text style={[
-                    styles.modalItemText,
-                    selectedVehicle?.value === item.value && styles.modalItemTextSelected,
-                  ]}>
-                    {item.label}
-                  </Text>
-                  {selectedVehicle?.value === item.value && (
-                    <Ionicons name="checkmark-circle" size={22} color={COLORS.primary} />
-                  )}
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => {
+                const isSelected = selectedVehicle?.value === item.value;
+                return (
+                  <TouchableOpacity
+                    style={[styles.modalItem, isSelected && styles.modalItemSelected]}
+                    onPress={() => { setSelectedVehicle(item); setDropdownOpen(false); }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="car-sport" size={20} color={isSelected ? colors.primary : colors.textMuted} />
+                    <AppText mono weight="semibold" color={isSelected ? colors.primary : colors.text} style={styles.modalItemContent}>
+                      {item.label}
+                    </AppText>
+                    {isSelected ? <Ionicons name="checkmark-circle" size={22} color={colors.primary} /> : null}
+                  </TouchableOpacity>
+                );
+              }}
             />
           </View>
         </TouchableOpacity>
@@ -386,26 +340,25 @@ export default function RefuelDetailsScreen({ navigation, route }) {
         >
           <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Vehicle</Text>
-              <TouchableOpacity onPress={() => { setVehicleModalOpen(false); setVehicleSearch(''); }}>
-                <Ionicons name="close" size={24} color={COLORS.textDark} />
+              <AppText variant="h3" weight="bold">Select Vehicle</AppText>
+              <TouchableOpacity onPress={() => { setVehicleModalOpen(false); setVehicleSearch(''); }} hitSlop={8}>
+                <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
-            {/* Search bar */}
             <View style={styles.searchBar}>
-              <Ionicons name="search" size={16} color={COLORS.textMuted} style={styles.searchIcon} />
+              <Ionicons name="search" size={16} color={colors.textMuted} />
               <TextInput
                 value={vehicleSearch}
                 onChangeText={setVehicleSearch}
                 placeholder="Search by registration number..."
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 autoFocus
                 style={styles.searchInput}
               />
               {vehicleSearch.length > 0 && (
                 <TouchableOpacity onPress={() => setVehicleSearch('')}>
-                  <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
             </View>
@@ -414,9 +367,7 @@ export default function RefuelDetailsScreen({ navigation, route }) {
               data={filteredVehicles}
               keyExtractor={(item) => item._id}
               keyboardShouldPersistTaps="handled"
-              ListEmptyComponent={
-                <Text style={styles.modalEmptyText}>No vehicles found</Text>
-              }
+              ListEmptyComponent={<AppText muted center style={styles.modalEmpty}>No vehicles found</AppText>}
               renderItem={({ item }) => {
                 const isSelected = faSelectedVehicle?.value === item._id;
                 return (
@@ -425,16 +376,14 @@ export default function RefuelDetailsScreen({ navigation, route }) {
                     onPress={() => selectFaVehicle(item)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="car-sport" size={20} color={isSelected ? COLORS.primaryDark : COLORS.textMuted} />
+                    <Ionicons name="car-sport" size={20} color={isSelected ? colors.primary : colors.textMuted} />
                     <View style={styles.modalItemContent}>
-                      <Text style={[styles.modalItemText, isSelected && styles.modalItemTextSelected]}>
+                      <AppText mono weight="semibold" color={isSelected ? colors.primary : colors.text}>
                         {item.registrationNumber}
-                      </Text>
-                      {item.orgId?.companyName && (
-                        <Text style={styles.modalItemSubtitle}>{item.orgId.companyName}</Text>
-                      )}
+                      </AppText>
+                      {item.orgId?.companyName ? <AppText variant="small" muted>{item.orgId.companyName}</AppText> : null}
                     </View>
-                    {isSelected && <Ionicons name="checkmark-circle" size={22} color={COLORS.primary} />}
+                    {isSelected ? <Ionicons name="checkmark-circle" size={22} color={colors.primary} /> : null}
                   </TouchableOpacity>
                 );
               }}
@@ -452,26 +401,25 @@ export default function RefuelDetailsScreen({ navigation, route }) {
         >
           <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Driver</Text>
-              <TouchableOpacity onPress={() => { setDriverModalOpen(false); setDriverSearch(''); }}>
-                <Ionicons name="close" size={24} color={COLORS.textDark} />
+              <AppText variant="h3" weight="bold">Select Driver</AppText>
+              <TouchableOpacity onPress={() => { setDriverModalOpen(false); setDriverSearch(''); }} hitSlop={8}>
+                <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
-            {/* Search bar */}
             <View style={styles.searchBar}>
-              <Ionicons name="search" size={16} color={COLORS.textMuted} style={styles.searchIcon} />
+              <Ionicons name="search" size={16} color={colors.textMuted} />
               <TextInput
                 value={driverSearch}
                 onChangeText={setDriverSearch}
                 placeholder="Search by name or mobile..."
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 autoFocus
                 style={styles.searchInput}
               />
               {driverSearch.length > 0 && (
                 <TouchableOpacity onPress={() => setDriverSearch('')}>
-                  <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
             </View>
@@ -480,9 +428,7 @@ export default function RefuelDetailsScreen({ navigation, route }) {
               data={filteredDrivers}
               keyExtractor={(item) => item._id}
               keyboardShouldPersistTaps="handled"
-              ListEmptyComponent={
-                <Text style={styles.modalEmptyText}>No drivers found for this organization</Text>
-              }
+              ListEmptyComponent={<AppText muted center style={styles.modalEmpty}>No drivers found for this organization</AppText>}
               renderItem={({ item }) => {
                 const isSelected = faSelectedDriver?.value === item._id;
                 const name = `${item.firstName} ${item.lastName || ''}`.trim();
@@ -492,16 +438,12 @@ export default function RefuelDetailsScreen({ navigation, route }) {
                     onPress={() => selectFaDriver(item)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="person" size={20} color={isSelected ? COLORS.primaryDark : COLORS.textMuted} />
+                    <Ionicons name="person" size={20} color={isSelected ? colors.primary : colors.textMuted} />
                     <View style={styles.modalItemContent}>
-                      <Text style={[styles.modalItemText, isSelected && styles.modalItemTextSelected]}>
-                        {name}
-                      </Text>
-                      {item.mobileNumber && (
-                        <Text style={styles.modalItemSubtitle}>{item.mobileNumber}</Text>
-                      )}
+                      <AppText weight="semibold" color={isSelected ? colors.primary : colors.text}>{name}</AppText>
+                      {item.mobileNumber ? <AppText variant="small" muted mono>{item.mobileNumber}</AppText> : null}
                     </View>
-                    {isSelected && <Ionicons name="checkmark-circle" size={22} color={COLORS.primary} />}
+                    {isSelected ? <Ionicons name="checkmark-circle" size={22} color={colors.primary} /> : null}
                   </TouchableOpacity>
                 );
               }}
@@ -512,3 +454,153 @@ export default function RefuelDetailsScreen({ navigation, route }) {
     </View>
   );
 }
+
+// ── Small presentational helpers ──────────────────────────────────────────
+function Field({ label, children }) {
+  return (
+    <View style={styles.fieldContainer}>
+      <AppText variant="label" muted style={styles.label}>{label}</AppText>
+      {children}
+    </View>
+  );
+}
+
+function TypeCard({ selected, onPress, icon, label }) {
+  return (
+    <TouchableOpacity
+      style={[styles.optionCard, selected && styles.optionCardSelected]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <View style={[styles.optionIcon, selected && styles.optionIconSelected]}>
+        <Ionicons name={icon} size={20} color={selected ? colors.white : colors.textMuted} />
+      </View>
+      <AppText variant="bodyStrong" weight="bold" color={selected ? colors.primary : colors.textMuted}>
+        {label}
+      </AppText>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+
+  progress: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  segment: { flex: 1, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.3)' },
+  segmentActive: { backgroundColor: colors.white },
+
+  card: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    marginTop: -18,
+    paddingHorizontal: 22,
+    paddingTop: 24,
+    paddingBottom: 24,
+  },
+
+  fieldContainer: { marginBottom: 18 },
+  label: { marginBottom: 9 },
+
+  // Select rows (vehicle / driver / org)
+  selectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  selectDisabled: { opacity: 0.7 },
+  selectLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  iconTile: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: colors.tealTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectValue: { flex: 1, fontSize: 16 },
+
+  // Refuel type cards
+  typeRow: { flexDirection: 'row', gap: 12 },
+  optionCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderRadius: 14,
+    backgroundColor: colors.background,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  optionCardSelected: { backgroundColor: colors.tealTint, borderColor: colors.primary },
+  optionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.tealTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  optionIconSelected: { backgroundColor: colors.primary },
+
+  // Footer
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 22,
+    paddingTop: 16,
+  },
+
+  // Modals
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(16,33,31,0.45)', justifyContent: 'flex-end' },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 28,
+    maxHeight: '75%',
+  },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  modalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  modalItemSelected: { backgroundColor: colors.tealTint },
+  modalItemContent: { flex: 1 },
+  modalEmpty: { paddingVertical: 30 },
+
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.background,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: fontFamily.display.regular,
+    fontSize: 15,
+    color: colors.text,
+    padding: 0,
+  },
+});

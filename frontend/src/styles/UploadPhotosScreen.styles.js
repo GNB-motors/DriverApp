@@ -2,22 +2,24 @@ import { StyleSheet, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
+// Recolored to the Highway Sahayak palette (see theme/tokens). Shared by
+// EntrySummaryCard; the screen + PhotoTaskCard now style from tokens directly.
 export const COLORS = {
-  primary: '#429690',
-  primaryDark: '#2F7E79',
+  primary: '#0F6E60',
+  primaryDark: '#0A4F47',
   white: '#FFFFFF',
-  background: '#F8FAFA',
-  textDark: '#222222',
-  textMuted: '#888888',
-  border: '#E8EEEE',
-  surface: '#F1F5F5',
-  cardBg: 'rgba(66, 150, 144, 0.08)',
-  selectedBg: 'rgba(66, 150, 144, 0.12)',
-  success: '#2ECC71',
-  successBg: 'rgba(46, 204, 113, 0.10)',
+  background: '#F4F6F5',
+  textDark: '#16211F',
+  textMuted: '#61716C',
+  border: '#E3E9E6',
+  surface: '#F4F6F5',
+  cardBg: 'rgba(15, 110, 96, 0.08)',
+  selectedBg: 'rgba(15, 110, 96, 0.12)',
+  success: '#16A06B',
+  successBg: 'rgba(22, 160, 107, 0.10)',
   disabledBg: '#D0D8D8',
-  errorText: '#DC2626',
-  errorBg: 'rgba(220, 38, 38, 0.08)',
+  errorText: '#E23B33',
+  errorBg: 'rgba(226, 59, 51, 0.08)',
 };
 
 const styles = StyleSheet.create({
