@@ -6,18 +6,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { fetchDashboardSummary, fetchOngoingTrips } from '../services/api';
+import { fetchDashboardSummary, fetchMileageIntervals } from '../services/api';
 import logger from '../utils/logger';
 import { AppText, Card, ScreenHeader, colors, spacing } from '../components/ui';
-
-const STALE_TRIP_DAYS = 4;
-
-// A trip stuck in IN_PROGRESS for longer than STALE_TRIP_DAYS is almost certainly
-// abandoned/forgotten rather than genuinely ongoing, so it's excluded from this count.
-function countFreshOngoingTrips(trips) {
-  const cutoff = Date.now() - STALE_TRIP_DAYS * 24 * 60 * 60 * 1000;
-  return trips.filter((trip) => new Date(trip.createdAt).getTime() >= cutoff).length;
-}
 
 function KpiCard({ icon, label, value, sub }) {
   return (
@@ -37,7 +28,7 @@ export default function OwnerOverviewScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState(null);
-  const [freshOngoing, setFreshOngoing] = useState(0);
+  const [completedTrips, setCompletedTrips] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -45,12 +36,14 @@ export default function OwnerOverviewScreen({ navigation }) {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const [data, ongoingTrips] = await Promise.all([
+      const [data, mileageRes] = await Promise.all([
         fetchDashboardSummary(token),
-        fetchOngoingTrips(token),
+        fetchMileageIntervals(token, 1, 200),
       ]);
       setSummary(data?.summaryCards || null);
-      setFreshOngoing(countFreshOngoingTrips(ongoingTrips));
+      // Trips = completed mileage intervals (fuel-to-fuel cycles), not the trip-document workflow count.
+      const intervals = Array.isArray(mileageRes?.data) ? mileageRes.data : [];
+      setCompletedTrips(intervals.filter((i) => i.status === 'COMPLETED').length);
     } catch (err) {
       logger.error('OwnerOverview', `Error loading dashboard summary: ${err?.message}`);
     } finally {
@@ -63,7 +56,6 @@ export default function OwnerOverviewScreen({ navigation }) {
 
   const vehicles = summary?.vehicles || {};
   const drivers = summary?.drivers || {};
-  const trips = summary?.trips || {};
   const fuel = summary?.fuel || {};
 
   return (
@@ -96,8 +88,7 @@ export default function OwnerOverviewScreen({ navigation }) {
               <KpiCard
                 icon="navigate"
                 label={t('owner', 'trips') || 'Trips'}
-                value={trips.total ?? '—'}
-                sub={`${freshOngoing} ${t('owner', 'ongoing') || 'ongoing'}`}
+                value={completedTrips}
               />
               <KpiCard
                 icon="water"

@@ -279,13 +279,6 @@ export async function fetchDashboardOverview(token, days = 7) {
   return res.data?.data;
 }
 
-// Trips currently IN_PROGRESS — used to recompute a "fresh" ongoing count on
-// the mobile Owner Overview (the shared dashboard stat doesn't age out stale trips).
-export async function fetchOngoingTrips(token, limit = 500) {
-  const res = await apiClient.get(`/trips?status=IN_PROGRESS&limit=${limit}`, { token });
-  return res.data?.data || [];
-}
-
 export async function fetchMaintenanceAlerts(token) {
   const res = await apiClient.get('/maintenance/alerts', { token });
   return res.data?.data || res.data || [];

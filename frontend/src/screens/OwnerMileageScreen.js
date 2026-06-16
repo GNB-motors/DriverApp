@@ -37,7 +37,7 @@ export default function OwnerMileageScreen({ navigation }) {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const res = await fetchMileageIntervals(token, 1, 100);
+      const res = await fetchMileageIntervals(token, 1, 200);
       setIntervals(Array.isArray(res?.data) ? res.data : []);
     } catch (err) {
       logger.error('OwnerMileage', `Error loading mileage intervals: ${err?.message}`);
