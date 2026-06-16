@@ -144,7 +144,19 @@ export default function DocumentsScreen({ route, navigation }) {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      <ScreenHeader title={title} subtitle={subtitle} onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined} />
+      <ScreenHeader
+        title={title}
+        subtitle={subtitle}
+        onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+        right={showVehicle && vehicle ? (
+          <Pressable style={styles.changeVehicleBtn} onPress={() => navigation.navigate('Vehicle')} hitSlop={8}>
+            <Ionicons name="swap-horizontal" size={15} color={colors.white} />
+            <AppText variant="caption" weight="semibold" color={colors.white}>
+              {language === 'hi' ? 'बदलें' : 'Change'}
+            </AppText>
+          </Pressable>
+        ) : undefined}
+      />
 
       <View style={styles.sheet}>
         {loading ? (
@@ -227,6 +239,16 @@ export default function DocumentsScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+
+  changeVehicleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.onPrimaryFaint,
+    borderRadius: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+  },
   sheet: {
     flex: 1,
     backgroundColor: colors.background,

@@ -16,12 +16,15 @@ export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
   const isFieldAgent = user?.role === 'FIELD_AGENT';
+  const isOwner = user?.role === 'OWNER';
   const driverName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Driver' : 'Driver';
   const initials = (`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`).toUpperCase() || 'D';
   const rawPhone = user?.mobileNumber || user?.phoneNumber || '';
   const phoneDisplay = rawPhone ? (rawPhone.startsWith('+') ? rawPhone : `+91 ${rawPhone}`) : '';
 
-  const accountRows = isFieldAgent ? [] : [
+  const accountRows = isFieldAgent ? [] : isOwner ? [
+    { icon: 'speedometer', label: t('owner', 'mileageLogs') || 'Mileage Logs', onPress: () => navigation.navigate('OwnerMileage') },
+  ] : [
     { icon: 'car-sport', label: t('home', 'myVehicle') || 'My Vehicle', onPress: () => navigation.navigate('Vehicle') },
     { icon: 'person', label: t('docs', 'personalTitle') || 'Personal Documents', onPress: () => navigation.navigate('DocsScreen', { docType: 'PERSONAL' }) },
     { icon: 'document-text', label: t('docs', 'vehicleTitle') || 'Vehicle Documents', onPress: () => navigation.navigate('DocsScreen', { docType: 'VEHICLE' }) },

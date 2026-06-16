@@ -124,10 +124,17 @@ export async function verifyDriverOtp(mobileNumber, otp) {
   return res.data?.data;
 }
 
+// Password login — used by Owner accounts (same endpoint as the web app)
+export async function loginWithPassword(emailOrMobile, password) {
+  const res = await apiClient.post('/auth/login', { emailOrMobile, password });
+  return res.data?.data;
+}
+
 // ── Vehicles ───────────────────────────────────────────────────────────
 
-export async function fetchVehicles(token, limit = 100) {
-  const res = await apiClient.get(`/vehicles?limit=${limit}`, { token });
+export async function fetchVehicles(token, { limit = 100, search = '' } = {}) {
+  const query = search ? `&search=${encodeURIComponent(search)}` : '';
+  const res = await apiClient.get(`/vehicles?limit=${limit}${query}`, { token });
   return res.data?.data;
 }
 
@@ -139,8 +146,9 @@ export async function fetchFieldAgentVehicles(token) {
 
 // ── Employees / Drivers ────────────────────────────────────────────────
 
-export async function fetchDrivers(token, limit = 100) {
-  const res = await apiClient.get(`/employees?role=DRIVER&limit=${limit}`, { token });
+export async function fetchDrivers(token, { limit = 100, search = '' } = {}) {
+  const query = search ? `&search=${encodeURIComponent(search)}` : '';
+  const res = await apiClient.get(`/employees?role=DRIVER&limit=${limit}${query}`, { token });
   return res.data?.data;
 }
 
@@ -257,4 +265,28 @@ export async function fetchRepairLogs(token, search = '') {
     logger.error('API', `fetchRepairLogs failed: ${error.response?.data?.message || error.message}`);
     throw error;
   }
+}
+
+// ── Owner: Dashboard & Alerts ──────────────────────────────────────────
+
+export async function fetchDashboardSummary(token, days = 7) {
+  const res = await apiClient.get(`/dashboard/summary?days=${days}`, { token });
+  return res.data?.data;
+}
+
+export async function fetchDashboardOverview(token, days = 7) {
+  const res = await apiClient.get(`/dashboard/overview?days=${days}`, { token });
+  return res.data?.data;
+}
+
+// Trips currently IN_PROGRESS — used to recompute a "fresh" ongoing count on
+// the mobile Owner Overview (the shared dashboard stat doesn't age out stale trips).
+export async function fetchOngoingTrips(token, limit = 500) {
+  const res = await apiClient.get(`/trips?status=IN_PROGRESS&limit=${limit}`, { token });
+  return res.data?.data || [];
+}
+
+export async function fetchMaintenanceAlerts(token) {
+  const res = await apiClient.get('/maintenance/alerts', { token });
+  return res.data?.data || res.data || [];
 }

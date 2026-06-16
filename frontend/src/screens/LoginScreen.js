@@ -57,7 +57,7 @@ function OtpInput({ value, onChange }) {
 }
 
 // ── Main screen ─────────────────────────────────────────────────────────
-export default function LoginScreen() {
+export default function LoginScreen({ navigation }) {
   const [step, setStep] = useState(1);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [normalisedPhone, setNormalisedPhone] = useState('');
@@ -88,6 +88,7 @@ export default function LoginScreen() {
       support: 'SUPPORT',
       supportValue: '24/7 Active',
       language: 'LANGUAGE',
+      loginAsOwner: 'Login as Owner',
     };
     return fallback[key] || '';
   };
@@ -260,6 +261,11 @@ export default function LoginScreen() {
             <AppText variant="body" weight="bold" color={colors.primary} center>{lt('help')}</AppText>
           </Pressable>
 
+          {/* Owner login */}
+          <Pressable hitSlop={8} style={styles.ownerLinkWrap} onPress={() => navigation.navigate('OwnerLogin')}>
+            <AppText variant="small" weight="bold" color={colors.textMuted} center>{lt('loginAsOwner')}</AppText>
+          </Pressable>
+
           <View style={styles.hairline} />
 
           {/* Info cards: Support + Language */}
@@ -395,6 +401,7 @@ const styles = StyleSheet.create({
 
   // Help
   helpWrap: { paddingVertical: 18 },
+  ownerLinkWrap: { paddingBottom: 18 },
   hairline: { height: 1, backgroundColor: colors.border, marginBottom: 18 },
 
   // Info cards

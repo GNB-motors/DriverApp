@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { requestDriverOtp, verifyDriverOtp } from '../services/api';
+import { requestDriverOtp, verifyDriverOtp, loginWithPassword as apiLoginWithPassword } from '../services/api';
 import logger from '../utils/logger';
 
 const AuthContext = createContext();
@@ -63,9 +63,7 @@ export function AuthProvider({ children }) {
     return normalised;
   };
 
-  const verifyOtp = async (mobileNumber, otp) => {
-    const result = await verifyDriverOtp(mobileNumber, otp);
-    const { user: loggedInUser, token: jwt, organization: org } = result;
+  const persistSession = async ({ user: loggedInUser, token: jwt, organization: org }) => {
     const newIdentity = `${loggedInUser._id}:${loggedInUser.orgId}`;
 
     // If the device previously belonged to a different identity, wipe its
@@ -89,6 +87,16 @@ export function AuthProvider({ children }) {
     return true;
   };
 
+  const verifyOtp = async (mobileNumber, otp) => {
+    const result = await verifyDriverOtp(mobileNumber, otp);
+    return persistSession(result);
+  };
+
+  const loginWithPassword = async (emailOrMobile, password) => {
+    const result = await apiLoginWithPassword(emailOrMobile, password);
+    return persistSession(result);
+  };
+
   const logout = async () => {
     await Promise.all([
       AsyncStorage.removeItem(STORAGE_KEY_USER),
@@ -104,7 +112,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, organization, loading, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, logout }}>
+    <AuthContext.Provider value={{ user, token, organization, loading, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, loginWithPassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -9,8 +9,13 @@ import FloatingTabBar from './FloatingTabBar';
 
 import LanguageSelectionScreen from '../screens/LanguageSelectionScreen';
 import LoginScreen from '../screens/LoginScreen';
+import OwnerLoginScreen from '../screens/OwnerLoginScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import HomeScreen from '../screens/HomeScreen';
+import OwnerOverviewScreen from '../screens/OwnerOverviewScreen';
+import OwnerLookupScreen from '../screens/OwnerLookupScreen';
+import OwnerAlertsScreen from '../screens/OwnerAlertsScreen';
+import OwnerMileageScreen from '../screens/OwnerMileageScreen';
 import DocumentsScreen from '../screens/DocumentsScreen';
 import RefuelDetailsScreen from '../screens/RefuelDetailsScreen';
 import UploadPhotosScreen from '../screens/UploadPhotosScreen';
@@ -35,6 +40,9 @@ const tabIcon = (routeName) => ({ focused, color, size }) => {
   else if (routeName === 'Repairs') iconName = focused ? 'build' : 'build-outline';
   else if (routeName === 'Documents') iconName = focused ? 'document-text' : 'document-text-outline';
   else if (routeName === 'Profile') iconName = focused ? 'person' : 'person-outline';
+  else if (routeName === 'Overview') iconName = focused ? 'speedometer' : 'speedometer-outline';
+  else if (routeName === 'Lookup') iconName = focused ? 'search' : 'search-outline';
+  else if (routeName === 'Alerts') iconName = focused ? 'alert-circle' : 'alert-circle-outline';
   return <Ionicons name={iconName} size={size} color={color} />;
 };
 
@@ -73,6 +81,22 @@ function FieldAgentTabs() {
   );
 }
 
+// Owner: floating bar, Overview · Lookup · Alerts · Profile, no FAB (read-only monitoring)
+function OwnerTabs() {
+  const { t } = useLanguage();
+  return (
+    <Tab.Navigator
+      tabBar={(props) => <FloatingTabBar {...props} />}
+      screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: tabIcon(route.name) })}
+    >
+      <Tab.Screen name="Overview" component={OwnerOverviewScreen} options={{ tabBarLabel: t('owner', 'tabOverview') || 'Overview' }} />
+      <Tab.Screen name="Lookup" component={OwnerLookupScreen} options={{ tabBarLabel: t('owner', 'tabLookup') || 'Lookup' }} />
+      <Tab.Screen name="Alerts" component={OwnerAlertsScreen} options={{ tabBarLabel: t('owner', 'tabAlerts') || 'Alerts' }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('profile', 'title') || 'Profile' }} />
+    </Tab.Navigator>
+  );
+}
+
 export default function AppNavigator() {
   const { language, isLoaded } = useLanguage();
   const { user, loading: authLoading, isNewLogin } = useAuth();
@@ -84,15 +108,23 @@ export default function AppNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!user ? (
-        <Stack.Screen name="Login" component={LoginScreen} />
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="OwnerLogin" component={OwnerLoginScreen} />
+        </>
       ) : (
         <>
           {isNewLogin && <Stack.Screen name="Welcome" component={WelcomeScreen} />}
           <Stack.Screen
             name="Main"
-            component={user?.role === 'FIELD_AGENT' ? FieldAgentTabs : BottomTabs}
+            component={
+              user?.role === 'OWNER' ? OwnerTabs
+                : user?.role === 'FIELD_AGENT' ? FieldAgentTabs
+                : BottomTabs
+            }
           />
           <Stack.Screen name="DocsScreen" component={DocumentsScreen} />
+          <Stack.Screen name="OwnerMileage" component={OwnerMileageScreen} />
           <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} />
           <Stack.Screen
             name="Vehicle"
