@@ -21,6 +21,7 @@ import SOSEmergencyActiveScreen from '../screens/SOSEmergencyActiveScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ChooseLanguageScreen from '../screens/ChooseLanguageScreen';
 import FuelHistoryScreen from '../screens/FuelHistoryScreen';
+import FuelPricesScreen from '../screens/FuelPricesScreen';
 import RepairsMenuScreen from '../screens/RepairsMenuScreen';
 import AddRepairScreen from '../screens/AddRepairScreen';
 import RepairLogsScreen from '../screens/RepairLogsScreen';
@@ -108,6 +109,7 @@ export default function AppNavigator() {
             options={{ gestureEnabled: false, animation: 'fade' }}
           />
           <Stack.Screen name="FuelHistory" component={FuelHistoryScreen} />
+          <Stack.Screen name="FuelPrices" component={FuelPricesScreen} />
           <Stack.Screen name="AddRepair" component={AddRepairScreen} />
           <Stack.Screen name="RepairLogs" component={RepairLogsScreen} />
           <Stack.Screen name="SOSOptions" component={SOSOptionsScreen} options={{ presentation: 'transparentModal' }} />
