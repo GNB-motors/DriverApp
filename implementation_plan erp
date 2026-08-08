@@ -1,0 +1,547 @@
+# GNB Motors — DriverApp Complete ERP/CRM Integration & UI Upgrade
+
+## Background & Objective
+
+The `main-backend` and `main-frontend` repos contain a fully-built ERP/CRM system — 10 pipeline stages from Delivery Order → Sale Bill → Finance. The `DriverApp` is currently a basic React Native (Expo SDK 54) app serving **drivers** and **field agents** with fuel, repairs, and documents. This plan:
+
+1. **Upgrades the UI** of all three role-specific login flows and dashboards to match a premium fleet-management product (reference: the fleet-management app image shared).
+2. **Adds an entirely new OWNER/MANAGER role** to the app, giving owners a mobile ERP dashboard and managers (ops + field agents) the full operational pipeline.
+3. **Brings the driver experience in line** with the commercial pipeline — drivers see and act on their active trip/advance/CN/POD submission stages.
+4. Preserves the existing teal brand (`#0F6E60 / gradient #1AA28E → #0C5A50`), token system, and Expo toolchain.
+
+---
+
+## 1. Analysis Summary — What Exists
+
+### DriverApp (React Native / Expo 54)
+| Layer | Status |
+|---|---|
+| Auth | OTP login, role-aware (`DRIVER` / `FIELD_AGENT` / `MANAGER` / `OWNER`), JWT persisted to AsyncStorage |
+| Navigation | 1 `LoginScreen` → role-split `BottomTabs` (Driver: Home·Repairs·[FAB refuel]·Docs·Profile, Field Agent: Home·Profile) |
+| Core Features | Fuel log, Repair log, Document upload (OCR), On-duty location tracking, SOS, Bengali language support, preloaded Spline Sans Mono & Plus Jakarta Sans typography |
+| Field agent features | Multi-org fuel log entry (recently merged in PR #13) |
+| Missing | No OWNER/MANAGER tabs; no ERP pipeline views; no approvals queue; no advance/CN/POD tracking; no active trip dashboard |
+| UI | Premium design tokens established; ready for mobile Action Sheet drawer extensions and role-specific tab layouts |
+
+### main-backend (Node.js / Express / MongoDB)
+Complete ERP pipeline with 10 stages, fully role-gated with recent performance & workflow updates:
+
+| Stage | API prefix | Key roles |
+|---|---|---|
+| 0 Masters | `/api/erp/masters` | OWNER, MANAGER |
+| 1 Call planning | `/api/erp/calls` | OWNER, MANAGER |
+| 2 Delivery Orders | `/api/erp/delivery-orders` | OWNER, MANAGER |
+| 3 Placement | `/api/erp/placements` | OWNER, MANAGER, OPS_EXECUTIVE |
+| 4 Advance | `/api/erp/advances` | OWNER, MANAGER, OPS_EXECUTIVE |
+| 5 Consignment (CN) | `/api/erp/consignments` | OWNER, MANAGER, DRIVER (bilty upload) |
+| 6 Trip Close | `/api/erp/trips` | OWNER, MANAGER, OPS_EXECUTIVE |
+| 7 POD | `/api/erp/pods` | All roles (`receivedVia: 'DRIVER_APP'`) |
+| 8 Unloading | `/api/erp/unloading` | OWNER, MANAGER |
+| 9 Sale Bill | `/api/erp/sale-bills` | OWNER, MANAGER |
+| 10 Finance/Ledger/Khata | `/api/erp/finance`, `/api/erp/ledger`, `/api/erp/khata` | OWNER, MANAGER, DRIVER |
+| Approvals | `/api/erp/approvals` | OWNER, MANAGER |
+
+> [!NOTE]
+> **Recent Backend Developments**: Backend now uses **BullMQ background queues** for asynchronous trip state transitions & automated ledger settlements. Consignment routes support early document processing via `POST /api/erp/consignments/upload-bilty`.
+
+### main-frontend (React/Vite web)
+Full ERP web app recently upgraded to a **Hub-and-Spoke Command Center** architecture (`/erp` home, 4 work area hubs: Pipeline, Billing, Payables, Accounts), with deep-linkable contextual slide-over drawers (`AdvanceDrawer`, `ConsignmentDrawer`, `TripCloseDrawer`, `PodDrawer`, `UnloadingDrawer`, `SaleBillDrawer`, `ReceiptDrawer`) and live-polled sidebar approval badges. Serves as the definitive API and action drawer reference for the mobile app.
+
+---
+
+## 2. User Review Required
+
+> [!IMPORTANT]
+> **Role Mapping**: The backend has roles `DRIVER`, `FIELD_AGENT`, `MANAGER`, `OPS_EXECUTIVE`, `ACCOUNTS`, `OWNER`, `SUPER_ADMIN`. The app currently handles `DRIVER` and `FIELD_AGENT`. We need to confirm: should `MANAGER` and `OPS_EXECUTIVE` share the same app tab layout? And should `OWNER` have a separate, simplified read-only dashboard vs a full operational one?
+
+> [!IMPORTANT]
+> **Login Entry Point**: Currently one `LoginScreen` handles both roles via OTP. For Owner, do you want a **separate login screen selector** (choose role: Driver / Manager / Owner) before the OTP, or should the app detect role automatically after OTP verification (which is what the current backend already returns)?
+
+> [!WARNING]
+> **New Dependencies**: The plan requires adding `react-native-maps` (or `expo-maps` once stable), `react-native-chart-kit` or `victory-native` for the owner finance dashboard charts, and `expo-document-picker` for CN bilty upload. All must be tested against Expo SDK 54 compatibility before implementation.
+
+> [!IMPORTANT]
+> **Backend Driver ERP Access**: Drivers need to see their active trip, advance, and CN status. The backend currently exposes trips via `/api/erp/trips` but the authorize middleware only allows `['OWNER', 'MANAGER', 'OPS_EXECUTIVE', 'ACCOUNTS', 'SUPER_ADMIN']`. A new **driver-scoped trip view** endpoint (or loosening the authorize guard for read-only `DRIVER` access to their own trip) is required. This is a **backend change** that needs to be planned alongside the app.
+
+> [!CAUTION]
+> **POD via DRIVER_APP**: The POD model already has `receivedVia: 'DRIVER_APP'` as a valid enum value — the backend is ready for driver-initiated POD submission. But the POD route's authorize list needs to include `DRIVER`. Confirm this is intended before implementing.
+
+---
+
+## 3. ERP Pipeline — Stage-by-Stage Role Mapping for the App
+
+```
+Stage | Screen (App)                  | Driver | Field Agent | Manager | Owner
+------+-------------------------------+--------+-------------+---------+------
+  -   | Login (role-split)            |   ✓    |      ✓      |    ✓    |  ✓
+  -   | Home Dashboard                |   ✓    |      ✓      |    ✓    |  ✓
+  3   | Active Trip Card              |   ✓    |      —      |    ✓    |  ✓ (read)
+  4   | Advance Details               |   ✓    |      —      |    ✓    |  ✓ (read)
+  4   | Approve Advance               |   —    |      —      |    ✓    |  ✓
+  5   | CN Upload (Bilty Scan)        |   ✓    |      —      |    ✓    |  —
+  6   | Trip Close                    |   —    |      —      |    ✓    |  ✓
+  7   | POD Submit                    |   ✓    |      —      |    ✓    |  ✓
+  8   | Unloading                     |   —    |      —      |    ✓    |  ✓
+  9   | Sale Bills                    |   —    |      —      |    ✓    |  ✓ (read)
+  10  | Finance / General Ledger      |   —    |      —      |    —    |  ✓
+  -   | Khata Ledger (Cash & Expenses)|   ✓    |      ✓      |    ✓    |  ✓
+  -   | Approvals Queue               |   —    |      —      |    ✓    |  ✓
+  -   | Placement Board               |   —    |      —      |    ✓    |  ✓
+  -   | Delivery Orders               |   —    |      —      |    ✓    |  ✓
+  -   | Fuel Log                      |   ✓    |      ✓      |    —    |  ✓ (read)
+  -   | Repairs                       |   ✓    |      —      |    ✓    |  ✓ (read)
+  -   | Documents                     |   ✓    |      —      |    ✓    |  ✓
+```
+
+---
+
+## 4. Proposed Changes
+
+### Phase 0 — Architecture & Infrastructure
+
+#### [MODIFY] AppNavigator.js
+- Add role detection for `OWNER` and `MANAGER` / `OPS_EXECUTIVE` roles.
+- Route to new `OwnerTabs`, `ManagerTabs` tab navigators in addition to existing `BottomTabs` (driver) and `FieldAgentTabs`.
+- Add all new ERP screens to the stack.
+
+#### [NEW] `src/context/ErpContext.js`
+- Shared context for ERP data (active trip, pending approvals count, active placements) fetched on login and refreshed on focus. Powers badges on tab bar.
+
+#### [NEW] `src/services/erpApi.js`
+- All ERP-related API calls, mirroring the web frontend's service files, adapted for the React Native axios client already in place (token injection, Sentry error reporting, multipart for file uploads).
+
+---
+
+### Phase 1 — Login & Onboarding UI Redesign
+
+#### [MODIFY] `src/screens/LoginScreen.js` — Major redesign
+**Current**: Simple gradient header + white card with OTP. Works but generic.
+
+**New design** (inspired by the fleet management image shared):
+- Full-screen **map-inspired animated background** (subtle SVG road/route pattern, teal tones, no actual map API needed at login).
+- Large, confident **logo + app name** centered with `HIGHWAY SAHAYAK / GNB MOTORS` branding.
+- **Role selector pill** at top: `Driver` · `Manager` · `Owner` — each pill changes the subtitle text and accent but shares the same OTP flow.
+- The OTP card slides up from the bottom with a spring animation (`Animated.spring`).
+- Step indicator replaced with a more polished **progress pill** (thick teal bar that grows from 50% to 100%).
+- Language selector moved into a **floating pill** in the top-right corner.
+- Background uses the provided fleet management app image cropped and blurred as a hero.
+
+#### [NEW] `src/screens/WelcomeScreen.js` — New role-specific welcome
+- Post-login animated welcome with role-specific tagline.
+- Driver: "Ready to roll?" with truck animation.
+- Manager: "Operations at your fingertips."
+- Owner: "Your fleet, your numbers."
+- Auto-advances after 2.5 seconds.
+
+---
+
+### Phase 2 — Driver Interface Upgrade
+
+#### [MODIFY] `src/screens/HomeScreen.js`
+- **Hero banner** now shows the **active ERP trip** if one exists (tripNumber, route, state badge) — pulling from `ErpContext`.
+- **Quick actions** grid expands: `My Vehicle` · `Fuel History` · `Repairs` · `Documents` · **`My Trip`** (new) · **`Submit CN`** (new, only if trip is in `ADVANCE_PAID` state).
+- **Stats strip**: total trips this month, total litres fuelled, documents valid/expiring.
+- On-duty toggle gets a more visual treatment — sliding animation, pulsing dot when on duty.
+
+#### [NEW] `src/screens/driver/ActiveTripScreen.js`
+- Shows the driver's current active ERP trip.
+- Trip number, route (from → to), material, vehicle, party name.
+- 8-Stage visual progress bar: `PLACED → ADVANCE_PAID → DISPATCHED/CN_UPDATED → TRIP_CLOSED → POD_RECEIVED → UNLOADED → BILLED → SETTLED`.
+- Current state highlighted with teal filled dot, past states with check marks. Accommodates BullMQ async queue background state changes with pull-to-refresh & optimistic updates.
+- **Advance amount** card (if paid) showing cash given, deductions, net amount.
+- **Submit CN** button (if state is `ADVANCE_PAID`) → navigates to `CnUploadScreen`.
+- **Submit POD** button (if state is `TRIP_CLOSED`) → navigates to `PodSubmitScreen`.
+
+#### [NEW] `src/screens/driver/CnUploadScreen.js` (Stage 5 — Consignment Note)
+- Two-step submission aligned with backend:
+  1. Camera / Gallery picker uploads bilty document photo → `POST /api/erp/consignments/upload-bilty` (returns `documentId`).
+  2. Form input for CN Number, CN Date, Loaded quantity (KL/MT), seal numbers (chips input), temperature & density.
+  3. Final submission → `POST /api/erp/consignments` linking `documentId`.
+
+#### [NEW] `src/screens/driver/PodSubmitScreen.js` (Stage 7 — POD)
+- Trip reference (read-only).
+- Received date picker.
+- Copy type: SOFT / HARD / BOTH.
+- `receivedVia` pre-filled as `DRIVER_APP`.
+- Photo upload for POD document via `POST /api/erp/pods/upload` + `POST /api/erp/pods`.
+- Remarks field.
+
+#### [MODIFY] `src/screens/ProfileScreen.js`
+- Add **Trip History** row linking to a list of past ERP trips for the driver.
+- Add **Advance History** row.
+- Add **Khata Ledger / Earnings Summary** card (driver cash balance & expense reimbursement).
+
+---
+
+### Phase 3 — Field Agent Interface Upgrade
+
+#### [MODIFY] Field agent `HomeScreen` (currently same as driver's, role-gated)
+- **Multi-org fuel entry** card (existing) — redesign with org badge + better UX.
+- Add **Quick Stats**: entries today, entries this month, orgs managed.
+- Add **Recent Entries** list (last 5 field agent fuel log entries).
+
+---
+
+### Phase 4 — Manager Interface (New)
+
+#### [NEW] `src/screens/manager/ManagerHomeScreen.js`
+- **Ops Summary Cards Row** (horizontal scroll): Active Placements · Pending Approvals · Trips In Transit · CN Pending · POD Pending.
+- Each card has a count badge + icon, taps navigate to the relevant list screen.
+- **Placement Board** section (top 5 active placements as mini cards).
+- **Approvals Quick-Action** — pending approval items with Approve/Reject directly from the home screen card.
+- **Recent Activity** feed — last 10 events across the pipeline.
+
+#### [NEW] `src/navigation/ManagerTabs` (in AppNavigator.js)
+Tabs: **Home** · **Trips** · **Approvals** · **More**
+- Home → `ManagerHomeScreen`
+- Trips → `TripListScreen` (manager's trip board)
+- Approvals → `ApprovalsScreen`
+- More → slide-up bottom sheet with: Placements, Delivery Orders, Advances, Consignments, PODs, Unloading, Fuel Logs, Repairs, Profile
+
+#### [NEW] `src/screens/manager/TripListScreen.js`
+- List of ERP trips with state filters (`PLACED`, `ADVANCE_PENDING`, `CN_PENDING`, etc.).
+- Each row: trip number, vehicle number, party, route, state badge, date.
+- Tap → `TripDetailScreen`.
+- FAB to create a new trip close (navigates to `TripCloseScreen`).
+
+#### [NEW] `src/screens/manager/TripDetailScreen.js`
+- All trip details in a scrollable card layout.
+- State machine progress bar (same as driver's `ActiveTripScreen` but from manager perspective).
+- Linked CN card, Advance card, POD card.
+- Action buttons based on state: **Close Trip** (if `CN_UPDATED`) → `TripCloseScreen`.
+
+#### [NEW] `src/screens/manager/TripCloseScreen.js` (Stage 6)
+- Unloaded-at date + location text field.
+- Report Empty toggle + sub-fields if enabled.
+- Close remarks.
+- Submit → POST `/api/erp/trips/:tripId/close`.
+
+#### [NEW] `src/screens/manager/ApprovalsScreen.js`
+- Pending approval queue, filterable by type.
+- Each item: approval type label (from `APPROVAL_TYPE_LABELS`), entity label, requested by, reason summary.
+- Swipe left → Reject / Swipe right → Approve (with haptic feedback).
+- Or tap → detail modal with reason JSON explained in plain language.
+- PATCH `/api/erp/approvals/:id/decide`.
+
+#### [NEW] `src/screens/manager/PlacementsScreen.js`
+- List + filter by status (`PLACED`, `COMPLETED`, etc.).
+- Each row: placement number, vehicle (own/hire), DO number, material, route, status.
+- Tap → `PlacementDetailScreen`.
+
+#### [NEW] `src/screens/manager/PlacementDetailScreen.js`
+- Full placement detail: restriction snapshot, budget, empty legs.
+- Linked DO card, trip card.
+
+#### [NEW] `src/screens/manager/DeliveryOrdersScreen.js`
+- List DOs, filter by status.
+- DO number, party, material, quantity, freight rate, status badge.
+
+#### [NEW] `src/screens/manager/AdvancesScreen.js`
+- Advance payments list.
+- Filter by status: `PENDING_APPROVAL`, `APPROVED`, `PAID`, `CANCELLED`.
+- Each row: advance number, trip, driver/vendor, gross, net payable, status.
+
+#### [NEW] `src/screens/manager/ConsignmentsScreen.js`
+- CN list with status.
+- Tap → CN detail with bilty image thumbnail.
+
+#### [NEW] `src/screens/manager/PodsScreen.js`
+- POD list by received date.
+- Status: pending-handed / handed to billing.
+
+#### [NEW] `src/screens/manager/UnloadingScreen.js`
+- Unloading entries list.
+- Create new unloading → `UnloadingFormScreen`.
+
+#### [NEW] `src/screens/manager/UnloadingFormScreen.js` (Stage 8)
+- Loaded qty / Unloaded qty / Unit.
+- Auto-calculated shortage → override toggle + remarks.
+- Detention days.
+- SB rate (pre-filled from DO) + override.
+- Other charges (add row dynamically).
+- Net receivable preview.
+- Submit → POST `/api/erp/unloading`.
+
+---
+
+### Phase 5 — Owner Interface (New)
+
+#### [NEW] `src/navigation/OwnerTabs` (in AppNavigator.js)
+Tabs: **Dashboard** · **Finance** · **Fleet** · **ERP** · **Profile**
+
+#### [NEW] `src/screens/owner/OwnerDashboardScreen.js`
+- **KPI Cards row**: Active Vehicles · Trips Today · Revenue MTD · Outstanding.
+- **Fleet Map** placeholder tile (static image initially, live tracking later) or a `react-native-maps` embedded mini-map showing driver pins.
+- **Live Alerts** section: vehicles with expiring documents, pending approvals, shortage flags.
+- **Revenue chart**: Last 7 days bar chart (`victory-native`).
+
+#### [NEW] `src/screens/owner/FinanceScreen.js`
+- Summary: Total Receivable · Total Payable · Net Outstanding.
+- Party-wise outstanding list (from `/api/erp/finance`).
+- Monthly summary chart.
+- Ledger entries list (from `/api/erp/ledger`).
+
+#### [NEW] `src/screens/owner/ErpOverviewScreen.js`
+- Owner's read-only view of the full ERP pipeline.
+- Summary tiles per stage: DOs open, placements active, trips in transit, PODs pending, bills pending.
+- Quick links to Manager screens (owner can do everything a manager can + more).
+
+#### [NEW] `src/screens/owner/SaleBillsScreen.js`
+- List sale bills, status, party, amount.
+- Tap → detail with line items.
+
+#### [NEW] `src/screens/owner/LedgerScreen.js`
+- Driver ledger balances.
+- Party ledger entries.
+
+---
+
+### Phase 6 — Shared / Cross-Role Screens
+
+#### [NEW] `src/screens/shared/NotificationsScreen.js`
+- Document expiry alerts (backend `/api/notifications`).
+- Approval notifications.
+- Trip state change alerts.
+- Per-item read/unread state, stored locally.
+
+#### [MODIFY] `src/navigation/FloatingTabBar.js`
+- Add **badge support**: red dot with count for `Approvals`, `Notifications`.
+- Manager/Owner tabs get richer icons (existing Ionicons set is sufficient).
+- Smooth `Animated` press scale on tab items.
+
+#### [NEW] `src/components/ui/StatCard.js`
+- Reusable stat card: icon + label + large number + sub-label. Used by all dashboards.
+
+#### [NEW] `src/components/ui/PipelineProgress.js`
+- Horizontal step-indicator for the ERP state machine.
+- Accepts `states[]`, `currentState`. Renders filled/outlined circles with connecting lines.
+- Used by `ActiveTripScreen`, `TripDetailScreen`.
+
+#### [NEW] `src/components/ui/DocumentPicker.js`
+- Wrapper around `expo-image-picker` + `expo-document-picker` for picking bilty/POD files.
+- Supports camera capture and gallery.
+- Inline preview with remove button.
+
+#### [NEW] `src/components/ui/FilterBar.js`
+- Horizontal scrollable pill-based filter (used across all list screens).
+
+#### [NEW] `src/components/ui/EmptyState.js`
+- Consistent empty state with icon + title + subtitle + optional CTA.
+
+#### [NEW] `src/components/ui/ActionSheet.js`
+- Bottom sheet slide-over action drawer system mirroring the web app's `ErpDrawer` kit (`AdvanceDrawer`, `ConsignmentDrawer`, `TripCloseDrawer`, `PodDrawer`, `UnloadingDrawer`).
+- Allows Managers/Owners to trigger advance payouts, CN verifications, trip closes, POD approvals, and unloading entries directly from dashboard cards without full-screen redirects.
+- Built with `Animated` & `PanResponder` for native gesture dismissal (no third-party heavy dependencies).
+
+---
+
+### Phase 7 — erpApi.js — New API Surface
+
+New service file mirroring all ERP backend endpoints the app needs:
+
+```javascript
+// ERP Trips
+fetchErpTrips(token, filters)           → GET /api/erp/trips
+fetchDriverActiveTrip(token)            → GET /api/erp/trips/active  (*)
+fetchErpTripById(token, tripId)         → GET /api/erp/trips/:tripId
+closeErpTrip(token, tripId, payload)    → POST /api/erp/trips/:tripId/close
+
+// Placements
+fetchPlacements(token, filters)         → GET /api/erp/placements
+fetchPlacementById(token, id)           → GET /api/erp/placements/:id
+
+// Advances  
+fetchAdvances(token, filters)           → GET /api/erp/advances
+fetchDriverAdvance(token)               → GET /api/erp/advances/my-advance (*)
+
+// Consignments (CNs)
+fetchConsignments(token, filters)       → GET /api/erp/consignments
+uploadBiltyDocument(token, file)        → POST /api/erp/consignments/upload-bilty (multipart)
+submitConsignment(token, payload)       → POST /api/erp/consignments
+
+// PODs
+fetchPods(token, filters)               → GET /api/erp/pods
+uploadPodDocument(token, file)          → POST /api/erp/pods/upload (multipart)
+submitPod(token, payload)               → POST /api/erp/pods
+
+// Delivery Orders
+fetchDeliveryOrders(token, filters)     → GET /api/erp/delivery-orders
+
+// Approvals
+fetchApprovals(token, filters)          → GET /api/erp/approvals
+decideApproval(token, id, decision)     → PATCH /api/erp/approvals/:id/decide
+
+// Unloading
+fetchUnloadings(token, filters)         → GET /api/erp/unloading
+submitUnloading(token, payload)         → POST /api/erp/unloading
+
+// Finance / Ledger / Khata
+fetchFinanceSummary(token)              → GET /api/erp/finance
+fetchLedgerEntries(token, filters)      → GET /api/erp/ledger
+fetchKhataLedger(token, filters)        → GET /api/erp/khata
+fetchSaleBills(token, filters)          → GET /api/erp/sale-bills
+```
+
+(*) Needs backend change to expose driver-scoped trip view.
+
+---
+
+### Phase 8 — Backend Changes Required
+
+> [!IMPORTANT]
+> These are **backend tasks** that must ship before the corresponding app screens can be enabled.
+
+#### [MODIFY] `erpTrip.routes.js`
+- Expose `GET /api/erp/trips/active` for drivers (returns active trip where `driverId === req.user._id`).
+- Add driver query filters on list endpoint.
+
+#### [MODIFY] `pod.routes.js`
+- Add `DRIVER` to the authorize list for `POST /api/erp/pods/upload` & `POST /api/erp/pods` (driver submits POD via app with `receivedVia: 'DRIVER_APP'`).
+- Validate that the trip's `driverId` matches `req.user._id`.
+
+#### [MODIFY] `consignment.routes.js`
+- Add `DRIVER` as an allowed submitter for `POST /api/erp/consignments/upload-bilty` and `POST /api/erp/consignments` for their active trip.
+
+#### [MODIFY] `advance.routes.js`
+- Add `GET /api/erp/advances/my-advance` — returns the active advance record for the calling driver's trip.
+
+---
+
+### Phase 9 — New Package Dependencies
+
+| Package | Purpose | Already installed? |
+|---|---|---|
+| `expo-document-picker` | Pick PDFs for bilty/POD | No — add |
+| `victory-native` or `react-native-chart-kit` | Finance charts for Owner | No — add |
+| `react-native-maps` | Optional live map for Owner dashboard | No — add (managed workflow compatible) |
+
+All additions must be verified against `expo@~54.0.34` compatibility and added to `package.json` + `eas.json` prebuild config.
+
+---
+
+## 5. UI Design Guidelines (App-wide Refresh)
+
+### Color & Theme
+- **Keep existing** teal brand: `primary: #0F6E60`, `gradient: ['#1AA28E', '#0C5A50']`.
+- Add a new **dark teal surface** (`#0A3B35`) for owner/manager headers to differentiate role contexts visually.
+
+### Typography
+- Keep Plus Jakarta Sans + Spline Sans Mono — already loaded.
+- Use `AppText variant="display"` for KPI numbers (owner dashboard).
+
+### Layout Patterns
+- **Manager screens**: White header with inline title + filter bar + list. Consistent with the web ERP tables.
+- **Owner screens**: Dark gradient header + metric cards + chart sections + list.
+- **Driver screens**: Existing teal gradient header, keep current feel, add trip progress.
+
+### Motion
+- Use `Animated.spring` for screen transitions (already done in Login).
+- List items: `FlatList` with `entering={FadeInDown}` using Reanimated (already transitively available via Expo).
+- State machine progress steps: animated fill on step completion.
+
+### Splash / Login Image
+- The fleet management image provided will be used as the **blurred hero background** on the login screen (store in `src/Assets/`).
+- Route map illustration (same image, cropped to map portion) for welcome screen.
+
+---
+
+## 6. File Structure After Implementation
+
+```
+DriverApp/frontend/src/
+├── Assets/
+│   ├── BrandMark.js            (existing)
+│   ├── FleetHero.png           (NEW — from provided image)
+│   └── MapHero.png             (NEW — cropped map portion)
+├── components/
+│   └── ui/
+│       ├── (existing 14 components)
+│       ├── StatCard.js         (NEW)
+│       ├── PipelineProgress.js (NEW)
+│       ├── DocumentPicker.js   (NEW)
+│       ├── FilterBar.js        (NEW)
+│       ├── EmptyState.js       (NEW)
+│       └── ActionSheet.js      (NEW)
+├── context/
+│   ├── AuthContext.js          (existing + OWNER/MANAGER role handling)
+│   ├── LanguageContext.js      (existing)
+│   └── ErpContext.js           (NEW)
+├── navigation/
+│   ├── AppNavigator.js         (MODIFY — add OwnerTabs, ManagerTabs)
+│   └── FloatingTabBar.js       (MODIFY — add badge support)
+├── screens/
+│   ├── LoginScreen.js          (MODIFY — full redesign)
+│   ├── HomeScreen.js           (MODIFY — add active trip card)
+│   ├── ProfileScreen.js        (MODIFY — add ERP rows)
+│   ├── WelcomeScreen.js        (MODIFY — role-specific)
+│   ├── (existing screens...)
+│   ├── driver/
+│   │   ├── ActiveTripScreen.js (NEW)
+│   │   ├── CnUploadScreen.js   (NEW)
+│   │   └── PodSubmitScreen.js  (NEW)
+│   ├── manager/
+│   │   ├── ManagerHomeScreen.js     (NEW)
+│   │   ├── TripListScreen.js        (NEW)
+│   │   ├── TripDetailScreen.js      (NEW)
+│   │   ├── TripCloseScreen.js       (NEW)
+│   │   ├── ApprovalsScreen.js       (NEW)
+│   │   ├── PlacementsScreen.js      (NEW)
+│   │   ├── PlacementDetailScreen.js (NEW)
+│   │   ├── DeliveryOrdersScreen.js  (NEW)
+│   │   ├── AdvancesScreen.js        (NEW)
+│   │   ├── ConsignmentsScreen.js    (NEW)
+│   │   ├── PodsScreen.js            (NEW)
+│   │   ├── UnloadingScreen.js       (NEW)
+│   │   └── UnloadingFormScreen.js   (NEW)
+│   ├── owner/
+│   │   ├── OwnerDashboardScreen.js  (NEW)
+│   │   ├── FinanceScreen.js         (NEW)
+│   │   ├── ErpOverviewScreen.js     (NEW)
+│   │   ├── SaleBillsScreen.js       (NEW)
+│   │   └── LedgerScreen.js          (NEW)
+│   └── shared/
+│       └── NotificationsScreen.js   (NEW)
+└── services/
+    ├── api.js                  (existing — fuel, docs, repairs)
+    ├── erpApi.js               (NEW — all ERP endpoints)
+    └── locationTracker.js      (existing)
+```
+
+---
+
+## 7. Phased Delivery Recommendation
+
+| Phase | Scope | Estimated Screens |
+|---|---|---|
+| **P1** | Login redesign (all 3 roles), role routing, new WelcomeScreen | 2 |
+| **P2** | Driver: ActiveTripScreen, CnUploadScreen, PodSubmitScreen + HomeScreen upgrade | 4 |
+| **P3** | Manager: Home, TripList, TripDetail, TripClose, Approvals | 5 |
+| **P4** | Manager: Placements, DOs, Advances, Consignments, PODs, Unloading | 8 |
+| **P5** | Owner: Dashboard, Finance, ERP Overview, Sale Bills, Ledger | 5 |
+| **P6** | Shared: Notifications, StatCard, PipelineProgress, FilterBar, EmptyState, ActionSheet | 6 UI components |
+| **P7** | Backend changes (driver trip view, POD/CN driver auth) | 4 backend files |
+
+---
+
+## 8. Verification Plan
+
+### Per-Phase Testing
+- Each new screen will be tested against the live backend (Docker Compose running locally).
+- Role-based access tested by logging in with test accounts for each role.
+- EAS Preview build rebuilt after each phase for physical device testing.
+
+### Regression
+- Existing driver + field agent flows (fuel log, repair log, documents, SOS) must pass end-to-end after every phase.
+
+### UI Review
+- Screenshots of each new screen to be shared with the team before moving to the next phase.
+
+---
+
+## 9. Open Questions
+
+1. Should the Owner be able to **create** DOs and Placements from the app, or **read-only** only? (Web covers creation — app may be read + quick-actions only for MVP.)
+2. **Khata Ledger (Manual Expense Tracking)**: **Resolved** — Khata Ledger views are added to Driver profile (cash advance & field reimbursements) and Manager/Owner Accounts tab.
+3. Are there additional languages beyond English and Hindi that field agents or drivers need for the new ERP screens? (Bengali language support is already merged in `DriverApp`.)
+4. Is there a target **minimum Android API level** or iOS version to consider when choosing `react-native-maps`?
+5. Should the app use **push notifications** (Expo Notifications) for approval events and trip state changes, or is in-app polling sufficient for MVP?
