@@ -255,11 +255,16 @@ export default function LoginScreen() {
       {/* ── Floating language selector ── */}
       <LangSelector current={currentLang} onSet={setLanguage} insets={insets} />
 
-      <View style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+      >
         {/* ════════════════════════════════════════════════
             HERO SECTION — dark teal overlay + truck animation
             ════════════════════════════════════════════════ */}
-        <View style={[hero.container, { paddingTop: insets.top + 12, height: SCREEN_H * 0.40 }]}>
+        <View style={[hero.container, { paddingTop: insets.top + 12, height: SCREEN_H * 0.48 }]}>
           {/* Dark teal gradient overlay (replaces image for now — image dropped in later) */}
           <LinearGradient
             colors={['#052E27', '#0A4038', '#0F6E60']}
@@ -440,11 +445,11 @@ export default function LoginScreen() {
               </View>
             </View>
           </View>
-        </Animated.View>
 
-        {/* GNB watermark fixed at the bottom of the non-scrollable screen */}
-        <Text style={card.gnb}>GNB</Text>
-      </View>
+          {/* GNB watermark */}
+          <Text style={card.gnb}>GNB</Text>
+        </Animated.View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -596,16 +601,12 @@ const card = StyleSheet.create({
   },
   infoLabel: { marginBottom: 2, textTransform: 'uppercase' },
   gnb: {
-    position: 'absolute',
-    bottom: -8,
-    left: 0,
-    right: 0,
-    fontSize: 54,
+    marginTop: 180,
+    fontSize: 34,
     letterSpacing: 4,
     color: '#E7ECEA',
     textAlign: 'center',
-    fontWeight: '900',
-    zIndex: -1,
+    fontWeight: '800',
   },
 });
 
