@@ -14,9 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "deploymentTarget": "13.4",
       "infoPlist": {
-      "deploymentTarget": "15.1",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "GNB Motors needs Always location access only when you choose Always sharing for on-duty driver tracking.",
         "NSCameraUsageDescription": "GNB Motors needs camera access to photograph bilty and POD documents.",
         "NSPhotoLibraryUsageDescription": "GNB Motors needs photo library access to attach bilty and POD document images."
@@ -51,33 +49,6 @@
           "apiKey": "REPLACE_WITH_GOOGLE_MAPS_ANDROID_API_KEY"
         }
       }
-    },
-    "plugins": [
-      [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": "GNB Motors needs your location while you are on duty so managers can see your live driver position.",
-          "locationAlwaysAndWhenInUsePermission": "GNB Motors needs Always location access only when you choose Always sharing for on-duty driver tracking.",
-          "isAndroidBackgroundLocationEnabled": true
-        }
-      ],
-      "expo-font",
-      [
-        "expo-build-properties",
-        {
-            "deploymentTarget": "15.1"
-            "minSdkVersion": 24,
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35
-          },
-          "ios": {
-            "deploymentTarget": "13.4"
-          }
-        }
-      ]
-    ],
-      ]
-    ],
     },
     "plugins": [
       [
