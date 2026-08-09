@@ -163,9 +163,9 @@ function ManagerTabs() {
         options={{ tabBarLabel: 'Approvals' }}
       />
       <Tab.Screen
-        name="More"
-        component={PlaceholderScreen}
-        options={{ tabBarLabel: 'More' }}
+        name="Profile"
+        component={ProfileScreen}
+        options={{ tabBarLabel: 'Profile' }}
       />
     </Tab.Navigator>
   );
