@@ -3,7 +3,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ExpoDocumentPicker from 'expo-document-picker';
 import AppText from './AppText';
-import { colors, radius } from './index';
+import { colors, radius } from '../../theme/tokens';
 
 export default function DocumentPicker({ label = 'Upload Document', onDocumentSelected, style }) {
   const handlePress = async () => {

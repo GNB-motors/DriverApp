@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, Pressable, StyleSheet } from 'react-native';
 import AppText from './AppText';
-import { colors, radius } from './index';
+import { colors, radius } from '../../theme/tokens';
 
 export default function FilterBar({ filters, activeFilter, onSelectFilter, style }) {
   return (

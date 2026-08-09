@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Modal, Pressable, Animated } from 'react-native';
 import AppText from './AppText';
-import { colors, radius } from './index';
+import { colors, radius } from '../../theme/tokens';
 
 export default function ActionSheet({ visible, onClose, title, actions = [] }) {
   const [slideAnim] = useState(new Animated.Value(300));

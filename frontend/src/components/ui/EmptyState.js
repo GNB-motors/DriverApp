@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AppText from './AppText';
-import { colors } from './index';
+import { colors } from '../../theme/tokens';
 
 export default function EmptyState({ icon = 'folder-open-outline', title = 'No Data Found', message, style }) {
   return (

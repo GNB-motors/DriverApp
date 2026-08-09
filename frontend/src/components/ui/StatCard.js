@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import AppText from './AppText';
 import Card from './Card';
-import { colors, spacing } from './index';
+import { colors, spacing } from '../../theme/tokens';
 
 export default function StatCard({ label, value, subtitle, tone = 'primary', icon }) {
   const getToneColor = () => {

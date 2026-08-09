@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import AppText from './AppText';
-import { colors, radius } from './index';
+import { colors, radius } from '../../theme/tokens';
 
 const STAGES = [
   { stage: 1, label: 'Indented' },
