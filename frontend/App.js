@@ -6,9 +6,9 @@ import * as Sentry from '@sentry/react-native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { AuthProvider } from './src/context/AuthContext';
+import { ErpProvider } from './src/context/ErpContext';
 import { useAppFonts } from './src/theme/fonts';
 import SplashScreen from './src/components/ui/SplashScreen';
-
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
   enableAutoSessionTracking: true,
@@ -17,6 +17,7 @@ Sentry.init({
   tracesSampleRate: 0,
 });
 
+function App() {
 function App() {
   const [fontsLoaded, fontError] = useAppFonts();
 
@@ -30,14 +31,17 @@ function App() {
     <SafeAreaProvider>
       <LanguageProvider>
         <AuthProvider>
-          <NavigationContainer>
-            <StatusBar style="dark" />
-            <AppNavigator />
-          </NavigationContainer>
+          <ErpProvider>
+            <NavigationContainer>
+              <StatusBar style="dark" />
+              <AppNavigator />
+            </NavigationContainer>
+          </ErpProvider>
         </AuthProvider>
       </LanguageProvider>
     </SafeAreaProvider>
   );
+}
 }
 
 export default Sentry.wrap(App);

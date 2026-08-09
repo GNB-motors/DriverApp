@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/react-native';
 import axios from 'axios';
 import logger from '../utils/logger';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export class ApiError extends Error {
   constructor(message, statusCode) {
