@@ -255,12 +255,7 @@ export default function LoginScreen() {
       {/* ── Floating language selector ── */}
       <LangSelector current={currentLang} onSet={setLanguage} insets={insets} />
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        bounces={false}
-      >
+      <View style={{ flex: 1 }}>
         {/* ════════════════════════════════════════════════
             HERO SECTION — dark teal overlay + truck animation
             ════════════════════════════════════════════════ */}
@@ -445,11 +440,11 @@ export default function LoginScreen() {
               </View>
             </View>
           </View>
-
-          {/* GNB watermark */}
-          <Text style={card.gnb}>GNB</Text>
         </Animated.View>
-      </ScrollView>
+
+        {/* GNB watermark fixed at the bottom of the non-scrollable screen */}
+        <Text style={card.gnb}>GNB</Text>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -551,7 +546,7 @@ const card = StyleSheet.create({
     borderTopRightRadius: 28,
     marginTop: -20,
     paddingHorizontal: 26,
-    paddingTop: 26,
+    paddingTop: 48,
   },
   label: { marginBottom: 9 },
   phoneField: {
@@ -601,12 +596,16 @@ const card = StyleSheet.create({
   },
   infoLabel: { marginBottom: 2, textTransform: 'uppercase' },
   gnb: {
-    marginTop: 180,
-    fontSize: 34,
+    position: 'absolute',
+    bottom: -8,
+    left: 0,
+    right: 0,
+    fontSize: 54,
     letterSpacing: 4,
     color: '#E7ECEA',
     textAlign: 'center',
-    fontWeight: '800',
+    fontWeight: '900',
+    zIndex: -1,
   },
 });
 
