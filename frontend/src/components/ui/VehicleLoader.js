@@ -22,7 +22,8 @@
 import React, { useRef, useEffect } from 'react';
 import { View, StyleSheet, Modal } from 'react-native';
 import LottieView from 'lottie-react-native';
-import { AppText, colors, spacing } from './index';
+import AppText from './AppText';
+import { colors, spacing } from '../../theme/tokens';
 
 const TruckAnimation = require('../../Assets/truck-animation.json');
 
