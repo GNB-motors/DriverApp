@@ -25,6 +25,7 @@ export { default as PipelineProgress } from './PipelineProgress';
 export { default as FilterBar } from './FilterBar';
 export { default as EmptyState } from './EmptyState';
 export { default as ActionSheet } from './ActionSheet';
+export { default as DocumentPicker } from './DocumentPicker';
 
 // Tokens, re-exported for convenience.
 export { colors, spacing, radius, elevation, typography, fontFamily, bodyFont, monoFont } from '../../theme/tokens';
