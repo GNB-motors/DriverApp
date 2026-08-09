@@ -45,9 +45,20 @@ export default function FloatingTabBar({ state, descriptors, navigation, showFab
       if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
     };
 
+    const badgeValue = options.tabBarBadge;
+
     return (
       <Pressable key={route.key} style={styles.tab} onPress={onPress} hitSlop={6}>
-        {options.tabBarIcon ? options.tabBarIcon({ focused, color, size: 22 }) : null}
+        <View>
+          {options.tabBarIcon ? options.tabBarIcon({ focused, color, size: 22 }) : null}
+          {badgeValue !== undefined && badgeValue !== null && (
+            <View style={styles.badge}>
+              <AppText variant="caption" weight="bold" color={colors.white} style={styles.badgeText}>
+                {badgeValue}
+              </AppText>
+            </View>
+          )}
+        </View>
         <AppText weight={focused ? 'bold' : 'semibold'} color={color} style={styles.label}>
           {label}
         </AppText>
@@ -136,5 +147,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 4,
     borderColor: colors.background,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -10,
+    backgroundColor: colors.danger,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: colors.surface,
+  },
+  badgeText: {
+    fontSize: 9,
+    lineHeight: 11,
   },
 });
