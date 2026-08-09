@@ -9,6 +9,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import { ErpProvider } from './src/context/ErpContext';
 import { useAppFonts } from './src/theme/fonts';
 import SplashScreen from './src/components/ui/SplashScreen';
+
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
   enableAutoSessionTracking: true,
@@ -18,11 +19,10 @@ Sentry.init({
 });
 
 function App() {
-function App() {
   const [fontsLoaded, fontError] = useAppFonts();
 
   // Gate the UI until fonts resolve so the first paint uses the brand type.
-  // fontsReady={false} → splash uses system type (custom families aren't loaded yet).
+  // fontsReady={false} – splash uses system type (custom families aren't loaded yet).
   if (!fontsLoaded && !fontError) {
     return <SplashScreen fontsReady={false} />;
   }
@@ -42,7 +42,5 @@ function App() {
     </SafeAreaProvider>
   );
 }
-}
 
 export default Sentry.wrap(App);
-

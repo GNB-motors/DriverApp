@@ -49,7 +49,7 @@ try { PlacementsScreen = require('../screens/manager/PlacementsScreen').default;
 try { PlacementDetailScreen = require('../screens/manager/PlacementDetailScreen').default; } catch { PlacementDetailScreen = null; }
 try { DeliveryOrdersScreen = require('../screens/manager/DeliveryOrdersScreen').default; } catch { DeliveryOrdersScreen = null; }
 try { AdvancesScreen = require('../screens/manager/AdvancesScreen').default; } catch { AdvancesScreen = null; }
-try { ConsignmentsScreen = require('../screens/manager/ConsignmentsScreen').default; } catch { ConsignmentsScreen = null; }
+try { ConsignmentsScreen = require('../screens/manager/ConsignmentsListScreen').default; } catch { ConsignmentsScreen = null; }
 try { PodsScreen = require('../screens/manager/PodsScreen').default; } catch { PodsScreen = null; }
 try { UnloadingScreen = require('../screens/manager/UnloadingScreen').default; } catch { UnloadingScreen = null; }
 try { UnloadingFormScreen = require('../screens/manager/UnloadingFormScreen').default; } catch { UnloadingFormScreen = null; }
