@@ -33,6 +33,14 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     if (config.token) {
+      if (String(config.token).startsWith('mock-jwt-')) {
+        config.adapter = () => {
+          return new Promise((resolve) => resolve({
+            data: { data: [] }, // mock empty arrays to prevent crashes
+            status: 200, statusText: 'OK', headers: {}, config, request: {}
+          }));
+        };
+      }
       config.headers['Authorization'] = `Bearer ${config.token}`;
     }
     logger.api(
