@@ -11,6 +11,7 @@ import * as Location from 'expo-location';
 import { storage } from '../utils/storage';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
+import { useErp } from '../context/ErpContext';
 import { SELECTED_VEHICLE_KEY } from './VehicleScreen';
 import { startLocationTracking, stopLocationTracking, isTracking } from '../services/locationTracker';
 import { fetchMyFuelLogs, fetchFieldAgentFuelLogs } from '../services/api';
@@ -24,6 +25,7 @@ const LOCATION_SHARING_PREFERENCE_KEY = 'driverLocationSharingPreference';
 export default function HomeScreen({ navigation }) {
   const { t } = useLanguage();
   const { user, token } = useAuth();
+  const { activeTrip } = useErp();
   const insets = useSafeAreaInsets();
   const [savedVehicle, setSavedVehicle] = useState(null); // { _id, registrationNumber }
   const [onDuty, setOnDuty] = useState(isTracking());
@@ -170,6 +172,7 @@ export default function HomeScreen({ navigation }) {
     !isFieldAgent && { icon: 'car-sport', label: t('home', 'myVehicle') || 'My Vehicle', onPress: () => navigation.navigate('Vehicle') },
     { icon: 'time-outline', label: t('home', 'fuelHistory') || 'Fuel History', onPress: () => navigation.navigate('FuelHistory') },
     !isFieldAgent && { icon: 'build-outline', label: t('repairs', 'tabName') || 'Repairs', onPress: () => navigation.navigate('Repairs') },
+    !isFieldAgent && { icon: 'wallet-outline', label: 'Advances', onPress: () => navigation.navigate('Advances') },
     !isFieldAgent && {
       icon: 'document-text-outline',
       label: 'Documents',
@@ -229,23 +232,50 @@ export default function HomeScreen({ navigation }) {
           </Card>
         )}
 
-        {/* ── Hero: Start Refuel ── */}
-        <LinearGradient
-          colors={['#1AA28E', '#0C5A50']}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.9, y: 1 }}
-          style={styles.hero}
-        >
-          <Ionicons name="water" size={80} color="rgba(255,255,255,0.10)" style={styles.heroGlyph} />
-          <AppText variant="h2" weight="extrabold" color={colors.white}>{t('home', 'startRefuel') || 'Start Refuel'}</AppText>
-          <AppText variant="small" weight="medium" color={colors.onPrimaryMuted} style={{ marginTop: 3 }}>
-            {t('home', 'refuelSubtitle') || 'Record your latest diesel fill-up'}
-          </AppText>
-          <Pressable style={styles.heroBtn} onPress={startRefuel}>
-            <Ionicons name="add" size={19} color={colors.primary} />
-            <AppText variant="bodyStrong" weight="bold" color={colors.primary}>{t('home', 'tapToStart') || 'Tap to Start'}</AppText>
+        {/* ── Active Trip Hero or Refuel Hero ── */}
+        {!isFieldAgent && activeTrip && activeTrip.pipelineStage < 8 ? (
+          <Pressable onPress={() => navigation.navigate('ActiveTrip')}>
+            <LinearGradient
+              colors={['#0F6E60', '#052E27']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.hero}
+            >
+              <Ionicons name="map" size={80} color="rgba(255,255,255,0.06)" style={styles.heroGlyph} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success }} />
+                <AppText variant="small" weight="bold" color={colors.success}>ACTIVE TRIP</AppText>
+              </View>
+              <AppText variant="h2" weight="extrabold" color={colors.white} numberOfLines={1}>
+                {activeTrip.source} → {activeTrip.destination}
+              </AppText>
+              <AppText variant="small" weight="medium" color={colors.onPrimaryMuted} style={{ marginTop: 3 }}>
+                LR: {activeTrip.lrNumber || 'Pending'}
+              </AppText>
+              <View style={styles.heroBtn}>
+                <AppText variant="bodyStrong" weight="bold" color={colors.primary}>Manage Trip</AppText>
+                <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+              </View>
+            </LinearGradient>
           </Pressable>
-        </LinearGradient>
+        ) : (
+          <LinearGradient
+            colors={['#1AA28E', '#0C5A50']}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 0.9, y: 1 }}
+            style={styles.hero}
+          >
+            <Ionicons name="water" size={80} color="rgba(255,255,255,0.10)" style={styles.heroGlyph} />
+            <AppText variant="h2" weight="extrabold" color={colors.white}>{t('home', 'startRefuel') || 'Start Refuel'}</AppText>
+            <AppText variant="small" weight="medium" color={colors.onPrimaryMuted} style={{ marginTop: 3 }}>
+              {t('home', 'refuelSubtitle') || 'Record your latest diesel fill-up'}
+            </AppText>
+            <Pressable style={styles.heroBtn} onPress={startRefuel}>
+              <Ionicons name="add" size={19} color={colors.primary} />
+              <AppText variant="bodyStrong" weight="bold" color={colors.primary}>{t('home', 'tapToStart') || 'Tap to Start'}</AppText>
+            </Pressable>
+          </LinearGradient>
+        )}
 
         {/* ── Quick actions ── */}
         <View style={styles.grid}>
