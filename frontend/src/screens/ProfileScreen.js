@@ -34,7 +34,16 @@ export default function ProfileScreen({ navigation }) {
     { icon: 'document-text', label: t('docs', 'vehicleTitle') || 'Vehicle Documents', onPress: () => navigation.navigate('DocsScreen', { docType: 'VEHICLE' }) },
   ] : [];
 
+  // A driver's own ERP records. All three are self-scoped server-side, so these
+  // never show another driver's trips, advances or expenses.
+  const workRows = isDriver ? [
+    { icon: 'map', label: 'My Trips', onPress: () => navigation.navigate('MyTrips') },
+    { icon: 'wallet', label: 'My Advances', onPress: () => navigation.navigate('MyAdvances') },
+    { icon: 'receipt', label: 'My Khata', onPress: () => navigation.navigate('MyKhata') },
+  ] : [];
+
   const prefRows = [
+    { icon: 'notifications', label: 'Alerts', onPress: () => navigation.navigate('Notifications') },
     { icon: 'language', label: t('profile', 'changeLanguage') || 'Language', value: LANG_LABEL[language] || 'English', onPress: () => navigation.navigate('LanguageScreen') },
   ];
 
@@ -64,6 +73,13 @@ export default function ProfileScreen({ navigation }) {
         contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }}
         showsVerticalScrollIndicator={false}
       >
+        {workRows.length > 0 && (
+          <>
+            <AppText variant="label" muted style={styles.groupLabel}>My Work</AppText>
+            <SettingsGroup rows={workRows} />
+          </>
+        )}
+
         {accountRows.length > 0 && (
           <>
             <AppText variant="label" muted style={styles.groupLabel}>Account</AppText>

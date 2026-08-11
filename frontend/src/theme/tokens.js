@@ -52,6 +52,15 @@ export const colors = {
   onPrimary: '#FFFFFF',
   onPrimaryMuted: 'rgba(255,255,255,0.72)',
   onPrimaryFaint: 'rgba(255,255,255,0.16)',
+
+  // ── Aliases ──────────────────────────────────────────────
+  // Several screens and StatCard reach for these names. They resolved to
+  // `undefined` before, which React Native silently renders as "no colour" —
+  // so a danger-toned figure came out the same as a neutral one.
+  danger: '#E23B33',
+  info: '#0F6E60',
+  textPrimary: '#16211F',
+  textSecondary: '#61716C',
 };
 
 // ── SPACING · 4px grid ─────────────────────────────────────

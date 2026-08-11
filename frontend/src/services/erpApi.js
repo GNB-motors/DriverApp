@@ -1,105 +1,137 @@
 /**
  * erpApi.js
  *
- * Complete ERP API service layer for the DriverApp.
- * Mirrors the backend's /api/erp/* routes.
+ * ERP/CRM API surface for the app. Every function here was verified against the
+ * backend routers in `app/modules/erp*` — path, HTTP verb, and response shape.
  *
- * All functions:
- *   • Accept a `token` string (from AuthContext)
- *   • Use the shared axios instance from api.js for base URL + timeout
- *   • Throw on non-2xx so the caller can catch and show an error
- *   • Accept an optional AbortSignal for screen-unmount cancellation
+ * Two rules this file exists to enforce:
  *
- * Naming convention: verb + entity (fetchErpTrips, submitConsignment, etc.)
+ *  1. **One axios instance.** Paths are relative to `apiClient`'s base URL, which
+ *     already ends in `/api`. So a backend route mounted at `/api/erp/trips` is
+ *     requested here as `/erp/trips`. This file used to build its own client and
+ *     re-append `/api`, sending every request to `/api/api/erp/...`.
+ *  2. **Unwrap once, here.** The backend answers `{ success, data, meta }` via
+ *     `sendSuccess`. Callers get `data` (and `meta` where pagination matters), so
+ *     no screen has to guess between `res.data`, `res.results` and `res`.
  */
 
-import axios from 'axios';
-import * as Sentry from '@sentry/react-native';
-import { API_BASE_URL } from './api'; // re-use the same base URL already set up
+import { apiClient } from './api';
 
-// ── Shared axios instance ────────────────────────────────────────────────────
-const erp = axios.create({
-  baseURL: `${API_BASE_URL}/api/erp`,
-  timeout: 20_000,
-  headers: { 'Content-Type': 'application/json' },
-});
+// ── Envelope helpers ────────────────────────────────────────────────────────
 
-// ── Auth header helper ───────────────────────────────────────────────────────
-const auth = (token) => ({ headers: { Authorization: `Bearer ${token}` } });
+/** `{ success, data, meta }` → `data`. Tolerates a bare payload. */
+const unwrap = (res) => {
+  const body = res?.data;
+  if (body && typeof body === 'object' && 'data' in body) return body.data;
+  return body;
+};
 
-// ── Multipart header helper ──────────────────────────────────────────────────
-const multipart = (token) => ({
-  headers: {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'multipart/form-data',
-  },
-});
+/** For list endpoints: always `{ results, meta }`, never a bare array. */
+const unwrapList = (res) => {
+  const body = res?.data ?? {};
+  const payload = 'data' in body ? body.data : body;
+  const results = Array.isArray(payload)
+    ? payload
+    // Some older endpoints nest again as { data: { results, ... } }.
+    : payload?.results ?? payload?.data ?? [];
+  return {
+    results: Array.isArray(results) ? results : [],
+    meta: body.meta ?? payload?.meta ?? null,
+  };
+};
 
-// ── Generic error reporter ───────────────────────────────────────────────────
-function captureErpError(error, context) {
-  Sentry.captureException(error, { tags: { module: 'erpApi', context } });
-}
+const withToken = (token, extra = {}) => ({ token, ...extra });
+
+/** Strip empty filters — the backend's Joi runs without stripUnknown, and an
+ *  empty string is a validation error rather than "unset". */
+const cleanParams = (params = {}) =>
+  Object.fromEntries(
+    Object.entries(params).filter(
+      ([, v]) => v !== undefined && v !== null && v !== '',
+    ),
+  );
+
+const get = (path, token, params) =>
+  apiClient.get(path, withToken(token, { params: cleanParams(params) }));
+
+const post = (path, token, body) => apiClient.post(path, body, withToken(token));
+const patch = (path, token, body) => apiClient.patch(path, body, withToken(token));
+
+const upload = (path, token, file, fields = {}) => {
+  const form = new FormData();
+  form.append('file', {
+    uri: file.uri,
+    name: file.name || 'upload.jpg',
+    type: file.type || 'image/jpeg',
+  });
+  Object.entries(fields).forEach(([k, v]) => form.append(k, String(v)));
+  return apiClient.post(path, form, withToken(token, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60_000,
+  }));
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ERP TRIPS
+// DRIVER — self-scoped reads
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Fetch all ERP trips (Manager / Owner).
- * @param {string} token
- * @param {object} filters  - { state, page, limit, search, ... }
+ * The calling driver's current trip, or null.
+ *
+ * GET /api/erp/trips/my-active — returns 200 with `null` when the driver has no
+ * active trip, so "no trip today" is not an error path.
+ */
+export async function fetchMyActiveTrip(token) {
+  const res = await get('/erp/trips/my-active', token);
+  const trip = unwrap(res);
+  // Mock/empty responses can come back as [] — normalise to null.
+  return trip && !Array.isArray(trip) ? trip : null;
+}
+
+/** GET /api/erp/trips/my — the driver's own trip history. */
+export async function fetchMyTrips(token, filters = {}) {
+  return unwrapList(await get('/erp/trips/my', token, filters));
+}
+
+/** GET /api/erp/advances/my — the driver's own advances (payout view only). */
+export async function fetchMyAdvances(token, filters = {}) {
+  return unwrapList(await get('/erp/advances/my', token, filters));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRIPS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/erp/trips — Owner/Manager/Ops/Accounts.
+ * `state` must be a real ERP_TRIP_STATES value; anything else is a hard 400.
  */
 export async function fetchErpTrips(token, filters = {}) {
-  try {
-    const { data } = await erp.get('/trips', { ...auth(token), params: filters });
-    return data;
-  } catch (err) {
-    captureErpError(err, 'fetchErpTrips');
-    throw err;
-  }
+  return unwrapList(await get('/erp/trips', token, filters));
 }
 
 /**
- * Fetch the single active ERP trip for the calling Driver.
- * Backend: GET /api/erp/trips/active  (requires Phase 7 backend change)
- */
-export async function fetchDriverActiveTrip(token) {
-  try {
-    const { data } = await erp.get('/trips/active', auth(token));
-    return data?.trip ?? data ?? null;
-  } catch (err) {
-    if (err?.response?.status === 404) return null; // No active trip — not an error
-    captureErpError(err, 'fetchDriverActiveTrip');
-    throw err;
-  }
-}
-
-/**
- * Fetch a single ERP trip by ID.
+ * GET /api/erp/trips/:tripId — the 360° view.
+ * Returns the trip plus `advances[]`, `consignment`, `pod`, `unloading`,
+ * `saleBill`, `purchaseBill` in one call.
  */
 export async function fetchErpTripById(token, tripId) {
-  try {
-    const { data } = await erp.get(`/trips/${tripId}`, auth(token));
-    return data;
-  } catch (err) {
-    captureErpError(err, 'fetchErpTripById');
-    throw err;
-  }
+  return unwrap(await get(`/erp/trips/${tripId}`, token));
+}
+
+/** GET /api/erp/trips/pending-close — DISPATCHED trips with CN ageing. */
+export async function fetchTripsPendingClose(token, filters = {}) {
+  return unwrapList(await get('/erp/trips/pending-close', token, filters));
 }
 
 /**
- * Close an ERP trip (Stage 6).
- * @param {string} tripId
- * @param {{ unloadedAt, unloadLocation, reportEmpty, emptyTo, emptyKm, closeRemarks }} payload
+ * POST /api/erp/trips/:tripId/close
+ * Requires the trip to be DISPATCHED and `unloadedAt` on/after the trip date.
+ * @param {{ unloadedAt: string, unloadLocation?: string, closeRemarks?: string,
+ *           reportEmpty?: { toLocation: string, distanceKm: number } }} payload
  */
 export async function closeErpTrip(token, tripId, payload) {
-  try {
-    const { data } = await erp.post(`/trips/${tripId}/close`, payload, auth(token));
-    return data;
-  } catch (err) {
-    captureErpError(err, 'closeErpTrip');
-    throw err;
-  }
+  return unwrap(await post(`/erp/trips/${tripId}/close`, token, payload));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -107,36 +139,38 @@ export async function closeErpTrip(token, tripId, payload) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function fetchPlacements(token, filters = {}) {
-  try {
-    const { data } = await erp.get('/placements', { ...auth(token), params: filters });
-    return data;
-  } catch (err) {
-    captureErpError(err, 'fetchPlacements');
-    throw err;
-  }
+  return unwrapList(await get('/erp/placements', token, filters));
+}
+
+export async function fetchPlacementBoard(token, filters = {}) {
+  return unwrapList(await get('/erp/placements/board', token, filters));
 }
 
 export async function fetchPlacementById(token, id) {
-  try {
-    const { data } = await erp.get(`/placements/${id}`, auth(token));
-    return data;
-  } catch (err) {
-    captureErpError(err, 'fetchPlacementById');
-    throw err;
-  }
+  return unwrap(await get(`/erp/placements/${id}`, token));
 }
 
 /**
- * Create a new Placement (Owner only — Stage 3).
+ * POST /api/erp/placements/check-restrictions
+ * Previous-cargo / material compatibility check. Run this before creating so the
+ * user sees the warning before committing, the same way the web board does.
  */
-export async function createPlacement(token, payload) {
-  try {
-    const { data } = await erp.post('/placements', payload, auth(token));
-    return data;
-  } catch (err) {
-    captureErpError(err, 'createPlacement');
-    throw err;
-  }
+export async function checkPlacementRestrictions(token, payload) {
+  return unwrap(await post('/erp/placements/check-restrictions', token, payload));
+}
+
+/** GET /api/erp/placements/pending-empty-legs */
+export async function fetchPendingEmptyLegs(token, filters = {}) {
+  return unwrapList(await get('/erp/placements/pending-empty-legs', token, filters));
+}
+
+/**
+ * Creation is split by vehicle source — there is no generic POST /placements.
+ * @param {'OWN'|'HIRE'} vehicleType
+ */
+export async function createPlacement(token, vehicleType, payload) {
+  const path = vehicleType === 'HIRE' ? '/erp/placements/hire' : '/erp/placements/own';
+  return unwrap(await post(path, token, payload));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -144,72 +178,56 @@ export async function createPlacement(token, payload) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function fetchAdvances(token, filters = {}) {
-  try {
-    const { data } = await erp.get('/advances', { ...auth(token), params: filters });
-    return data;
-  } catch (err) {
-    captureErpError(err, 'fetchAdvances');
-    throw err;
-  }
+  return unwrapList(await get('/erp/advances', token, filters));
 }
 
-/**
- * Fetch the active advance for the calling Driver's trip.
- * Backend: GET /api/erp/advances/my-advance  (requires Phase 7 backend change)
- */
-export async function fetchDriverAdvance(token) {
-  try {
-    const { data } = await erp.get('/advances/my-advance', auth(token));
-    return data?.advance ?? data ?? null;
-  } catch (err) {
-    if (err?.response?.status === 404) return null;
-    captureErpError(err, 'fetchDriverAdvance');
-    throw err;
-  }
+export async function fetchAdvanceById(token, advanceId) {
+  return unwrap(await get(`/erp/advances/${advanceId}`, token));
+}
+
+/** POST /api/erp/advances/preview — budget breakdown before requesting. */
+export async function previewAdvance(token, payload) {
+  return unwrap(await post('/erp/advances/preview', token, payload));
+}
+
+export async function requestAdvance(token, payload) {
+  return unwrap(await post('/erp/advances', token, payload));
+}
+
+/** POST /api/erp/advances/:id/pay — Owner/Manager/Accounts only. */
+export async function payAdvance(token, advanceId, payload) {
+  return unwrap(await post(`/erp/advances/${advanceId}/pay`, token, payload));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CONSIGNMENTS (CNs)
+// CONSIGNMENTS (CN / bilty)
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function fetchConsignments(token, filters = {}) {
-  try {
-    const { data } = await erp.get('/consignments', { ...auth(token), params: filters });
-    return data;
-  } catch (err) {
-    captureErpError(err, 'fetchConsignments');
-    throw err;
-  }
+  return unwrapList(await get('/erp/consignments', token, filters));
+}
+
+/** GET /api/erp/consignments/pending — trips awaiting a CN. */
+export async function fetchPendingConsignments(token, filters = {}) {
+  return unwrapList(await get('/erp/consignments/pending', token, filters));
 }
 
 /**
- * Step 1: Upload bilty document photo. Returns { documentId }.
- * @param {object} file - { uri, name, type }
+ * Step 1 — POST /api/erp/consignments/upload-bilty (multipart).
+ * Drivers are allowed here. Returns the created Document.
  */
-export async function uploadBiltyDocument(token, file) {
-  try {
-    const form = new FormData();
-    form.append('file', { uri: file.uri, name: file.name || 'bilty.jpg', type: file.type || 'image/jpeg' });
-    const { data } = await erp.post('/consignments/upload-bilty', form, multipart(token));
-    return data; // { documentId, url }
-  } catch (err) {
-    captureErpError(err, 'uploadBiltyDocument');
-    throw err;
-  }
+export async function uploadBiltyDocument(token, file, { tripId } = {}) {
+  return unwrap(await upload('/erp/consignments/upload-bilty', token, file, cleanParams({ tripId })));
 }
 
 /**
- * Step 2: Submit consignment with documentId linked.
- * @param {{ tripId, documentId, cnNumber, cnDate, loadedQty, qtyUnit, sealNumbers, temperature, density }} payload
+ * Step 2 — POST /api/erp/consignments.
+ * `biltyDocumentId` is required by the validator, so always upload first.
+ * @param {{ tripId, cnNumber, cnDate, loadingDate, loadedQty, loadedQtyUnit,
+ *           biltyDocumentId, temperature?, density?, sealNumbers? }} payload
  */
-export async function submitConsignment(token, payload) {
-  try {
-    const { data } = await erp.post('/consignments', payload, auth(token));
-    return data;
-  } catch (err) {
-    captureErpError(err, 'submitConsignment');
-    throw err;
-  }
+export async function saveConsignment(token, payload) {
+  return unwrap(await post('/erp/consignments', token, payload));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -217,45 +235,29 @@ export async function submitConsignment(token, payload) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function fetchPods(token, filters = {}) {
-  try {
-    const { data } = await erp.get('/pods', { ...auth(token), params: filters });
-    return data;
-  } catch (err) {
-    captureErpError(err, 'fetchPods');
-    throw err;
-  }
+  return unwrapList(await get('/erp/pods', token, filters));
+}
+
+/** GET /api/erp/pods/pending — closed trips with no POD yet. */
+export async function fetchPendingPods(token, filters = {}) {
+  return unwrapList(await get('/erp/pods/pending', token, filters));
+}
+
+/** Step 1 — POST /api/erp/pods/upload (multipart). Drivers allowed. */
+export async function uploadPodDocument(token, file, { tripId } = {}) {
+  return unwrap(await upload('/erp/pods/upload', token, file, cleanParams({ tripId })));
 }
 
 /**
- * Step 1: Upload POD document photo. Returns { documentId }.
+ * Step 2 — POST /api/erp/pods.
+ * @param {{ tripId, receivedDate, copyType, receivedVia?, documentIds?,
+ *           courierName?, courierDocket?, remarks? }} payload
  */
-export async function uploadPodDocument(token, file) {
-  try {
-    const form = new FormData();
-    form.append('file', { uri: file.uri, name: file.name || 'pod.jpg', type: file.type || 'image/jpeg' });
-    const { data } = await erp.post('/pods/upload', form, multipart(token));
-    return data; // { documentId, url }
-  } catch (err) {
-    captureErpError(err, 'uploadPodDocument');
-    throw err;
-  }
-}
-
-/**
- * Step 2: Submit POD form.
- * @param {{ tripId, documentId, receivedDate, copyType, receivedVia, remarks }} payload
- */
-export async function submitPod(token, payload) {
-  try {
-    const { data } = await erp.post('/pods', {
-      ...payload,
-      receivedVia: payload.receivedVia ?? 'DRIVER_APP',
-    }, auth(token));
-    return data;
-  } catch (err) {
-    captureErpError(err, 'submitPod');
-    throw err;
-  }
+export async function recordPod(token, payload) {
+  return unwrap(await post('/erp/pods', token, {
+    receivedVia: 'DRIVER_APP',
+    ...payload,
+  }));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -263,146 +265,161 @@ export async function submitPod(token, payload) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function fetchDeliveryOrders(token, filters = {}) {
-  try {
-    const { data } = await erp.get('/delivery-orders', { ...auth(token), params: filters });
-    return data;
-  } catch (err) {
-    captureErpError(err, 'fetchDeliveryOrders');
-    throw err;
-  }
+  return unwrapList(await get('/erp/delivery-orders', token, filters));
+}
+
+export async function fetchDeliveryOrderById(token, id) {
+  return unwrap(await get(`/erp/delivery-orders/${id}`, token));
+}
+
+export async function createDeliveryOrder(token, payload) {
+  return unwrap(await post('/erp/delivery-orders', token, payload));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UNLOADING
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function fetchUnloadings(token, filters = {}) {
+  return unwrapList(await get('/erp/unloading', token, filters));
 }
 
 /**
- * Create a Delivery Order (Owner only — Stage 2).
+ * POST /api/erp/unloading/calculate — shortage / detention / net receivable
+ * preview. The app never computes these itself.
  */
-export async function createDeliveryOrder(token, payload) {
-  try {
-    const { data } = await erp.post('/delivery-orders', payload, auth(token));
-    return data;
-  } catch (err) {
-    captureErpError(err, 'createDeliveryOrder');
-    throw err;
-  }
+export async function calculateUnloading(token, payload) {
+  return unwrap(await post('/erp/unloading/calculate', token, payload));
+}
+
+export async function saveUnloading(token, payload) {
+  return unwrap(await post('/erp/unloading', token, payload));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // APPROVALS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Fetch pending approvals queue.
- * @param {{ status, type, page, limit }} filters
- */
-export async function fetchApprovals(token, filters = {}) {
-  try {
-    const { data } = await erp.get('/approvals', { ...auth(token), params: filters });
-    return data;
-  } catch (err) {
-    captureErpError(err, 'fetchApprovals');
-    throw err;
-  }
+export async function fetchApprovals(token, filters = { status: 'PENDING' }) {
+  return unwrapList(await get('/erp/approvals', token, filters));
+}
+
+/** GET /api/erp/approvals/summary → `{ pendingCount }`. */
+export async function fetchApprovalsSummary(token) {
+  const data = unwrap(await get('/erp/approvals/summary', token));
+  return data?.pendingCount ?? 0;
 }
 
 /**
- * Fetch only the count of PENDING approvals — used by ErpContext for badge.
- * Returns a number.
+ * POST /api/erp/approvals/:id/decide — note POST, not PATCH.
+ * Only OWNER / APPROVER / SUPER_ADMIN may decide; MANAGER gets 403.
+ * `remarks` is required (min 3 chars) when rejecting.
+ * @param {{ status: 'APPROVED'|'REJECTED', remarks?: string }} payload
  */
-export async function fetchPendingApprovalsCount(token) {
-  try {
-    const { data } = await erp.get('/approvals', {
-      ...auth(token),
-      params: { status: 'PENDING', limit: 1 },
-    });
-    // Backend returns { results: [], totalResults: N }
-    return data?.totalResults ?? data?.total ?? 0;
-  } catch (err) {
-    captureErpError(err, 'fetchPendingApprovalsCount');
-    return 0; // Non-fatal — return 0 to avoid breaking badge
-  }
-}
-
-/**
- * Approve or reject an approval request.
- * @param {string} id
- * @param {{ decision: 'APPROVED'|'REJECTED', remarks?: string }} payload
- */
-export async function decideApproval(token, id, payload) {
-  try {
-    const { data } = await erp.patch(`/approvals/${id}/decide`, payload, auth(token));
-    return data;
-  } catch (err) {
-    captureErpError(err, 'decideApproval');
-    throw err;
-  }
+export async function decideApproval(token, approvalId, payload) {
+  return unwrap(await post(`/erp/approvals/${approvalId}/decide`, token, payload));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// UNLOADING (Stage 8)
+// DASHBOARD / FINANCE / BILLING / LEDGER
 // ═══════════════════════════════════════════════════════════════════════════
 
-export async function fetchUnloadings(token, filters = {}) {
-  try {
-    const { data } = await erp.get('/unloading', { ...auth(token), params: filters });
-    return data;
-  } catch (err) {
-    captureErpError(err, 'fetchUnloadings');
-    throw err;
-  }
+/** GET /api/erp/dashboard/summary — powers both Manager and Owner homes. */
+export async function fetchErpDashboardSummary(token) {
+  return unwrap(await get('/erp/dashboard/summary', token));
 }
 
-/**
- * Submit an unloading record (Stage 8).
- */
-export async function submitUnloading(token, payload) {
-  try {
-    const { data } = await erp.post('/unloading', payload, auth(token));
-    return data;
-  } catch (err) {
-    captureErpError(err, 'submitUnloading');
-    throw err;
-  }
+export async function fetchFinanceHubSummary(token, filters = {}) {
+  return unwrap(await get('/erp/finance-hub/summary', token, filters));
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// FINANCE / LEDGER / KHATA
-// ═══════════════════════════════════════════════════════════════════════════
-
-export async function fetchFinanceSummary(token) {
-  try {
-    const { data } = await erp.get('/finance', auth(token));
-    return data;
-  } catch (err) {
-    captureErpError(err, 'fetchFinanceSummary');
-    throw err;
-  }
+export async function fetchFinanceAgeing(token, filters = {}) {
+  return unwrapList(await get('/erp/finance-hub/ageing', token, filters));
 }
 
-export async function fetchLedgerEntries(token, filters = {}) {
-  try {
-    const { data } = await erp.get('/ledger', { ...auth(token), params: filters });
-    return data;
-  } catch (err) {
-    captureErpError(err, 'fetchLedgerEntries');
-    throw err;
-  }
-}
-
-export async function fetchKhataLedger(token, filters = {}) {
-  try {
-    const { data } = await erp.get('/khata', { ...auth(token), params: filters });
-    return data;
-  } catch (err) {
-    captureErpError(err, 'fetchKhataLedger');
-    throw err;
-  }
+export async function fetchFinanceBalances(token, filters = {}) {
+  return unwrapList(await get('/erp/finance-hub/balances', token, filters));
 }
 
 export async function fetchSaleBills(token, filters = {}) {
-  try {
-    const { data } = await erp.get('/sale-bills', { ...auth(token), params: filters });
-    return data;
-  } catch (err) {
-    captureErpError(err, 'fetchSaleBills');
-    throw err;
-  }
+  return unwrapList(await get('/erp/sale-bills', token, filters));
+}
+
+export async function fetchSaleBillById(token, billId) {
+  return unwrap(await get(`/erp/sale-bills/${billId}`, token));
+}
+
+export async function fetchLedgerEntries(token, filters = {}) {
+  return unwrapList(await get('/erp/ledger/entries', token, filters));
+}
+
+export async function fetchLedgerStatement(token, filters = {}) {
+  return unwrapList(await get('/erp/ledger/statement', token, filters));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// KHATA / EXPENSES  (mounted at /api/khata and /api/expenses — NOT under /erp)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/khata/drivers/:driverId/ledger
+ * A driver may only pass their own id — the backend 403s otherwise.
+ */
+export async function fetchDriverKhataLedger(token, driverId, filters = {}) {
+  return unwrap(await get(`/khata/drivers/${driverId}/ledger`, token, filters));
+}
+
+export async function fetchDriverKhataSummary(token, driverId, filters = {}) {
+  return unwrap(await get(`/khata/drivers/${driverId}/summary`, token, filters));
+}
+
+/** GET /api/expenses — self-scoped server-side for drivers. */
+export async function fetchExpenses(token, filters = {}) {
+  return unwrapList(await get('/expenses', token, filters));
+}
+
+export async function fetchExpenseSummary(token, filters = {}) {
+  return unwrap(await get('/expenses/summary', token, filters));
+}
+
+/**
+ * POST /api/expenses — a driver's `driverId` is forced from their session
+ * server-side, so it never needs to be sent from the app.
+ * @param {{ title, amount, category, expenseDate, vehicleId?, tripId?, notes? }} payload
+ */
+export async function createExpense(token, payload) {
+  return unwrap(await apiClient.post('/expenses', payload, withToken(token)));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OWNER ALERTS  (/api/owner-alerts — Owner + Manager only)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function fetchOwnerAlerts(token, filters = {}) {
+  return unwrapList(await get('/owner-alerts', token, filters));
+}
+
+export async function ackOwnerAlert(token, alertId) {
+  return unwrap(await apiClient.put(`/owner-alerts/${alertId}/ack`, {}, withToken(token)));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CRM — PARTIES & CALL PLANNING
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function fetchParties(token, filters = {}) {
+  return unwrapList(await get('/erp/masters/parties', token, filters));
+}
+
+export async function fetchPartyById(token, partyId) {
+  return unwrap(await get(`/erp/masters/parties/${partyId}`, token));
+}
+
+export async function fetchCallTasks(token, filters = {}) {
+  return unwrapList(await get('/erp/calls/tasks', token, filters));
+}
+
+/** POST /api/erp/calls/tasks/:taskId/outcome — KAM/Manager/Owner. */
+export async function logCallOutcome(token, taskId, payload) {
+  return unwrap(await post(`/erp/calls/tasks/${taskId}/outcome`, token, payload));
 }

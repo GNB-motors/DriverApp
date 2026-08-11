@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/react-native';
 import axios from 'axios';
 import logger from '../utils/logger';
+import { resolveMockFixture, isMockToken } from './mockFixtures';
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -21,7 +22,13 @@ function reportApiError(err, { method, path, status, body }) {
   });
 }
 
-// Create an Axios instance
+// Create an Axios instance.
+//
+// EXPO_PUBLIC_API_URL already includes the `/api` prefix (see README), so every
+// path passed to this client is relative to `/api` — e.g. '/erp/trips', not
+// '/api/erp/trips'. This is the ONLY axios instance in the app: erpApi.js used
+// to create a second one and re-append `/api`, which made every ERP request
+// resolve to `/api/api/erp/...` and 404 silently.
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -29,16 +36,37 @@ const apiClient = axios.create({
   },
 });
 
+if (__DEV__ && API_BASE_URL && !/\/api\/?$/.test(API_BASE_URL)) {
+  logger.warn(
+    'API',
+    `EXPO_PUBLIC_API_URL ("${API_BASE_URL}") does not end in /api — every request will 404. ` +
+      'Set it to e.g. http://localhost:3000/api',
+  );
+}
+
+export { apiClient };
+
 // Request Interceptor: token injection + logging
 apiClient.interceptors.request.use(
   (config) => {
     if (config.token) {
-      if (String(config.token).startsWith('mock-jwt-')) {
+      // Local mock accounts (see AuthContext) never reach the network. Serve them
+      // realistically shaped fixtures instead of empty arrays so every role screen
+      // can be reviewed offline — an empty stub made the screens unreviewable.
+      if (isMockToken(config.token)) {
         config.adapter = () => {
-          return new Promise((resolve) => resolve({
-            data: { data: [] }, // mock empty arrays to prevent crashes
-            status: 200, statusText: 'OK', headers: {}, config, request: {}
-          }));
+          const fixture = resolveMockFixture(config.url, config.method);
+          const payload = fixture === undefined ? [] : fixture;
+          return Promise.resolve({
+            data: {
+              success: true,
+              data: payload,
+              meta: Array.isArray(payload)
+                ? { total: payload.length, page: 1, limit: 20, totalPages: 1 }
+                : null,
+            },
+            status: 200, statusText: 'OK', headers: {}, config, request: {},
+          });
         };
       }
       config.headers['Authorization'] = `Bearer ${config.token}`;
@@ -125,6 +153,17 @@ function buildFileForm(file, fields = {}) {
 export async function requestDriverOtp(mobileNumber) {
   const res = await apiClient.post('/auth/driver/request-otp', { mobileNumber });
   return res.data;
+}
+
+/**
+ * GET /api/auth/me → { user, organization, permissions }
+ *
+ * `organization.featureFlags` is the per-org module gate and `permissions` is the
+ * per-user grant map. Both are needed to decide what to show — see AccessContext.
+ */
+export async function fetchMe(token) {
+  const res = await apiClient.get('/auth/me', { token });
+  return res.data?.data ?? res.data;
 }
 
 export async function verifyDriverOtp(mobileNumber, otp) {

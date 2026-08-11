@@ -1,137 +1,218 @@
 /**
- * TripCloseScreen.js
+ * TripCloseScreen.js — Stage 6, operational trip close.
  *
- * Interface to close a trip (Stage 6) -> requires unloadLocation, unloadedAt.
+ * POST /api/erp/trips/:tripId/close
+ *
+ * Two backend rules drive this form, and both are enforced here first so the user
+ * sees the problem before submitting rather than getting a 400 back:
+ *
+ *   • The trip must be DISPATCHED. Closing is gated on that exact state, not on
+ *     "far enough along" — a PLACED trip with a paid advance still cannot close,
+ *     because the CN is what dispatches it.
+ *   • `unloadedAt` cannot precede the trip date.
+ *
+ * Close is operational, not commercial: it records where and when the truck was
+ * emptied. It does NOT free the vehicle (the POD is still outstanding) and it does
+ * not settle quantities — that is Stage 8, Unloading.
  */
 
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Pressable, Alert } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useState, useMemo } from 'react';
+import {
+  View, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useErp } from '../../context/ErpContext';
+import dayjs from 'dayjs';
 import { useAuth } from '../../context/AuthContext';
+import { useErp } from '../../context/ErpContext';
 import { closeErpTrip } from '../../services/erpApi';
-import { AppText, Button, Card, colors, spacing, radius } from '../../components/ui';
-import { TextInput } from 'react-native';
-import VehicleLoader from '../../components/ui/VehicleLoader';
+import {
+  AppText, Card, Button, TextField, Switch, SubHeader, Badge,
+  colors, radius,
+} from '../../components/ui';
+import { canCloseTrip, stateLabel, tripRoute } from '../../domain/tripState';
 
 export default function TripCloseScreen({ route, navigation }) {
-  const { tripId } = route.params || {};
-  const insets = useSafeAreaInsets();
   const { token } = useAuth();
   const { triggerRefresh } = useErp();
-  
-  const [form, setForm] = useState({
-    unloadedAt: new Date().toISOString().split('T')[0],
-    unloadLocation: '',
-    reportEmpty: false,
-    emptyTo: '',
-    emptyKm: '',
-    closeRemarks: '',
-  });
-  
-  const [loading, setLoading] = useState(false);
+  const trip = route?.params?.trip;
 
-  const handleSubmit = async () => {
-    if (!form.unloadLocation) return Alert.alert('Missing Info', 'Please specify the unload location.');
-    if (form.reportEmpty && !form.emptyTo) return Alert.alert('Missing Info', 'Please specify the empty-to location.');
+  const [unloadedAt, setUnloadedAt] = useState(dayjs().format('YYYY-MM-DD'));
+  const [unloadLocation, setUnloadLocation] = useState(trip?.toLocation || '');
+  const [closeRemarks, setCloseRemarks] = useState('');
 
-    setLoading(true);
+  const [reportEmpty, setReportEmpty] = useState(false);
+  const [emptyTo, setEmptyTo] = useState('');
+  const [emptyKm, setEmptyKm] = useState('');
+
+  const [saving, setSaving] = useState(false);
+
+  const stateAllows = canCloseTrip(trip);
+
+  const errors = useMemo(() => {
+    const e = {};
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(unloadedAt)) {
+      e.unloadedAt = 'Use YYYY-MM-DD.';
+    } else if (trip?.tripDate && dayjs(unloadedAt).isBefore(dayjs(trip.tripDate), 'day')) {
+      e.unloadedAt = `Cannot be before the trip date (${dayjs(trip.tripDate).format('DD MMM')}).`;
+    } else if (dayjs(unloadedAt).isAfter(dayjs().add(1, 'day'), 'day')) {
+      e.unloadedAt = 'Cannot be in the future.';
+    }
+
+    if (reportEmpty) {
+      if (emptyTo.trim().length < 2) e.emptyTo = 'Where is it running empty to?';
+      const km = Number(emptyKm);
+      if (!emptyKm || Number.isNaN(km) || km <= 0) e.emptyKm = 'Enter the empty distance.';
+    }
+    return e;
+  }, [unloadedAt, trip?.tripDate, reportEmpty, emptyTo, emptyKm]);
+
+  const canSubmit = Object.keys(errors).length === 0 && !saving && stateAllows;
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setSaving(true);
     try {
-      await closeErpTrip(token, tripId, {
-        unloadedAt: form.unloadedAt,
-        unloadLocation: form.unloadLocation,
-        reportEmpty: form.reportEmpty,
-        emptyTo: form.reportEmpty ? form.emptyTo : undefined,
-        emptyKm: form.reportEmpty ? Number(form.emptyKm) : undefined,
-        closeRemarks: form.closeRemarks,
+      await closeErpTrip(token, trip._id, {
+        unloadedAt,
+        ...(unloadLocation.trim() ? { unloadLocation: unloadLocation.trim() } : {}),
+        ...(closeRemarks.trim() ? { closeRemarks: closeRemarks.trim() } : {}),
+        ...(reportEmpty
+          ? { reportEmpty: { toLocation: emptyTo.trim(), distanceKm: Number(emptyKm) } }
+          : {}),
       });
-
       triggerRefresh();
-      navigation.navigate('Main'); // Reset to home/main tabs
-      Alert.alert('Success', 'Trip closed successfully.');
+      Alert.alert('Trip closed', 'The POD is the next step.', [
+        { text: 'Done', onPress: () => navigation.goBack() },
+      ]);
     } catch (err) {
-      Alert.alert('Error', err.response?.data?.error || err.message || 'Failed to close trip');
+      // The backend's own message is more specific than anything generic — show it.
+      Alert.alert('Could not close trip', err?.message || 'Something went wrong.');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-      <StatusBar style="dark" />
-      <VehicleLoader visible={loading} message="Closing Trip..." />
-
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={20} color={colors.text} />
-        </Pressable>
-        <AppText variant="h2" weight="extrabold">End Trip</AppText>
+  if (!trip) {
+    return (
+      <View style={styles.flex}>
+        <StatusBar style="dark" />
+        <SubHeader title="Close Trip" onBack={() => navigation.goBack()} />
+        <View style={styles.centre}><AppText variant="body" muted>No trip selected.</AppText></View>
       </View>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <StatusBar style="dark" />
+      <SubHeader
+        title="Close Trip"
+        subtitle={`${trip.tripNumber} · ${tripRoute(trip).text}`}
+        onBack={() => navigation.goBack()}
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <Card padding={20}>
-          <AppText variant="label" muted style={{ marginBottom: 16 }}>UNLOADING DETAILS</AppText>
-          
-          <View style={styles.field}>
-            <AppText variant="small" weight="semibold" style={styles.label}>Unload Location</AppText>
-            <TextInput
-              style={styles.input}
-              value={form.unloadLocation}
-              onChangeText={(t) => setForm(f => ({ ...f, unloadLocation: t }))}
-              placeholder="e.g. Warehouse A, Delhi"
-            />
+        {!stateAllows && (
+          <Card variant="outline" padding={14} style={[styles.card, styles.warnCard]}>
+            <View style={styles.warnHead}>
+              <Ionicons name="alert-circle-outline" size={17} color={colors.warning} />
+              <AppText variant="bodyStrong" weight="bold" color={colors.warning}>
+                Not ready to close
+              </AppText>
+            </View>
+            <AppText variant="small" weight="medium" style={styles.warnBody}>
+              A trip can only be closed once it is in transit. This one is{' '}
+              <AppText variant="small" weight="bold">{stateLabel(trip.state).toLowerCase()}</AppText>
+              {trip.cnGate !== 'UPDATED'
+                ? ' — the consignment note has to be filed first, which is what dispatches it.'
+                : '.'}
+            </AppText>
+          </Card>
+        )}
+
+        <Card padding={18} elevated="sm" style={styles.card}>
+          <AppText variant="label" muted style={styles.cardTitle}>UNLOADING</AppText>
+          <TextField
+            label="Unloaded on"
+            value={unloadedAt}
+            onChangeText={setUnloadedAt}
+            placeholder="YYYY-MM-DD"
+            keyboardType="numbers-and-punctuation"
+            error={errors.unloadedAt}
+            style={styles.field}
+          />
+          <TextField
+            label="Unload location"
+            value={unloadLocation}
+            onChangeText={setUnloadLocation}
+            placeholder="Where the truck was emptied"
+            style={styles.field}
+          />
+          <TextField
+            label="Close remarks"
+            value={closeRemarks}
+            onChangeText={setCloseRemarks}
+            placeholder="Optional"
+            multiline
+          />
+        </Card>
+
+        {/* Report-empty unlocks the REPORT_EMPTY advance leg on the backend, so it
+            is a real financial decision rather than a note. */}
+        <Card padding={18} elevated="sm" style={styles.card}>
+          <View style={styles.switchRow}>
+            <View style={styles.switchText}>
+              <AppText variant="bodyStrong" weight="bold">Running empty from here</AppText>
+              <AppText variant="caption" muted weight="medium">
+                Records an empty leg and unlocks its advance
+              </AppText>
+            </View>
+            <Switch value={reportEmpty} onValueChange={setReportEmpty} />
           </View>
 
-          <View style={styles.field}>
-            <AppText variant="small" weight="semibold" style={styles.label}>Remarks</AppText>
-            <TextInput
-              style={styles.input}
-              value={form.closeRemarks}
-              onChangeText={(t) => setForm(f => ({ ...f, closeRemarks: t }))}
-              placeholder="Any damages or delays?"
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-
-          <View style={[styles.field, { marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-            <AppText variant="bodyStrong" weight="semibold">Report Vehicle as Empty?</AppText>
-            <Pressable
-              style={[styles.toggleBtn, form.reportEmpty && styles.toggleActive]}
-              onPress={() => setForm(f => ({ ...f, reportEmpty: !f.reportEmpty }))}
-            >
-              <View style={[styles.toggleKnob, form.reportEmpty && styles.toggleKnobActive]} />
-            </Pressable>
-          </View>
-
-          {form.reportEmpty && (
-            <View style={styles.emptyCard}>
-              <View style={styles.field}>
-                <AppText variant="small" weight="semibold" style={styles.label}>Proceeding Empty To</AppText>
-                <TextInput
-                  style={styles.input}
-                  value={form.emptyTo}
-                  onChangeText={(t) => setForm(f => ({ ...f, emptyTo: t }))}
-                  placeholder="e.g. Surat"
-                />
-              </View>
-              <View style={styles.field}>
-                <AppText variant="small" weight="semibold" style={styles.label}>Est. Empty Distance (Km)</AppText>
-                <TextInput
-                  style={styles.input}
-                  value={form.emptyKm}
-                  onChangeText={(t) => setForm(f => ({ ...f, emptyKm: t }))}
-                  keyboardType="number-pad"
-                  placeholder="e.g. 150"
-                />
-              </View>
+          {reportEmpty && (
+            <View style={styles.emptyFields}>
+              <TextField
+                label="Empty to"
+                value={emptyTo}
+                onChangeText={setEmptyTo}
+                placeholder="Destination"
+                error={emptyTo ? errors.emptyTo : undefined}
+                style={styles.field}
+              />
+              <TextField
+                label="Distance (km)"
+                value={emptyKm}
+                onChangeText={setEmptyKm}
+                placeholder="0"
+                keyboardType="decimal-pad"
+                mono
+                error={emptyKm ? errors.emptyKm : undefined}
+              />
             </View>
           )}
-
-          <Button label="Confirm & End Trip" onPress={handleSubmit} size="lg" style={{ marginTop: 20 }} />
         </Card>
+
+        <Card variant="tinted" padding={14} style={styles.card}>
+          <View style={styles.noteRow}>
+            <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
+            <AppText variant="caption" weight="medium" style={styles.noteText}>
+              Closing records the unload. Quantities and shortage are settled later,
+              at unloading — and the vehicle stays busy until the POD is in.
+            </AppText>
+          </View>
+        </Card>
+
+        <Button
+          label={saving ? 'Closing…' : 'Close trip'}
+          loading={saving}
+          disabled={!canSubmit}
+          onPress={submit}
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -139,44 +220,17 @@ export default function TripCloseScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 22, paddingBottom: 16, backgroundColor: colors.surface },
-  backBtn: { width: 42, height: 42, borderRadius: 13, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
-  scroll: { padding: 22, paddingBottom: 40 },
-  field: { marginBottom: 16 },
-  label: { marginBottom: 8, color: colors.textMuted },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.text,
-    textAlignVertical: 'top',
-  },
-  toggleBtn: {
-    width: 50,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: colors.border,
-    justifyContent: 'center',
-    padding: 2,
-  },
-  toggleActive: { backgroundColor: colors.primary },
-  toggleKnob: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.white,
-  },
-  toggleKnobActive: { transform: [{ translateX: 20 }] },
-  emptyCard: {
-    backgroundColor: colors.background,
-    padding: 16,
-    borderRadius: radius.md,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
+  centre: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scroll: { padding: 22, paddingBottom: 48 },
+  card: { marginBottom: 14 },
+  cardTitle: { marginBottom: 12 },
+  warnCard: { borderColor: colors.warning, backgroundColor: colors.pendingBg },
+  warnHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  warnBody: {},
+  field: { marginBottom: 14 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  switchText: { flex: 1 },
+  emptyFields: { marginTop: 18, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.border },
+  noteRow: { flexDirection: 'row', gap: 9 },
+  noteText: { flex: 1 },
 });

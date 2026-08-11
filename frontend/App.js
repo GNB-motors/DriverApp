@@ -6,6 +6,7 @@ import * as Sentry from '@sentry/react-native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { AuthProvider } from './src/context/AuthContext';
+import { AccessProvider } from './src/context/AccessContext';
 import { ErpProvider } from './src/context/ErpContext';
 import { useAppFonts } from './src/theme/fonts';
 import SplashScreen from './src/components/ui/SplashScreen';
@@ -31,12 +32,16 @@ function App() {
     <SafeAreaProvider>
       <LanguageProvider>
         <AuthProvider>
-          <ErpProvider>
-            <NavigationContainer>
-              <StatusBar style="dark" />
-              <AppNavigator />
-            </NavigationContainer>
-          </ErpProvider>
+          {/* AccessProvider must wrap ErpProvider — ErpContext asks it what the
+              current role is allowed to poll for. */}
+          <AccessProvider>
+            <ErpProvider>
+              <NavigationContainer>
+                <StatusBar style="dark" />
+                <AppNavigator />
+              </NavigationContainer>
+            </ErpProvider>
+          </AccessProvider>
         </AuthProvider>
       </LanguageProvider>
     </SafeAreaProvider>

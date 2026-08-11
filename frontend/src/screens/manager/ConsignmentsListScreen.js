@@ -1,115 +1,94 @@
 /**
- * ConsignmentsListScreen.js
+ * ConsignmentsListScreen.js — Stage 5, consignment notes.
  *
- * View for managers/ops to list submitted Bilty (Consignments).
+ * GET /api/erp/consignments
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, FlatList, StyleSheet, Pressable, RefreshControl } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
-import { useAuth } from '../../context/AuthContext';
+import useList from '../../hooks/useList';
 import { fetchConsignments } from '../../services/erpApi';
-import { AppText, Card, Badge, colors, spacing } from '../../components/ui';
-import VehicleLoader from '../../components/ui/VehicleLoader';
+import ListScreen from '../../components/ListScreen';
+import { AppText, Card, Badge, colors } from '../../components/ui';
 
 export default function ConsignmentsListScreen({ navigation }) {
-  const insets = useSafeAreaInsets();
-  const { token } = useAuth();
-  
-  const [cns, setCns] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const loadData = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    
-    try {
-      const res = await fetchConsignments(token);
-      setCns(res.data || res.results || res || []);
-    } catch (err) {
-      console.warn('Failed to fetch consignments', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const renderItem = ({ item }) => (
-    <Card elevated="sm" padding={16} style={{ marginBottom: 12 }}>
-      <View style={styles.cardHeader}>
-        <AppText variant="small" weight="bold" color={colors.primaryDeep}>
-          CN: {item.cnNumber || 'Pending'}
-        </AppText>
-        <Badge tone={item.status === 'VERIFIED' ? 'valid' : 'warning'} label={item.status || 'Draft'} />
-      </View>
-      
-      <AppText variant="h3" weight="extrabold" style={{ marginVertical: 8 }}>
-        Trip LR: {item.trip?.lrNumber || 'Unknown'}
-      </AppText>
-      
-      <View style={styles.metaRow}>
-        <View style={styles.metaCol}>
-          <AppText variant="caption" muted>QTY</AppText>
-          <AppText variant="small" weight="bold">{item.loadedQty} {item.qtyUnit}</AppText>
-        </View>
-        <View style={styles.metaCol}>
-          <AppText variant="caption" muted>SEALS</AppText>
-          <AppText variant="small" weight="bold" numberOfLines={1}>{item.sealNumbers || '—'}</AppText>
-        </View>
-        <View style={[styles.metaCol, { alignItems: 'flex-end' }]}>
-          <AppText variant="caption" muted>DATE</AppText>
-          <AppText variant="small" weight="bold">{item.cnDate ? dayjs(item.cnDate).format('DD MMM') : '—'}</AppText>
-        </View>
-      </View>
-    </Card>
-  );
+  const list = useList(fetchConsignments, { initial: {} });
 
   return (
-    <View style={styles.flex}>
-      <StatusBar style="dark" />
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={20} color={colors.text} />
-        </Pressable>
-        <AppText variant="h2" weight="extrabold">Bilty (CN) List</AppText>
-      </View>
+    <ListScreen
+      title="Consignments"
+      subtitle={list.meta?.total ? `${list.meta.total} CNs` : undefined}
+      onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+      list={list}
+      renderItem={({ item }) => {
+        const trip = item.tripId;
+        const hasBilty = !!item.biltyDocument || item.ocrStatus !== 'SKIPPED';
 
-      {loading && !refreshing ? (
-        <VehicleLoader visible={true} overlay={false} />
-      ) : (
-        <FlatList
-          data={cns}
-          keyExtractor={item => item._id}
-          contentContainerStyle={styles.list}
-          renderItem={renderItem}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} />}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Ionicons name="receipt-outline" size={48} color={colors.border} />
-              <AppText variant="body" weight="semibold" muted style={{ marginTop: 12 }}>No Consignments found.</AppText>
+        return (
+          <Card
+            padding={16}
+            elevated="sm"
+            style={styles.card}
+            onPress={trip?._id ? () => navigation.navigate('TripDetail', { tripId: trip._id }) : undefined}
+          >
+            <View style={styles.head}>
+              <View style={styles.headText}>
+                <AppText variant="bodyStrong" weight="extrabold" numberOfLines={1}>
+                  {item.cnNumber || '—'}
+                </AppText>
+                <AppText variant="caption" muted weight="medium" numberOfLines={1}>
+                  {trip?.tripNumber || '—'}
+                  {item.cnDate ? ` · ${dayjs(item.cnDate).format('DD MMM')}` : ''}
+                </AppText>
+              </View>
+              <Badge
+                tone={hasBilty ? 'valid' : 'pending'}
+                label={hasBilty ? 'Bilty attached' : 'No bilty'}
+              />
             </View>
-          }
-        />
-      )}
-    </View>
+
+            {trip ? (
+              <View style={styles.routeRow}>
+                <Ionicons name="location-outline" size={14} color={colors.textMuted} />
+                <AppText variant="small" weight="semibold" numberOfLines={1} style={styles.routeText}>
+                  {trip.fromLocation || '—'}
+                </AppText>
+                <Ionicons name="arrow-forward" size={13} color={colors.textMuted} />
+                <AppText variant="small" weight="semibold" numberOfLines={1} style={styles.routeText}>
+                  {trip.toLocation || '—'}
+                </AppText>
+              </View>
+            ) : null}
+
+            <View style={styles.metaRow}>
+              <AppText variant="caption" muted weight="medium">
+                Loaded {item.loadedQty != null ? `${item.loadedQty} ${item.loadedQtyUnit || ''}`.trim() : '—'}
+              </AppText>
+              {item.sealNumbers?.length ? (
+                <AppText variant="caption" muted weight="medium">
+                  {item.sealNumbers.length} {item.sealNumbers.length === 1 ? 'seal' : 'seals'}
+                </AppText>
+              ) : null}
+            </View>
+          </Card>
+        );
+      }}
+      empty={{
+        icon: 'document-text-outline',
+        title: 'No consignment notes',
+        message: 'CNs filed against trips appear here.',
+      }}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 22, paddingBottom: 16, backgroundColor: colors.surface },
-  backBtn: { width: 42, height: 42, borderRadius: 13, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
-  list: { padding: 22, paddingBottom: 80 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
-  metaCol: { flex: 1 },
-  empty: { paddingVertical: 60, alignItems: 'center' },
+  card: { marginBottom: 12 },
+  head: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
+  headText: { flex: 1 },
+  routeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  routeText: { flexShrink: 1 },
+  metaRow: { flexDirection: 'row', gap: 16, marginTop: 10 },
 });

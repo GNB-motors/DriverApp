@@ -12,6 +12,9 @@ import { storage } from '../utils/storage';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { useErp } from '../context/ErpContext';
+import {
+  isTripLive, stateLabel, tripRoute, tripRef, nextActionFor,
+} from '../domain/tripState';
 import { SELECTED_VEHICLE_KEY } from './VehicleScreen';
 import { startLocationTracking, stopLocationTracking, isTracking } from '../services/locationTracker';
 import { fetchMyFuelLogs, fetchFieldAgentFuelLogs } from '../services/api';
@@ -172,13 +175,24 @@ export default function HomeScreen({ navigation }) {
     !isFieldAgent && { icon: 'car-sport', label: t('home', 'myVehicle') || 'My Vehicle', onPress: () => navigation.navigate('Vehicle') },
     { icon: 'time-outline', label: t('home', 'fuelHistory') || 'Fuel History', onPress: () => navigation.navigate('FuelHistory') },
     !isFieldAgent && { icon: 'build-outline', label: t('repairs', 'tabName') || 'Repairs', onPress: () => navigation.navigate('Repairs') },
-    !isFieldAgent && { icon: 'wallet-outline', label: 'Advances', onPress: () => navigation.navigate('Advances') },
+    // 'Advances' is the org-wide manager list — a driver belongs on the
+    // self-scoped one, or they get a 403 from /api/erp/advances.
+    !isFieldAgent && { icon: 'wallet-outline', label: 'My Advances', onPress: () => navigation.navigate('MyAdvances') },
+    !isFieldAgent && { icon: 'receipt-outline', label: 'My Khata', onPress: () => navigation.navigate('MyKhata') },
+    !isFieldAgent && { icon: 'map-outline', label: 'My Trips', onPress: () => navigation.navigate('MyTrips') },
     !isFieldAgent && {
       icon: 'document-text-outline',
       label: 'Documents',
       onPress: () => navigation.navigate('Documents'),
     },
   ].filter(Boolean);
+
+  // The hero's call to action names the driver's own next step when they have
+  // one, and otherwise just offers to open the trip.
+  const tripAction = nextActionFor(activeTrip, user?.role);
+  const tripCta = tripAction && !tripAction.wait
+    ? (tripAction.driverLabel || tripAction.label)
+    : 'View trip';
 
   const lastIsFull = lastLog?.fillingType === 'FULL_TANK';
   const lastLitres = lastLog?.litres != null ? `${Number(lastLog.litres).toFixed(1)} L` : null;
@@ -232,8 +246,13 @@ export default function HomeScreen({ navigation }) {
           </Card>
         )}
 
-        {/* ── Active Trip Hero or Refuel Hero ── */}
-        {!isFieldAgent && activeTrip && activeTrip.pipelineStage < 8 ? (
+        {/* ── Active Trip Hero or Refuel Hero ──
+             `isTripLive` reads the real `state` enum. This used to test
+             `activeTrip.pipelineStage < 8`, a field the API never returned, so the
+             hero never appeared even when a trip was assigned. The route and
+             reference come from tripState helpers rather than invented
+             source/destination/lrNumber fields. */}
+        {!isFieldAgent && isTripLive(activeTrip) ? (
           <Pressable onPress={() => navigation.navigate('ActiveTrip')}>
             <LinearGradient
               colors={['#0F6E60', '#052E27']}
@@ -244,16 +263,20 @@ export default function HomeScreen({ navigation }) {
               <Ionicons name="map" size={80} color="rgba(255,255,255,0.06)" style={styles.heroGlyph} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success }} />
-                <AppText variant="small" weight="bold" color={colors.success}>ACTIVE TRIP</AppText>
+                <AppText variant="small" weight="bold" color={colors.success}>
+                  {stateLabel(activeTrip.state).toUpperCase()}
+                </AppText>
               </View>
               <AppText variant="h2" weight="extrabold" color={colors.white} numberOfLines={1}>
-                {activeTrip.source} → {activeTrip.destination}
+                {tripRoute(activeTrip).text}
               </AppText>
               <AppText variant="small" weight="medium" color={colors.onPrimaryMuted} style={{ marginTop: 3 }}>
-                LR: {activeTrip.lrNumber || 'Pending'}
+                {tripRef(activeTrip)}
               </AppText>
               <View style={styles.heroBtn}>
-                <AppText variant="bodyStrong" weight="bold" color={colors.primary}>Manage Trip</AppText>
+                <AppText variant="bodyStrong" weight="bold" color={colors.primary}>
+                  {tripCta}
+                </AppText>
                 <Ionicons name="arrow-forward" size={16} color={colors.primary} />
               </View>
             </LinearGradient>

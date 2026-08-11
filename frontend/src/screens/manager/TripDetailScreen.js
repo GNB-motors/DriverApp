@@ -1,146 +1,319 @@
 /**
- * TripDetailScreen.js
+ * TripDetailScreen.js — the trip 360°, mirroring the web's /erp/trips/:id.
  *
- * Detailed view of an ERP trip for Managers/Owners.
- * Shows pipeline progress, full logistics metadata, and related records (Advances, CNs, PODs).
+ * GET /api/erp/trips/:tripId returns the trip plus `advances[]`, `consignment`,
+ * `pod`, `unloading`, `saleBill` and `purchaseBill` in a single call — the best
+ * reuse opportunity in the codebase, and the reason this screen needs no other
+ * requests.
+ *
+ * The action button comes from `nextActionFor()`, gated on the role, so it can
+ * never offer a stage the backend will reject.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, RefreshControl } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 import { useAuth } from '../../context/AuthContext';
+import { useAccess } from '../../context/AccessContext';
 import { fetchErpTripById } from '../../services/erpApi';
-import { AppText, Card, Badge, colors, spacing, radius } from '../../components/ui';
-import VehicleLoader from '../../components/ui/VehicleLoader';
+import {
+  AppText, Card, Button, Badge, SubHeader, MoneyText, PipelineProgress,
+  colors, radius,
+} from '../../components/ui';
+import {
+  nextActionFor, stateLabel, stateTone, tripRoute, tripParty, tripQty,
+} from '../../domain/tripState';
+import logger from '../../utils/logger';
+
+const badgeTone = (tone) => ({
+  success: 'valid', warning: 'pending', danger: 'expired', info: 'info',
+}[tone] || 'neutral');
 
 export default function TripDetailScreen({ route, navigation }) {
-  const { tripId } = route.params || {};
-  const insets = useSafeAreaInsets();
-  const { token } = useAuth();
-  
+  const tripId = route?.params?.tripId;
+  const { user, token } = useAuth();
+  const { can } = useAccess();
+
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
-  const loadTrip = useCallback(async (isRefresh = false) => {
-    if (!tripId) return;
-    if (isRefresh) setRefreshing(true);
-    
+  const load = useCallback(async () => {
+    if (!token || !tripId) return;
     try {
-      const res = await fetchErpTripById(token, tripId);
-      setTrip(res.trip || res.data || res);
+      setTrip(await fetchErpTripById(token, tripId));
+      setError(null);
     } catch (err) {
-      console.warn('Failed to fetch trip detail', err);
+      logger.warn('TripDetail', `Load failed: ${err?.message}`);
+      setError(err?.message || 'Could not load this trip.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [token, tripId]);
 
-  useEffect(() => {
-    loadTrip();
-  }, [loadTrip]);
+  useEffect(() => { load(); }, [load]);
 
-  if (loading && !refreshing) {
+  // Coming back from a stage screen (close, unloading, CN, POD) must show the new
+  // state. Transitions are worker-driven, so the reload is on focus rather than
+  // optimistic — by the time the user navigates back the worker has usually run.
+  useEffect(
+    () => navigation.addListener('focus', () => load()),
+    [navigation, load],
+  );
+
+  const onRefresh = () => { setRefreshing(true); load(); };
+
+  if (loading && !trip) {
     return (
-      <View style={[styles.flex, { justifyContent: 'center', alignItems: 'center' }]}>
-        <VehicleLoader visible={true} overlay={false} size={100} />
+      <View style={styles.flex}>
+        <StatusBar style="dark" />
+        <SubHeader title="Trip" onBack={() => navigation.goBack()} />
+        <View style={styles.centre}><AppText variant="body" muted>Loading…</AppText></View>
       </View>
     );
   }
 
   if (!trip) {
     return (
-      <View style={[styles.flex, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={20} color={colors.text} />
-          </Pressable>
-          <AppText variant="h2" weight="extrabold">Trip Detail</AppText>
-        </View>
-        <View style={styles.empty}>
-          <AppText variant="body" weight="semibold" muted>Trip not found.</AppText>
+      <View style={styles.flex}>
+        <StatusBar style="dark" />
+        <SubHeader title="Trip" onBack={() => navigation.goBack()} />
+        <View style={styles.centre}>
+          <AppText variant="body" muted>{error || 'Trip not found.'}</AppText>
         </View>
       </View>
     );
   }
 
+  const r = tripRoute(trip);
+  const action = nextActionFor(trip, user?.role);
+  // Only the stages this screen can actually launch.
+  const launch = {
+    close: () => navigation.navigate('TripClose', { trip }),
+    unloading: () => navigation.navigate('UnloadingForm', { trip }),
+    cn: () => navigation.navigate('CnUpload', { trip }),
+    pod: () => navigation.navigate('PodSubmit', { trip }),
+  }[action?.key];
+
+  const advance = trip.advances?.[0];
+
   return (
     <View style={styles.flex}>
       <StatusBar style="dark" />
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={20} color={colors.text} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <AppText variant="h2" weight="extrabold">Trip Detail</AppText>
-          <AppText variant="small" muted>LR: {trip.lrNumber || 'Pending'}</AppText>
-        </View>
-      </View>
+      <SubHeader
+        title={trip.tripNumber || 'Trip'}
+        subtitle={r.text}
+        onBack={() => navigation.goBack()}
+        right={<Badge tone={badgeTone(stateTone(trip.state))} label={stateLabel(trip.state)} />}
+      />
 
       <ScrollView
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadTrip(true)} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        {/* Route Card */}
-        <Card elevated="sm" padding={20} style={{ marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
-            <Badge tone="primary" label={`Stage ${trip.pipelineStage || 1}`} />
-            <AppText variant="small" muted>{dayjs(trip.createdAt).format('DD MMM YYYY')}</AppText>
-          </View>
-          <AppText variant="h2" weight="extrabold" style={{ marginBottom: 6 }}>
-            {trip.source}  <Ionicons name="arrow-forward" size={16} color={colors.textMuted} />  {trip.destination}
-          </AppText>
+        {error ? (
+          <Card variant="outline" padding={13} style={[styles.card, styles.errorCard]}>
+            <AppText variant="small" weight="semibold" color={colors.error}>{error}</AppText>
+          </Card>
+        ) : null}
+
+        <Card padding={18} elevated="sm" style={styles.card}>
+          <PipelineProgress trip={trip} />
+          {action && launch && !action.wait ? (
+            <Button label={action.label} onPress={launch} style={styles.actionBtn} />
+          ) : action?.wait ? (
+            <View style={styles.waitBanner}>
+              <Ionicons name="time-outline" size={15} color={colors.textMuted} />
+              <AppText variant="small" muted weight="medium" style={styles.waitText}>
+                {action.label} — not your step.
+              </AppText>
+            </View>
+          ) : null}
         </Card>
 
-        {/* Assets Card */}
-        <Card padding={16} style={{ marginBottom: 16 }}>
-          <AppText variant="label" muted style={{ marginBottom: 12 }}>ASSETS</AppText>
-          <InfoRow label="Vehicle" value={trip.vehicle?.registrationNumber || 'Pending'} />
-          <InfoRow label="Driver" value={trip.driver ? `${trip.driver.firstName} ${trip.driver.lastName}` : 'Pending'} />
-          <InfoRow label="Party" value={trip.party?.name || 'Pending'} border={false} />
+        <Card padding={18} elevated="sm" style={styles.card}>
+          <AppText variant="label" muted style={styles.cardTitle}>LOAD</AppText>
+          <Row label="Party" value={tripParty(trip)} />
+          <Row label="Delivery order" value={trip.doId?.doNumber || '—'} />
+          <Row label="Material" value={trip.material || '—'} />
+          <Row label="Quantity" value={tripQty(trip)} />
+          <Row label="Vehicle" value={`${trip.vehicleNumber || '—'} (${trip.vehicleType || '—'})`} />
+          <Row label="Distance" value={trip.totalKm ? `${trip.totalKm} km` : '—'} />
+          <Row
+            label="Trip date"
+            value={trip.tripDate ? dayjs(trip.tripDate).format('DD MMM YYYY') : '—'}
+            border={false}
+          />
         </Card>
 
-        {/* Placement & Freight Card */}
-        <Card padding={16} style={{ marginBottom: 16 }}>
-          <AppText variant="label" muted style={{ marginBottom: 12 }}>COMMERCIALS</AppText>
-          <InfoRow label="Placement Date" value={trip.placement?.placementDate ? dayjs(trip.placement.placementDate).format('DD MMM, hh:mm A') : '—'} />
-          <InfoRow label="Supplier" value={trip.placement?.supplier?.name || '—'} />
-          <InfoRow label="Fixed Freight" value={trip.placement?.fixedFreight ? `₹${trip.placement.fixedFreight.toLocaleString()}` : '—'} />
-          <InfoRow label="Total Advance" value={trip.placement?.totalAdvance ? `₹${trip.placement.totalAdvance.toLocaleString()}` : '—'} border={false} />
-        </Card>
+        {/* ── Stage cards: only what exists, so the screen shrinks with the trip ── */}
+        {can('advances.view') && advance ? (
+          <StageCard
+            title="ADVANCE"
+            badge={{ tone: advance.status === 'PAID' ? 'valid' : 'pending', label: advance.status }}
+          >
+            <Row label="Number" value={advance.advanceNumber || '—'} />
+            <MoneyRow label="Net payable" amount={advance.netPayable} />
+            {Number(advance.totalDeductions) > 0 ? (
+              <MoneyRow label="Deductions" amount={advance.totalDeductions} tone={colors.warning} />
+            ) : null}
+            <Row
+              label="Paid"
+              value={advance.paidAt
+                ? `${advance.paymentMode || '—'} · ${dayjs(advance.paidAt).format('DD MMM')}`
+                : 'Not yet'}
+              border={false}
+            />
+          </StageCard>
+        ) : null}
 
-        {/* Docs Card */}
-        <Card padding={16} style={{ marginBottom: 30 }}>
-          <AppText variant="label" muted style={{ marginBottom: 12 }}>DOCUMENTATION</AppText>
-          <InfoRow label="Consignments (CN)" value={trip.consignments?.length || 0} />
-          <InfoRow label="Advances" value={trip.advances?.length || 0} />
-          <InfoRow label="PODs" value={trip.pods?.length || 0} />
-          <InfoRow label="Unloading" value={trip.pipelineStage >= 8 ? 'Completed' : 'Pending'} border={false} />
-        </Card>
+        {trip.consignment ? (
+          <StageCard title="CONSIGNMENT NOTE" badge={{ tone: 'valid', label: 'Filed' }}>
+            <Row label="CN number" value={trip.consignment.cnNumber || '—'} />
+            <Row
+              label="CN date"
+              value={trip.consignment.cnDate ? dayjs(trip.consignment.cnDate).format('DD MMM YYYY') : '—'}
+            />
+            <Row
+              label="Loaded"
+              value={trip.consignment.loadedQty != null
+                ? `${trip.consignment.loadedQty} ${trip.consignment.loadedQtyUnit || ''}`.trim()
+                : '—'}
+              border={false}
+            />
+          </StageCard>
+        ) : null}
+
+        {trip.pod ? (
+          <StageCard title="PROOF OF DELIVERY" badge={{ tone: 'valid', label: 'Received' }}>
+            <Row
+              label="Received"
+              value={trip.pod.receivedDate ? dayjs(trip.pod.receivedDate).format('DD MMM YYYY') : '—'}
+            />
+            <Row label="Copy" value={trip.pod.copyType || '—'} />
+            <Row label="Via" value={humanise(trip.pod.receivedVia)} border={false} />
+          </StageCard>
+        ) : null}
+
+        {trip.unloading ? (
+          <StageCard title="UNLOADING" badge={{ tone: 'info', label: 'Settled' }}>
+            <Row
+              label="Unloaded"
+              value={trip.unloading.unloadedQty != null
+                ? `${trip.unloading.unloadedQty} ${trip.unloading.qtyUnit || ''}`.trim()
+                : '—'}
+            />
+            {Number(trip.unloading.shortageQty) > 0 ? (
+              <Row
+                label="Shortage"
+                value={`${trip.unloading.shortageQty} ${trip.unloading.qtyUnit || ''}`.trim()}
+              />
+            ) : null}
+            {Number(trip.unloading.detentionDays) > 0 ? (
+              <Row label="Detention" value={`${trip.unloading.detentionDays} days`} />
+            ) : null}
+            <MoneyRow label="Net receivable" amount={trip.unloading.netReceivable} border={false} />
+          </StageCard>
+        ) : null}
+
+        {can('billing.view') && trip.saleBill ? (
+          <StageCard
+            title="SALE BILL"
+            badge={{ tone: trip.saleBill.status === 'PAID' ? 'valid' : 'info', label: trip.saleBill.status }}
+          >
+            <Row label="Bill number" value={trip.saleBill.billNumber || '—'} />
+            <Row
+              label="Bill date"
+              value={trip.saleBill.billDate ? dayjs(trip.saleBill.billDate).format('DD MMM YYYY') : '—'}
+            />
+            <MoneyRow label="Invoice total" amount={trip.saleBill.netAmount} />
+            <MoneyRow
+              label="Outstanding"
+              amount={trip.saleBill.outstandingAmount}
+              tone={Number(trip.saleBill.outstandingAmount) > 0 ? colors.warning : colors.success}
+              border={false}
+            />
+          </StageCard>
+        ) : null}
+
+        {trip.tripClosedAt ? (
+          <StageCard title="CLOSE">
+            <Row label="Unloaded on" value={dayjs(trip.unloadedAt).format('DD MMM YYYY')} />
+            <Row label="Location" value={trip.unloadLocation || '—'} />
+            {trip.closeRemarks ? <Row label="Remarks" value={trip.closeRemarks} /> : null}
+            <Row
+              label="Closed by"
+              value={[trip.tripClosedBy?.firstName, trip.tripClosedBy?.lastName]
+                .filter(Boolean).join(' ') || '—'}
+              border={false}
+            />
+          </StageCard>
+        ) : null}
       </ScrollView>
     </View>
   );
 }
 
-function InfoRow({ label, value, border = true }) {
+function StageCard({ title, badge, children }) {
   return (
-    <View style={[styles.infoRow, border && styles.infoRowBorder]}>
+    <Card padding={18} elevated="sm" style={styles.card}>
+      <View style={styles.stageHead}>
+        <AppText variant="label" muted>{title}</AppText>
+        {badge ? <Badge tone={badge.tone} label={humanise(badge.label)} /> : null}
+      </View>
+      {children}
+    </Card>
+  );
+}
+
+function Row({ label, value, border = true }) {
+  return (
+    <View style={[styles.row, border && styles.rowBorder]}>
       <AppText variant="small" muted weight="medium">{label}</AppText>
-      <AppText variant="bodyStrong" weight="bold">{value}</AppText>
+      <AppText variant="bodyStrong" weight="bold" style={styles.rowValue} numberOfLines={2}>
+        {value}
+      </AppText>
     </View>
   );
 }
 
+function MoneyRow({ label, amount, tone, border = true }) {
+  return (
+    <View style={[styles.row, border && styles.rowBorder]}>
+      <AppText variant="small" muted weight="medium">{label}</AppText>
+      <MoneyText amount={amount} variant="bodyStrong" weight="extrabold" color={tone} />
+    </View>
+  );
+}
+
+const humanise = (s) =>
+  String(s || '—').replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 22, paddingBottom: 16, backgroundColor: colors.surface },
-  backBtn: { width: 42, height: 42, borderRadius: 13, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
-  scroll: { padding: 22, paddingBottom: 40 },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12 },
-  infoRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  centre: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scroll: { padding: 22, paddingBottom: 48 },
+  card: { marginBottom: 14 },
+  cardTitle: { marginBottom: 4 },
+  errorCard: { borderColor: colors.error, backgroundColor: colors.expiredBg, borderRadius: radius.md },
+  stageHead: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  actionBtn: { marginTop: 18 },
+  waitBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16,
+    padding: 12, backgroundColor: colors.background, borderRadius: radius.md,
+  },
+  waitText: { flex: 1 },
+  row: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    gap: 16, paddingVertical: 11,
+  },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  rowValue: { flex: 1, textAlign: 'right' },
 });
