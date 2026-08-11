@@ -15,10 +15,14 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "GNB Motors needs your location while you are on duty so managers can see your live driver position.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "GNB Motors needs Always location access only when you choose Always sharing for on-duty driver tracking."
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "GNB Motors needs Always location access only when you choose Always sharing for on-duty driver tracking.",
+        "NSCameraUsageDescription": "GNB Motors needs camera access to photograph bilty and POD documents.",
+        "NSPhotoLibraryUsageDescription": "GNB Motors needs photo library access to attach bilty and POD document images."
       },
-      "bundleIdentifier": "com.gnbedge.driverapp"
+      "bundleIdentifier": "com.gnbedge.driverapp",
+      "config": {
+        "googleMapsApiKey": "REPLACE_WITH_GOOGLE_MAPS_IOS_API_KEY"
+      }
     },
     "android": {
       "permissions": [
@@ -29,14 +33,22 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_LOCATION"
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.gnbedge.driverapp"
+      "package": "com.gnbedge.driverapp",
+      "config": {
+        "googleMaps": {
+          "apiKey": "REPLACE_WITH_GOOGLE_MAPS_ANDROID_API_KEY"
+        }
+      }
     },
     "plugins": [
       [
@@ -47,7 +59,20 @@
           "isAndroidBackgroundLocationEnabled": true
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ]
     ],
     "web": {
       "favicon": "./assets/favicon.png"

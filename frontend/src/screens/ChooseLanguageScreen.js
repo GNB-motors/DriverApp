@@ -37,6 +37,7 @@ export default function ChooseLanguageScreen({ navigation }) {
       <View style={styles.intro}>
         <AppText variant="body" weight="medium" color="#566661" center>Select your preferred language</AppText>
         <AppText variant="body" weight="medium" muted center>अपनी पसंदीदा भाषा चुनें</AppText>
+        <AppText variant="body" weight="medium" muted center>আপনার পছন্দের ভাষা নির্বাচন করুন</AppText>
       </View>
 
       <View style={styles.list}>

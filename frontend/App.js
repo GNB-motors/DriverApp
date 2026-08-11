@@ -6,6 +6,7 @@ import * as Sentry from '@sentry/react-native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { AuthProvider } from './src/context/AuthContext';
+import { ErpProvider } from './src/context/ErpContext';
 import { useAppFonts } from './src/theme/fonts';
 import SplashScreen from './src/components/ui/SplashScreen';
 
@@ -21,7 +22,7 @@ function App() {
   const [fontsLoaded, fontError] = useAppFonts();
 
   // Gate the UI until fonts resolve so the first paint uses the brand type.
-  // fontsReady={false} → splash uses system type (custom families aren't loaded yet).
+  // fontsReady={false} – splash uses system type (custom families aren't loaded yet).
   if (!fontsLoaded && !fontError) {
     return <SplashScreen fontsReady={false} />;
   }
@@ -30,10 +31,12 @@ function App() {
     <SafeAreaProvider>
       <LanguageProvider>
         <AuthProvider>
-          <NavigationContainer>
-            <StatusBar style="dark" />
-            <AppNavigator />
-          </NavigationContainer>
+          <ErpProvider>
+            <NavigationContainer>
+              <StatusBar style="dark" />
+              <AppNavigator />
+            </NavigationContainer>
+          </ErpProvider>
         </AuthProvider>
       </LanguageProvider>
     </SafeAreaProvider>
@@ -41,4 +44,3 @@ function App() {
 }
 
 export default Sentry.wrap(App);
-
