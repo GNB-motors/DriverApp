@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useAccess } from '../context/AccessContext';
 import { useLanguage } from '../context/LanguageContext';
 import { AppText, colors, spacing, radius } from '../components/ui';
 
@@ -12,6 +13,7 @@ const LANG_LABEL = { en: 'English', hi: 'हिन्दी', bn: 'বাংল�
 
 export default function ProfileScreen({ navigation }) {
   const { user, logout } = useAuth();
+  const { can } = useAccess();
   const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
 
@@ -43,9 +45,12 @@ export default function ProfileScreen({ navigation }) {
   ] : [];
 
   const prefRows = [
-    { icon: 'notifications', label: 'Alerts', onPress: () => navigation.navigate('Notifications') },
+    // The alert feed is /api/owner-alerts, which is Owner + Manager only — so the
+    // row is hidden for everyone else rather than leading to a "nothing for you"
+    // dead end.
+    can('alerts.view') && { icon: 'notifications', label: 'Alerts', onPress: () => navigation.navigate('Notifications') },
     { icon: 'language', label: t('profile', 'changeLanguage') || 'Language', value: LANG_LABEL[language] || 'English', onPress: () => navigation.navigate('LanguageScreen') },
-  ];
+  ].filter(Boolean);
 
   return (
     <View style={styles.container}>
