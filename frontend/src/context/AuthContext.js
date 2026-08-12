@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { requestDriverOtp, verifyDriverOtp } from '../services/api';
+import { login as loginRequest } from '../services/api';
 import logger from '../utils/logger';
 
 const AuthContext = createContext();
@@ -18,6 +18,28 @@ const PER_ACCOUNT_KEYS = [
 
 const wipePerAccountState = () =>
   Promise.all(PER_ACCOUNT_KEYS.map((k) => AsyncStorage.removeItem(k)));
+
+// ── Local UI-testing accounts ───────────────────────────────────────────────
+// Sign in with any of these numbers and the password below to inspect a role's
+// screens without a backend. Requests made with a `mock-jwt-*` token are served
+// from src/services/mockFixtures.js and never leave the device.
+//
+// These are DEV credentials in client source. They must not reach a store build —
+// gate them behind __DEV__ or strip them in the release pipeline.
+const MOCK_PASSWORD = 'test1234';
+
+const mockSession = (id, name, role, token) => ({
+  user: { _id: id, name, role, orgId: 'org1' },
+  token,
+  organization: { _id: 'org1', companyName: 'GNB Motors' },
+});
+
+const MOCK_ACCOUNTS = {
+  '9999999990': mockSession('mock_owner1', 'Test Owner', 'OWNER', 'mock-jwt-owner'),
+  '9999999991': mockSession('mock_manager1', 'Test Manager', 'MANAGER', 'mock-jwt-mgr'),
+  '9999999992': mockSession('mock_ops1', 'Test Ops', 'OPS_EXECUTIVE', 'mock-jwt-ops'),
+  '9999999993': mockSession('mock_driver1', 'Test Driver', 'DRIVER', 'mock-jwt-driver'),
+};
 
 export function AuthProvider({ children }) {
   const [user, setUser]           = useState(null);
@@ -55,35 +77,27 @@ export function AuthProvider({ children }) {
     loadSession();
   }, []);
 
-  const sendOtp = async (mobileNumber) => {
-    const normalised = mobileNumber.startsWith('+')
-      ? mobileNumber
-      : `+91${mobileNumber.replace(/\s/g, '')}`;
-      
-    // MOCK ACCOUNTS bypass API
-    if (['+919999999990', '+919999999991', '+919999999992', '+919999999993'].includes(normalised)) {
-      return normalised;
-    }
+  /**
+   * Sign in with mobile number (or email) + password.
+   *
+   * POST /api/auth/login — the same endpoint the web portal uses. Passwords are
+   * set by an Owner when creating the employee, so there is nothing to request or
+   * verify first: this is a single round trip.
+   *
+   * The number is sent as the user typed it (bare 10 digits from the keypad). The
+   * backend matches every format `User.mobileNumber` may be stored in, so no
+   * client-side normalisation is needed — and doing it here would only re-create
+   * the format mismatch that made correct passwords look wrong.
+   */
+  const login = async (mobileOrEmail, password) => {
+    const identifier = String(mobileOrEmail || '').trim();
 
-    await requestDriverOtp(normalised);
-    return normalised;
-  };
-
-  const verifyOtp = async (mobileNumber, otp) => {
-    let result;
-
-    // MOCK ACCOUNTS for UI Testing
-    if (mobileNumber === '+919999999990' && otp === '123456') {
-      result = { user: { _id: 'mock_owner1', name: 'Test Owner', role: 'OWNER', orgId: 'org1', phone: '+919999999990' }, token: 'mock-jwt-owner', organization: { name: 'GNB Motors', _id: 'org1' } };
-    } else if (mobileNumber === '+919999999991' && otp === '123456') {
-      result = { user: { _id: 'mock_manager1', name: 'Test Manager', role: 'MANAGER', orgId: 'org1', phone: '+919999999991' }, token: 'mock-jwt-mgr', organization: { name: 'GNB Motors', _id: 'org1' } };
-    } else if (mobileNumber === '+919999999992' && otp === '123456') {
-      result = { user: { _id: 'mock_ops1', name: 'Test Ops', role: 'OPS_EXECUTIVE', orgId: 'org1', phone: '+919999999992' }, token: 'mock-jwt-ops', organization: { name: 'GNB Motors', _id: 'org1' } };
-    } else if (mobileNumber === '+919999999993' && otp === '123456') {
-      result = { user: { _id: 'mock_driver1', name: 'Test Driver', role: 'DRIVER', orgId: 'org1', phone: '+919999999993' }, token: 'mock-jwt-driver', organization: { name: 'GNB Motors', _id: 'org1' } };
-    } else {
-      result = await verifyDriverOtp(mobileNumber, otp);
-    }
+    // Local UI-testing accounts. Kept deliberately; see mockFixtures.js for the
+    // canned responses that back them.
+    const mock = MOCK_ACCOUNTS[identifier];
+    const result = mock && password === MOCK_PASSWORD
+      ? mock
+      : await loginRequest(identifier, password);
 
     const { user: loggedInUser, token: jwt, organization: org } = result;
     const newIdentity = `${loggedInUser._id}:${loggedInUser.orgId}`;
@@ -124,7 +138,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, organization, loading, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, logout }}>
+    <AuthContext.Provider value={{ user, token, organization, loading, isNewLogin, setIsNewLogin, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

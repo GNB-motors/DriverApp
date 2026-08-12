@@ -7,10 +7,13 @@
  *     in a looping road section at the bottom of the hero area
  *   • Logo + brand name centered on the hero
  *   • Cosmetic role strip: Driver · Manager/Ops · Owner  (purely visual)
- *   • OTP card slides up with Animated.spring from below
- *   • Step progress pill (teal bar grows from 50% → 100%)
+ *   • Credential card slides up with Animated.spring from below
  *   • Language selector: EN · हिन्दी · বাং  (3 pills, top-right floating)
- *   • Existing OTP logic is fully preserved — zero breaking changes
+ *
+ * Auth: mobile number + password against POST /api/auth/login — one round trip,
+ * no OTP step. Passwords are set by an Owner when the employee is created, so
+ * there is nothing to request or resend, and the role comes back in the response
+ * rather than being chosen here (the role pills stay purely decorative).
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -24,7 +27,6 @@ import {
   StyleSheet,
   Pressable,
   Animated,
-  ImageBackground,
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,7 +42,7 @@ import { AppText, Button, colors, spacing, radius, fontFamily } from '../compone
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const TruckAnimation = require('../Assets/truck-animation.json');
 
-// ── Cosmetic role pills (purely visual — role comes from OTP result) ────────
+// ── Cosmetic role pills (purely visual — role comes from the login response) ─
 const ROLE_PILLS = [
   { label: 'Driver',      icon: 'car-sport-outline' },
   { label: 'Manager/Ops', icon: 'briefcase-outline'  },
@@ -57,57 +59,6 @@ function RolePills() {
         </View>
       ))}
     </View>
-  );
-}
-
-// ── Step progress pill ───────────────────────────────────────────────────────
-function StepPill({ step }) {
-  const anim = useRef(new Animated.Value(step === 1 ? 0.5 : 1)).current;
-
-  useEffect(() => {
-    Animated.spring(anim, {
-      toValue: step === 1 ? 0.5 : 1,
-      useNativeDriver: false,
-      bounciness: 4,
-    }).start();
-  }, [step]);
-
-  const pillWidth = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
-
-  return (
-    <View style={pill.track}>
-      <Animated.View style={[pill.fill, { width: pillWidth }]} />
-    </View>
-  );
-}
-
-// ── OTP input (6 boxes) ──────────────────────────────────────────────────────
-function OtpInput({ value, onChange }) {
-  const inputRef = useRef(null);
-  const digits = value.padEnd(6, ' ').split('');
-
-  return (
-    <Pressable onPress={() => inputRef.current?.focus()} style={{ position: 'relative' }}>
-      <TextInput
-        ref={inputRef}
-        value={value}
-        onChangeText={(t) => onChange(t.replace(/[^0-9]/g, '').slice(0, 6))}
-        keyboardType="number-pad"
-        maxLength={6}
-        style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }}
-        autoFocus
-      />
-      <View style={otp.row}>
-        {digits.map((d, i) => (
-          <View key={i} style={[otp.box, value.length === i && otp.boxActive]}>
-            <AppText mono weight="bold" style={otp.digit}>{d.trim()}</AppText>
-          </View>
-        ))}
-      </View>
-    </Pressable>
   );
 }
 
@@ -138,12 +89,11 @@ function LangSelector({ current, onSet, insets }) {
 
 // ── Main screen ──────────────────────────────────────────────────────────────
 export default function LoginScreen() {
-  const [step, setStep]                   = useState(1);
-  const [phoneNumber, setPhoneNumber]     = useState('');
-  const [normalisedPhone, setNormalisedPhone] = useState('');
-  const [otp, setOtp]                     = useState('');
-  const [loading, setLoading]             = useState(false);
-  const [error, setError]                 = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [password, setPassword]       = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState('');
 
   // Card slide-up animation
   const cardY = useRef(new Animated.Value(200)).current;
@@ -164,7 +114,7 @@ export default function LoginScreen() {
   }, []);
 
   const insets                      = useSafeAreaInsets();
-  const { sendOtp, verifyOtp }      = useAuth();
+  const { login }                   = useAuth();
   const { language, setLanguage, t } = useLanguage();
 
   const lt = (key) => {
@@ -175,11 +125,11 @@ export default function LoginScreen() {
       subtitle:       'Fleet Management Portal',
       phoneLabel:     'ENTER PHONE NUMBER',
       phonePlaceholder: '00000 00000',
-      sendOtpButton:  'Send OTP',
-      otpLabel:       'ENTER OTP',
-      otpSubtitle:    'sent to',
+      loginButton:    'Login',
+      passwordLabel:  'ENTER PASSWORD',
+      passwordPlaceholder: 'Enter your password',
       verifyButton:   'Verify & Login',
-      resend:         'Resend OTP',
+      forgot:         'Forgotten your password? Ask your manager to reset it.',
       changeNumber:   'Change Number',
       help:           'Help / Login Issues?',
       secureAccess:   'SECURE ACCESS',
@@ -201,43 +151,19 @@ export default function LoginScreen() {
     if (cleaned.length <= 10) setPhoneNumber(cleaned);
   };
 
-  const handleSendOtp = async () => {
-    if (phoneNumber.length < 10) return;
-    setError('');
-    setLoading(true);
-    try {
-      const normalised = await sendOtp(phoneNumber);
-      setNormalisedPhone(normalised);
-      setStep(2);
-    } catch (err) {
-      setError(err.message || 'Failed to send OTP. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const canSubmit = phoneNumber.length === 10 && password.length > 0 && !loading;
 
-  const handleVerifyOtp = async () => {
-    if (otp.length < 6) return;
+  const handleLogin = async () => {
+    if (!canSubmit) return;
     setError('');
     setLoading(true);
     try {
-      await verifyOtp(normalisedPhone, otp);
+      // Sent as typed — the backend matches every stored mobile format, so
+      // prefixing +91 here would only risk re-introducing a mismatch.
+      await login(phoneNumber, password);
     } catch (err) {
-      setError(err.message || 'Invalid OTP. Please try again.');
-      setOtp('');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    setError('');
-    setOtp('');
-    setLoading(true);
-    try {
-      await sendOtp(phoneNumber);
-    } catch (err) {
-      setError(err.message || 'Failed to resend OTP.');
+      setError(err.message || 'Could not sign in. Check your number and password.');
+      setPassword('');
     } finally {
       setLoading(false);
     }
@@ -338,81 +264,80 @@ export default function LoginScreen() {
             { transform: [{ translateY: cardY }], opacity: cardOpacity },
           ]}
         >
-          {/* Step progress pill */}
-          <StepPill step={step} />
+          <AppText variant="label" muted style={card.label}>{lt('phoneLabel')}</AppText>
+          <View style={card.phoneField}>
+            <AppText mono weight="bold" color={colors.primary} style={card.countryCode}>+91</AppText>
+            <View style={card.divider} />
+            <TextInput
+              style={card.phoneInput}
+              placeholder={lt('phonePlaceholder')}
+              placeholderTextColor={colors.textMuted}
+              value={formatPhone(phoneNumber)}
+              onChangeText={handlePhoneChange}
+              keyboardType="phone-pad"
+              maxLength={11}
+              editable={!loading}
+              autoComplete="tel"
+              textContentType="telephoneNumber"
+              returnKeyType="next"
+            />
+          </View>
 
-          {step === 1 ? (
-            <>
-              <AppText variant="label" muted style={card.label}>{lt('phoneLabel')}</AppText>
-              <View style={card.phoneField}>
-                <AppText mono weight="bold" color={colors.primary} style={card.countryCode}>+91</AppText>
-                <View style={card.divider} />
-                <TextInput
-                  style={card.phoneInput}
-                  placeholder={lt('phonePlaceholder')}
-                  placeholderTextColor={colors.textMuted}
-                  value={formatPhone(phoneNumber)}
-                  onChangeText={handlePhoneChange}
-                  keyboardType="phone-pad"
-                  maxLength={11}
-                  editable={!loading}
-                />
-              </View>
-
-              {!!error && (
-                <AppText variant="small" weight="semibold" color={colors.error} center style={card.error}>
-                  {error}
-                </AppText>
-              )}
-
-              <Button
-                label={lt('sendOtpButton')}
-                iconRight="arrow-forward"
-                onPress={handleSendOtp}
-                loading={loading}
-                disabled={phoneNumber.length < 10 || loading}
-                size="lg"
+          <AppText variant="label" muted style={card.labelSpaced}>{lt('passwordLabel')}</AppText>
+          <View style={card.phoneField}>
+            <Ionicons name="lock-closed" size={17} color={colors.primary} style={card.fieldIcon} />
+            <View style={card.divider} />
+            <TextInput
+              style={card.phoneInput}
+              placeholder={lt('passwordPlaceholder')}
+              placeholderTextColor={colors.textMuted}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              editable={!loading}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="password"
+              textContentType="password"
+              returnKeyType="go"
+              onSubmitEditing={handleLogin}
+            />
+            <Pressable
+              onPress={() => setShowPassword((v) => !v)}
+              hitSlop={10}
+              style={card.eyeBtn}
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            >
+              <Ionicons
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={19}
+                color={colors.textMuted}
               />
-            </>
-          ) : (
-            <>
-              <AppText variant="label" muted style={card.label}>{lt('otpLabel')}</AppText>
-              <AppText variant="small" muted style={card.otpSubtitle}>
-                {lt('otpSubtitle')} {normalisedPhone}
-              </AppText>
-              <View style={{ marginTop: 12, marginBottom: 18 }}>
-                <OtpInput value={otp} onChange={setOtp} />
-              </View>
+            </Pressable>
+          </View>
 
-              {!!error && (
-                <AppText variant="small" weight="semibold" color={colors.error} center style={card.error}>
-                  {error}
-                </AppText>
-              )}
-
-              <Button
-                label={lt('verifyButton')}
-                iconRight="checkmark"
-                onPress={handleVerifyOtp}
-                loading={loading}
-                disabled={otp.length < 6 || loading}
-                size="lg"
-              />
-
-              <View style={card.linkRow}>
-                <Pressable onPress={handleResend} disabled={loading} hitSlop={8}>
-                  <AppText variant="small" weight="bold" color={colors.primary}>{lt('resend')}</AppText>
-                </Pressable>
-                <Pressable
-                  onPress={() => { setStep(1); setOtp(''); setError(''); }}
-                  disabled={loading}
-                  hitSlop={8}
-                >
-                  <AppText variant="small" weight="bold" color={colors.primary}>{lt('changeNumber')}</AppText>
-                </Pressable>
-              </View>
-            </>
+          {!!error && (
+            <AppText variant="small" weight="semibold" color={colors.error} center style={card.error}>
+              {error}
+            </AppText>
           )}
+
+          <Button
+            label={lt('loginButton')}
+            iconRight="arrow-forward"
+            onPress={handleLogin}
+            loading={loading}
+            disabled={!canSubmit}
+            size="lg"
+          />
+
+          {/* There is no self-service reset yet — an Owner has to set a new
+              password on the employee record, so the copy says who to ask
+              rather than offering a link that goes nowhere. */}
+          <AppText variant="caption" muted center style={card.forgotNote}>
+            {lt('forgot')}
+          </AppText>
 
           {/* Help */}
           <Pressable hitSlop={8} style={card.helpWrap}>
@@ -516,33 +441,6 @@ const hero = StyleSheet.create({
   },
 });
 
-const pill = StyleSheet.create({
-  track: {
-    height: 5,
-    backgroundColor: colors.border,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 22,
-  },
-  fill: { height: '100%', backgroundColor: colors.primary, borderRadius: 3 },
-});
-
-const otp = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 10, justifyContent: 'center' },
-  box: {
-    width: 48,
-    height: 58,
-    borderRadius: 14,
-    backgroundColor: colors.background,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  boxActive: { borderColor: colors.primary },
-  digit: { fontSize: 22 },
-});
-
 const card = StyleSheet.create({
   container: {
     flex: 1,
@@ -554,6 +452,7 @@ const card = StyleSheet.create({
     paddingTop: 48,
   },
   label: { marginBottom: 9 },
+  labelSpaced: { marginTop: 18, marginBottom: 9 },
   phoneField: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -567,6 +466,8 @@ const card = StyleSheet.create({
     marginBottom: 18,
   },
   countryCode: { fontSize: 16 },
+  fieldIcon: { marginRight: 2 },
+  eyeBtn: { paddingLeft: 6 },
   divider: { width: 1, height: 22, backgroundColor: '#D8E0DD' },
   phoneInput: {
     flex: 1,
@@ -576,9 +477,8 @@ const card = StyleSheet.create({
     letterSpacing: 1,
     padding: 0,
   },
-  otpSubtitle: { marginTop: 2 },
-  error: { marginBottom: 14 },
-  linkRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14 },
+  error: { marginBottom: 14, marginTop: 16 },
+  forgotNote: { marginTop: 16 },
   helpWrap: { paddingVertical: 18 },
   hairline: { height: 1, backgroundColor: colors.border, marginBottom: 18 },
   infoCards: { flexDirection: 'row', gap: 12 },

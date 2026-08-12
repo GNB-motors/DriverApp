@@ -34,7 +34,7 @@ The app is built for drivers — not managers. Key constraints:
 ## What's Built
 
 ### Authentication
-- Passwordless OTP login via Fast2SMS SMS
+- Mobile number + password login (`POST /api/auth/login`). Passwords are set by an Owner when the employee is created; there is no self-registration and no self-service reset yet.
 - 30-day JWT token persisted in AsyncStorage
 - Session rehydration on app restart
 
@@ -80,8 +80,8 @@ The app is built for drivers — not managers. Key constraints:
 
 | Function | Endpoint |
 |---|---|
-| Request OTP | `POST /api/auth/driver/request-otp` |
-| Verify OTP | `POST /api/auth/driver/verify-otp` |
+| Login | `POST /api/auth/login` (`emailOrMobile` + `password`) |
+| Current user | `GET /api/auth/me` (role, org feature flags, permissions) |
 | Fetch vehicles | `GET /api/vehicles` |
 | Fetch drivers | `GET /api/employees?role=DRIVER` |
 | OCR scan | `POST /api/ocr/scan` |
@@ -148,12 +148,12 @@ Background accelerometer monitoring during active sessions. If deceleration > 4G
 ```
 src/
   context/
-    AuthContext.js        — JWT + OTP login state
+    AuthContext.js        — JWT + password login state
     LanguageContext.js    — i18n
   navigation/
     AppNavigator.js       — stack + bottom tabs
   screens/
-    LoginScreen.js        — OTP login (2 steps)
+    LoginScreen.js        — mobile + password login (single step)
     HomeScreen.js         — landing, vehicle card, refuel entry
     VehicleScreen.js      — vehicle picker with persistent selection
     RefuelDetailsScreen.js — vehicle + refuel type selection

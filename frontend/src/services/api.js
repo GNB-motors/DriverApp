@@ -150,9 +150,20 @@ function buildFileForm(file, fields = {}) {
 
 // ── Auth ───────────────────────────────────────────────────────────────
 
-export async function requestDriverOtp(mobileNumber) {
-  const res = await apiClient.post('/auth/driver/request-otp', { mobileNumber });
-  return res.data;
+/**
+ * POST /api/auth/login → { user, token, organization, permissions }
+ *
+ * The same endpoint the web portal uses. `emailOrMobile` accepts either, and the
+ * backend matches a mobile number against every format it may have been stored
+ * in, so the app can send a bare 10-digit number.
+ *
+ * Passwords are set when an Owner creates the employee (and for the Owner at
+ * signup) — there is no self-registration and no password-change endpoint yet, so
+ * a forgotten password has to be reset by an Owner editing the employee.
+ */
+export async function login(emailOrMobile, password) {
+  const res = await apiClient.post('/auth/login', { emailOrMobile, password });
+  return res.data?.data ?? res.data;
 }
 
 /**
@@ -164,11 +175,6 @@ export async function requestDriverOtp(mobileNumber) {
 export async function fetchMe(token) {
   const res = await apiClient.get('/auth/me', { token });
   return res.data?.data ?? res.data;
-}
-
-export async function verifyDriverOtp(mobileNumber, otp) {
-  const res = await apiClient.post('/auth/driver/verify-otp', { mobileNumber, otp });
-  return res.data?.data;
 }
 
 // ── Vehicles ───────────────────────────────────────────────────────────
