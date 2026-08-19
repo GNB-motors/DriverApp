@@ -1,0 +1,20 @@
+/* preview card shell — used by every card in preview/ */
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #FFFFFF;
+  color: var(--fg-primary);
+  font-family: var(--font-ui);
+}
+.card {
+  box-sizing: border-box;
+  width: 700px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.row { display: flex; align-items: center; gap: 12px; }
+.rowsp { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.col { display: flex; flex-direction: column; gap: 6px; }
+.grid { display: grid; }
