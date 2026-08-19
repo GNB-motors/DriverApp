@@ -89,6 +89,23 @@ export function AuthProvider({ children }) {
     return true;
   };
 
+  // UI-demo sign-in — sets a local mock session with NO backend call.
+  // Used by the onboarding flow so the prototype can reach the main app.
+  const demoLogin = async (profile = {}) => {
+    const mockUser = {
+      _id: 'demo-driver',
+      role: 'DRIVER',
+      name: 'Ramesh Yadav',
+      orgId: 'demo-org',
+      ...profile,
+    };
+    setUser(mockUser);
+    setToken('demo-token');
+    setIsNewLogin(false);
+    logger.info('Auth', 'Demo UI login (no backend)');
+    return true;
+  };
+
   const logout = async () => {
     await Promise.all([
       AsyncStorage.removeItem(STORAGE_KEY_USER),
@@ -104,7 +121,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, organization, loading, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, logout }}>
+    <AuthContext.Provider value={{ user, token, organization, loading, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, demoLogin, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -17,6 +17,7 @@ const TONES = {
   expired: { bg: colors.expiredBg, fg: colors.expiredText },
   pending: { bg: colors.pendingBg, fg: colors.pendingText },
   info: { bg: colors.infoBg, fg: colors.infoText },
+  inTransit: { bg: colors.infoBg, fg: colors.infoText, dotColor: colors.infoBlue },
   neutral: { bg: colors.background, fg: colors.textMuted },
   onDuty: { bg: colors.tealTint, fg: colors.primary, dotColor: colors.success },
 };

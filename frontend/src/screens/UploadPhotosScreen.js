@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     paddingHorizontal: 22,
     paddingTop: 16,
-    shadowColor: '#102824',
+    shadowColor: '#0A1024',
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.06,
     shadowRadius: 16,

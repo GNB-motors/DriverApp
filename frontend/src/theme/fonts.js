@@ -1,23 +1,33 @@
 /**
- * Font loading for Highway Sahayak.
+ * Font loading for Highway Sahayak — Nova SpiceKit type system.
  *
- * Loads only the weights actually referenced in tokens.fontFamily so the
- * bundle stays lean. Call useAppFonts() once at the app root and gate the
- * UI until it resolves.
+ *   Inter     → Latin UI / body text
+ *   DM Sans   → Latin display headings
+ *   DM Mono   → operational numbers (₹, litres, km, plates, IDs, dates)
+ *   Hind / Hind Siliguri → Devanagari (हिन्दी) / Bengali (বাংলা)
+ *
+ * Loads only the weights referenced in tokens.fontFamily so the bundle stays
+ * lean. Call useAppFonts() once at the app root and gate the UI until it resolves.
  */
 import { useFonts } from 'expo-font';
 import {
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_500Medium,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
-  PlusJakartaSans_800ExtraBold,
-} from '@expo-google-fonts/plus-jakarta-sans';
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+} from '@expo-google-fonts/inter';
 import {
-  SplineSansMono_400Regular,
-  SplineSansMono_500Medium,
-  SplineSansMono_600SemiBold,
-} from '@expo-google-fonts/spline-sans-mono';
+  DMSans_400Regular,
+  DMSans_500Medium,
+  DMSans_600SemiBold,
+  DMSans_700Bold,
+  DMSans_800ExtraBold,
+} from '@expo-google-fonts/dm-sans';
+import {
+  DMMono_400Regular,
+  DMMono_500Medium,
+} from '@expo-google-fonts/dm-mono';
 import {
   Hind_400Regular,
   Hind_500Medium,
@@ -32,14 +42,22 @@ import {
 } from '@expo-google-fonts/hind-siliguri';
 
 export const FONT_MAP = {
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_500Medium,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
-  PlusJakartaSans_800ExtraBold,
-  SplineSansMono_400Regular,
-  SplineSansMono_500Medium,
-  SplineSansMono_600SemiBold,
+  // Inter — UI / body
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+  // DM Sans — display headings
+  DMSans_400Regular,
+  DMSans_500Medium,
+  DMSans_600SemiBold,
+  DMSans_700Bold,
+  DMSans_800ExtraBold,
+  // DM Mono — numbers (300/400/500 only in the family)
+  DMMono_400Regular,
+  DMMono_500Medium,
+  // Devanagari / Bengali
   Hind_400Regular,
   Hind_500Medium,
   Hind_600SemiBold,

@@ -22,9 +22,9 @@ const SIZES = {
 
 const VARIANTS = {
   primary: { bg: colors.primary, fg: colors.white, border: 'transparent', shadow: elevation.md },
-  secondary: { bg: colors.surface, fg: colors.primary, border: '#CDDED9', shadow: elevation.none },
+  secondary: { bg: colors.surface, fg: colors.primary, border: '#C7D0F7', shadow: elevation.none },
   ghost: { bg: 'transparent', fg: colors.primary, border: 'transparent', shadow: elevation.none },
-  danger: { bg: colors.error, fg: colors.white, border: 'transparent', shadow: elevation.md },
+  danger: { bg: colors.errorStrong, fg: colors.white, border: 'transparent', shadow: elevation.md },
 };
 
 export default function Button({

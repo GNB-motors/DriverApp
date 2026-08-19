@@ -5,21 +5,21 @@ const { width, height } = Dimensions.get('window');
 // Recolored to the Highway Sahayak palette (see theme/tokens). Shared by
 // EntrySummaryCard; the screen + PhotoTaskCard now style from tokens directly.
 export const COLORS = {
-  primary: '#0F6E60',
-  primaryDark: '#0A4F47',
+  primary: '#4469F0',
+  primaryDark: '#213EA7',
   white: '#FFFFFF',
-  background: '#F4F6F5',
-  textDark: '#16211F',
-  textMuted: '#61716C',
-  border: '#E3E9E6',
-  surface: '#F4F6F5',
-  cardBg: 'rgba(15, 110, 96, 0.08)',
-  selectedBg: 'rgba(15, 110, 96, 0.12)',
-  success: '#16A06B',
-  successBg: 'rgba(22, 160, 107, 0.10)',
+  background: '#F3F3F6',
+  textDark: '#17181C',
+  textMuted: '#5D5D5E',
+  border: '#E6E6EB',
+  surface: '#F3F3F6',
+  cardBg: 'rgba(68, 105, 240, 0.08)',
+  selectedBg: 'rgba(68, 105, 240, 0.12)',
+  success: '#187A32',
+  successBg: 'rgba(24, 122, 50, 0.10)',
   disabledBg: '#D0D8D8',
-  errorText: '#E23B33',
-  errorBg: 'rgba(226, 59, 51, 0.08)',
+  errorText: '#BB2626',
+  errorBg: 'rgba(187, 38, 38, 0.08)',
 };
 
 const styles = StyleSheet.create({

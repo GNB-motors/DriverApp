@@ -10,45 +10,57 @@
 
 // ── COLOR ──────────────────────────────────────────────────
 export const colors = {
-  // Brand
-  primary: '#0F6E60',
-  primaryDeep: '#0A4F47',
-  tealTint: '#E7F1EE',
-  accent: '#E8943A', // amber
+  // Brand — Nova SpiceKit "Nova Rage" blue
+  primary: '#4469F0',
+  primaryDeep: '#213EA7', // deep blue: button borders, shadows, pressed
+  primaryBorder: '#213EA7', // explicit alias for CTA borders
+  // NOTE: `tealTint` keeps its key name for backwards-compat with existing call
+  // sites, but now holds the blue ~10% tint fill used by selected/hover states.
+  tealTint: '#EAEEFD',
+  blueTint: '#EAEEFD',
+  accent: '#F0AA48', // amber (dots / notification markers)
 
   // Status
-  success: '#16A06B',
-  warning: '#E0A53B',
-  error: '#E23B33', // also SOS
+  success: '#187A32',
+  warning: '#C56200',
+  error: '#BB2626', // rejected / SOS text
+  errorStrong: '#DD3030', // filled destructive buttons
+  infoBlue: '#2666B8', // "In transit" text
 
   // Surfaces
   surface: '#FFFFFF',
-  background: '#F4F6F5',
+  background: '#F3F3F6',
 
   // Text
-  text: '#16211F',
-  textMuted: '#61716C',
+  text: '#17181C',
+  textMuted: '#5D5D5E',
 
   // Lines
-  border: '#E3E9E6',
+  border: '#E6E6EB',
 
   white: '#FFFFFF',
-  black: '#16211F',
+  black: '#17181C',
 
-  // Header gradient stops — linear-gradient(165deg,#1AA28E,#0C5A50)
-  gradient: ['#1AA28E', '#0C5A50'],
+  // Header gradient stops — linear-gradient(180deg,#213EA7,#2F58EE,#4469F0)
+  gradient: ['#213EA7', '#2F58EE', '#4469F0'],
+  // Avatar / brand mark gradient — linear-gradient(135deg,#F9A061,#E5686C)
+  avatarGradient: ['#F9A061', '#E5686C'],
 
-  // Soft tints used by badges / banners (derived from the swatches in components.html)
-  validBg: '#E1F4EC',
-  validText: '#0F8A5C',
-  expiredBg: '#FBE9E7',
-  expiredText: '#C42820',
-  pendingBg: '#FBF2DE',
-  pendingText: '#A9781C',
-  infoBg: '#E7F1EE',
-  infoText: '#0F6E60',
+  // Soft tints used by badges / banners (Nova status swatches)
+  validBg: '#E7F4EA',
+  validText: '#187A32',
+  expiredBg: '#FBEAEA',
+  expiredText: '#BB2626',
+  pendingBg: '#FDF3E0',
+  pendingText: '#C56200',
+  infoBg: '#E8F1FD',
+  infoText: '#2666B8',
 
-  // Translucent overlays (e.g. content on the teal header)
+  // Status dots
+  dotGreen: '#25BA4C',
+  dotAmber: '#F0AA48',
+
+  // Translucent overlays (e.g. content on the blue header)
   onPrimary: '#FFFFFF',
   onPrimaryMuted: 'rgba(255,255,255,0.72)',
   onPrimaryFaint: 'rgba(255,255,255,0.16)',
@@ -74,8 +86,8 @@ export const radius = {
 };
 
 // ── ELEVATION ──────────────────────────────────────────────
-// Base shadow color rgb(16,40,36) = #102824. RN needs color + opacity split.
-const SHADOW = '#102824';
+// Base shadow color rgb(10,16,36) = #0A1024 (Nova navy). RN needs color + opacity split.
+const SHADOW = '#0A1024';
 export const elevation = {
   none: {},
   sm: {
@@ -105,21 +117,29 @@ export const elevation = {
 // These are the family-name strings registered by expo-font (see theme/fonts.js).
 // In RN each weight is a distinct family — never combine fontFamily + fontWeight.
 export const fontFamily = {
-  // Plus Jakarta Sans — Latin UI / display
+  // Inter — Latin UI / body
   display: {
-    regular: 'PlusJakartaSans_400Regular',
-    medium: 'PlusJakartaSans_500Medium',
-    semibold: 'PlusJakartaSans_600SemiBold',
-    bold: 'PlusJakartaSans_700Bold',
-    extrabold: 'PlusJakartaSans_800ExtraBold',
+    regular: 'Inter_400Regular',
+    medium: 'Inter_500Medium',
+    semibold: 'Inter_600SemiBold',
+    bold: 'Inter_700Bold',
+    extrabold: 'Inter_800ExtraBold',
   },
-  // Spline Sans Mono — operational data (plates, litres, ₹, odometer)
+  // DM Sans — Latin display headings (display / h1 / h2 / h3)
+  heading: {
+    regular: 'DMSans_400Regular',
+    medium: 'DMSans_500Medium',
+    semibold: 'DMSans_600SemiBold',
+    bold: 'DMSans_700Bold',
+    extrabold: 'DMSans_800ExtraBold',
+  },
+  // DM Mono — operational data (plates, litres, ₹, odometer)
   mono: {
-    regular: 'SplineSansMono_400Regular',
-    medium: 'SplineSansMono_500Medium',
-    semibold: 'SplineSansMono_600SemiBold',
-    bold: 'SplineSansMono_600SemiBold', // mono tops out at 600 in our bundle
-    extrabold: 'SplineSansMono_600SemiBold',
+    regular: 'DMMono_400Regular',
+    medium: 'DMMono_500Medium',
+    semibold: 'DMMono_500Medium',
+    bold: 'DMMono_500Medium', // mono tops out at 500 in the family
+    extrabold: 'DMMono_500Medium',
   },
   // Hind — Devanagari (हिन्दी)
   hi: {
@@ -149,6 +169,16 @@ export function bodyFont(language, weight = 'regular') {
   return fontFamily.display[weight] || fontFamily.display.regular;
 }
 
+/**
+ * Heading font for display/h1/h2/h3 variants. Latin → DM Sans; Devanagari and
+ * Bengali fall back to their body families (DM Sans has no Indic glyphs).
+ */
+export function headingFont(language, weight = 'bold') {
+  if (language === 'hi') return fontFamily.hi[weight] || fontFamily.hi.regular;
+  if (language === 'bn') return fontFamily.bn[weight] || fontFamily.bn.regular;
+  return fontFamily.heading[weight] || fontFamily.heading.regular;
+}
+
 export function monoFont(weight = 'regular') {
   return fontFamily.mono[weight] || fontFamily.mono.regular;
 }
@@ -170,4 +200,4 @@ export const typography = {
 // Minimum touch target per design rules.
 export const TOUCH_TARGET = 44;
 
-export default { colors, spacing, radius, elevation, fontFamily, typography, bodyFont, monoFont, TOUCH_TARGET };
+export default { colors, spacing, radius, elevation, fontFamily, typography, bodyFont, headingFont, monoFont, TOUCH_TARGET };

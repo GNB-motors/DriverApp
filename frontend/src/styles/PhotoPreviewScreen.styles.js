@@ -3,15 +3,15 @@ import { StyleSheet, Dimensions, Platform } from 'react-native';
 const { width, height } = Dimensions.get('window');
 
 export const COLORS = {
-  primary: '#429690',
-  primaryDark: '#2F7E79',
+  primary: '#4469F0',
+  primaryDark: '#213EA7',
   white: '#FFFFFF',
   dark: '#111111',
   textMuted: '#999999',
-  retake: '#E74C3C',
-  retakeBg: 'rgba(231, 76, 60, 0.15)',
-  success: '#2ECC71',
-  successBg: 'rgba(46, 204, 113, 0.15)',
+  retake: '#DD3030',
+  retakeBg: 'rgba(221, 48, 48, 0.15)',
+  success: '#25BA4C',
+  successBg: 'rgba(37, 186, 76, 0.15)',
 };
 
 const styles = StyleSheet.create({

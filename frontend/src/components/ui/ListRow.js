@@ -51,7 +51,7 @@ export default function ListRow({
       </View>
 
       {right !== undefined ? right : null}
-      {chevron ? <Ionicons name="chevron-forward" size={18} color="#B7C3BF" /> : null}
+      {chevron ? <Ionicons name="chevron-forward" size={18} color="#B4B4BC" /> : null}
     </Container>
   );
 }
