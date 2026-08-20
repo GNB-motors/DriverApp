@@ -6,6 +6,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import SplashScreen from '../components/ui/SplashScreen';
 import FloatingTabBar from './FloatingTabBar';
+import { NAV_ICONS } from './NavIcons';
 
 import LanguageSelectionScreen from '../screens/LanguageSelectionScreen';
 import LoginScreen from '../screens/LoginScreen';
@@ -76,14 +77,11 @@ const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 const tabIcon = (routeName) => ({ focused, color, size }) => {
-  let iconName;
-  if (routeName === 'Home') iconName = focused ? 'home' : 'home-outline';
-  else if (routeName === 'Vehicles') iconName = focused ? 'bus' : 'bus-outline';
-  else if (routeName === 'Trips') iconName = focused ? 'navigate' : 'navigate-outline';
-  else if (routeName === 'Alerts') iconName = focused ? 'notifications' : 'notifications-outline';
-  else if (routeName === 'More') iconName = focused ? 'grid' : 'grid-outline';
-  else if (routeName === 'Profile') iconName = focused ? 'person' : 'person-outline';
-  else iconName = 'ellipse-outline';
+  // The 5 driver tabs use the exact design SVGs; anything else (e.g. field-agent
+  // Profile) falls back to Ionicons.
+  const SvgIcon = NAV_ICONS[routeName];
+  if (SvgIcon) return <SvgIcon size={size} color={color} />;
+  const iconName = routeName === 'Profile' ? (focused ? 'person' : 'person-outline') : 'ellipse-outline';
   return <Ionicons name={iconName} size={size} color={color} />;
 };
 
