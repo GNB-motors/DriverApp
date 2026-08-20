@@ -1,10 +1,10 @@
-# Nova SpiceKit Design System
+# GNBdge SpiceKit Design System
 
-> SpiceKit is Nova's fundamental product-design backbone — built to inspire behavioural and visual consistency across Nova's restaurant-technology products and platforms.
+> SpiceKit is GNBdge's fundamental product-design backbone — built to inspire behavioural and visual consistency across GNBdge's restaurant-technology products and platforms.
 
 ## Brand in one line
 
-**Nova** is a restaurant-tech company. Its flagship product is **Nova Edge Pro** — a POS / KDS / payments / printing stack for restaurants (kiosk, KDS, payment terminals, and back-office apps). **SpiceKit** is Nova's design system, named after the spice metaphor: "spices don't add much on their own but create magic when blended right."
+**GNBdge** is a restaurant-tech company. Its flagship product is **GNBdge Edge Pro** — a POS / KDS / payments / printing stack for restaurants (kiosk, KDS, payment terminals, and back-office apps). **SpiceKit** is GNBdge's design system, named after the spice metaphor: "spices don't add much on their own but create magic when blended right."
 
 - **Vision** — Inspire consistent interaction patterns.
 - **Mission** — Provide the right mix of components in the right proportions to enable scalable design, accelerate go-to-market, and establish a style guide that ensures visual and behavioral consistency.
@@ -14,13 +14,13 @@
 
 | Product | Platform | Surface |
 | --- | --- | --- |
-| Nova Edge Pro (POS / Kiosk / KDS) | Android (Jetpack Compose) | `pl-mob-nova-sync-module/nova-design-token` + product modules (`kiosk/`, `kds/`, `app/`) |
-| Nova Edge Pro (marketing / web) | Web | — branding & logo assets in Figma |
-| Nova Payments / Print SDKs | Android libs | `nova-payments-sdk`, `nova-print-sdk`, `nova-connect-sdk` |
+| GNBdge Edge Pro (POS / Kiosk / KDS) | Android (Jetpack Compose) | `pl-mob-nova-sync-module/nova-design-token` + product modules (`kiosk/`, `kds/`, `app/`) |
+| GNBdge Edge Pro (marketing / web) | Web | — branding & logo assets in Figma |
+| GNBdge Payments / Print SDKs | Android libs | `nova-payments-sdk`, `nova-print-sdk`, `nova-connect-sdk` |
 
 ## Source materials (for human operators)
 
-- **Figma file** — "Nova Design System - Core.fig" (mounted here as a read-only VFS). 48 pages, 224 top-level frames. Key pages: `/Cover`, `/Design-Principles`, `/Design-tokens`, `/Colors`, `/Typeface`, `/Icons`, `/Logos-and-Branding`, `/Spacing-and-grid`, `/Border-radius`, `/Breakpoints`, `/Dark-mode-rises`, and component pages (`/Buttons`, `/Inputs`, `/Tags-and-pills`, `/Dialog`, `/Dropzone`, `/Empty-states`, `/Tooltip`, `/Pagination`, `/PageFooter`, `/Selectors`, `/Stepper`, `/Breadcrumbs`, `/Select-inputs`, `/Notifications-UX`, `/Warning-dialog`, `/Tabular-data-representation`, `/Search-UX`, `/Color-picker`, `/Restaurant-selector-side-drawer`, `/Overflow-menu`, `/Time-picker`, `/Date-picker`, `/Hour-selectors`, `/DialogHouse`, `/Lists`).
+- **Figma file** — "GNBdge Design System - Core.fig" (mounted here as a read-only VFS). 48 pages, 224 top-level frames. Key pages: `/Cover`, `/Design-Principles`, `/Design-tokens`, `/Colors`, `/Typeface`, `/Icons`, `/Logos-and-Branding`, `/Spacing-and-grid`, `/Border-radius`, `/Breakpoints`, `/Dark-mode-rises`, and component pages (`/Buttons`, `/Inputs`, `/Tags-and-pills`, `/Dialog`, `/Dropzone`, `/Empty-states`, `/Tooltip`, `/Pagination`, `/PageFooter`, `/Selectors`, `/Stepper`, `/Breadcrumbs`, `/Select-inputs`, `/Notifications-UX`, `/Warning-dialog`, `/Tabular-data-representation`, `/Search-UX`, `/Color-picker`, `/Restaurant-selector-side-drawer`, `/Overflow-menu`, `/Time-picker`, `/Date-picker`, `/Hour-selectors`, `/DialogHouse`, `/Lists`).
 - **Codebase** — `pl-mob-nova-sync-module/` — Kotlin multi-module POS codebase. The module `nova-design-token/` holds the canonical tokens:
   - `src/main/assets/design-tokens/Midnight-navy.tokens.json` · dark mode
   - `src/main/assets/design-tokens/Midnight-black.tokens.json` · light mode
@@ -50,7 +50,7 @@
 
 ## CONTENT FUNDAMENTALS
 
-**Voice.** Confident, precise, lightly human. Nova writes like a senior operator talking to another senior operator — short sentences, real numbers, no fluff. The Figma cover leads with "Inspire consistent interaction patterns"; the rationale for principles is written conversationally ("Help designers in faster decision making. Help engineers understand design decisions better."). The brand also leans on culinary metaphor: *SpiceKit*, "right mix of components in the right proportions."
+**Voice.** Confident, precise, lightly human. GNBdge writes like a senior operator talking to another senior operator — short sentences, real numbers, no fluff. The Figma cover leads with "Inspire consistent interaction patterns"; the rationale for principles is written conversationally ("Help designers in faster decision making. Help engineers understand design decisions better."). The brand also leans on culinary metaphor: *SpiceKit*, "right mix of components in the right proportions."
 
 **Tone by surface.**
 
@@ -63,7 +63,7 @@
 - Sentence case for titles and buttons ("Save changes", "Add new item"), NOT Title Case.
 - UPPERCASE only for eyebrows / category labels with heavy tracking (`VISION`, `DESIGN PRINCIPLE`, `ARCHITECTURE BASICS : DESIGN TOKENS`).
 - Token names are `kebab-case` with `-` separators: `color-action-background-primary-default`, `spacing-4x`, `border-radius-ultra-soft`.
-- Brand is **Nova** (title case). Product is **Nova Edge Pro**. System is **SpiceKit** (one word, capital S, capital K).
+- Brand is **GNBdge** (title case). Product is **GNBdge Edge Pro**. System is **SpiceKit** (one word, capital S, capital K).
 
 **Person.** Second person ("you") when addressing the operator; first person plural ("we", "our") in brand / principle copy. Never first person singular.
 
@@ -73,11 +73,11 @@
 
 **Numbers & units.** Always show units next to numbers (`4 px`, `16 px`, `$12.50`). Currency follows the locale; money in the mockups uses `$` with two decimals and a thousands separator.
 
-**Copy samples from Nova source.**
+**Copy samples from GNBdge source.**
 
 - Headline pattern — "Color palette" · kicker "Colors" · description "A meticulously designed color palette that ensures scalability, harmonizes with our extensive product range, and embodies aesthetic refinement, visual elegance, and balance at its core."
-- Brand statement — "NOVA is bold, curious, and unapologetically future-focused — a brand fueled by empathy, driven by energy, and grounded in optimism."
-- Detail rationale — "At NOVA, we thrive on attention to detail. Design must be precise — every stroke should inspire."
+- Brand statement — "GNBDGE is bold, curious, and unapologetically future-focused — a brand fueled by empathy, driven by energy, and grounded in optimism."
+- Detail rationale — "At GNBDGE, we thrive on attention to detail. Design must be precise — every stroke should inspire."
 
 ---
 
@@ -156,7 +156,7 @@ Borders are **thin** (1 px) and **low-contrast** — `rgba(5,8,22,.10)` on light
 
 ## ICONOGRAPHY
 
-Nova ships a **custom 24×24 system icon set** — "SpiceKit Icons / System" and "SpiceKit Icons / Filled" — stored as Figma components (`/Icons/SpicekitIconsSystem`, `/Icons/SpiceKitIconsFilled`). Naming convention is `Icons24x24/Generic/<Name>` or `Icon16x16/<Name>`. Style: **1.75–2 px strokes, round joins, slightly softened corners, geometric but not mechanical** — think a cross between Phosphor and Lucide.
+GNBdge ships a **custom 24×24 system icon set** — "SpiceKit Icons / System" and "SpiceKit Icons / Filled" — stored as Figma components (`/Icons/SpicekitIconsSystem`, `/Icons/SpiceKitIconsFilled`). Naming convention is `Icons24x24/Generic/<Name>` or `Icon16x16/<Name>`. Style: **1.75–2 px strokes, round joins, slightly softened corners, geometric but not mechanical** — think a cross between Phosphor and Lucide.
 
 Because the raw SVGs live inside the .fig binary (not yet extracted), this design system **substitutes [Lucide](https://lucide.dev/) (CDN)** for icon rendering, matching the 24-px 1.75-stroke grid. Substitution flagged — see CAVEATS below. When you ship production, replace `<NovaIcon name="…">` with the actual SpiceKit sprite.
 
@@ -167,7 +167,7 @@ Because the raw SVGs live inside the .fig binary (not yet extracted), this desig
 
 ### Logos
 
-- **Primary wordmark** — `assets/nova-wordmark.png` (extracted from the Figma cover). Full brand word "nova" in a custom grotesk.
+- **Primary wordmark** — `assets/nova-wordmark.png` (extracted from the Figma cover). Full brand word "gnbdge" in a custom grotesk.
 - **App tile / favicon** — brand uses a rounded-square "N" mark with a gradient fill (`nova-gradient-light`). Dimensions: 32×32, 180×180, 512×512 (Apple sizes present in `/Logos-and-Branding/FavIcons`, `NovaEdgePro*` frames).
 - **On dark** — the wordmark appears in `#FFFFFF` on `midnight-navy-900` (`#050816`) backgrounds. Never on a pure black — use Midnight Navy.
 - **On gradient** — wordmark stays monochrome (`#110303` over light gradient, `#FFFFFF` over dark gradient).
