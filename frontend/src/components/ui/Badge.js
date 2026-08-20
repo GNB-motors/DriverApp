@@ -30,7 +30,7 @@ export default function Badge({ tone = 'info', label, dot = false, bg, fg, style
   return (
     <View style={[styles.pill, { backgroundColor: background }, style]}>
       {dot ? <View style={[styles.dot, { backgroundColor: t.dotColor || foreground }]} /> : null}
-      <AppText variant="caption" weight="bold" color={foreground} style={styles.text}>
+      <AppText variant="caption" weight="bold" color={foreground} numberOfLines={1} style={styles.text}>
         {label}
       </AppText>
     </View>

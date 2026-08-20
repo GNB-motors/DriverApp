@@ -55,6 +55,6 @@ export default function Card({
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.lg },
+  card: { borderRadius: radius.lg, overflow: 'hidden' },
   pressed: { opacity: 0.9 },
 });

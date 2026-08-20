@@ -20,20 +20,20 @@ export default function OwnerDashboardScreen({ navigation }) {
         <Pressable onPress={() => navigation.navigate('OwnerApprovals')}>
           <LinearGradient colors={colors.gradient} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={styles.hero}>
             <View style={styles.heroTop}>
-              <AppText variant="label" color={colors.onPrimaryMuted}>Needs you today</AppText>
-              <View style={styles.heroPill}><AppText variant="caption" weight="bold" color={colors.white}>{d.needs.items}</AppText></View>
+              <AppText variant="label" color={colors.onPrimaryMuted} numberOfLines={1} style={styles.heroTopLabel}>Needs you today</AppText>
+              <View style={styles.heroPill}><AppText variant="caption" weight="bold" color={colors.white} numberOfLines={1}>{d.needs.items}</AppText></View>
             </View>
             <View style={styles.heroMain}>
               <View style={{ flex: 1 }}>
-                <AppText mono weight="semibold" color={colors.white} style={styles.heroBig}>{d.needs.bills}</AppText>
-                <AppText variant="small" color={colors.onPrimaryMuted}>{d.needs.waiting}</AppText>
+                <AppText mono weight="semibold" color={colors.white} numberOfLines={1} style={styles.heroBig}>{d.needs.bills}</AppText>
+                <AppText variant="small" color={colors.onPrimaryMuted} numberOfLines={1}>{d.needs.waiting}</AppText>
               </View>
               <View style={styles.heroChevron}><Ionicons name="chevron-forward" size={18} color={colors.white} /></View>
             </View>
             <View style={styles.heroDivider} />
             <View style={styles.heroFoot}>
-              <AppText variant="caption" color={colors.onPrimaryMuted}>{d.needs.advances}</AppText>
-              <AppText variant="caption" color={colors.onPrimaryMuted}>{d.needs.pods}</AppText>
+              <AppText variant="caption" color={colors.onPrimaryMuted} numberOfLines={1} style={styles.heroFootItem}>{d.needs.advances}</AppText>
+              <AppText variant="caption" color={colors.onPrimaryMuted} numberOfLines={1} style={styles.heroFootItem}>{d.needs.pods}</AppText>
             </View>
           </LinearGradient>
         </Pressable>
@@ -65,13 +65,15 @@ const styles = StyleSheet.create({
   bell: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   bellDot: { position: 'absolute', top: 9, right: 10, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.error },
   hero: { borderRadius: radius.xl, padding: 18, gap: 14 },
-  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  heroPill: { backgroundColor: colors.onPrimaryFaint, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.full },
+  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  heroTopLabel: { flex: 1, flexShrink: 1 },
+  heroPill: { flexShrink: 0, backgroundColor: colors.onPrimaryFaint, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.full },
   heroMain: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   heroBig: { fontSize: 30, lineHeight: 34 },
   heroChevron: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.onPrimaryFaint, alignItems: 'center', justifyContent: 'center' },
   heroDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.18)' },
-  heroFoot: { flexDirection: 'row', justifyContent: 'space-between' },
+  heroFoot: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  heroFootItem: { flexShrink: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   weekRow: { gap: 6, marginTop: 10 },
   weekItem: {},

@@ -85,14 +85,16 @@ export default function HomeScreen({ navigation }) {
               <StatusBadge status={activeTrip.status} dot />
             </View>
             <View style={styles.route}>
-              <AppText variant="bodyStrong" weight="bold">{activeTrip.from}</AppText>
+              <AppText variant="bodyStrong" weight="bold" numberOfLines={1} style={styles.routeText}>{activeTrip.from}</AppText>
               <View style={styles.dashed} />
-              <AppText variant="bodyStrong" weight="bold">{activeTrip.to}</AppText>
+              <AppText variant="bodyStrong" weight="bold" numberOfLines={1} style={styles.routeText}>{activeTrip.to}</AppText>
             </View>
             <StepProgress variant="dots" total={activeTrip.totalStages} current={activeTrip.stage} style={styles.gapSm} />
             <View style={styles.tripMetaRow}>
-              <AppText variant="small" weight="semibold">Stage {activeTrip.stage} of {activeTrip.totalStages} · {activeTrip.stageLabel}</AppText>
-              <AppText variant="small" muted>Next: {activeTrip.next}</AppText>
+              <AppText variant="small" weight="semibold" numberOfLines={1} style={styles.tripMetaLeft}>
+                Stage {activeTrip.stage} of {activeTrip.totalStages} · {activeTrip.stageLabel}
+              </AppText>
+              <AppText variant="small" muted numberOfLines={1} style={styles.tripMetaRight}>Next: {activeTrip.next}</AppText>
             </View>
             <Button variant="secondary" size="sm" label="Open trip" onPress={() => navigation.navigate('ActiveTrip')} style={styles.gapSm} />
           </Card>
@@ -185,8 +187,11 @@ const styles = StyleSheet.create({
 
   tripTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   route: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  routeText: { flexShrink: 1, maxWidth: '38%' },
   dashed: { flex: 1, height: 0, borderTopWidth: 1.5, borderColor: colors.border, borderStyle: 'dashed' },
-  tripMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  tripMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, gap: 8 },
+  tripMetaLeft: { flex: 1, flexShrink: 1 },
+  tripMetaRight: { flexShrink: 0 },
 
   emptyTrip: { alignItems: 'center', borderStyle: 'dashed' },
   emptyIcon: {

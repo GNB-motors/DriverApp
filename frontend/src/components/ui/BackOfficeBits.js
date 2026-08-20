@@ -38,7 +38,7 @@ export function Pill({ tone = 'neutral', label, style }) {
   const t = TONE[tone] || TONE.neutral;
   return (
     <View style={[styles.pill, { backgroundColor: t.bg }, style]}>
-      <AppText variant="caption" weight="bold" color={t.fg}>{label}</AppText>
+      <AppText variant="caption" weight="bold" color={t.fg} numberOfLines={1}>{label}</AppText>
     </View>
   );
 }
@@ -63,10 +63,10 @@ export function SectionHeader({ label, right }) {
 export function StatTile({ label, value, sub, color }) {
   return (
     <Card elevated="sm" padding={14} style={styles.statTile}>
-      <AppText variant="caption" muted>{label}</AppText>
+      <AppText variant="caption" muted numberOfLines={1}>{label}</AppText>
       <View style={styles.statValRow}>
-        <AppText mono variant="h2" weight="semibold" color={color ? toneColor(color) : colors.text}>{value}</AppText>
-        {sub ? <AppText variant="caption" mono muted>{sub}</AppText> : null}
+        <AppText mono variant="h2" weight="semibold" color={color ? toneColor(color) : colors.text} numberOfLines={1} style={styles.statValue}>{value}</AppText>
+        {sub ? <AppText variant="caption" mono muted numberOfLines={1} style={styles.statSub}>{sub}</AppText> : null}
       </View>
     </Card>
   );
@@ -75,9 +75,9 @@ export function StatTile({ label, value, sub, color }) {
 export function RouteLine({ from, to, size = 'body' }) {
   return (
     <View style={styles.route}>
-      <AppText variant={size} weight="semibold">{from}</AppText>
+      <AppText variant={size} weight="semibold" numberOfLines={1} style={styles.routeText}>{from}</AppText>
       <View style={styles.dashed} />
-      <AppText variant={size} weight="semibold">{to}</AppText>
+      <AppText variant={size} weight="semibold" numberOfLines={1} style={styles.routeText}>{to}</AppText>
     </View>
   );
 }
@@ -140,9 +140,12 @@ const styles = StyleSheet.create({
   pill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.full, alignSelf: 'flex-start' },
   mono: { backgroundColor: '#F0EEF6', alignItems: 'center', justifyContent: 'center' },
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  statTile: { flex: 1, gap: 6 },
+  statTile: { flex: 1, gap: 6, minWidth: 0 },
   statValRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  statValue: { flexShrink: 1 },
+  statSub: { flexShrink: 0 },
   route: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  routeText: { flexShrink: 1, maxWidth: '38%' },
   dashed: { flex: 1, height: 0, borderTopWidth: 1.5, borderColor: colors.border, borderStyle: 'dashed' },
   ledgerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13 },
   ledgerIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
