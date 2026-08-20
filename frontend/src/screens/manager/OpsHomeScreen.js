@@ -4,9 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, colors, spacing, radius } from '../../components/ui';
-import OwnerShell from './OwnerShell';
-import { StatTile, SectionHeader, TONE } from './OwnerBits';
-import * as own from '../../demo/ownerMock';
+import ManagerShell from './ManagerShell';
+import { StatTile, SectionHeader, TONE } from '../../components/ui';
+import * as own from '../../demo/managerMock';
 
 /** M1 · Ops home — the shift at a glance. */
 export default function OpsHomeScreen({ navigation }) {
@@ -14,7 +14,7 @@ export default function OpsHomeScreen({ navigation }) {
   const o = own.opsHome;
 
   return (
-    <OwnerShell title="Ops home" subtitle={`${o.name} · ${o.desk.replace('Ops desk · ', '')}`} navigation={navigation} active="OpsHome"
+    <ManagerShell title="Ops home" subtitle={`${o.name} · ${o.desk.replace('Ops desk · ', '')}`} navigation={navigation} active="OpsHome"
       right={<View style={styles.shift}><AppText variant="caption" mono weight="bold" color={colors.infoText}>{o.shift}</AppText></View>}>
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
         <Pressable onPress={() => navigation.navigate('OpsApprovals')}>
@@ -57,7 +57,7 @@ export default function OpsHomeScreen({ navigation }) {
           </Pressable>
         ))}
       </ScrollView>
-    </OwnerShell>
+    </ManagerShell>
   );
 }
 

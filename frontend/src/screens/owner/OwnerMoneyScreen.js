@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, SegmentedControl, colors, spacing, radius } from '../../components/ui';
 import OwnerShell from './OwnerShell';
-import { Monogram, SectionHeader } from './OwnerBits';
+import { Monogram, SectionHeader } from '../../components/ui';
 import * as own from '../../demo/ownerMock';
 
 /** O5 · Money — payables and receivables. */

@@ -3,7 +3,7 @@ import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Card, colors } from '../../components/ui';
 import OwnerShell from './OwnerShell';
-import { LedgerRow, FilterChips, SectionHeader } from './OwnerBits';
+import { LedgerRow, FilterChips, SectionHeader } from '../../components/ui';
 import * as own from '../../demo/ownerMock';
 
 /** O10 · Company ledger — every movement, in order. */

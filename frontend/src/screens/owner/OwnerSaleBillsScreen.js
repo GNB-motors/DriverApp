@@ -3,7 +3,7 @@ import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Card, colors, spacing } from '../../components/ui';
 import OwnerShell from './OwnerShell';
-import { Pill, FilterChips } from './OwnerBits';
+import { Pill, FilterChips } from '../../components/ui';
 import * as own from '../../demo/ownerMock';
 
 /** O7 · Sale bills — what customers owe. */

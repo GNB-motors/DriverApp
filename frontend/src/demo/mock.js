@@ -179,6 +179,12 @@ export const owner = {
   pendingTotal: '₹18,410',
 };
 
+export const manager = {
+  name: 'Priya Deshmukh',
+  company: 'Kulkarni Transport',
+  desk: 'Ops desk · Pune hub',
+};
+
 export const ownerBills = [
   { id: 'ob1', name: 'Ramesh Yadav', category: 'Other', plate: 'MH 12 AB 3421', date: '04 Aug', desc: 'Tyre air fill and wheel balance', amount: '₹1,250', file: 'JPG' },
   { id: 'ob2', name: 'Imran Shaikh', category: 'Repair', plate: 'GJ 05 CJ 7712', date: '04 Aug', desc: 'Clutch plate replacement, Surat', amount: '₹8,400', file: 'PDF' },

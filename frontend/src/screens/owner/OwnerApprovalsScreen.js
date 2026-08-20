@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, colors, spacing, radius } from '../../components/ui';
 import OwnerShell from './OwnerShell';
-import { Pill, FilterChips } from './OwnerBits';
+import { Pill, FilterChips } from '../../components/ui';
 import * as mock from '../../demo/mock';
 
 const CAT_TONE = { Other: 'purple', Repair: 'info', Toll: 'warning', Food: 'warning', Loading: 'purple', Parking: 'info' };

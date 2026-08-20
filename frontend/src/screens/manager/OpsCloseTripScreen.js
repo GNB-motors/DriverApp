@@ -3,8 +3,8 @@ import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, WarningBanner, colors, spacing } from '../../components/ui';
-import { BackHeader, Pill, SectionHeader, toneColor } from './OwnerBits';
-import * as own from '../../demo/ownerMock';
+import { BackHeader, Pill, SectionHeader, toneColor } from '../../components/ui';
+import * as own from '../../demo/managerMock';
 
 /** M6 · Close trip — the settlement check. */
 export default function OpsCloseTripScreen({ navigation }) {

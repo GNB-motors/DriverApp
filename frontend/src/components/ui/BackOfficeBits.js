@@ -3,9 +3,11 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Card, colors, spacing, radius } from '../../components/ui';
+import AppText from './AppText';
+import Card from './Card';
+import { colors, spacing, radius } from '../../theme/tokens';
 
-/** Shared building blocks for the Owner + Ops screens. */
+/** Shared building blocks for the Owner and Manager back-office screens. */
 
 export const TONE = {
   success: { fg: colors.success, bg: colors.validBg },

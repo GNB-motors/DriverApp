@@ -3,7 +3,7 @@ import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, KeyValueTable, KeyValueRow, colors, spacing, radius } from '../../components/ui';
-import { BackHeader, Pill } from './OwnerBits';
+import { BackHeader, Pill } from '../../components/ui';
 import * as mock from '../../demo/mock';
 
 /** O2 · Bill detail — confirm or reject. */

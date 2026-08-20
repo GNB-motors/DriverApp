@@ -2,7 +2,7 @@ import React from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Card, WarningBanner, colors, spacing } from '../../components/ui';
-import { BackHeader, Pill, LedgerRow, SectionHeader, toneColor } from './OwnerBits';
+import { BackHeader, Pill, LedgerRow, SectionHeader, toneColor } from '../../components/ui';
 import * as own from '../../demo/ownerMock';
 
 /** O6 · Driver account — settle up. */

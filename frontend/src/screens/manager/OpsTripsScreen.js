@@ -3,9 +3,9 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, colors, spacing, radius } from '../../components/ui';
-import OwnerShell from './OwnerShell';
-import { Pill, RouteLine, toneColor } from './OwnerBits';
-import * as own from '../../demo/ownerMock';
+import ManagerShell from './ManagerShell';
+import { Pill, RouteLine, toneColor } from '../../components/ui';
+import * as own from '../../demo/managerMock';
 
 const TABS = [{ key: 'running', label: 'Running 14' }, { key: 'blocked', label: 'Blocked 3' }, { key: 'close', label: 'To close 4' }];
 
@@ -15,7 +15,7 @@ export default function OpsTripsScreen({ navigation }) {
   const [tab, setTab] = useState('running');
 
   return (
-    <OwnerShell title="Trips" navigation={navigation} active="OpsTrips"
+    <ManagerShell title="Trips" navigation={navigation} active="OpsTrips"
       right={<View style={styles.search}><Ionicons name="search" size={18} color={colors.text} /></View>}>
       <View style={{ flex: 1 }}>
         <View style={styles.tabs}>
@@ -47,7 +47,7 @@ export default function OpsTripsScreen({ navigation }) {
           ))}
         </ScrollView>
       </View>
-    </OwnerShell>
+    </ManagerShell>
   );
 }
 

@@ -23,6 +23,7 @@ const wipePerAccountState = () =>
 const DEMO_NUMBERS = {
   '9938250123': { role: 'OWNER', _id: 'demo-owner', name: 'Suresh Rao', orgId: 'demo-org' },
   '6371640884': { role: 'DRIVER', _id: 'demo-driver', name: 'Ramesh Yadav', orgId: 'demo-org' },
+  '8319353177': { role: 'MANAGER', _id: 'demo-manager', name: 'Priya Deshmukh', orgId: 'demo-org' },
 };
 
 const resolveDemoProfile = (rawPhone) =>

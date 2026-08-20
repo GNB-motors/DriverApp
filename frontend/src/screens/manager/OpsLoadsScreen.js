@@ -3,9 +3,9 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, colors, spacing, radius } from '../../components/ui';
-import OwnerShell from './OwnerShell';
-import { Pill, RouteLine, SectionHeader } from './OwnerBits';
-import * as own from '../../demo/ownerMock';
+import ManagerShell from './ManagerShell';
+import { Pill, RouteLine, SectionHeader } from '../../components/ui';
+import * as own from '../../demo/managerMock';
 
 /** M5 · Loads — place a truck against a load. */
 export default function OpsLoadsScreen({ navigation }) {
@@ -14,7 +14,7 @@ export default function OpsLoadsScreen({ navigation }) {
   const [selected, setSelected] = useState(primary.trucks.find((t) => t.selected)?.plate);
 
   return (
-    <OwnerShell title="Loads to place" subtitle="5 open · 4 trucks free" navigation={navigation} active="OpsLoads">
+    <ManagerShell title="Loads to place" subtitle="5 open · 4 trucks free" navigation={navigation} active="OpsLoads">
       <View style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <Card elevated="sm" padding={16} style={styles.primaryCard}>
@@ -65,7 +65,7 @@ export default function OpsLoadsScreen({ navigation }) {
           <Button size="lg" label={`Assign ${selected}`} onPress={() => navigation.navigate('OpsDeliveryOrder')} />
         </View>
       </View>
-    </OwnerShell>
+    </ManagerShell>
   );
 }
 

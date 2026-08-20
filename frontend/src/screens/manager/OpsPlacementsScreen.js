@@ -3,9 +3,9 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, colors, spacing, radius } from '../../components/ui';
-import OwnerShell from './OwnerShell';
-import { Pill, StatTile, SectionHeader } from './OwnerBits';
-import * as own from '../../demo/ownerMock';
+import ManagerShell from './ManagerShell';
+import { Pill, StatTile, SectionHeader } from '../../components/ui';
+import * as own from '../../demo/managerMock';
 
 const TABS = [{ key: 'all', label: 'All 13' }, { key: 'failed', label: 'Failed 2' }, { key: 'late', label: 'Late 3' }];
 
@@ -37,7 +37,7 @@ export default function OpsPlacementsScreen({ navigation }) {
   );
 
   return (
-    <OwnerShell title="Placements" subtitle="This week · 11 placed · 2 failed" navigation={navigation} active="OpsPlacements"
+    <ManagerShell title="Placements" subtitle="This week · 11 placed · 2 failed" navigation={navigation} active="OpsPlacements"
       right={<View style={styles.search}><Ionicons name="search" size={18} color={colors.text} /></View>}>
       <View style={{ flex: 1 }}>
         <View style={styles.tabs}>
@@ -56,7 +56,7 @@ export default function OpsPlacementsScreen({ navigation }) {
           {group('Yesterday', p.yesterday)}
         </ScrollView>
       </View>
-    </OwnerShell>
+    </ManagerShell>
   );
 }
 

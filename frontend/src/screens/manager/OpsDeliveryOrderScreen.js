@@ -2,8 +2,8 @@ import React from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Card, Stepper, colors, spacing } from '../../components/ui';
-import { BackHeader, Pill, SectionHeader } from './OwnerBits';
-import * as own from '../../demo/ownerMock';
+import { BackHeader, Pill, SectionHeader } from '../../components/ui';
+import * as own from '../../demo/managerMock';
 
 /** M8 · Delivery order — the brief behind a trip. */
 export default function OpsDeliveryOrderScreen({ navigation }) {

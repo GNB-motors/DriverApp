@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, ProgressBar, colors, spacing, radius } from '../../components/ui';
 import OwnerShell from './OwnerShell';
-import { StatTile, SectionHeader } from './OwnerBits';
+import { StatTile, SectionHeader } from '../../components/ui';
 import * as own from '../../demo/ownerMock';
 
 /** O4 · Owner dashboard — the morning look. */

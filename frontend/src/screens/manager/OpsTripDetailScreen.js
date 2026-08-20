@@ -3,8 +3,8 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, Stepper, colors, spacing, radius } from '../../components/ui';
-import { BackHeader, Pill, Monogram, SectionHeader, toneColor } from './OwnerBits';
-import * as own from '../../demo/ownerMock';
+import { BackHeader, Pill, Monogram, SectionHeader, toneColor } from '../../components/ui';
+import * as own from '../../demo/managerMock';
 
 /** M3 · Trip detail ops — ops view with stage control. */
 export default function OpsTripDetailScreen({ navigation }) {

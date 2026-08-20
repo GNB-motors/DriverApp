@@ -3,7 +3,7 @@ import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Chip, TextField, WarningBanner, colors, spacing, radius } from '../../components/ui';
-import { BackHeader } from './OwnerBits';
+import { BackHeader } from '../../components/ui';
 import * as mock from '../../demo/mock';
 
 /** O3 · Reject — a reason is mandatory. */

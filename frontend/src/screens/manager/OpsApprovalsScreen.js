@@ -3,9 +3,9 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, colors, spacing, radius } from '../../components/ui';
-import OwnerShell from './OwnerShell';
-import { Pill, FilterChips, TONE } from './OwnerBits';
-import * as own from '../../demo/ownerMock';
+import ManagerShell from './ManagerShell';
+import { Pill, FilterChips, TONE } from '../../components/ui';
+import * as own from '../../demo/managerMock';
 
 /** M4 · Approvals — one queue, mixed types. */
 export default function OpsApprovalsScreen({ navigation }) {
@@ -14,7 +14,7 @@ export default function OpsApprovalsScreen({ navigation }) {
   const a = own.opsApprovals;
 
   return (
-    <OwnerShell title="Approvals" subtitle="7 waiting · oldest 2 days" navigation={navigation} active="OpsApprovals"
+    <ManagerShell title="Approvals" subtitle="7 waiting · oldest 2 days" navigation={navigation} active="OpsApprovals"
       right={<View style={styles.count}><AppText mono weight="bold" color={colors.white}>7</AppText></View>}>
       <View style={{ flex: 1 }}>
         <FilterChips options={['All 7', 'Advances 3', 'PODs 2']} value={filter} onChange={setFilter} style={styles.chips} />
@@ -56,7 +56,7 @@ export default function OpsApprovalsScreen({ navigation }) {
           <AppText variant="small" muted center style={{ marginTop: 4 }}>3 more waiting</AppText>
         </ScrollView>
       </View>
-    </OwnerShell>
+    </ManagerShell>
   );
 }
 

@@ -2,9 +2,9 @@ import React from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Card, colors, spacing, radius } from '../../components/ui';
-import OwnerShell from './OwnerShell';
-import { Pill, Monogram, SectionHeader } from './OwnerBits';
-import * as own from '../../demo/ownerMock';
+import ManagerShell from './ManagerShell';
+import { Pill, Monogram, SectionHeader } from '../../components/ui';
+import * as own from '../../demo/managerMock';
 
 /** M10 · Advances — requests and the money already out. */
 export default function OpsAdvancesScreen({ navigation }) {
@@ -30,7 +30,7 @@ export default function OpsAdvancesScreen({ navigation }) {
   );
 
   return (
-    <OwnerShell title="Advances" subtitle="3 waiting · ₹9,500" navigation={navigation} active="OpsAdvances"
+    <ManagerShell title="Advances" subtitle="3 waiting · ₹9,500" navigation={navigation} active="OpsAdvances"
       right={<View style={styles.count}><AppText mono weight="bold" color={colors.white}>3</AppText></View>}>
       <View style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -53,7 +53,7 @@ export default function OpsAdvancesScreen({ navigation }) {
           <Button size="lg" label="Review oldest request" onPress={() => navigation.navigate('OpsApprovals')} />
         </View>
       </View>
-    </OwnerShell>
+    </ManagerShell>
   );
 }
 

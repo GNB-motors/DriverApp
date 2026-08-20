@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppText, Card, BarChart, ProgressBar, colors, spacing, radius } from '../../components/ui';
 import OwnerShell from './OwnerShell';
-import { StatTile, SectionHeader } from './OwnerBits';
+import { StatTile, SectionHeader } from '../../components/ui';
 import * as own from '../../demo/ownerMock';
 
 /** O9 · ERP overview — how the business is doing. */

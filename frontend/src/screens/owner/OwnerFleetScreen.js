@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, colors, spacing, radius } from '../../components/ui';
 import OwnerShell from './OwnerShell';
-import { Pill, RouteLine, toneColor } from './OwnerBits';
+import { Pill, RouteLine, toneColor } from '../../components/ui';
 import * as own from '../../demo/ownerMock';
 
 const TABS = [{ key: 'all', label: 'All 18' }, { key: 'running', label: 'Running 14' }, { key: 'idle', label: 'Idle 4' }];

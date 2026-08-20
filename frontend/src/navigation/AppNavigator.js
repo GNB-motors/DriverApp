@@ -37,7 +37,7 @@ import FuelLogScreen from '../screens/FuelLogScreen';
 import MyDocumentsScreen from '../screens/MyDocumentsScreen';
 import RepairsScreen from '../screens/RepairsScreen';
 import LogRepairScreen from '../screens/LogRepairScreen';
-// Owner + Ops (M8)
+// Owner (O1–O10)
 import OwnerApprovalsScreen from '../screens/owner/OwnerApprovalsScreen';
 import OwnerBillDetailScreen from '../screens/owner/OwnerBillDetailScreen';
 import OwnerRejectScreen from '../screens/owner/OwnerRejectScreen';
@@ -48,16 +48,17 @@ import OwnerSaleBillsScreen from '../screens/owner/OwnerSaleBillsScreen';
 import OwnerFleetScreen from '../screens/owner/OwnerFleetScreen';
 import OwnerErpScreen from '../screens/owner/OwnerErpScreen';
 import OwnerLedgerScreen from '../screens/owner/OwnerLedgerScreen';
-import OpsHomeScreen from '../screens/owner/OpsHomeScreen';
-import OpsTripsScreen from '../screens/owner/OpsTripsScreen';
-import OpsTripDetailScreen from '../screens/owner/OpsTripDetailScreen';
-import OpsApprovalsScreen from '../screens/owner/OpsApprovalsScreen';
-import OpsLoadsScreen from '../screens/owner/OpsLoadsScreen';
-import OpsCloseTripScreen from '../screens/owner/OpsCloseTripScreen';
-import OpsUnloadingScreen from '../screens/owner/OpsUnloadingScreen';
-import OpsDeliveryOrderScreen from '../screens/owner/OpsDeliveryOrderScreen';
-import OpsPlacementsScreen from '../screens/owner/OpsPlacementsScreen';
-import OpsAdvancesScreen from '../screens/owner/OpsAdvancesScreen';
+// Manager + Ops
+import OpsHomeScreen from '../screens/manager/OpsHomeScreen';
+import OpsTripsScreen from '../screens/manager/OpsTripsScreen';
+import OpsTripDetailScreen from '../screens/manager/OpsTripDetailScreen';
+import OpsApprovalsScreen from '../screens/manager/OpsApprovalsScreen';
+import OpsLoadsScreen from '../screens/manager/OpsLoadsScreen';
+import OpsCloseTripScreen from '../screens/manager/OpsCloseTripScreen';
+import OpsUnloadingScreen from '../screens/manager/OpsUnloadingScreen';
+import OpsDeliveryOrderScreen from '../screens/manager/OpsDeliveryOrderScreen';
+import OpsPlacementsScreen from '../screens/manager/OpsPlacementsScreen';
+import OpsAdvancesScreen from '../screens/manager/OpsAdvancesScreen';
 import { alertCount } from '../demo/mock';
 
 const Tab = createBottomTabNavigator();
@@ -102,7 +103,7 @@ function FieldAgentTabs() {
   );
 }
 
-// Owner + Ops (M8) — its own stack, no route back into the driver app.
+// Owner (O1–O10) — its own stack, no route into Manager or the driver app.
 // OwnerShell's sidebar can only navigate to names registered here.
 function OwnerStack() {
   return (
@@ -117,6 +118,15 @@ function OwnerStack() {
       <Stack.Screen name="OwnerFleet" component={OwnerFleetScreen} />
       <Stack.Screen name="OwnerErp" component={OwnerErpScreen} />
       <Stack.Screen name="OwnerLedger" component={OwnerLedgerScreen} />
+    </Stack.Navigator>
+  );
+}
+
+// Manager / Ops (M1–M10) — its own stack, no route into Owner or the driver
+// app. ManagerShell's sidebar can only navigate to names registered here.
+function ManagerStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="OpsHome" component={OpsHomeScreen} />
       <Stack.Screen name="OpsTrips" component={OpsTripsScreen} />
       <Stack.Screen name="OpsTripDetail" component={OpsTripDetailScreen} />
@@ -190,6 +200,8 @@ export default function AppNavigator() {
         </>
       ) : user.role === 'OWNER' ? (
         <Stack.Screen name="OwnerRoot" component={OwnerStack} />
+      ) : user.role === 'MANAGER' ? (
+        <Stack.Screen name="ManagerRoot" component={ManagerStack} />
       ) : (
         <Stack.Screen name="DriverRoot" component={DriverStack} />
       )}
