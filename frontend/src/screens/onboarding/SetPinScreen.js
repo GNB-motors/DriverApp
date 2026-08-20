@@ -10,14 +10,15 @@ import { AppText, PinDots, NumericKeypad, colors, spacing, radius } from '../../
  * E5 · Set PIN — so the wallet is not open to anyone. UI-only: completing (or
  * skipping) triggers the local demo sign-in and enters the app.
  */
-export default function SetPinScreen({ navigation }) {
+export default function SetPinScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { demoLogin } = useAuth();
+  const rawPhone = route.params?.rawPhone || '';
   const [pin, setPin] = useState('');
 
   useEffect(() => {
     if (pin.length === 4) {
-      const id = setTimeout(() => demoLogin(), 180);
+      const id = setTimeout(() => demoLogin({ rawPhone }), 180);
       return () => clearTimeout(id);
     }
     return undefined;
@@ -33,7 +34,7 @@ export default function SetPinScreen({ navigation }) {
         <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={22} color={colors.text} />
         </Pressable>
-        <Pressable onPress={() => demoLogin()} hitSlop={10}>
+        <Pressable onPress={() => demoLogin({ rawPhone })} hitSlop={10}>
           <AppText variant="body" weight="bold" color={colors.textMuted}>
             Skip
           </AppText>

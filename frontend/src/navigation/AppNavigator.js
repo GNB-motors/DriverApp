@@ -102,6 +102,74 @@ function FieldAgentTabs() {
   );
 }
 
+// Owner + Ops (M8) — its own stack, no route back into the driver app.
+// OwnerShell's sidebar can only navigate to names registered here.
+function OwnerStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="OwnerDashboard" component={OwnerDashboardScreen} />
+      <Stack.Screen name="OwnerApprovals" component={OwnerApprovalsScreen} />
+      <Stack.Screen name="OwnerBillDetail" component={OwnerBillDetailScreen} />
+      <Stack.Screen name="OwnerReject" component={OwnerRejectScreen} />
+      <Stack.Screen name="OwnerMoney" component={OwnerMoneyScreen} />
+      <Stack.Screen name="OwnerDriver" component={OwnerDriverScreen} />
+      <Stack.Screen name="OwnerSaleBills" component={OwnerSaleBillsScreen} />
+      <Stack.Screen name="OwnerFleet" component={OwnerFleetScreen} />
+      <Stack.Screen name="OwnerErp" component={OwnerErpScreen} />
+      <Stack.Screen name="OwnerLedger" component={OwnerLedgerScreen} />
+      <Stack.Screen name="OpsHome" component={OpsHomeScreen} />
+      <Stack.Screen name="OpsTrips" component={OpsTripsScreen} />
+      <Stack.Screen name="OpsTripDetail" component={OpsTripDetailScreen} />
+      <Stack.Screen name="OpsApprovals" component={OpsApprovalsScreen} />
+      <Stack.Screen name="OpsLoads" component={OpsLoadsScreen} />
+      <Stack.Screen name="OpsCloseTrip" component={OpsCloseTripScreen} />
+      <Stack.Screen name="OpsUnloading" component={OpsUnloadingScreen} />
+      <Stack.Screen name="OpsDeliveryOrder" component={OpsDeliveryOrderScreen} />
+      <Stack.Screen name="OpsPlacements" component={OpsPlacementsScreen} />
+      <Stack.Screen name="OpsAdvances" component={OpsAdvancesScreen} />
+    </Stack.Navigator>
+  );
+}
+
+// Driver + Field Agent — everything below Main. No Owner/Ops route exists
+// in this stack, so the driver app has no path into the owner surface.
+function DriverStack() {
+  const { user } = useAuth();
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen
+        name="Main"
+        component={user?.role === 'FIELD_AGENT' ? FieldAgentTabs : BottomTabs}
+      />
+      <Stack.Screen name="MyDocuments" component={MyDocumentsScreen} />
+      <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} options={{ presentation: 'transparentModal', animation: 'fade' }} />
+      <Stack.Screen name="SOSOptions" component={SOSOptionsScreen} options={{ presentation: 'transparentModal' }} />
+      <Stack.Screen name="SOSEmergencyActive" component={SOSEmergencyActiveScreen} options={{ presentation: 'fullScreenModal' }} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="Repairs" component={RepairsScreen} />
+      <Stack.Screen name="LogRepair" component={LogRepairScreen} />
+
+      {/* Wallet + bill loop (M3) */}
+      <Stack.Screen name="Wallet" component={WalletScreen} />
+      <Stack.Screen name="AddBill" component={AddBillScreen} />
+      <Stack.Screen name="BillSent" component={BillSentScreen} options={{ gestureEnabled: false, animation: 'fade' }} />
+      <Stack.Screen name="Advances" component={MyAdvancesScreen} />
+
+      {/* Trips + trip documents (M4) */}
+      <Stack.Screen name="ActiveTrip" component={ActiveTripScreen} />
+      <Stack.Screen name="TripDetail" component={TripDetailScreen} />
+      <Stack.Screen name="ConsignmentNote" component={ConsignmentNoteScreen} />
+      <Stack.Screen name="Pod" component={PodScreen} />
+
+      {/* Fuel (M5) */}
+      <Stack.Screen name="FuelCapture" component={FuelCaptureScreen} />
+      <Stack.Screen name="FuelEntryDetails" component={FuelEntryDetailsScreen} />
+      <Stack.Screen name="FuelSaved" component={FuelSavedScreen} options={{ gestureEnabled: false, animation: 'fade' }} />
+      <Stack.Screen name="FuelLog" component={FuelLogScreen} />
+    </Stack.Navigator>
+  );
+}
+
 export default function AppNavigator() {
   const { language, isLoaded } = useLanguage();
   const { user, loading: authLoading } = useAuth();
@@ -120,60 +188,10 @@ export default function AppNavigator() {
           <Stack.Screen name="Otp" component={OtpScreen} />
           <Stack.Screen name="SetPin" component={SetPinScreen} />
         </>
+      ) : user.role === 'OWNER' ? (
+        <Stack.Screen name="OwnerRoot" component={OwnerStack} />
       ) : (
-        <>
-          <Stack.Screen
-            name="Main"
-            component={user?.role === 'FIELD_AGENT' ? FieldAgentTabs : BottomTabs}
-          />
-          <Stack.Screen name="MyDocuments" component={MyDocumentsScreen} />
-          <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} options={{ presentation: 'transparentModal', animation: 'fade' }} />
-          <Stack.Screen name="SOSOptions" component={SOSOptionsScreen} options={{ presentation: 'transparentModal' }} />
-          <Stack.Screen name="SOSEmergencyActive" component={SOSEmergencyActiveScreen} options={{ presentation: 'fullScreenModal' }} />
-          <Stack.Screen name="Profile" component={ProfileScreen} />
-          <Stack.Screen name="Repairs" component={RepairsScreen} />
-          <Stack.Screen name="LogRepair" component={LogRepairScreen} />
-
-          {/* Wallet + bill loop (M3) */}
-          <Stack.Screen name="Wallet" component={WalletScreen} />
-          <Stack.Screen name="AddBill" component={AddBillScreen} />
-          <Stack.Screen name="BillSent" component={BillSentScreen} options={{ gestureEnabled: false, animation: 'fade' }} />
-          <Stack.Screen name="Advances" component={MyAdvancesScreen} />
-
-          {/* Trips + trip documents (M4) */}
-          <Stack.Screen name="ActiveTrip" component={ActiveTripScreen} />
-          <Stack.Screen name="TripDetail" component={TripDetailScreen} />
-          <Stack.Screen name="ConsignmentNote" component={ConsignmentNoteScreen} />
-          <Stack.Screen name="Pod" component={PodScreen} />
-
-          {/* Fuel (M5) */}
-          <Stack.Screen name="FuelCapture" component={FuelCaptureScreen} />
-          <Stack.Screen name="FuelEntryDetails" component={FuelEntryDetailsScreen} />
-          <Stack.Screen name="FuelSaved" component={FuelSavedScreen} options={{ gestureEnabled: false, animation: 'fade' }} />
-          <Stack.Screen name="FuelLog" component={FuelLogScreen} />
-
-          {/* Owner + Ops (M8) */}
-          <Stack.Screen name="OwnerApprovals" component={OwnerApprovalsScreen} />
-          <Stack.Screen name="OwnerBillDetail" component={OwnerBillDetailScreen} />
-          <Stack.Screen name="OwnerReject" component={OwnerRejectScreen} />
-          <Stack.Screen name="OwnerDashboard" component={OwnerDashboardScreen} />
-          <Stack.Screen name="OwnerMoney" component={OwnerMoneyScreen} />
-          <Stack.Screen name="OwnerDriver" component={OwnerDriverScreen} />
-          <Stack.Screen name="OwnerSaleBills" component={OwnerSaleBillsScreen} />
-          <Stack.Screen name="OwnerFleet" component={OwnerFleetScreen} />
-          <Stack.Screen name="OwnerErp" component={OwnerErpScreen} />
-          <Stack.Screen name="OwnerLedger" component={OwnerLedgerScreen} />
-          <Stack.Screen name="OpsHome" component={OpsHomeScreen} />
-          <Stack.Screen name="OpsTrips" component={OpsTripsScreen} />
-          <Stack.Screen name="OpsTripDetail" component={OpsTripDetailScreen} />
-          <Stack.Screen name="OpsApprovals" component={OpsApprovalsScreen} />
-          <Stack.Screen name="OpsLoads" component={OpsLoadsScreen} />
-          <Stack.Screen name="OpsCloseTrip" component={OpsCloseTripScreen} />
-          <Stack.Screen name="OpsUnloading" component={OpsUnloadingScreen} />
-          <Stack.Screen name="OpsDeliveryOrder" component={OpsDeliveryOrderScreen} />
-          <Stack.Screen name="OpsPlacements" component={OpsPlacementsScreen} />
-          <Stack.Screen name="OpsAdvances" component={OpsAdvancesScreen} />
-        </>
+        <Stack.Screen name="DriverRoot" component={DriverStack} />
       )}
     </Stack.Navigator>
   );

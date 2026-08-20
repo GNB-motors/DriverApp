@@ -18,6 +18,16 @@ const PER_ACCOUNT_KEYS = [
 const wipePerAccountState = () =>
   Promise.all(PER_ACCOUNT_KEYS.map((k) => AsyncStorage.removeItem(k)));
 
+// Demo phone → role map. UI-only: any number not listed here signs in as a
+// driver so the rest of the prototype stays reachable during testing.
+const DEMO_NUMBERS = {
+  '9938250123': { role: 'OWNER', _id: 'demo-owner', name: 'Suresh Rao', orgId: 'demo-org' },
+  '6371640884': { role: 'DRIVER', _id: 'demo-driver', name: 'Ramesh Yadav', orgId: 'demo-org' },
+};
+
+const resolveDemoProfile = (rawPhone) =>
+  DEMO_NUMBERS[rawPhone] || { role: 'DRIVER', _id: 'demo-driver', name: 'Ramesh Yadav', orgId: 'demo-org' };
+
 export function AuthProvider({ children }) {
   const [user, setUser]           = useState(null);
   const [token, setToken]         = useState(null);
@@ -55,12 +65,10 @@ export function AuthProvider({ children }) {
 
   // UI-demo sign-in — sets a local mock session with NO backend call.
   // Used by the onboarding flow so the prototype can reach the main app.
-  const demoLogin = async (profile = {}) => {
+  // Role is derived from the phone number entered (see DEMO_NUMBERS above).
+  const demoLogin = async ({ rawPhone, ...profile } = {}) => {
     const mockUser = {
-      _id: 'demo-driver',
-      role: 'DRIVER',
-      name: 'Ramesh Yadav',
-      orgId: 'demo-org',
+      ...resolveDemoProfile(rawPhone),
       ...profile,
     };
     await Promise.all([

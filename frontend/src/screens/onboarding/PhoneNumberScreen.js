@@ -66,7 +66,7 @@ export default function PhoneNumberScreen({ navigation }) {
           size="lg"
           iconRight="arrow-forward"
           disabled={!ready}
-          onPress={() => navigation.navigate('Otp', { phone: `+91 ${formatPhone(phone)}` })}
+          onPress={() => navigation.navigate('Otp', { phone: `+91 ${formatPhone(phone)}`, rawPhone: phone })}
         />
       </View>
 

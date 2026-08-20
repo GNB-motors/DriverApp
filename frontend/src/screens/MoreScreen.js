@@ -20,7 +20,6 @@ export default function MoreScreen({ navigation }) {
     { icon: 'document-text-outline', title: 'Documents', right: <Badge tone="pending" label="1 expiring" />, onPress: () => navigation.navigate('MyDocuments') },
   ];
   const group2 = [
-    { icon: 'briefcase-outline', title: 'Owner & Ops view', right: <Badge tone="info" label="Demo" />, onPress: () => navigation.navigate('OwnerDashboard') },
     { icon: 'person-outline', title: 'Profile', onPress: () => navigation.navigate('Profile') },
     { icon: 'language-outline', title: 'Language', right: <AppText variant="body" muted>English</AppText>, onPress: () => navigation.navigate('LanguageScreen') },
     { icon: 'help-circle-outline', title: 'Help & support', onPress: () => {} },

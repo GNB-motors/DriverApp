@@ -13,6 +13,7 @@ const RESEND_SECONDS = 24;
 export default function OtpScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const phone = route.params?.phone || '+91 98220 41188';
+  const rawPhone = route.params?.rawPhone || '';
   const [code, setCode] = useState('');
   const [secs, setSecs] = useState(RESEND_SECONDS);
 
@@ -88,7 +89,7 @@ export default function OtpScreen({ navigation, route }) {
           size="lg"
           iconRight="arrow-forward"
           disabled={code.length < 6}
-          onPress={() => navigation.navigate('SetPin')}
+          onPress={() => navigation.navigate('SetPin', { rawPhone })}
         />
       </View>
 

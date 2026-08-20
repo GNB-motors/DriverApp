@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, colors, spacing, radius } from '../../components/ui';
+import { useAuth } from '../../context/AuthContext';
 import * as mock from '../../demo/mock';
 import { OWNER_NAV } from './ownerNav';
 
@@ -40,6 +41,7 @@ export default function OwnerShell({ title, subtitle, navigation, active, right,
 
 function OwnerSidebar({ navigation, active, onClose }) {
   const insets = useSafeAreaInsets();
+  const { logout } = useAuth();
   const go = (key) => {
     onClose();
     if (key !== active) navigation.navigate(key);
@@ -78,9 +80,9 @@ function OwnerSidebar({ navigation, active, onClose }) {
             </View>
           ))}
 
-          <Pressable onPress={() => { onClose(); navigation.navigate('Main'); }} style={styles.backItem}>
-            <Ionicons name="phone-portrait-outline" size={19} color={colors.textMuted} />
-            <AppText variant="bodyStrong" weight="semibold" muted>Back to driver app</AppText>
+          <Pressable onPress={() => { onClose(); logout(); }} style={styles.backItem}>
+            <Ionicons name="log-out-outline" size={19} color={colors.textMuted} />
+            <AppText variant="bodyStrong" weight="semibold" muted>Log out</AppText>
           </Pressable>
         </ScrollView>
       </View>
