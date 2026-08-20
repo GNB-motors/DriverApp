@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { requestDriverOtp, verifyDriverOtp } from '../services/api';
 import logger from '../utils/logger';
 
 const AuthContext = createContext();
@@ -24,7 +23,6 @@ export function AuthProvider({ children }) {
   const [token, setToken]         = useState(null);
   const [organization, setOrg]    = useState(null);
   const [loading, setLoading]     = useState(true);
-  const [isNewLogin, setIsNewLogin] = useState(false);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -55,40 +53,6 @@ export function AuthProvider({ children }) {
     loadSession();
   }, []);
 
-  const sendOtp = async (mobileNumber) => {
-    const normalised = mobileNumber.startsWith('+')
-      ? mobileNumber
-      : `+91${mobileNumber.replace(/\s/g, '')}`;
-    await requestDriverOtp(normalised);
-    return normalised;
-  };
-
-  const verifyOtp = async (mobileNumber, otp) => {
-    const result = await verifyDriverOtp(mobileNumber, otp);
-    const { user: loggedInUser, token: jwt, organization: org } = result;
-    const newIdentity = `${loggedInUser._id}:${loggedInUser.orgId}`;
-
-    // If the device previously belonged to a different identity, wipe its
-    // per-account state before persisting the new session.
-    const prevIdentity = await AsyncStorage.getItem(STORAGE_KEY_IDENTITY);
-    if (prevIdentity && prevIdentity !== newIdentity) {
-      await wipePerAccountState();
-    }
-
-    await Promise.all([
-      AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(loggedInUser)),
-      AsyncStorage.setItem(STORAGE_KEY_TOKEN, jwt),
-      AsyncStorage.setItem(STORAGE_KEY_IDENTITY, newIdentity),
-    ]);
-
-    setUser(loggedInUser);
-    setToken(jwt);
-    setOrg(org);
-    setIsNewLogin(true);
-    logger.info('Auth', `Login success — role=${loggedInUser.role} id=${loggedInUser._id}`);
-    return true;
-  };
-
   // UI-demo sign-in — sets a local mock session with NO backend call.
   // Used by the onboarding flow so the prototype can reach the main app.
   const demoLogin = async (profile = {}) => {
@@ -99,9 +63,13 @@ export function AuthProvider({ children }) {
       orgId: 'demo-org',
       ...profile,
     };
+    await Promise.all([
+      AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(mockUser)),
+      AsyncStorage.setItem(STORAGE_KEY_TOKEN, 'demo-token'),
+      AsyncStorage.setItem(STORAGE_KEY_IDENTITY, `${mockUser._id}:${mockUser.orgId}`),
+    ]);
     setUser(mockUser);
     setToken('demo-token');
-    setIsNewLogin(false);
     logger.info('Auth', 'Demo UI login (no backend)');
     return true;
   };
@@ -116,12 +84,11 @@ export function AuthProvider({ children }) {
     setUser(null);
     setToken(null);
     setOrg(null);
-    setIsNewLogin(false);
     logger.info('Auth', 'User logged out — session cleared');
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, organization, loading, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, demoLogin, logout }}>
+    <AuthContext.Provider value={{ user, token, organization, loading, demoLogin, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -8,29 +8,16 @@ import SplashScreen from '../components/ui/SplashScreen';
 import FloatingTabBar from './FloatingTabBar';
 import { NAV_ICONS } from './NavIcons';
 
-import LanguageSelectionScreen from '../screens/LanguageSelectionScreen';
-import LoginScreen from '../screens/LoginScreen';
-import WelcomeScreen from '../screens/WelcomeScreen';
 import GetStartedScreen from '../screens/onboarding/GetStartedScreen';
 import OnboardingLanguageScreen from '../screens/onboarding/OnboardingLanguageScreen';
 import PhoneNumberScreen from '../screens/onboarding/PhoneNumberScreen';
 import OtpScreen from '../screens/onboarding/OtpScreen';
 import SetPinScreen from '../screens/onboarding/SetPinScreen';
 import HomeScreen from '../screens/HomeScreen';
-import DocumentsScreen from '../screens/DocumentsScreen';
-import RefuelDetailsScreen from '../screens/RefuelDetailsScreen';
-import UploadPhotosScreen from '../screens/UploadPhotosScreen';
-import PhotoPreviewScreen from '../screens/PhotoPreviewScreen';
-import VehicleScreen from '../screens/VehicleScreen';
 import SOSOptionsScreen from '../screens/SOSOptionsScreen';
 import SOSEmergencyActiveScreen from '../screens/SOSEmergencyActiveScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ChooseLanguageScreen from '../screens/ChooseLanguageScreen';
-import FuelHistoryScreen from '../screens/FuelHistoryScreen';
-import RepairsMenuScreen from '../screens/RepairsMenuScreen';
-import AddRepairScreen from '../screens/AddRepairScreen';
-import RepairLogsScreen from '../screens/RepairLogsScreen';
-import RefuelSuccessScreen from '../screens/RefuelSuccessScreen';
 import VehiclesScreen from '../screens/VehiclesScreen';
 import TripsScreen from '../screens/TripsScreen';
 import AlertsScreen from '../screens/AlertsScreen';
@@ -117,7 +104,7 @@ function FieldAgentTabs() {
 
 export default function AppNavigator() {
   const { language, isLoaded } = useLanguage();
-  const { user, loading: authLoading, isNewLogin } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   if (!isLoaded || authLoading) {
     return <SplashScreen />;
@@ -135,30 +122,12 @@ export default function AppNavigator() {
         </>
       ) : (
         <>
-          {isNewLogin && <Stack.Screen name="Welcome" component={WelcomeScreen} />}
           <Stack.Screen
             name="Main"
             component={user?.role === 'FIELD_AGENT' ? FieldAgentTabs : BottomTabs}
           />
-          <Stack.Screen name="DocsScreen" component={DocumentsScreen} />
           <Stack.Screen name="MyDocuments" component={MyDocumentsScreen} />
           <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} options={{ presentation: 'transparentModal', animation: 'fade' }} />
-          <Stack.Screen
-            name="Vehicle"
-            component={VehicleScreen}
-            options={{ presentation: 'transparentModal', animation: 'slide_from_bottom' }}
-          />
-          <Stack.Screen name="RefuelDetails" component={RefuelDetailsScreen} />
-          <Stack.Screen name="UploadPhotos" component={UploadPhotosScreen} />
-          <Stack.Screen name="PhotoPreview" component={PhotoPreviewScreen} />
-          <Stack.Screen
-            name="RefuelSuccess"
-            component={RefuelSuccessScreen}
-            options={{ gestureEnabled: false, animation: 'fade' }}
-          />
-          <Stack.Screen name="FuelHistory" component={FuelHistoryScreen} />
-          <Stack.Screen name="AddRepair" component={AddRepairScreen} />
-          <Stack.Screen name="RepairLogs" component={RepairLogsScreen} />
           <Stack.Screen name="SOSOptions" component={SOSOptionsScreen} options={{ presentation: 'transparentModal' }} />
           <Stack.Screen name="SOSEmergencyActive" component={SOSEmergencyActiveScreen} options={{ presentation: 'fullScreenModal' }} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
