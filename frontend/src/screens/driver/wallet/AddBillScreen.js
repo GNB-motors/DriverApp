@@ -3,8 +3,8 @@ import { View, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Button, Chip, TextField, PhotoUploader, colors, spacing, radius } from '../components/ui';
-import * as mock from '../demo/mock';
+import { AppText, Button, Chip, TextField, PhotoUploader, colors, spacing, radius } from '../../../components/ui';
+import * as mock from '../../../demo/mock';
 
 /**
  * 09 · Add bill — attach and submit. UI-only demo (photo is simulated).

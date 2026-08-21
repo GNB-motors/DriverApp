@@ -3,8 +3,8 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Button, Card, Stepper, StatusBadge, WarningBanner, colors, spacing, radius } from '../components/ui';
-import * as mock from '../demo/mock';
+import { AppText, Button, Card, Stepper, StatusBadge, WarningBanner, colors, spacing, radius } from '../../../components/ui';
+import * as mock from '../../../demo/mock';
 
 /**
  * 03 · Active trip — the 8-stage pipeline. UI-only demo.

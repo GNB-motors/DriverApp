@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useLanguage } from '../context/LanguageContext';
-import { AppText, Button, RadioCard, BottomSheet, colors, spacing } from '../components/ui';
+import { useLanguage } from '../../../context/LanguageContext';
+import { AppText, Button, RadioCard, BottomSheet, colors, spacing } from '../../../components/ui';
 
 /**
  * 13 · Language — bottom sheet, each script in its own script. UI-only demo.

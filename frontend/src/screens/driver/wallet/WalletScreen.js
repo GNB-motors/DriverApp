@@ -7,8 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   AppText, Button, Card, StatusBadge, SegmentedControl, ProgressBar, WarningBanner,
   colors, spacing, radius,
-} from '../components/ui';
-import * as mock from '../demo/mock';
+} from '../../../components/ui';
+import * as mock from '../../../demo/mock';
 
 /**
  * 06 / 07 / 08 · Wallet — Bills, Ledger and empty state. UI-only demo.

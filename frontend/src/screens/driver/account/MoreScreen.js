@@ -2,8 +2,8 @@ import React from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { AppText, Card, ListRow, Badge, Button, WalletHeroCard, colors, spacing } from '../components/ui';
-import * as mock from '../demo/mock';
+import { AppText, Card, ListRow, Badge, Button, WalletHeroCard, colors, spacing } from '../../../components/ui';
+import * as mock from '../../../demo/mock';
 
 /**
  * 16 · More — index for everything else. UI-only demo.

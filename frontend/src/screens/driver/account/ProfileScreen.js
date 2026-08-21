@@ -4,9 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../context/AuthContext';
-import { AppText, Card, ListRow, Badge, WalletHeroCard, colors, spacing, radius } from '../components/ui';
-import * as mock from '../demo/mock';
+import { useAuth } from '../../../context/AuthContext';
+import { AppText, Card, ListRow, Badge, WalletHeroCard, colors, spacing, radius } from '../../../components/ui';
+import * as mock from '../../../demo/mock';
 
 /**
  * 12 · Profile — wallet card and row groups. UI-only demo.

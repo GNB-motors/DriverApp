@@ -3,8 +3,8 @@ import { View, Pressable, Animated, Easing, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, colors, spacing, radius } from '../components/ui';
-import * as mock from '../demo/mock';
+import { AppText, colors, spacing, radius } from '../../../components/ui';
+import * as mock from '../../../demo/mock';
 
 const WHITE = '#FFFFFF';
 const FAINT = 'rgba(255,255,255,0.12)';

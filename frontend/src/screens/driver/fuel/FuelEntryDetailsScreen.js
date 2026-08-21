@@ -3,8 +3,8 @@ import { View, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Button, TextField, Badge, SegmentedControl, StepProgress, WarningBanner, colors, spacing, radius } from '../components/ui';
-import * as mock from '../demo/mock';
+import { AppText, Button, TextField, Badge, SegmentedControl, StepProgress, WarningBanner, colors, spacing, radius } from '../../../components/ui';
+import * as mock from '../../../demo/mock';
 
 /**
  * 18 · Fuel details — read from the photos. UI-only demo.

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { ScreenHeader, AppText, colors, spacing, radius } from '../components/ui';
+import { ScreenHeader, AppText, colors, spacing, radius } from '../../components/ui';
 
 /**
  * ComingSoonScreen — themed placeholder for routes not yet built in the

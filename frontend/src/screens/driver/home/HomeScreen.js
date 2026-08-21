@@ -7,8 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   AppText, Button, Card, Switch, Badge, StatusBadge, WalletHeroCard,
   WarningBanner, StepProgress, colors, spacing, radius,
-} from '../components/ui';
-import * as mock from '../demo/mock';
+} from '../../../components/ui';
+import * as mock from '../../../demo/mock';
 
 /**
  * 01 / 02 · Driver Home — on-duty and off-duty variants. UI-only demo.

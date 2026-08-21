@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Button, Card, StatusBadge, colors, spacing, radius } from '../components/ui';
+import { AppText, Button, Card, StatusBadge, colors, spacing, radius } from '../../../components/ui';
 
 /**
  * 10 · Bill sent — pending, not reimbursed. UI-only demo.

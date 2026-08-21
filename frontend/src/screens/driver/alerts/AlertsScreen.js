@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { AppText, AlertCard, colors, spacing } from '../components/ui';
-import * as mock from '../demo/mock';
+import { AppText, AlertCard, colors, spacing } from '../../../components/ui';
+import * as mock from '../../../demo/mock';
 
 /**
  * 14 · Alerts — Needs action / All. UI-only demo.

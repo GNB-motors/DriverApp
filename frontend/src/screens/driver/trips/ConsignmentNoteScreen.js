@@ -6,8 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   AppText, Button, TextField, PhotoUploader, WarningBanner, KeyValueTable, KeyValueRow,
   colors, spacing, radius,
-} from '../components/ui';
-import * as mock from '../demo/mock';
+} from '../../../components/ui';
+import * as mock from '../../../demo/mock';
 
 /**
  * 26 · Consignment note — upload before gate out. UI-only demo.
