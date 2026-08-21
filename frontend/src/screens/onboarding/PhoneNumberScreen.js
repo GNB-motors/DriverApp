@@ -33,7 +33,7 @@ export default function PhoneNumberScreen({ navigation }) {
           What is your mobile number?
         </AppText>
         <AppText variant="body" muted style={styles.subtitle}>
-          We send a 6-digit code to verify it. Standard SMS rates may apply.
+          Enter your registered number, then your password to sign in.
         </AppText>
 
         <View style={styles.field}>
@@ -62,11 +62,11 @@ export default function PhoneNumberScreen({ navigation }) {
         <View style={styles.spacer} />
 
         <Button
-          label="Send code"
+          label="Continue"
           size="lg"
           iconRight="arrow-forward"
           disabled={!ready}
-          onPress={() => navigation.navigate('Otp', { phone: `+91 ${formatPhone(phone)}`, rawPhone: phone })}
+          onPress={() => navigation.navigate('Password', { phone: `+91 ${formatPhone(phone)}`, rawPhone: phone })}
         />
       </View>
 
