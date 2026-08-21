@@ -4,14 +4,36 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, Badge, StatusBadge, BarChart, colors, spacing, radius } from '../../../components/ui';
+import dayjs from 'dayjs';
 import * as mock from '../../../demo/mock';
+import { useAuth } from '../../../context/AuthContext';
+import { apiConfigured } from '../../../services/client';
+import { useApi } from '../../../hooks/useApi';
+import fuelService from '../../../services/fuelService';
 
 /**
  * 20 · Fuel log — history and mileage trend. UI-only demo.
  */
 export default function FuelLogScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { fuel, driver } = mock;
+  const { driver } = mock;
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { data: fuelApi } = useApi(() => fuelService.listFuelLogs(), [], { enabled: useReal, fallback: null });
+
+  // Map fuel logs → history rows; trend/KPIs keep mock until confirmed.
+  // (mapping to confirm against live API)
+  const fuel = React.useMemo(() => {
+    const rows = Array.isArray(fuelApi) ? fuelApi : fuelApi?.results || fuelApi?.data || [];
+    if (!useReal || !rows.length) return mock.fuel;
+    const history = rows.map((f) => ({
+      litres: f.litres != null ? `${Number(f.litres).toFixed(1)} L` : '',
+      status: String(f.status || '').toLowerCase().includes('confirm') ? 'confirmed' : 'pending',
+      meta: [f.date || f.refuelTime ? dayjs(f.date || f.refuelTime).format('DD MMM') : null, f.station || f.location].filter(Boolean).join(' · '),
+      amount: f.totalAmount != null ? `₹${Number(f.totalAmount).toLocaleString('en-IN')}` : '',
+    }));
+    return { ...mock.fuel, history };
+  }, [useReal, fuelApi]);
 
   return (
     <View style={styles.container}>

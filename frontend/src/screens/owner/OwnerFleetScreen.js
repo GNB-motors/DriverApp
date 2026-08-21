@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, colors, spacing, radius } from '../../components/ui';
 import OwnerShell from './OwnerShell';
 import { Pill, RouteLine, toneColor } from '../../components/ui';
 import * as own from '../../demo/ownerMock';
+import { useAuth } from '../../context/AuthContext';
+import { apiConfigured } from '../../services/client';
+import { useApi } from '../../hooks/useApi';
+import vehicleService from '../../services/vehicleService';
 
 const TABS = [{ key: 'all', label: 'All 18' }, { key: 'running', label: 'Running 14' }, { key: 'idle', label: 'Idle 4' }];
 
@@ -13,6 +17,40 @@ const TABS = [{ key: 'all', label: 'All 18' }, { key: 'running', label: 'Running
 export default function OwnerFleetScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('all');
+
+  // Vehicle list → real when a backend is configured (else demo mock).
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { data: vehApi, loading: vehLoading } = useApi(
+    () => vehicleService.listVehicles(),
+    [],
+    { enabled: useReal, fallback: null },
+  );
+
+  // mapping to confirm against live API — normalise vehicles; unknown fields
+  // fall back to the mock per-field. route is always a 2-item array so RouteLine is safe.
+  const fleet = useMemo(() => {
+    if (!useReal || !vehApi) return own.fleet;
+    const rows = Array.isArray(vehApi)
+      ? vehApi
+      : vehApi.items || vehApi.results || vehApi.vehicles || vehApi.data || [];
+    if (!rows.length) return own.fleet;
+    return rows.map((r, i) => {
+      const m = own.fleet[i] || {};
+      return {
+        plate: r.registrationNumber || r.vehicleNumber || r.plate || m.plate,
+        status: r.status || m.status,
+        badge: r.statusLabel || r.badge || m.badge,
+        route: Array.isArray(r.route)
+          ? r.route
+          : [r.from ?? r.origin ?? m.route?.[0], r.to ?? r.destination ?? m.route?.[1]],
+        driver: r.driverName || r.driver?.name || r.driver || m.driver,
+        metric: r.metric || m.metric,
+        metricColor: r.metricColor || m.metricColor,
+        action: r.action || m.action,
+      };
+    });
+  }, [useReal, vehApi]);
 
   return (
     <OwnerShell title="Fleet" navigation={navigation} active="OwnerFleet"
@@ -27,7 +65,9 @@ export default function OwnerFleetScreen({ navigation }) {
           ))}
         </View>
         <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
-          {own.fleet.map((v) => (
+          {useReal && vehLoading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
+          ) : fleet.map((v) => (
             <Card key={v.plate} elevated="sm" padding={14}>
               <View style={styles.top}>
                 <AppText mono variant="bodyStrong" weight="semibold">{v.plate}</AppText>

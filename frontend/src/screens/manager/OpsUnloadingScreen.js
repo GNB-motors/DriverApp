@@ -1,20 +1,61 @@
-import React from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, colors, spacing, radius } from '../../components/ui';
 import { BackHeader, Pill, SectionHeader } from '../../components/ui';
 import * as own from '../../demo/managerMock';
+import { useAuth } from '../../context/AuthContext';
+import { apiConfigured } from '../../services/client';
+import { useApi } from '../../hooks/useApi';
+import managerService from '../../services/managerService';
 
 /** M7 · Unloading — what the depot recorded. */
 export default function OpsUnloadingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const u = own.opsUnload;
+
+  // Real unloading records when a backend is configured (else demo mock).
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { data: unloadApi, loading } = useApi(
+    () => managerService.listUnloading(),
+    [],
+    { enabled: useReal, fallback: null },
+  );
+
+  // Normalize the first unloading record → the screen shape (per-field mock fallback).
+  // mapping to confirm against live API
+  const u = useMemo(() => {
+    const m = own.opsUnload;
+    if (!useReal || !unloadApi) return m;
+    const list = Array.isArray(unloadApi) ? unloadApi : (unloadApi.results || unloadApi.rows || unloadApi.items || unloadApi.data || []);
+    const d = list[0] || (Array.isArray(unloadApi) ? null : unloadApi);
+    if (!d) return m;
+    const w = d.weight || d;
+    const wt = (v, fb) => (v == null ? fb : (typeof v === 'number' ? `${v} t` : String(v)));
+    return {
+      id: d.tripNo || d.code || d.id || d._id || m.id,
+      place: d.place || d.location || d.depot || m.place,
+      weight: {
+        loaded: wt(w.loaded, m.weight.loaded),
+        received: wt(w.received, m.weight.received),
+        short: wt(w.short, m.weight.short),
+        tolerance: w.tolerance || m.weight.tolerance,
+      },
+      details: Array.isArray(d.details) ? d.details : m.details,
+      evidence: Array.isArray(d.evidence) ? d.evidence : m.evidence,
+      remark: d.remark || d.note || m.remark,
+    };
+  }, [useReal, unloadApi]);
 
   return (
     <View style={styles.container}>
       <BackHeader title="Unloading" subtitle={`${u.id} · ${u.place}`} onBack={() => navigation.goBack()} right={<Pill tone="pending" label="Shortage" />} />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {useReal && loading ? (
+          <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+        ) : (
+          <>
         <Card elevated="sm" padding={16}>
           <SectionHeader label="Weight reconciliation" />
           <View style={styles.weights}>
@@ -56,6 +97,8 @@ export default function OpsUnloadingScreen({ navigation }) {
           <SectionHeader label="Depot remark" />
           <AppText variant="small" muted style={{ marginTop: 8 }}>{u.remark}</AppText>
         </Card>
+          </>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>

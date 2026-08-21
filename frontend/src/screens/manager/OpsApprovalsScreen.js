@@ -1,17 +1,68 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, colors, spacing, radius } from '../../components/ui';
 import ManagerShell from './ManagerShell';
 import { Pill, FilterChips, TONE } from '../../components/ui';
 import * as own from '../../demo/managerMock';
+import { useAuth } from '../../context/AuthContext';
+import { apiConfigured } from '../../services/client';
+import { useApi } from '../../hooks/useApi';
+import { useSubmit } from '../../hooks/useSubmit';
+import approvalService from '../../services/approvalService';
 
 /** M4 · Approvals — one queue, mixed types. */
 export default function OpsApprovalsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState('All 7');
-  const a = own.opsApprovals;
+
+  // Real approvals queue when a backend is configured (else demo mock).
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { data: approvalsApi, loading } = useApi(
+    () => approvalService.listApprovals(),
+    [],
+    { enabled: useReal, fallback: null },
+  );
+
+  // Normalize the approvals list → { featured, rows } (first is featured).
+  // mapping to confirm against live API
+  const a = useMemo(() => {
+    const m = own.opsApprovals;
+    if (!useReal || !approvalsApi) return m;
+    const list = Array.isArray(approvalsApi) ? approvalsApi : (approvalsApi.results || approvalsApi.rows || approvalsApi.items || approvalsApi.data || []);
+    if (!list.length) return m;
+    const money = (v) => (v != null ? `₹${Number(v).toLocaleString('en-IN')}` : undefined);
+    const [first, ...rest] = list;
+    const featured = {
+      id: first._id || first.id,
+      title: first.type || first.kind || first.title || m.featured.title,
+      badge: first.badge || first.age || m.featured.badge,
+      name: first.subtitle || [first.driverName || first.driver, first.tripNo || first.ref].filter(Boolean).join(' · ') || m.featured.name,
+      amount: money(first.amount) || m.featured.amount,
+      desc: first.description || first.remarks || m.featured.desc,
+    };
+    const rows = rest.length
+      ? rest.map((e, i) => ({
+          icon: e.icon || 'document',
+          tone: e.tone || e.status || 'info',
+          title: e.type || e.kind || e.title || 'Approval',
+          badge: e.badge || e.status || 'New',
+          meta: e.meta || [e.tripNo || e.ref, e.subtitle].filter(Boolean).join(' · '),
+        }))
+      : m.rows;
+    return { featured, rows };
+  }, [useReal, approvalsApi]);
+
+  const { submit, busy } = useSubmit();
+  const decide = (status) => {
+    if (!useReal || !a.featured.id) return; // demo / no id → no-op
+    submit(
+      () => approvalService.decideApproval(a.featured.id, status, status === 'REJECTED' ? 'Rejected from app' : undefined),
+      { onError: (e) => Alert.alert('Action failed', e?.message || 'Please try again.') },
+    );
+  };
 
   return (
     <ManagerShell title="Approvals" subtitle="7 waiting · oldest 2 days" navigation={navigation} active="OpsApprovals"
@@ -19,6 +70,10 @@ export default function OpsApprovalsScreen({ navigation }) {
       <View style={{ flex: 1 }}>
         <FilterChips options={['All 7', 'Advances 3', 'PODs 2']} value={filter} onChange={setFilter} style={styles.chips} />
         <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+          {useReal && loading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+          ) : (
+            <>
           <Card elevated="sm" padding={14} style={{ gap: 10 }}>
             <View style={styles.advTop}>
               <View style={styles.advIcon}><Ionicons name="wallet" size={18} color={colors.warning} /></View>
@@ -33,8 +88,8 @@ export default function OpsApprovalsScreen({ navigation }) {
             </View>
             <AppText variant="small" muted>{a.featured.desc}</AppText>
             <View style={styles.advBtns}>
-              <Button variant="secondary" size="md" label="Reject" style={{ flex: 1 }} onPress={() => {}} />
-              <Button size="md" label={`Approve ${a.featured.amount}`} style={{ flex: 1.3 }} onPress={() => {}} />
+              <Button variant="secondary" size="md" label="Reject" style={{ flex: 1 }} disabled={busy} onPress={() => decide('REJECTED')} />
+              <Button size="md" label={`Approve ${a.featured.amount}`} style={{ flex: 1.3 }} loading={busy} onPress={() => decide('APPROVED')} />
             </View>
           </Card>
 
@@ -54,6 +109,8 @@ export default function OpsApprovalsScreen({ navigation }) {
             </Card>
           ))}
           <AppText variant="small" muted center style={{ marginTop: 4 }}>3 more waiting</AppText>
+            </>
+          )}
         </ScrollView>
       </View>
     </ManagerShell>

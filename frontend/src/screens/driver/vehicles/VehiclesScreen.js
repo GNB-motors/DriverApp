@@ -5,13 +5,33 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, Badge, ProgressBar, colors, spacing, radius } from '../../../components/ui';
 import * as mock from '../../../demo/mock';
+import { useAuth } from '../../../context/AuthContext';
+import { apiConfigured } from '../../../services/client';
+import { useApi } from '../../../hooks/useApi';
+import vehicleService from '../../../services/vehicleService';
 
 /**
  * 15 · Vehicles — my assigned truck. UI-only demo.
  */
 export default function VehiclesScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const v = mock.vehicle;
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { data: vehiclesApi } = useApi(() => vehicleService.listVehicles(), [], { enabled: useReal, fallback: null });
+
+  // First assigned vehicle → hero fields; papers/stats keep mock until confirmed.
+  // (mapping to confirm against live API)
+  const v = React.useMemo(() => {
+    const rows = Array.isArray(vehiclesApi) ? vehiclesApi : vehiclesApi?.results || vehiclesApi?.data || [];
+    const fv = rows[0];
+    if (!useReal || !fv) return mock.vehicle;
+    return {
+      ...mock.vehicle,
+      plate: fv.registrationNumber || fv.regNumber || fv.plate || mock.vehicle.plate,
+      spec: [fv.model, fv.capacity ? `${fv.capacity} t` : null, fv.year].filter(Boolean).join(' · ') || mock.vehicle.spec,
+      odometer: fv.odometer != null ? String(fv.odometer) : mock.vehicle.odometer,
+    };
+  }, [useReal, vehiclesApi]);
   const duePapers = v.papers.filter((p) => !p.ok).length;
 
   return (

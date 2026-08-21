@@ -1,22 +1,82 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, colors, spacing, radius } from '../../components/ui';
 import ManagerShell from './ManagerShell';
 import { Pill, RouteLine, SectionHeader } from '../../components/ui';
 import * as own from '../../demo/managerMock';
+import { useAuth } from '../../context/AuthContext';
+import { apiConfigured } from '../../services/client';
+import { useApi } from '../../hooks/useApi';
+import managerService from '../../services/managerService';
 
 /** M5 · Loads — place a truck against a load. */
 export default function OpsLoadsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { primary, secondary } = own.opsLoads;
+
+  // Real delivery orders when a backend is configured (else demo mock).
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { data: ordersApi, loading } = useApi(
+    () => managerService.listDeliveryOrders(),
+    [],
+    { enabled: useReal, fallback: null },
+  );
+
+  // Normalize delivery orders → { primary, secondary } (per-field mock fallback).
+  // mapping to confirm against live API
+  const loads = useMemo(() => {
+    const mo = own.opsLoads;
+    if (!useReal || !ordersApi) return mo;
+    const list = Array.isArray(ordersApi) ? ordersApi : (ordersApi.results || ordersApi.rows || ordersApi.items || ordersApi.data || []);
+    if (!list.length) return mo;
+    const money = (v) => (v != null ? `₹${Number(v).toLocaleString('en-IN')}` : undefined);
+    const routeOf = (d) => (Array.isArray(d.route) ? d.route : [d.origin || d.from || d.source, d.destination || d.to || d.dest]);
+    const [p, s] = list;
+    const mp = mo.primary;
+    const msd = mo.secondary;
+    const pr = routeOf(p);
+    const primary = {
+      id: p.doNo || p.code || p.id || p._id || mp.id,
+      badge: p.badge || p.pickupLabel || mp.badge,
+      route: [pr[0] || mp.route[0], pr[1] || mp.route[1]],
+      facts: Array.isArray(p.facts) ? p.facts : [
+        ['Material', p.material || p.commodity || mp.facts[0][1]],
+        ['Weight', p.weight != null ? `${p.weight} t` : mp.facts[1][1]],
+        ['Freight', money(p.freight) || mp.facts[2][1]],
+      ],
+      trucks: Array.isArray(p.trucks) && p.trucks.length
+        ? p.trucks.map((tk, i) => ({
+            plate: tk.plate || tk.regNo || tk.vehicleNo || `Truck ${i + 1}`,
+            meta: tk.meta || [tk.driverName || tk.driver, tk.availability].filter(Boolean).join(' · '),
+            selected: i === 0,
+          }))
+        : mp.trucks,
+    };
+    let secondary = msd;
+    if (s) {
+      const sr = routeOf(s);
+      secondary = {
+        id: s.doNo || s.code || s.id || s._id || msd.id,
+        badge: s.badge || msd.badge,
+        route: [sr[0] || msd.route[0], sr[1] || msd.route[1]],
+        meta: s.meta || [s.material || s.commodity, s.weight != null ? `${s.weight} t` : null, money(s.freight)].filter(Boolean).join(' · ') || msd.meta,
+      };
+    }
+    return { primary, secondary };
+  }, [useReal, ordersApi]);
+  const { primary, secondary } = loads;
   const [selected, setSelected] = useState(primary.trucks.find((t) => t.selected)?.plate);
 
   return (
     <ManagerShell title="Loads to place" subtitle="5 open · 4 trucks free" navigation={navigation} active="OpsLoads">
       <View style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {useReal && loading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+          ) : (
+            <>
           <Card elevated="sm" padding={16} style={styles.primaryCard}>
             <View style={styles.top}>
               <AppText mono variant="bodyStrong" weight="semibold">{primary.id}</AppText>
@@ -59,6 +119,8 @@ export default function OpsLoadsScreen({ navigation }) {
               <AppText variant="small" weight="bold" color={colors.primary}>Place</AppText>
             </View>
           </Card>
+            </>
+          )}
         </ScrollView>
 
         <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }]}>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,11 @@ import {
   colors, spacing, radius,
 } from '../../../components/ui';
 import * as mock from '../../../demo/mock';
+import { useAuth } from '../../../context/AuthContext';
+import { apiConfigured } from '../../../services/client';
+import { useSubmit } from '../../../hooks/useSubmit';
+import consignmentService from '../../../services/consignmentService';
+import { pickFromCamera, pickFromGallery } from '../../../utils/pickImage';
 
 /**
  * 26 · Consignment note — upload before gate out. UI-only demo.
@@ -17,9 +22,24 @@ export default function ConsignmentNoteScreen({ navigation }) {
   const cn = mock.consignment;
   const [pages, setPages] = useState(cn.pages);
   const [confirmed, setConfirmed] = useState(true);
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { submit, busy } = useSubmit();
 
-  const addPage = () => setPages((p) => (p.length < 3 ? [...p, { name: `Page ${p.length + 1}`, quality: 'ok' }] : p));
+  const addFile = (file) =>
+    setPages((p) => (p.length < 3 ? [...p, { name: file?.name || `Page ${p.length + 1}`, quality: 'ok', file }] : p));
+  const addPage = async () => { const f = await pickFromCamera(); if (f) addFile(f); };
+  const addFromGallery = async () => { const f = await pickFromGallery(); if (f) addFile(f); };
   const removePage = (i) => setPages((p) => p.filter((_, idx) => idx !== i));
+
+  const onUpload = () => {
+    if (!useReal) return navigation.goBack();
+    const withFile = pages.find((p) => p.file);
+    return submit(
+      () => consignmentService.uploadBilty({ tripId: cn.trip, cnNumber: cn.noteNumber, file: withFile?.file }),
+      { onSuccess: () => navigation.goBack(), onError: (e) => Alert.alert('Upload failed', e?.message || 'Please try again.') },
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -64,7 +84,7 @@ export default function ConsignmentNoteScreen({ navigation }) {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Button size="lg" icon="lock-open-outline" label="Upload and unlock gate out" disabled={pages.length === 0 || !confirmed} onPress={() => navigation.goBack()} />
+        <Button size="lg" icon="lock-open-outline" label="Upload and unlock gate out" loading={busy} disabled={pages.length === 0 || !confirmed || busy} onPress={onUpload} />
       </View>
     </View>
   );

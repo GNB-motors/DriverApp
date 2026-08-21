@@ -1,15 +1,65 @@
-import React from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Card, colors, spacing, radius } from '../../components/ui';
 import ManagerShell from './ManagerShell';
 import { Pill, Monogram, SectionHeader } from '../../components/ui';
 import * as own from '../../demo/managerMock';
+import { useAuth } from '../../context/AuthContext';
+import { apiConfigured } from '../../services/client';
+import { useApi } from '../../hooks/useApi';
+import advanceService from '../../services/advanceService';
 
 /** M10 · Advances — requests and the money already out. */
 export default function OpsAdvancesScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const a = own.opsAdvances;
+
+  // Real advances when a backend is configured (else demo mock).
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { data: advancesApi, loading } = useApi(
+    () => advanceService.listAdvances(),
+    [],
+    { enabled: useReal, fallback: null },
+  );
+
+  // Normalize advances → { out, limit, percent, waiting, recent }.
+  // Budget aggregates stay on mock; rows split by status. mapping to confirm against live API
+  const a = useMemo(() => {
+    const m = own.opsAdvances;
+    if (!useReal || !advancesApi) return m;
+    const rowsRaw = Array.isArray(advancesApi) ? advancesApi : (advancesApi.results || advancesApi.rows || advancesApi.items || advancesApi.data || []);
+    if (!rowsRaw.length) return m;
+    const money = (v) => (v != null ? `₹${Number(v).toLocaleString('en-IN')}` : '₹0');
+    const initialsOf = (name) => String(name || '').split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+    const toneOf = (s) => {
+      const v = String(s || '').toLowerCase();
+      if (v.includes('paid')) return 'paid';
+      if (v.includes('reject')) return 'error';
+      if (v.includes('approv')) return 'in_transit';
+      return 'pending';
+    };
+    const mapRow = (r, i) => {
+      const tone = toneOf(r.status);
+      return {
+        initials: r.initials || initialsOf(r.driverName || r.driver || r.name),
+        id: r.advanceNo || r.code || r.id || r._id || String(i),
+        status: tone,
+        badge: r.badge || r.statusLabel || r.status || (tone === 'pending' ? 'Pending' : 'Approved'),
+        meta: r.meta || [r.driverName || r.driver || r.name, r.tripNo || r.ref, r.age].filter(Boolean).join(' · '),
+        amount: money(r.amount),
+        strike: tone === 'error',
+      };
+    };
+    const isPending = (r) => !r.status || String(r.status).toLowerCase().includes('pend');
+    const waitingRaw = rowsRaw.filter(isPending);
+    const recentRaw = rowsRaw.filter((r) => !isPending(r));
+    return {
+      ...m,
+      waiting: waitingRaw.length ? waitingRaw.map(mapRow) : m.waiting,
+      recent: recentRaw.length ? recentRaw.map(mapRow) : m.recent,
+    };
+  }, [useReal, advancesApi]);
 
   const list = (rows) => (
     <Card padding={0} elevated="sm">
@@ -34,6 +84,10 @@ export default function OpsAdvancesScreen({ navigation }) {
       right={<View style={styles.count}><AppText mono weight="bold" color={colors.white}>3</AppText></View>}>
       <View style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {useReal && loading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+          ) : (
+            <>
           <Card elevated="sm" padding={16}>
             <View style={styles.budgetTop}>
               <AppText variant="label" muted>Out this month</AppText>
@@ -47,6 +101,8 @@ export default function OpsAdvancesScreen({ navigation }) {
           {list(a.waiting)}
           <SectionHeader label="Recent decisions" />
           {list(a.recent)}
+            </>
+          )}
         </ScrollView>
 
         <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }]}>

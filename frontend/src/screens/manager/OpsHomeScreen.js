@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,16 +7,50 @@ import { AppText, Card, colors, spacing, radius } from '../../components/ui';
 import ManagerShell from './ManagerShell';
 import { StatTile, SectionHeader, TONE } from '../../components/ui';
 import * as own from '../../demo/managerMock';
+import { useAuth } from '../../context/AuthContext';
+import { apiConfigured } from '../../services/client';
+import { useApi } from '../../hooks/useApi';
+import approvalService from '../../services/approvalService';
 
 /** M1 · Ops home — the shift at a glance. */
 export default function OpsHomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const o = own.opsHome;
+
+  // Real approvals summary when a backend is configured (else demo mock).
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { data: summaryApi, loading } = useApi(
+    () => approvalService.getApprovalsSummary(),
+    [],
+    { enabled: useReal, fallback: null },
+  );
+
+  // Merge the approvals summary onto the mock dashboard (per-field mock fallback).
+  // mapping to confirm against live API
+  const o = useMemo(() => {
+    const m = own.opsHome;
+    if (!useReal || !summaryApi) return m;
+    const s = summaryApi;
+    const total = s.total ?? s.pending ?? s.pendingCount ?? s.count;
+    const trips = s.blockedTrips ?? s.trips ?? s.tripsBlocked;
+    return {
+      ...m,
+      blocked: {
+        ...m.blocked,
+        items: total != null ? `${total} items` : m.blocked.items,
+        trips: trips != null ? `${trips} trips` : m.blocked.trips,
+      },
+    };
+  }, [useReal, summaryApi]);
 
   return (
     <ManagerShell title="Ops home" subtitle={`${o.name} · ${o.desk.replace('Ops desk · ', '')}`} navigation={navigation} active="OpsHome"
       right={<View style={styles.shift}><AppText variant="caption" mono weight="bold" color={colors.infoText}>{o.shift}</AppText></View>}>
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+        {useReal && loading ? (
+          <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+        ) : (
+          <>
         <Pressable onPress={() => navigation.navigate('OpsApprovals')}>
           <LinearGradient colors={colors.gradient} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={styles.hero}>
             <View style={styles.heroTop}>
@@ -56,6 +90,8 @@ export default function OpsHomeScreen({ navigation }) {
             </Card>
           </Pressable>
         ))}
+          </>
+        )}
       </ScrollView>
     </ManagerShell>
   );

@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import logger from '../utils/logger';
+import authService from '../services/authService';
+import { setSession, clearSession, setOnUnauthorized, apiConfigured } from '../services/client';
 
 const AuthContext = createContext();
 
@@ -8,35 +10,37 @@ const STORAGE_KEY_USER     = 'fleetedge_user';
 const STORAGE_KEY_TOKEN    = 'fleetedge_token';
 const STORAGE_KEY_IDENTITY = 'fleetedge_last_identity'; // "<userId>:<orgId>"
 
-// Keys that hold per-account state. Wipe these whenever the logged-in
-// identity changes or the user logs out. Add new keys here as they appear.
-const PER_ACCOUNT_KEYS = [
-  'fleetedge_selected_vehicle',
-  // future: 'fleetedge_draft_refuel', 'fleetedge_recent_locations', etc.
-];
+const PER_ACCOUNT_KEYS = ['fleetedge_selected_vehicle'];
+const wipePerAccountState = () => Promise.all(PER_ACCOUNT_KEYS.map((k) => AsyncStorage.removeItem(k)));
 
-const wipePerAccountState = () =>
-  Promise.all(PER_ACCOUNT_KEYS.map((k) => AsyncStorage.removeItem(k)));
-
-// Demo phone → role map. UI-only: any number not listed here signs in as a
-// driver so the rest of the prototype stays reachable during testing.
+// Demo phone → role map. Used ONLY when no backend URL is configured
+// (EXPO_PUBLIC_API_URL unset), so the prototype still runs offline.
 const DEMO_NUMBERS = {
   '9938250123': { role: 'OWNER', _id: 'demo-owner', name: 'Suresh Rao', orgId: 'demo-org' },
   '6371640884': { role: 'DRIVER', _id: 'demo-driver', name: 'Ramesh Yadav', orgId: 'demo-org' },
   '8319353177': { role: 'MANAGER', _id: 'demo-manager', name: 'Priya Deshmukh', orgId: 'demo-org' },
 };
-
 const resolveDemoProfile = (rawPhone) =>
   DEMO_NUMBERS[rawPhone] || { role: 'DRIVER', _id: 'demo-driver', name: 'Ramesh Yadav', orgId: 'demo-org' };
 
 export function AuthProvider({ children }) {
-  const [user, setUser]           = useState(null);
-  const [token, setToken]         = useState(null);
-  const [organization, setOrg]    = useState(null);
-  const [loading, setLoading]     = useState(true);
+  const [user, setUser]             = useState(null);
+  const [token, setToken]           = useState(null);
+  const [organization, setOrg]      = useState(null);
+  const [permissions, setPermissions] = useState({});
+  const [loading, setLoading]       = useState(true);
 
+  const persist = (u, t) =>
+    Promise.all([
+      AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(u)),
+      AsyncStorage.setItem(STORAGE_KEY_TOKEN, t),
+      AsyncStorage.setItem(STORAGE_KEY_IDENTITY, `${u._id}:${u.orgId}`),
+    ]);
+
+  // Restore a persisted session on cold start; validate/refresh via /me when a
+  // real backend is configured.
   useEffect(() => {
-    const loadSession = async () => {
+    (async () => {
       try {
         const [storedUser, storedToken, storedIdentity] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEY_USER),
@@ -49,34 +53,62 @@ export function AuthProvider({ children }) {
           if (storedIdentity && storedIdentity !== currentIdentity) {
             await wipePerAccountState();
             await AsyncStorage.setItem(STORAGE_KEY_IDENTITY, currentIdentity);
-            logger.warn('Auth', 'Identity drift detected — per-account state wiped', { prev: storedIdentity, curr: currentIdentity });
           }
           setUser(parsed);
           setToken(storedToken);
+          setSession({ token: storedToken, orgId: parsed.orgId || null });
           logger.info('Auth', `Session restored — role=${parsed.role} id=${parsed._id}`);
+
+          if (apiConfigured() && storedToken !== 'demo-token') {
+            try {
+              const me = await authService.getMe();
+              if (me?.user) {
+                setUser(me.user);
+                setOrg(me.organization || null);
+                setPermissions(me.permissions || {});
+                await persist(me.user, storedToken);
+              }
+            } catch (err) {
+              // 401 → interceptor already triggered logout; other errors: keep cached session.
+              logger.warn('Auth', `Session refresh failed: ${err?.message}`);
+            }
+          }
         }
       } catch (err) {
         logger.error('Auth', `Failed to restore session: ${err?.message}`);
       } finally {
         setLoading(false);
       }
-    };
-    loadSession();
+    })();
   }, []);
 
-  // UI-demo sign-in — sets a local mock session with NO backend call.
-  // Used by the onboarding flow so the prototype can reach the main app.
-  // Role is derived from the phone number entered (see DEMO_NUMBERS above).
+  /**
+   * Real login — email OR mobile + password (all roles). Falls back to the
+   * offline demo role-map when no backend URL is configured.
+   */
+  const login = async (emailOrMobile, password) => {
+    if (!apiConfigured()) {
+      const digits = String(emailOrMobile || '').replace(/\D/g, '');
+      return demoLogin({ rawPhone: digits });
+    }
+    const data = await authService.login(emailOrMobile, password); // throws on 401/etc
+    const loggedUser = data.user;
+    const jwt = data.token;
+    setSession({ token: jwt, orgId: loggedUser?.orgId || null });
+    await persist(loggedUser, jwt);
+    setUser(loggedUser);
+    setToken(jwt);
+    setOrg(data.organization || null);
+    setPermissions(data.permissions || {});
+    logger.info('Auth', `Login success — role=${loggedUser?.role} id=${loggedUser?._id}`);
+    return true;
+  };
+
+  // Offline demo sign-in (no backend). Role derived from the phone number.
   const demoLogin = async ({ rawPhone, ...profile } = {}) => {
-    const mockUser = {
-      ...resolveDemoProfile(rawPhone),
-      ...profile,
-    };
-    await Promise.all([
-      AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(mockUser)),
-      AsyncStorage.setItem(STORAGE_KEY_TOKEN, 'demo-token'),
-      AsyncStorage.setItem(STORAGE_KEY_IDENTITY, `${mockUser._id}:${mockUser.orgId}`),
-    ]);
+    const mockUser = { ...resolveDemoProfile(rawPhone), ...profile };
+    setSession({ token: 'demo-token', orgId: mockUser.orgId });
+    await persist(mockUser, 'demo-token');
     setUser(mockUser);
     setToken('demo-token');
     logger.info('Auth', 'Demo UI login (no backend)');
@@ -90,14 +122,26 @@ export function AuthProvider({ children }) {
       AsyncStorage.removeItem(STORAGE_KEY_IDENTITY),
       wipePerAccountState(),
     ]);
+    clearSession();
     setUser(null);
     setToken(null);
     setOrg(null);
+    setPermissions({});
     logger.info('Auth', 'User logged out — session cleared');
   };
 
+  // Fire logout on any 401 surfaced by the client.
+  useEffect(() => {
+    setOnUnauthorized(() => { logout(); });
+    return () => setOnUnauthorized(null);
+  }, []);
+
+  const hasPerm = (key) => user?.role === 'OWNER' || user?.role === 'SUPER_ADMIN' || permissions?.[key] === true;
+
   return (
-    <AuthContext.Provider value={{ user, token, organization, loading, demoLogin, logout }}>
+    <AuthContext.Provider
+      value={{ user, token, organization, permissions, loading, login, demoLogin, logout, hasPerm }}
+    >
       {children}
     </AuthContext.Provider>
   );

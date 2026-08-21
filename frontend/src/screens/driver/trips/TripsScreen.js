@@ -3,8 +3,21 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import dayjs from 'dayjs';
 import { AppText, Card, StatusBadge, colors, spacing, radius } from '../../../components/ui';
 import * as mock from '../../../demo/mock';
+import { useAuth } from '../../../context/AuthContext';
+import { apiConfigured } from '../../../services/client';
+import { useApi } from '../../../hooks/useApi';
+import tripService from '../../../services/tripService';
+
+const statusOf = (s) => {
+  const x = String(s || '').toLowerCase();
+  if (x.includes('cancel')) return 'cancelled';
+  if (x.includes('close') || x.includes('complete') || x.includes('settl')) return 'closed';
+  if (x.includes('pod') || x.includes('late')) return 'late';
+  return 'in_transit';
+};
 
 /**
  * 04 · My trips — filtered list. UI-only demo.
@@ -18,7 +31,29 @@ const TABS = [
 export default function TripsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('active');
-  const list = mock.trips.filter((tr) => tr.tab === tab);
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { data: tripsApi } = useApi(() => tripService.listTrips(), [], { enabled: useReal, fallback: null });
+
+  // Map API trips → card shape; fall back to mock when absent/empty.
+  // (mapping to confirm against live API)
+  const allTrips = React.useMemo(() => {
+    const rows = Array.isArray(tripsApi) ? tripsApi : tripsApi?.results || tripsApi?.trips || tripsApi?.data || [];
+    if (!useReal || !rows.length) return mock.trips;
+    return rows.map((t) => {
+      const s = statusOf(t.status);
+      return {
+        id: t.tripNumber || t.tripId || t._id || '',
+        status: s,
+        from: t.origin?.city || t.origin?.name || t.source || t.from || '—',
+        to: t.destination?.city || t.destination?.name || t.destination || t.to || '—',
+        meta: [t.startDate ? dayjs(t.startDate).format('DD MMM') : null, t.weight ? `${t.weight} t` : null].filter(Boolean).join(' · '),
+        tab: s === 'closed' ? 'completed' : s === 'cancelled' ? 'cancelled' : 'active',
+        action: s === 'late' ? 'Upload POD' : 'Open',
+      };
+    });
+  }, [useReal, tripsApi]);
+  const list = allTrips.filter((tr) => tr.tab === tab);
 
   const openTrip = (tr) => {
     if (tr.status === 'in_transit') navigation.navigate('ActiveTrip');

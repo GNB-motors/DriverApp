@@ -1,21 +1,52 @@
-import React from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppText, Card, BarChart, ProgressBar, colors, spacing, radius } from '../../components/ui';
 import OwnerShell from './OwnerShell';
 import { StatTile, SectionHeader } from '../../components/ui';
 import * as own from '../../demo/ownerMock';
+import { useAuth } from '../../context/AuthContext';
+import { apiConfigured } from '../../services/client';
+import { useApi } from '../../hooks/useApi';
+import ownerService from '../../services/ownerService';
 
 /** O9 · ERP overview — how the business is doing. */
 export default function OwnerErpScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const e = own.erp;
+  const erp = own.erp;
+
+  // ERP overview → real when a backend is configured (else demo mock).
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { data: erpApi, loading: erpLoading } = useApi(
+    () => ownerService.getErpDashboard(),
+    [],
+    { enabled: useReal, fallback: null },
+  );
+
+  // mapping to confirm against live API — spread mock first so unknown fields keep mock values.
+  const e = useMemo(() => {
+    if (!useReal || !erpApi) return erp;
+    const fmt = (v) => `₹${Number(v).toLocaleString('en-IN')}`;
+    return {
+      ...erp,
+      margin: erpApi.netMargin != null ? fmt(erpApi.netMargin) : (erpApi.margin ?? erp.margin),
+      marginPct: erpApi.marginPct != null ? `${erpApi.marginPct}%` : erp.marginPct,
+      delta: erpApi.delta ?? erp.delta,
+      revenue: erpApi.revenue != null ? `Revenue ${fmt(erpApi.revenue)}` : erp.revenue,
+      cost: erpApi.cost != null ? `Cost ${fmt(erpApi.cost)}` : erp.cost,
+      months: Array.isArray(erpApi.months) && erpApi.months.length ? erpApi.months : erp.months,
+      costBreak: Array.isArray(erpApi.costBreak) && erpApi.costBreak.length ? erpApi.costBreak : erp.costBreak,
+      perUnit: Array.isArray(erpApi.perUnit) && erpApi.perUnit.length ? erpApi.perUnit : erp.perUnit,
+    };
+  }, [useReal, erpApi, erp]);
 
   return (
     <OwnerShell title="Business overview" subtitle="July 2026 · 18 trucks" navigation={navigation} active="OwnerErp"
       right={<View style={styles.monthPill}><AppText variant="caption" weight="bold" muted>July</AppText></View>}>
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+        {useReal && erpLoading ? <ActivityIndicator color={colors.primary} style={{ marginBottom: 4 }} /> : null}
         <LinearGradient colors={colors.gradient} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={styles.hero}>
           <View style={styles.heroTop}>
             <AppText variant="label" color={colors.onPrimaryMuted}>Net margin</AppText>

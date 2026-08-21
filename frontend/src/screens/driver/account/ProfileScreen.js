@@ -13,8 +13,18 @@ import * as mock from '../../../demo/mock';
  */
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { logout } = useAuth();
-  const { driver, wallet } = mock;
+  const { logout, user } = useAuth();
+  const { wallet } = mock;
+
+  // Identity from the signed-in user (real or demo); mock fills any gaps.
+  const fullName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  const driver = {
+    name: fullName || mock.driver.name,
+    phone: user?.mobileNumber || user?.email || mock.driver.phone,
+    role: user?.role ? user.role.charAt(0) + user.role.slice(1).toLowerCase().replace(/_/g, ' ') : mock.driver.role,
+    initials: ((fullName || mock.driver.name).trim()[0] || 'R').toUpperCase(),
+    tripsThisMonth: mock.driver.tripsThisMonth,
+  };
 
   const group1 = [
     { icon: 'navigate-outline', title: 'My trips', right: <AppText mono variant="bodyStrong" weight="semibold">{driver.tripsThisMonth}</AppText>, onPress: () => navigation.navigate('Trips') },

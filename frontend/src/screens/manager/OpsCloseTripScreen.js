@@ -1,20 +1,62 @@
-import React from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, ScrollView, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, WarningBanner, colors, spacing } from '../../components/ui';
 import { BackHeader, Pill, SectionHeader, toneColor } from '../../components/ui';
 import * as own from '../../demo/managerMock';
+import { useAuth } from '../../context/AuthContext';
+import { apiConfigured } from '../../services/client';
+import { useApi } from '../../hooks/useApi';
+import { useSubmit } from '../../hooks/useSubmit';
+import managerService from '../../services/managerService';
 
 /** M6 · Close trip — the settlement check. */
-export default function OpsCloseTripScreen({ navigation }) {
+export default function OpsCloseTripScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const c = own.opsClose;
+
+  // Real ERP trip by id from route params (else stay on demo mock).
+  const id = route?.params?.id;
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token' && !!id;
+  const { submit, busy } = useSubmit();
+  const onClose = () => {
+    const go = () => navigation.navigate('OpsTrips');
+    if (!useReal) return go();
+    return submit(() => managerService.closeErpTrip(id), {
+      onSuccess: go,
+      onError: (e) => Alert.alert('Close failed', e?.message || 'Please try again.'),
+    });
+  };
+  const { data: tripApi, loading } = useApi(
+    () => managerService.getErpTrip(id),
+    [id],
+    { enabled: useReal, fallback: null },
+  );
+
+  // Merge the ERP trip header/totals onto the mock settlement (checklist/account stay mock).
+  // mapping to confirm against live API
+  const c = useMemo(() => {
+    const m = own.opsClose;
+    if (!useReal || !tripApi) return m;
+    const d = tripApi;
+    return {
+      ...m,
+      id: d.tripNo || d.code || d.id || d._id || m.id,
+      route: d.route || [d.origin || d.from, d.destination || d.to].filter(Boolean).join(' → ') || m.route,
+      km: d.km != null ? `${d.km} km` : m.km,
+      margin: d.margin != null ? `₹${Number(d.margin).toLocaleString('en-IN')}` : m.margin,
+    };
+  }, [useReal, tripApi]);
 
   return (
     <View style={styles.container}>
       <BackHeader title={`Close ${c.id}`} subtitle={c.route} onBack={() => navigation.goBack()} right={<Pill tone="success" label="Ready" />} />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {useReal && loading ? (
+          <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+        ) : (
+          <>
         <Card elevated="sm" padding={16}>
           <SectionHeader label="Checklist" right={<Pill tone="success" label="All clear" />} />
           {c.checklist.map((row, i) => (
@@ -41,10 +83,12 @@ export default function OpsCloseTripScreen({ navigation }) {
         </Card>
 
         <WarningBanner tone="info" message="Closing releases ₹2,400 into Imran's wallet and locks the trip from further edits." />
+          </>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Button size="lg" label="Close and settle" onPress={() => navigation.navigate('OpsTrips')} />
+        <Button size="lg" label="Close and settle" loading={busy} onPress={onClose} />
       </View>
     </View>
   );

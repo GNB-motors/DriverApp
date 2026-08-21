@@ -1,17 +1,54 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, SegmentedControl, colors, spacing, radius } from '../../components/ui';
 import OwnerShell from './OwnerShell';
 import { Monogram, SectionHeader } from '../../components/ui';
 import * as own from '../../demo/ownerMock';
+import { useAuth } from '../../context/AuthContext';
+import { apiConfigured } from '../../services/client';
+import { useApi } from '../../hooks/useApi';
+import ownerService from '../../services/ownerService';
 
 /** O5 · Money — payables and receivables. */
 export default function OwnerMoneyScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('pay');
-  const m = own.ownerMoney;
+  const money = own.ownerMoney;
+
+  // Khata driver list → real when a backend is configured (else demo mock).
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { data: khataApi, loading: khataLoading } = useApi(
+    () => ownerService.listKhataDrivers(),
+    [],
+    { enabled: useReal, fallback: null },
+  );
+
+  // mapping to confirm against live API — map driver rows to the list shape;
+  // summary scalars stay on mock unless the API provides them.
+  const m = useMemo(() => {
+    if (!useReal || !khataApi) return money;
+    const rows = Array.isArray(khataApi)
+      ? khataApi
+      : khataApi.drivers || khataApi.items || khataApi.results || khataApi.data || [];
+    if (!rows.length) return money;
+    const list = rows.map((r, i) => {
+      const mm = money.list[i] || {};
+      const name = r.driverName || r.name || r.driver?.name || mm.name;
+      const initials = r.initials
+        || (name ? name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase() : mm.initials);
+      const bal = r.balance ?? r.owed ?? r.netBalance ?? r.amount;
+      return {
+        initials,
+        name,
+        meta: r.meta || mm.meta,
+        amount: bal != null ? `₹${Number(bal).toLocaleString('en-IN')}` : mm.amount,
+      };
+    });
+    return { ...money, list };
+  }, [useReal, khataApi, money]);
 
   return (
     <OwnerShell title="Money" navigation={navigation} active="OwnerMoney">
@@ -32,7 +69,9 @@ export default function OwnerMoneyScreen({ navigation }) {
 
           <SectionHeader label="By driver" />
           <Card padding={0} elevated="sm">
-            {m.list.map((d, i) => (
+            {useReal && khataLoading ? (
+              <ActivityIndicator color={colors.primary} style={{ margin: 24 }} />
+            ) : m.list.map((d, i) => (
               <Pressable key={d.initials} onPress={() => navigation.navigate('OwnerDriver')} style={[styles.driver, i > 0 && styles.divider]}>
                 <Monogram initials={d.initials} size={40} />
                 <View style={{ flex: 1, gap: 3 }}>

@@ -1,14 +1,70 @@
-import React from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Card, WarningBanner, colors, spacing } from '../../components/ui';
 import { BackHeader, Pill, LedgerRow, SectionHeader, toneColor } from '../../components/ui';
 import * as own from '../../demo/ownerMock';
+import { useAuth } from '../../context/AuthContext';
+import { apiConfigured } from '../../services/client';
+import { useApi } from '../../hooks/useApi';
+import walletService from '../../services/walletService';
 
 /** O6 · Driver account — settle up. */
-export default function OwnerDriverScreen({ navigation }) {
+export default function OwnerDriverScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const d = own.ownerDriver;
+  const driver = own.ownerDriver;
+
+  // Driver ledger + balance summary → real when a backend is configured and we
+  // have a driver id (route param, else the mock's id). Otherwise demo mock.
+  const { token } = useAuth();
+  const driverId = route?.params?.driverId || route?.params?.id || driver.id || driver._id || null;
+  const useReal = apiConfigured() && !!driverId && !!token && token !== 'demo-token';
+  const { data: summaryApi, loading: summaryLoading } = useApi(
+    () => walletService.getDriverSummary(driverId),
+    [driverId],
+    { enabled: useReal, fallback: null },
+  );
+  const { data: ledgerApi, loading: ledgerLoading } = useApi(
+    () => walletService.getDriverLedger(driverId),
+    [driverId],
+    { enabled: useReal, fallback: null },
+  );
+
+  // mapping to confirm against live API — spread mock first; breakdown shape is
+  // unconfirmed so it stays on mock.
+  const d = useMemo(() => {
+    if (!useReal || (!summaryApi && !ledgerApi)) return driver;
+    const s = summaryApi || {};
+    const owe = s.balance ?? s.owe ?? s.netBalance ?? s.amount;
+    const raw = Array.isArray(ledgerApi)
+      ? ledgerApi
+      : (ledgerApi?.entries || ledgerApi?.results || ledgerApi?.rows || []);
+    const ledger = raw.length
+      ? raw.map((e, i) => {
+          const lm = driver.ledger[i] || {};
+          const amt = e.amount ?? e.delta;
+          const credit = /cred/i.test(String(e.direction || e.dir || e.type || ''))
+            || (amt != null && Number(amt) >= 0);
+          const bal = e.runningBalance ?? e.balance;
+          return {
+            title: e.title || e.category || e.description || lm.title,
+            meta: e.meta || e.remarks || lm.meta,
+            delta: amt != null
+              ? `${credit ? '+' : '−'}₹${Math.abs(Number(amt)).toLocaleString('en-IN')}`
+              : lm.delta,
+            dir: e.dir || (credit ? 'credit' : 'debit'),
+            balance: bal != null ? `₹${Number(bal).toLocaleString('en-IN')}` : lm.balance,
+          };
+        })
+      : driver.ledger;
+    return {
+      ...driver,
+      name: s.driverName || s.name || driver.name,
+      plate: s.vehicleNumber || s.plate || driver.plate,
+      owe: owe != null ? `₹${Number(owe).toLocaleString('en-IN')}` : driver.owe,
+      ledger,
+    };
+  }, [useReal, summaryApi, ledgerApi, driver]);
 
   return (
     <View style={styles.container}>
@@ -28,7 +84,9 @@ export default function OwnerDriverScreen({ navigation }) {
 
         <SectionHeader label="Ledger" />
         <Card padding={0} elevated="sm">
-          {d.ledger.map((e, i) => (
+          {useReal && (ledgerLoading || summaryLoading) ? (
+            <ActivityIndicator color={colors.primary} style={{ margin: 24 }} />
+          ) : d.ledger.map((e, i) => (
             <View key={e.title}>
               {i > 0 ? <View style={styles.rowDivider} /> : null}
               <LedgerRow item={e} />

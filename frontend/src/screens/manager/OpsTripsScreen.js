@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, colors, spacing, radius } from '../../components/ui';
 import ManagerShell from './ManagerShell';
 import { Pill, RouteLine, toneColor } from '../../components/ui';
 import * as own from '../../demo/managerMock';
+import { useAuth } from '../../context/AuthContext';
+import { apiConfigured } from '../../services/client';
+import { useApi } from '../../hooks/useApi';
+import managerService from '../../services/managerService';
 
 const TABS = [{ key: 'running', label: 'Running 14' }, { key: 'blocked', label: 'Blocked 3' }, { key: 'close', label: 'To close 4' }];
 
@@ -13,6 +17,37 @@ const TABS = [{ key: 'running', label: 'Running 14' }, { key: 'blocked', label: 
 export default function OpsTripsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('running');
+
+  // Real ERP trips when a backend is configured (else demo mock).
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { data: tripsApi, loading } = useApi(
+    () => managerService.listErpTrips(),
+    [],
+    { enabled: useReal, fallback: null },
+  );
+
+  // Normalize ERP trips → the board row shape (falls back to mock when empty).
+  // mapping to confirm against live API
+  const trips = useMemo(() => {
+    if (!useReal || !tripsApi) return own.opsTrips;
+    const rows = Array.isArray(tripsApi) ? tripsApi : (tripsApi.results || tripsApi.rows || tripsApi.items || tripsApi.data || []);
+    if (!rows.length) return own.opsTrips;
+    return rows.map((e, i) => {
+      const route = Array.isArray(e.route) ? e.route : [e.origin || e.from || e.source, e.destination || e.to || e.dest];
+      return {
+        id: e.tripNo || e.code || e.id || e._id || String(i),
+        status: e.status || e.state || 'in_transit',
+        badge: e.badge || e.statusLabel || e.status || 'In transit',
+        route: [route[0] || '—', route[1] || '—'],
+        foot: e.foot || [e.driverName || e.driver, e.stage].filter(Boolean).join(' · '),
+        meta: e.meta || e.eta || undefined,
+        action: e.action,
+        actionTone: e.actionTone,
+        metaColor: e.metaColor,
+      };
+    });
+  }, [useReal, tripsApi]);
 
   return (
     <ManagerShell title="Trips" navigation={navigation} active="OpsTrips"
@@ -27,7 +62,10 @@ export default function OpsTripsScreen({ navigation }) {
           ))}
         </View>
         <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
-          {own.opsTrips.map((t) => (
+          {useReal && loading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+          ) : (
+            trips.map((t) => (
             <Card key={t.id} elevated="sm" padding={14} onPress={() => navigation.navigate('OpsTripDetail')} style={[t.status === 'error' && styles.errBorder, t.status === 'pending' && styles.warnBorder]}>
               <View style={styles.top}>
                 <AppText mono variant="bodyStrong" weight="semibold">{t.id}</AppText>
@@ -44,7 +82,7 @@ export default function OpsTripsScreen({ navigation }) {
                 )}
               </View>
             </Card>
-          ))}
+          )))}
         </ScrollView>
       </View>
     </ManagerShell>

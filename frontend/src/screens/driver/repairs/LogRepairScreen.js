@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, KeyboardAvoidingView, Platform, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Chip, TextField, PhotoUploader, colors, spacing, radius } from '../../../components/ui';
 import * as mock from '../../../demo/mock';
+import { useAuth } from '../../../context/AuthContext';
+import { apiConfigured } from '../../../services/client';
+import { useSubmit } from '../../../hooks/useSubmit';
+import maintenanceService from '../../../services/maintenanceService';
 
 /**
  * 22 · Log a repair — parts and labour. UI-only demo.
@@ -16,6 +20,18 @@ export default function LogRepairScreen({ navigation }) {
   const [parts, setParts] = useState('6,900');
   const [labour, setLabour] = useState('1,500');
   const [photos, setPhotos] = useState([{ name: 'wrench', quality: 'ok' }, { name: 'bill', quality: 'ok' }]);
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { submit, busy } = useSubmit();
+  const totalNum = () =>
+    (parseInt(String(parts).replace(/[^0-9]/g, ''), 10) || 0) + (parseInt(String(labour).replace(/[^0-9]/g, ''), 10) || 0);
+  const onSave = () => {
+    if (!useReal) return navigation.goBack();
+    return submit(
+      () => maintenanceService.createMaintenance({ recordType: 'REPAIR', type: category, notes: work, amount: totalNum(), workshop: 'Sai Auto Works' }),
+      { onSuccess: () => navigation.goBack(), onError: (e) => Alert.alert('Could not save', e?.message || 'Please try again.') },
+    );
+  };
 
   const total = () => {
     const n = (parseInt(String(parts).replace(/[^0-9]/g, ''), 10) || 0) + (parseInt(String(labour).replace(/[^0-9]/g, ''), 10) || 0);
@@ -68,7 +84,7 @@ export default function LogRepairScreen({ navigation }) {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Button size="lg" label="Save repair log" onPress={() => navigation.goBack()} />
+        <Button size="lg" label="Save repair log" loading={busy} onPress={onSave} />
       </View>
     </KeyboardAvoidingView>
   );

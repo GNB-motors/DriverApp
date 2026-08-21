@@ -5,13 +5,38 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, StatusBadge, WarningBanner, colors, spacing, radius } from '../../../components/ui';
 import * as mock from '../../../demo/mock';
+import { useAuth } from '../../../context/AuthContext';
+import { apiConfigured } from '../../../services/client';
+import { useApi } from '../../../hooks/useApi';
+import documentService from '../../../services/documentService';
 
 /**
- * 23 · Documents — validity at a glance. UI-only demo.
+ * 23 · Documents — validity at a glance.
  */
 export default function MyDocumentsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const docs = mock.documents;
+  const { user, token } = useAuth();
+  const useReal = apiConfigured() && !!user?._id && !!token && token !== 'demo-token';
+  const { data: docsApi } = useApi(
+    () => documentService.listDocuments('USER', user._id),
+    [user?._id],
+    { enabled: useReal, fallback: null },
+  );
+
+  // Map API documents → row shape; fall back to mock when absent/empty.
+  // (mapping to confirm against live API)
+  const docs = React.useMemo(() => {
+    const rows = Array.isArray(docsApi) ? docsApi : docsApi?.results || docsApi?.data || [];
+    if (!useReal || !rows.length) return mock.documents;
+    return rows.map((d, i) => ({
+      id: d._id || String(i),
+      title: d.docType || d.title || 'Document',
+      status: d.expiryDate ? 'valid' : 'verified',
+      badge: undefined,
+      meta: [d.number || d.docNumber, d.expiryDate ? `valid to ${d.expiryDate}` : 'no expiry'].filter(Boolean).join(' · '),
+      ok: true,
+    }));
+  }, [useReal, docsApi]);
   const expiring = docs.filter((d) => !d.ok).length;
 
   return (

@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import dayjs from 'dayjs';
 import {
   AppText, Button, Card, StatusBadge, SegmentedControl, ProgressBar, WarningBanner,
   colors, spacing, radius,
 } from '../../../components/ui';
 import * as mock from '../../../demo/mock';
+import { useAuth } from '../../../context/AuthContext';
+import { apiConfigured } from '../../../services/client';
+import { useApi } from '../../../hooks/useApi';
+import walletService from '../../../services/walletService';
 
 /**
  * 06 / 07 / 08 · Wallet — Bills, Ledger and empty state. UI-only demo.
@@ -18,6 +23,37 @@ export default function WalletScreen({ navigation }) {
   const [tab, setTab] = useState('bills');
   const { wallet, bills, ledger, spendByCategory } = mock;
   const isEmpty = bills.length === 0;
+
+  // Ledger tab → real khata when a backend is configured (else demo mock).
+  const { user, token } = useAuth();
+  const driverId = user?._id;
+  const useReal = apiConfigured() && !!driverId && !!token && token !== 'demo-token';
+  const { data: ledgerApi, loading: ledgerLoading } = useApi(
+    () => walletService.getDriverLedger(driverId),
+    [driverId],
+    { enabled: useReal, fallback: null },
+  );
+
+  // Map khata entries → the LedgerView row shape. (Field mapping to confirm
+  // against live responses; falls back to mock when absent/empty.)
+  const ledgerRows = useMemo(() => {
+    if (!useReal || !ledgerApi) return ledger;
+    const entries = Array.isArray(ledgerApi)
+      ? ledgerApi
+      : ledgerApi.entries || ledgerApi.results || ledgerApi.rows || [];
+    if (!entries.length) return ledger;
+    return entries.map((e, i) => {
+      const when = e.expenseDate || e.date;
+      return {
+        id: e._id || String(i),
+        title: e.title || e.category || 'Entry',
+        meta: [when ? dayjs(when).format('DD MMM') : null, e.category].filter(Boolean).join(' · '),
+        delta: `+₹${Number(e.amount || 0).toLocaleString('en-IN')}`,
+        dir: 'credit',
+        balance: e.runningBalance != null ? `₹${Number(e.runningBalance).toLocaleString('en-IN')}` : undefined,
+      };
+    });
+  }, [useReal, ledgerApi, ledger]);
 
   return (
     <View style={styles.container}>
@@ -65,8 +101,10 @@ export default function WalletScreen({ navigation }) {
             ) : (
               bills.map((b) => <BillRow key={b.id} bill={b} onResubmit={() => navigation.navigate('AddBill')} />)
             )
+          ) : useReal && ledgerLoading ? (
+            <ActivityIndicator color={colors.primary} style={styles.loader} />
           ) : (
-            <LedgerView ledger={ledger} spend={spendByCategory} />
+            <LedgerView ledger={ledgerRows} spend={spendByCategory} />
           )}
         </ScrollView>
 
@@ -168,6 +206,7 @@ const styles = StyleSheet.create({
   sheet: { flex: 1, backgroundColor: colors.background, borderTopLeftRadius: 26, borderTopRightRadius: 26, marginTop: -18, paddingTop: 16 },
   segment: { marginHorizontal: 20 },
   scroll: { paddingHorizontal: 20, paddingTop: 14, gap: 10 },
+  loader: { marginTop: 48 },
 
   empty: { alignItems: 'center', paddingTop: 40, gap: 8 },
   emptyIcon: { width: 96, height: 96, borderRadius: 28, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },

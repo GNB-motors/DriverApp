@@ -4,14 +4,41 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, StatusBadge, colors, spacing, radius } from '../../../components/ui';
+import dayjs from 'dayjs';
 import * as mock from '../../../demo/mock';
+import { useAuth } from '../../../context/AuthContext';
+import { apiConfigured } from '../../../services/client';
+import { useApi } from '../../../hooks/useApi';
+import maintenanceService from '../../../services/maintenanceService';
 
 /**
  * 21 · Repairs — logs for this truck. UI-only demo.
  */
 export default function RepairsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const r = mock.repairs;
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { data: maintApi } = useApi(() => maintenanceService.listMaintenance(), [], { enabled: useReal, fallback: null });
+
+  // Map maintenance records → repair-log cards; KPIs keep mock until confirmed.
+  // (mapping to confirm against live API)
+  const r = React.useMemo(() => {
+    const rows = Array.isArray(maintApi) ? maintApi : maintApi?.results || maintApi?.data || [];
+    if (!useReal || !rows.length) return mock.repairs;
+    const logs = rows.map((m, i) => {
+      const st = String(m.status || '').toLowerCase();
+      return {
+        id: m._id || String(i),
+        title: m.type || m.workshop || 'Repair',
+        status: st.includes('workshop') || st.includes('progress') ? 'in_workshop' : 'done',
+        amount: m.amount != null ? `₹${Number(m.amount).toLocaleString('en-IN')}` : '',
+        desc: m.notes || m.workshop || '',
+        meta: [m.date ? dayjs(m.date).format('DD MMM') : null, m.odometer ? `${m.odometer} km` : null].filter(Boolean).join(' · '),
+        photos: (m.attachments?.length || m.photos?.length) ? `${m.attachments?.length || m.photos.length} photos` : 'No photo',
+      };
+    });
+    return { ...mock.repairs, logs };
+  }, [useReal, maintApi]);
 
   return (
     <View style={styles.container}>

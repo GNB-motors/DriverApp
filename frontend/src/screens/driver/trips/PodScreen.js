@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,11 @@ import {
   KeyValueTable, KeyValueRow, colors, spacing, radius,
 } from '../../../components/ui';
 import * as mock from '../../../demo/mock';
+import { useAuth } from '../../../context/AuthContext';
+import { apiConfigured } from '../../../services/client';
+import { useSubmit } from '../../../hooks/useSubmit';
+import podService from '../../../services/podService';
+import { pickFromCamera, pickFromGallery } from '../../../utils/pickImage';
 
 /**
  * 27 · Proof of delivery — at unload. UI-only demo.
@@ -18,6 +23,19 @@ export default function PodScreen({ navigation }) {
   const [photo, setPhoto] = useState({ name: 'POD_4802', quality: 'ok' });
   const [condition, setCondition] = useState('No damage');
   const [remarks, setRemarks] = useState('');
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { submit, busy } = useSubmit();
+
+  const capture = async () => { const f = await pickFromCamera(); if (f) setPhoto({ name: f.name, quality: 'ok', file: f }); };
+  const captureFromGallery = async () => { const f = await pickFromGallery(); if (f) setPhoto({ name: f.name, quality: 'ok', file: f }); };
+  const onSubmit = () => {
+    if (!useReal) return navigation.goBack();
+    return submit(
+      () => podService.uploadPod({ tripId: p.trip, condition, receiver: p.receiver, remarks, file: photo?.file }),
+      { onSuccess: () => navigation.goBack(), onError: (e) => Alert.alert('Submit failed', e?.message || 'Please try again.') },
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -44,7 +62,8 @@ export default function PodScreen({ navigation }) {
           title="Signed POD copy"
           required
           photos={photo ? [photo] : []}
-          onCapture={() => setPhoto({ name: 'POD_4802', quality: 'ok' })}
+          onCapture={capture}
+          onPick={captureFromGallery}
           onRemove={() => setPhoto(null)}
           note="Stamp and signature visible"
           style={styles.gap}
@@ -60,7 +79,7 @@ export default function PodScreen({ navigation }) {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Button size="lg" icon="checkmark-circle-outline" label="Submit POD and close trip" disabled={!photo} onPress={() => navigation.goBack()} />
+        <Button size="lg" icon="checkmark-circle-outline" label="Submit POD and close trip" loading={busy} disabled={!photo || busy} onPress={onSubmit} />
       </View>
     </View>
   );

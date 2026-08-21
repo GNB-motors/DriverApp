@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,16 +7,58 @@ import { AppText, Card, ProgressBar, colors, spacing, radius } from '../../compo
 import OwnerShell from './OwnerShell';
 import { StatTile, SectionHeader } from '../../components/ui';
 import * as own from '../../demo/ownerMock';
+import { useAuth } from '../../context/AuthContext';
+import { apiConfigured } from '../../services/client';
+import { useApi } from '../../hooks/useApi';
+import ownerService from '../../services/ownerService';
+import approvalService from '../../services/approvalService';
 
 /** O4 · Owner dashboard — the morning look. */
 export default function OwnerDashboardScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const d = own.ownerDashboard;
+  const dash = own.ownerDashboard;
+
+  // ERP dashboard + approvals summary → real when a backend is configured (else demo mock).
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { data: erpApi, loading: erpLoading } = useApi(
+    () => ownerService.getErpDashboard(),
+    [],
+    { enabled: useReal, fallback: null },
+  );
+  const { data: apprSummary } = useApi(
+    () => approvalService.getApprovalsSummary(),
+    [],
+    { enabled: useReal, fallback: null },
+  );
+
+  // mapping to confirm against live API — spread mock first so unknown fields keep mock values.
+  const d = useMemo(() => {
+    if (!useReal || (!erpApi && !apprSummary)) return dash;
+    const e = erpApi || {};
+    const a = apprSummary || {};
+    const fmt = (v) => `₹${Number(v).toLocaleString('en-IN')}`;
+    return {
+      ...dash,
+      name: e.ownerName || e.name || dash.name,
+      company: e.companyName || e.company || dash.company,
+      needs: {
+        ...dash.needs,
+        bills: a.pendingCount != null ? `${a.pendingCount} bills` : dash.needs.bills,
+        waiting: a.pendingTotal != null ? `${fmt(a.pendingTotal)} waiting for confirmation` : dash.needs.waiting,
+        items: a.itemsCount != null ? `${a.itemsCount} items` : dash.needs.items,
+      },
+      stats: Array.isArray(e.stats) && e.stats.length ? e.stats : dash.stats,
+      fleetNow: Array.isArray(e.fleetNow) && e.fleetNow.length ? e.fleetNow : dash.fleetNow,
+      week: Array.isArray(e.week) && e.week.length ? e.week : dash.week,
+    };
+  }, [useReal, erpApi, apprSummary, dash]);
 
   return (
     <OwnerShell title="Dashboard" subtitle={`${d.name} · ${d.company}`} navigation={navigation} active="OwnerDashboard"
       right={<View style={styles.bell}><Ionicons name="notifications-outline" size={20} color={colors.text} /><View style={styles.bellDot} /></View>}>
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+        {useReal && erpLoading ? <ActivityIndicator color={colors.primary} style={{ marginBottom: 4 }} /> : null}
         <Pressable onPress={() => navigation.navigate('OwnerApprovals')}>
           <LinearGradient colors={colors.gradient} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={styles.hero}>
             <View style={styles.heroTop}>

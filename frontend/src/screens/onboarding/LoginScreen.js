@@ -3,26 +3,37 @@ import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../context/AuthContext';
 import { AppText, Button, bodyFont, colors, spacing, radius } from '../../components/ui';
 
 /**
- * Employee sign-in — email + phone + password (password auth for now; OTP flow
- * kept in OtpScreen for later). UI-only: valid-looking input signs in, and the
- * phone number still drives the demo role (driver / owner / manager).
+ * Sign in — email OR mobile + password (all roles: driver / owner / manager).
+ * Calls AuthContext.login; on success the role-based navigator swaps to the
+ * right stack. Offline (no EXPO_PUBLIC_API_URL) it falls back to the demo map.
  */
 export default function LoginScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const { login } = useAuth();
+  const [emailOrMobile, setEmailOrMobile] = useState('');
   const [password, setPassword] = useState('');
   const [hidden, setHidden] = useState(true);
   const [focus, setFocus] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
 
-  const emailOk = /^\S+@\S+\.\S+$/.test(email);
-  const phoneOk = phone.replace(/\D/g, '').length === 10;
-  const ready = emailOk && phoneOk && password.length >= 4;
+  const ready = emailOrMobile.trim().length > 0 && password.length >= 1;
 
-  const signIn = () => navigation.navigate('SetPin', { rawPhone: phone.replace(/\D/g, '') });
+  const signIn = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await login(emailOrMobile.trim(), password);
+      // success → AppNavigator switches to the role stack; nothing to navigate.
+    } catch (e) {
+      setError(e?.message || 'Sign in failed. Check your details and try again.');
+      setBusy(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -36,50 +47,31 @@ export default function LoginScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <AppText variant="h1" weight="extrabold">Sign in</AppText>
         <AppText variant="body" muted style={styles.subtitle}>
-          Enter your work email, phone number and password to continue.
+          Use your work email or mobile number and password.
         </AppText>
 
-        {/* Email */}
-        <AppText variant="label" muted style={styles.label}>Email</AppText>
-        <View style={[styles.field, focus === 'email' && styles.fieldFocused]}>
-          <Ionicons name="mail-outline" size={18} color={colors.textMuted} />
+        {/* Email or mobile */}
+        <AppText variant="label" muted style={styles.label}>Email or mobile</AppText>
+        <View style={[styles.field, focus === 'id' && styles.fieldFocused]}>
+          <Ionicons name="person-outline" size={18} color={colors.textMuted} />
           <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@company.com"
+            value={emailOrMobile}
+            onChangeText={setEmailOrMobile}
+            placeholder="you@company.com or 98220 41188"
             placeholderTextColor={colors.textMuted}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
-            onFocus={() => setFocus('email')}
+            autoFocus
+            onFocus={() => setFocus('id')}
             onBlur={() => setFocus(null)}
             style={[styles.input, { fontFamily: bodyFont('en', 'medium') }]}
           />
-          {emailOk ? <Ionicons name="checkmark-circle" size={18} color={colors.success} /> : null}
-        </View>
-
-        {/* Phone */}
-        <AppText variant="label" muted style={styles.label}>Phone number</AppText>
-        <View style={[styles.field, focus === 'phone' && styles.fieldFocused]}>
-          <AppText mono weight="semibold" color={colors.text}>+91</AppText>
-          <View style={styles.vline} />
-          <TextInput
-            value={phone}
-            onChangeText={(t) => setPhone(t.replace(/\D/g, '').slice(0, 10))}
-            placeholder="00000 00000"
-            placeholderTextColor={colors.textMuted}
-            keyboardType="number-pad"
-            maxLength={10}
-            onFocus={() => setFocus('phone')}
-            onBlur={() => setFocus(null)}
-            style={[styles.input, styles.mono, { fontFamily: bodyFont('en', 'medium') }]}
-          />
-          {phoneOk ? <Ionicons name="checkmark-circle" size={18} color={colors.success} /> : null}
         </View>
 
         {/* Password */}
         <AppText variant="label" muted style={styles.label}>Password</AppText>
-        <View style={[styles.field, focus === 'password' && styles.fieldFocused]}>
+        <View style={[styles.field, focus === 'pw' && styles.fieldFocused]}>
           <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} />
           <TextInput
             value={password}
@@ -89,8 +81,9 @@ export default function LoginScreen({ navigation }) {
             secureTextEntry={hidden}
             autoCapitalize="none"
             autoCorrect={false}
-            onFocus={() => setFocus('password')}
+            onFocus={() => setFocus('pw')}
             onBlur={() => setFocus(null)}
+            onSubmitEditing={() => ready && signIn()}
             style={[styles.input, { fontFamily: bodyFont('en', 'medium') }]}
           />
           <Pressable onPress={() => setHidden((h) => !h)} hitSlop={8}>
@@ -98,13 +91,20 @@ export default function LoginScreen({ navigation }) {
           </Pressable>
         </View>
 
+        {error ? (
+          <View style={styles.errorRow}>
+            <Ionicons name="alert-circle" size={15} color={colors.error} />
+            <AppText variant="small" color={colors.error} style={{ flex: 1 }}>{error}</AppText>
+          </View>
+        ) : null}
+
         <Pressable style={styles.forgot} hitSlop={6} onPress={() => {}}>
           <AppText variant="small" weight="bold" color={colors.primary}>Forgot password?</AppText>
         </Pressable>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Button label="Sign in" size="lg" iconRight="arrow-forward" disabled={!ready} onPress={signIn} />
+        <Button label="Sign in" size="lg" iconRight="arrow-forward" loading={busy} disabled={!ready || busy} onPress={signIn} />
       </View>
     </KeyboardAvoidingView>
   );
@@ -124,8 +124,7 @@ const styles = StyleSheet.create({
   },
   fieldFocused: { borderColor: colors.primary },
   input: { flex: 1, fontSize: 16, color: colors.text, padding: 0 },
-  mono: { letterSpacing: 1 },
-  vline: { width: 1, height: 24, backgroundColor: colors.border },
+  errorRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   forgot: { alignSelf: 'flex-end', marginTop: 12 },
   footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border },
 });

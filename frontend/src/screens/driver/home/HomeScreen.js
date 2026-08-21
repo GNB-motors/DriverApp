@@ -9,6 +9,10 @@ import {
   WarningBanner, StepProgress, colors, spacing, radius,
 } from '../../../components/ui';
 import * as mock from '../../../demo/mock';
+import { useAuth } from '../../../context/AuthContext';
+import { apiConfigured } from '../../../services/client';
+import { useApi } from '../../../hooks/useApi';
+import walletService from '../../../services/walletService';
 
 /**
  * 01 / 02 · Driver Home — on-duty and off-duty variants. UI-only demo.
@@ -23,7 +27,23 @@ const QUICK_ACTIONS = [
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [onDuty, setOnDuty] = useState(true);
-  const { driver, wallet, activeTrip, lastRefuel } = mock;
+  const { activeTrip, lastRefuel } = mock;
+  const { user, token } = useAuth();
+  const useReal = apiConfigured() && !!user?._id && !!token && token !== 'demo-token';
+  const { data: summary } = useApi(() => walletService.getDriverSummary(user._id), [user?._id], { enabled: useReal, fallback: null });
+
+  // Identity from signed-in user; wallet balance from khata summary. Mock fills gaps.
+  // (mapping to confirm against live API)
+  const fullName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  const driver = {
+    ...mock.driver,
+    name: fullName || mock.driver.name,
+    initials: ((fullName || mock.driver.name).trim()[0] || 'R').toUpperCase(),
+  };
+  const balance = useReal && summary && (summary.balance != null || summary.totalAmount != null)
+    ? `₹${Number(summary.balance ?? summary.totalAmount).toLocaleString('en-IN')}`
+    : mock.wallet.balance;
+  const wallet = { ...mock.wallet, balance };
 
   const openWallet = () => navigation.navigate('Wallet');
   const onQuick = (key) => {

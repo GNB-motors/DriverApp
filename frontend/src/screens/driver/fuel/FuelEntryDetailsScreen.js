@@ -3,8 +3,13 @@ import { View, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { Alert } from 'react-native';
 import { AppText, Button, TextField, Badge, SegmentedControl, StepProgress, WarningBanner, colors, spacing, radius } from '../../../components/ui';
 import * as mock from '../../../demo/mock';
+import { useAuth } from '../../../context/AuthContext';
+import { apiConfigured } from '../../../services/client';
+import { useSubmit } from '../../../hooks/useSubmit';
+import fuelService from '../../../services/fuelService';
 
 /**
  * 18 · Fuel details — read from the photos. UI-only demo.
@@ -16,6 +21,17 @@ export default function FuelEntryDetailsScreen({ navigation }) {
   const [rate, setRate] = useState(fuel.rate);
   const [total, setTotal] = useState(fuel.total);
   const [paidBy, setPaidBy] = useState('My pocket');
+  const { token } = useAuth();
+  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const { submit, busy } = useSubmit();
+  const onSave = () => {
+    const go = () => navigation.navigate('FuelSaved', { paidBy });
+    if (!useReal) return go();
+    return submit(
+      () => fuelService.submitFuelLog({ litres, rate, totalAmount: total, paidBy }),
+      { onSuccess: go, onError: (e) => Alert.alert('Could not save', e?.message || 'Please try again.') },
+    );
+  };
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -61,7 +77,7 @@ export default function FuelEntryDetailsScreen({ navigation }) {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Button size="lg" label="Save fuel entry" iconRight="arrow-forward" onPress={() => navigation.navigate('FuelSaved', { paidBy })} />
+        <Button size="lg" label="Save fuel entry" iconRight="arrow-forward" loading={busy} onPress={onSave} />
       </View>
     </KeyboardAvoidingView>
   );
