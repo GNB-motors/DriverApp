@@ -59,7 +59,7 @@ export default function GetStartedScreen({ navigation }) {
               Get started
             </AppText>
           </Button>
-          <Pressable onPress={() => navigation.navigate('PhoneNumber')} hitSlop={10} style={styles.signin}>
+          <Pressable onPress={() => navigation.navigate('Login')} hitSlop={10} style={styles.signin}>
             <AppText variant="body" color={colors.onPrimaryMuted}>
               Already registered?{' '}
               <AppText variant="body" weight="bold" color={colors.white}>

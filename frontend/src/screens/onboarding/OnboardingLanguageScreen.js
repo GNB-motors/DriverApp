@@ -22,7 +22,7 @@ export default function OnboardingLanguageScreen({ navigation }) {
 
   const onContinue = () => {
     setLanguage(selected);
-    navigation.navigate('PhoneNumber');
+    navigation.navigate('Login');
   };
 
   return (

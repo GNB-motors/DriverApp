@@ -13,6 +13,7 @@ import OnboardingLanguageScreen from '../screens/onboarding/OnboardingLanguageSc
 import PhoneNumberScreen from '../screens/onboarding/PhoneNumberScreen';
 import OtpScreen from '../screens/onboarding/OtpScreen';
 import PasswordScreen from '../screens/onboarding/PasswordScreen';
+import LoginScreen from '../screens/onboarding/LoginScreen';
 import SetPinScreen from '../screens/onboarding/SetPinScreen';
 import HomeScreen from '../screens/driver/home/HomeScreen';
 import SOSOptionsScreen from '../screens/driver/sos/SOSOptionsScreen';
@@ -195,9 +196,11 @@ export default function AppNavigator() {
         <>
           <Stack.Screen name="GetStarted" component={GetStartedScreen} />
           <Stack.Screen name="OnboardingLanguage" component={OnboardingLanguageScreen} />
+          {/* Employee sign-in: email + phone + password */}
+          <Stack.Screen name="Login" component={LoginScreen} />
+          {/* PhoneNumber / Password / Otp kept for the OTP flow we switch back to later */}
           <Stack.Screen name="PhoneNumber" component={PhoneNumberScreen} />
           <Stack.Screen name="Password" component={PasswordScreen} />
-          {/* Otp kept for the later switch back from password → OTP */}
           <Stack.Screen name="Otp" component={OtpScreen} />
           <Stack.Screen name="SetPin" component={SetPinScreen} />
         </>
