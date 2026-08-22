@@ -4,10 +4,16 @@
  *   Inter     → Latin UI / body text
  *   DM Sans   → Latin display headings
  *   DM Mono   → operational numbers (₹, litres, km, plates, IDs, dates)
- *   Hind / Hind Siliguri → Devanagari (हिन्दी) / Bengali (বাংলা)
  *
  * Loads only the weights referenced in tokens.fontFamily so the bundle stays
  * lean. Call useAppFonts() once at the app root and gate the UI until it resolves.
+ *
+ * NOTE: Devanagari (Hind) / Bengali (Hind Siliguri) fonts were dropped while
+ * i18n is deferred — the app is English-only, so those ~2.4 MB of fonts were
+ * dead weight. When hi/bn translations are wired, re-add:
+ *   npx expo install @expo-google-fonts/hind @expo-google-fonts/hind-siliguri
+ * and restore their imports + FONT_MAP entries (tokens.fontFamily.hi/bn already
+ * reference the family names).
  */
 import { useFonts } from 'expo-font';
 import {
@@ -28,18 +34,6 @@ import {
   DMMono_400Regular,
   DMMono_500Medium,
 } from '@expo-google-fonts/dm-mono';
-import {
-  Hind_400Regular,
-  Hind_500Medium,
-  Hind_600SemiBold,
-  Hind_700Bold,
-} from '@expo-google-fonts/hind';
-import {
-  HindSiliguri_400Regular,
-  HindSiliguri_500Medium,
-  HindSiliguri_600SemiBold,
-  HindSiliguri_700Bold,
-} from '@expo-google-fonts/hind-siliguri';
 
 export const FONT_MAP = {
   // Inter — UI / body
@@ -57,15 +51,6 @@ export const FONT_MAP = {
   // DM Mono — numbers (300/400/500 only in the family)
   DMMono_400Regular,
   DMMono_500Medium,
-  // Devanagari / Bengali
-  Hind_400Regular,
-  Hind_500Medium,
-  Hind_600SemiBold,
-  Hind_700Bold,
-  HindSiliguri_400Regular,
-  HindSiliguri_500Medium,
-  HindSiliguri_600SemiBold,
-  HindSiliguri_700Bold,
 };
 
 /** Returns [fontsLoaded, error]. */
