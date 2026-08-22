@@ -10,6 +10,23 @@ import { setSession, clearSession, setOnUnauthorized, apiConfigured } from '../s
 // is set. A production build with no API URL fails closed instead of granting access.
 const DEMO_ENABLED = __DEV__ || process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
 
+// Lightweight JWT expiry check (no dependency). Returns false for the demo token
+// or when it can't be decoded, so we degrade to the existing 401-driven logout.
+function isJwtExpired(token) {
+  try {
+    if (!token || token === 'demo-token') return false;
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    if (typeof atob !== 'function') return false; // can't decode → rely on server 401
+    let b = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (b.length % 4) b += '=';
+    const payload = JSON.parse(atob(b));
+    return payload.exp ? Date.now() >= payload.exp * 1000 : false;
+  } catch {
+    return false;
+  }
+}
+
 const AuthContext = createContext();
 
 const STORAGE_KEY_USER     = 'fleetedge_user';
@@ -61,7 +78,7 @@ export function AuthProvider({ children }) {
           SecureStore.getItemAsync(STORAGE_KEY_TOKEN),
           AsyncStorage.getItem(STORAGE_KEY_IDENTITY),
         ]);
-        if (storedUser && storedToken) {
+        if (storedUser && storedToken && !isJwtExpired(storedToken)) {
           const parsed = JSON.parse(storedUser);
           const currentIdentity = `${parsed._id}:${parsed.orgId}`;
           if (storedIdentity && storedIdentity !== currentIdentity) {
@@ -93,6 +110,15 @@ export function AuthProvider({ children }) {
               logger.warn('Auth', `Session refresh failed: ${err?.message}`);
             }
           }
+        } else if (storedToken && isJwtExpired(storedToken)) {
+          // Token expired while the app was closed — clear it and start at login
+          // (no doomed /me call, no abrupt mid-action logout).
+          await Promise.all([
+            AsyncStorage.removeItem(STORAGE_KEY_USER),
+            SecureStore.deleteItemAsync(STORAGE_KEY_TOKEN),
+            AsyncStorage.removeItem(STORAGE_KEY_IDENTITY),
+          ]);
+          logger.info('Auth', 'Stored session expired — cleared, routing to login');
         }
       } catch (err) {
         logger.error('Auth', `Failed to restore session: ${err?.message}`);
@@ -133,6 +159,11 @@ export function AuthProvider({ children }) {
 
   // Offline demo sign-in (no backend). Role derived from the phone number.
   const demoLogin = async ({ rawPhone, ...profile } = {}) => {
+    // Hard stop: demo sign-in must never run in a release build, even if a legacy
+    // screen calls it directly (the login() gate alone wouldn't cover those).
+    if (!DEMO_ENABLED) {
+      throw new Error('Demo mode is disabled in this build.');
+    }
     const mockUser = { ...resolveDemoProfile(rawPhone), ...profile };
     setSession({ token: 'demo-token', orgId: mockUser.orgId });
     await persist(mockUser, 'demo-token');

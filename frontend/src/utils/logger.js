@@ -3,6 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const STORAGE_KEY = 'app_debug_logs';
 const MAX_ENTRIES = 200; // keep last 200 entries so storage doesn't grow unbounded
 
+// __DEV__ is a RN global; guard so this module is safe to import outside Metro.
+const IS_DEV = typeof __DEV__ !== 'undefined' ? __DEV__ : false;
+
 const LEVELS = {
   info:  { label: 'INFO ', color: '\x1b[36m' },  // cyan
   warn:  { label: 'WARN ', color: '\x1b[33m' },  // yellow
@@ -16,8 +19,16 @@ function timestamp() {
   return new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
 }
 
+function safeStringify(value) {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 function formatForConsole(level, tag, message, data) {
-  const { label, color } = LEVELS[level];
+  const { label, color } = LEVELS[level] || LEVELS.info;
   const base = `${color}[${label}]${RESET} ${timestamp()} [${tag}] ${message}`;
   return data !== undefined ? [base, data] : [base];
 }
@@ -35,25 +46,58 @@ async function persist(entry) {
   }
 }
 
+// Forward errors to Sentry so production failures stay visible even though we
+// no longer console.log or persist in release builds. Imported lazily and
+// wrapped so a missing / un-initialised Sentry can never break the app.
+function reportErrorToSentry(tag, message, data) {
+  try {
+    // eslint-disable-next-line global-require
+    const Sentry = require('@sentry/react-native');
+    const label = `[${tag}] ${message}`;
+    if (data instanceof Error) {
+      Sentry.captureException(data, { tags: { tag }, extra: { message } });
+    } else if (message instanceof Error) {
+      Sentry.captureException(message, { tags: { tag } });
+    } else {
+      Sentry.captureMessage(label, {
+        level: 'error',
+        tags: { tag },
+        ...(data !== undefined && { extra: { data: safeStringify(data) } }),
+      });
+    }
+  } catch {
+    // Sentry unavailable / not initialised — reporting must never throw.
+  }
+}
+
 function write(level, tag, message, data) {
-  const args = formatForConsole(level, tag, message, data);
-  if (level === 'error') {
-    console.error(...args);
-  } else if (level === 'warn') {
-    console.warn(...args);
-  } else {
-    console.log(...args);
+  // Console output + on-device persisted log store are DEV-ONLY. In release
+  // builds we neither console.* nor persist (avoids leaking PII: role, ids…).
+  if (IS_DEV) {
+    const args = formatForConsole(level, tag, message, data);
+    if (level === 'error') {
+      console.error(...args);
+    } else if (level === 'warn') {
+      console.warn(...args);
+    } else {
+      console.log(...args);
+    }
+
+    // Persist asynchronously — fire and forget
+    const entry = {
+      t: new Date().toISOString(),
+      level,
+      tag,
+      message,
+      ...(data !== undefined && { data: typeof data === 'object' ? safeStringify(data) : String(data) }),
+    };
+    persist(entry);
   }
 
-  // Persist asynchronously — fire and forget
-  const entry = {
-    t: new Date().toISOString(),
-    level,
-    tag,
-    message,
-    ...(data !== undefined && { data: typeof data === 'object' ? JSON.stringify(data) : String(data) }),
-  };
-  persist(entry);
+  // Errors are always reported to Sentry (no-op in dev when no DSN is set).
+  if (level === 'error') {
+    reportErrorToSentry(tag, message, data);
+  }
 }
 
 const logger = {
@@ -84,5 +128,9 @@ const logger = {
     }
   },
 };
+
+// Aliases so callers can reset the on-device log store by any of these names.
+logger.clear = logger.clearLogs;
+logger.reset = logger.clearLogs;
 
 export default logger;

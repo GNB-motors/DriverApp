@@ -14,7 +14,6 @@ import PhoneNumberScreen from '../screens/onboarding/PhoneNumberScreen';
 import OtpScreen from '../screens/onboarding/OtpScreen';
 import PasswordScreen from '../screens/onboarding/PasswordScreen';
 import LoginScreen from '../screens/onboarding/LoginScreen';
-import SetPinScreen from '../screens/onboarding/SetPinScreen';
 import HomeScreen from '../screens/driver/home/HomeScreen';
 import SOSOptionsScreen from '../screens/driver/sos/SOSOptionsScreen';
 import SOSEmergencyActiveScreen from '../screens/driver/sos/SOSEmergencyActiveScreen';
@@ -204,7 +203,6 @@ export default function AppNavigator() {
           <Stack.Screen name="PhoneNumber" component={PhoneNumberScreen} />
           <Stack.Screen name="Password" component={PasswordScreen} />
           <Stack.Screen name="Otp" component={OtpScreen} />
-          <Stack.Screen name="SetPin" component={SetPinScreen} />
         </>
       ) : user.role === 'OWNER' ? (
         // Re-key on branch switch so every owner screen refetches for the picked location.

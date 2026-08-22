@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, OtpInput, NumericKeypad, colors, spacing, radius } from '../../components/ui';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * E4 · OTP — code entry with a resend timer. UI-only: any 6 digits verify.
@@ -12,6 +13,7 @@ const RESEND_SECONDS = 24;
 
 export default function OtpScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
+  const { demoLogin } = useAuth();
   const phone = route.params?.phone || '+91 98220 41188';
   const rawPhone = route.params?.rawPhone || '';
   const [code, setCode] = useState('');
@@ -89,7 +91,7 @@ export default function OtpScreen({ navigation, route }) {
           size="lg"
           iconRight="arrow-forward"
           disabled={code.length < 6}
-          onPress={() => navigation.navigate('SetPin', { rawPhone })}
+          onPress={() => demoLogin({ rawPhone })}
         />
       </View>
 

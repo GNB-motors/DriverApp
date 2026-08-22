@@ -39,19 +39,39 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// Normalise errors to `Error(message){status,data}` and fire the 401 hook.
+// Normalise errors to `Error(message){status,data,code,userMessage}` and fire
+// the 401 hook.
 client.interceptors.response.use(
   (res) => res,
   (error) => {
     const status = error.response?.status;
     if (status === 401 && onUnauthorized) onUnauthorized();
+
+    // No response at all, or an axios network/timeout code → the request never
+    // reached the server (offline, DNS, TLS, timed out). axios uses
+    // 'ERR_NETWORK' for connection failures and 'ECONNABORTED' for timeouts.
+    const isNetworkError =
+      !error.response ||
+      error.code === 'ERR_NETWORK' ||
+      error.code === 'ECONNABORTED';
+
+    const friendly = "Can't reach the server. Check your connection.";
+
     const message =
       error.response?.data?.message ||
       error.response?.data?.error ||
-      (status === 0 || error.code === 'ECONNABORTED' ? 'Cannot reach the server. Check your connection.' : null) ||
+      (isNetworkError ? friendly : null) ||
       error.message ||
       'Something went wrong';
-    return Promise.reject(Object.assign(new Error(message), { status, data: error.response?.data }));
+
+    const normalised = Object.assign(new Error(message), {
+      status,
+      data: error.response?.data,
+      code: error.code,
+      // Always safe to show to the user; friendly copy for network/timeouts.
+      userMessage: isNetworkError ? friendly : message,
+    });
+    return Promise.reject(normalised);
   },
 );
 
@@ -59,12 +79,18 @@ client.interceptors.response.use(
  * Multipart POST helper for file uploads (fuel receipt, CN pages, POD, docs).
  * Pass a FormData; RN needs the multipart Content-Type set explicitly.
  * File parts look like: fd.append('file', { uri, name, type }).
+ *
+ * Pass `config.onUploadProgress` (an axios ProgressEvent handler) to drive an
+ * upload progress UI:
+ *   postForm('/docs', fd, { onUploadProgress: (e) => setPct(e.progress) });
  */
 export async function postForm(path, formData, config = {}) {
+  const { onUploadProgress, ...rest } = config;
   const res = await client.post(path, formData, {
-    ...config,
-    headers: { ...(config.headers || {}), 'Content-Type': 'multipart/form-data' },
+    ...rest,
+    headers: { ...(rest.headers || {}), 'Content-Type': 'multipart/form-data' },
     timeout: 60000,
+    ...(onUploadProgress ? { onUploadProgress } : {}),
   });
   return res.data?.data ?? res.data;
 }

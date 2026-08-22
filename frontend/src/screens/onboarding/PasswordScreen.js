@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, bodyFont, colors, spacing, radius } from '../../components/ui';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * E4b · Password — sign-in with a password (temporary; OTP flow is kept in
@@ -11,6 +12,7 @@ import { AppText, Button, bodyFont, colors, spacing, radius } from '../../compon
  */
 export default function PasswordScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
+  const { demoLogin } = useAuth();
   const phone = route.params?.phone || '+91 98220 41188';
   const rawPhone = route.params?.rawPhone || '';
   const [password, setPassword] = useState('');
@@ -72,7 +74,7 @@ export default function PasswordScreen({ navigation, route }) {
           size="lg"
           iconRight="arrow-forward"
           disabled={!ready}
-          onPress={() => navigation.navigate('SetPin', { rawPhone })}
+          onPress={() => demoLogin({ rawPhone })}
         />
       </View>
     </KeyboardAvoidingView>
