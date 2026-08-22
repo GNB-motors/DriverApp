@@ -9,8 +9,11 @@ const AuthContext = createContext();
 const STORAGE_KEY_USER     = 'fleetedge_user';
 const STORAGE_KEY_TOKEN    = 'fleetedge_token';
 const STORAGE_KEY_IDENTITY = 'fleetedge_last_identity'; // "<userId>:<orgId>"
+const STORAGE_KEY_BRANCH   = 'fleetedge_active_branch'; // owner's selected location (null = all branches)
 
-const PER_ACCOUNT_KEYS = ['fleetedge_selected_vehicle'];
+// Per-account state is wiped when the signed-in identity changes, so a branch
+// from one org can never leak into another.
+const PER_ACCOUNT_KEYS = ['fleetedge_selected_vehicle', STORAGE_KEY_BRANCH];
 const wipePerAccountState = () => Promise.all(PER_ACCOUNT_KEYS.map((k) => AsyncStorage.removeItem(k)));
 
 // Demo phone → role map. Used ONLY when no backend URL is configured
@@ -29,6 +32,10 @@ export function AuthProvider({ children }) {
   const [organization, setOrg]      = useState(null);
   const [permissions, setPermissions] = useState({});
   const [loading, setLoading]       = useState(true);
+  // Owner's active location. null = "All branches" (enterprise scope). Sent as
+  // X-Branch-Id on every request via the shared client, so all owner data scopes
+  // to the picked branch.
+  const [activeBranchId, setActiveBranchId] = useState(null);
 
   const persist = (u, t) =>
     Promise.all([
@@ -57,6 +64,12 @@ export function AuthProvider({ children }) {
           setUser(parsed);
           setToken(storedToken);
           setSession({ token: storedToken, orgId: parsed.orgId || null });
+          // Restore the owner's picked branch (wiped above if the identity changed).
+          const storedBranch = await AsyncStorage.getItem(STORAGE_KEY_BRANCH);
+          if (storedBranch) {
+            setActiveBranchId(storedBranch);
+            setSession({ branchId: storedBranch });
+          }
           logger.info('Auth', `Session restored — role=${parsed.role} id=${parsed._id}`);
 
           if (apiConfigured() && storedToken !== 'demo-token') {
@@ -94,7 +107,10 @@ export function AuthProvider({ children }) {
     const data = await authService.login(emailOrMobile, password); // throws on 401/etc
     const loggedUser = data.user;
     const jwt = data.token;
-    setSession({ token: jwt, orgId: loggedUser?.orgId || null });
+    // Fresh login starts at "All branches"; the owner can narrow it afterwards.
+    setSession({ token: jwt, orgId: loggedUser?.orgId || null, branchId: null });
+    setActiveBranchId(null);
+    await AsyncStorage.removeItem(STORAGE_KEY_BRANCH);
     await persist(loggedUser, jwt);
     setUser(loggedUser);
     setToken(jwt);
@@ -115,6 +131,19 @@ export function AuthProvider({ children }) {
     return true;
   };
 
+  /**
+   * Owner picks a location (or "All branches"). Updates the client header so all
+   * subsequent requests scope to that branch, persists it, and updates state.
+   * Pass null/'' for the enterprise (all-branches) view.
+   */
+  const setActiveBranch = async (branchId) => {
+    const id = branchId || null;
+    setActiveBranchId(id);
+    setSession({ branchId: id });
+    if (id) await AsyncStorage.setItem(STORAGE_KEY_BRANCH, id);
+    else await AsyncStorage.removeItem(STORAGE_KEY_BRANCH);
+  };
+
   const logout = async () => {
     await Promise.all([
       AsyncStorage.removeItem(STORAGE_KEY_USER),
@@ -127,6 +156,7 @@ export function AuthProvider({ children }) {
     setToken(null);
     setOrg(null);
     setPermissions({});
+    setActiveBranchId(null);
     logger.info('Auth', 'User logged out — session cleared');
   };
 
@@ -140,7 +170,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, organization, permissions, loading, login, demoLogin, logout, hasPerm }}
+      value={{ user, token, organization, permissions, loading, login, demoLogin, logout, hasPerm, activeBranchId, setActiveBranch }}
     >
       {children}
     </AuthContext.Provider>

@@ -186,7 +186,7 @@ function DriverStack() {
 
 export default function AppNavigator() {
   const { language, isLoaded } = useLanguage();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, activeBranchId } = useAuth();
 
   if (!isLoaded || authLoading) {
     return <SplashScreen />;
@@ -207,7 +207,10 @@ export default function AppNavigator() {
           <Stack.Screen name="SetPin" component={SetPinScreen} />
         </>
       ) : user.role === 'OWNER' ? (
-        <Stack.Screen name="OwnerRoot" component={OwnerStack} />
+        // Re-key on branch switch so every owner screen refetches for the picked location.
+        <Stack.Screen name="OwnerRoot">
+          {() => <OwnerStack key={activeBranchId || 'all'} />}
+        </Stack.Screen>
       ) : user.role === 'MANAGER' ? (
         <Stack.Screen name="ManagerRoot" component={ManagerStack} />
       ) : (
