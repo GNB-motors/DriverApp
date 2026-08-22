@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -13,6 +13,7 @@ import { AppText, Card, ListRow, WalletHeroCard, colors, spacing, radius } from 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { logout, user } = useAuth();
+  const confirmLogout = () => Alert.alert('Log out?', 'You will need to sign in again.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Log out', style: 'destructive', onPress: logout }]);
 
   // Identity from the signed-in user — safe '—' defaults for any missing field.
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || user?.name || '';
@@ -67,7 +68,7 @@ export default function ProfileScreen({ navigation }) {
         {renderGroup(group1)}
         {renderGroup(group2)}
 
-        <Pressable style={styles.logout} onPress={logout}>
+        <Pressable style={styles.logout} onPress={confirmLogout}>
           <Ionicons name="log-out-outline" size={19} color={colors.error} />
           <AppText variant="bodyStrong" weight="bold" color={colors.error}>Log out</AppText>
         </Pressable>

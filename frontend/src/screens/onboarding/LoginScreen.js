@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { View, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -98,7 +98,7 @@ export default function LoginScreen({ navigation }) {
           </View>
         ) : null}
 
-        <Pressable style={styles.forgot} hitSlop={6} onPress={() => {}}>
+        <Pressable style={styles.forgot} hitSlop={6} onPress={() => Alert.alert('Reset your password', 'Please ask your manager or GNBEdge support to reset your password.')}>
           <AppText variant="small" weight="bold" color={colors.primary}>Forgot password?</AppText>
         </Pressable>
       </ScrollView>

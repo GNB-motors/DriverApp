@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
+import { usePreventScreenCapture } from 'expo-screen-capture';
 import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +21,7 @@ import billService from '../../../services/billService';
  * 06 / 07 / 08 · Wallet — Bills, Ledger and empty state. Real data only.
  */
 export default function WalletScreen({ navigation }) {
+  usePreventScreenCapture(); // block screenshots/recording of wallet balances
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('bills');
 

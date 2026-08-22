@@ -21,7 +21,7 @@
       "env": {
         "EXPO_PUBLIC_ENV": "staging",
         "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-STAGING-API-HOST",
-        "EXPO_PUBLIC_SENTRY_DSN": "REPLACE-WITH-SENTRY-DSN"
+        "EXPO_PUBLIC_SENTRY_DSN": ""
       }
     },
     "production": {
@@ -29,7 +29,7 @@
       "env": {
         "EXPO_PUBLIC_ENV": "production",
         "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-PROD-API-HOST",
-        "EXPO_PUBLIC_SENTRY_DSN": "REPLACE-WITH-SENTRY-DSN"
+        "EXPO_PUBLIC_SENTRY_DSN": ""
       }
     }
   },

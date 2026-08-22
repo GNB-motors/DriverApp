@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Pressable, ScrollView, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -142,6 +142,7 @@ function OwnerSidebar({ navigation, active, onClose }) {
     { enabled: apiConfigured() && !!token, fallback: null },
   );
   const pendingBills = pendingCountOf(pendingData);
+  const confirmLogout = () => Alert.alert('Log out?', 'You will need to sign in again.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Log out', style: 'destructive', onPress: logout }]);
   const go = (key) => {
     onClose();
     if (key !== active) navigation.navigate(key);
@@ -181,7 +182,7 @@ function OwnerSidebar({ navigation, active, onClose }) {
             </View>
           ))}
 
-          <Pressable onPress={() => { onClose(); logout(); }} style={styles.backItem}>
+          <Pressable onPress={() => { onClose(); confirmLogout(); }} style={styles.backItem}>
             <Ionicons name="log-out-outline" size={19} color={colors.textMuted} />
             <AppText variant="bodyStrong" weight="semibold" muted>Log out</AppText>
           </Pressable>

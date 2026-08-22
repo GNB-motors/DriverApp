@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { usePreventScreenCapture } from 'expo-screen-capture';
 import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Card, WarningBanner, Loading, EmptyState, colors, spacing } from '../../components/ui';
@@ -10,6 +11,7 @@ import walletService from '../../services/walletService';
 
 /** O6 · Driver account — settle up. */
 export default function OwnerDriverScreen({ navigation, route }) {
+  usePreventScreenCapture(); // block screenshots/recording of driver settlement/PII
   const insets = useSafeAreaInsets();
 
   // Driver ledger + balance summary — real API only, keyed by the driver id

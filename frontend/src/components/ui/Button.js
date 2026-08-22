@@ -39,6 +39,7 @@ export default function Button({
   onPress,
   style,
   children,
+  accessibilityLabel,
   ...rest
 }) {
   const s = SIZES[size] || SIZES.md;
@@ -48,7 +49,8 @@ export default function Button({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      accessibilityLabel={accessibilityLabel ?? (typeof label === 'string' ? label : undefined)}
+      accessibilityState={{ disabled: !!disabled, busy: !!loading }}
       disabled={isDisabled}
       onPress={onPress}
       style={({ pressed }) => [

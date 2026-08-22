@@ -29,6 +29,7 @@ export default function AppText({
   color,
   center = false,
   muted = false,
+  maxFontSizeMultiplier = 1.4,
   style,
   children,
   ...rest
@@ -54,7 +55,7 @@ export default function AppText({
   };
 
   return (
-    <Text style={[resolved, style]} {...rest}>
+    <Text style={[resolved, style]} maxFontSizeMultiplier={maxFontSizeMultiplier} {...rest}>
       {children}
     </Text>
   );

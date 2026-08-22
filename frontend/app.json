@@ -3,6 +3,8 @@
     "name": "driver-app",
     "slug": "driver-app",
     "version": "1.0.0",
+    "scheme": "gnbedge",
+    "runtimeVersion": { "policy": "appVersion" },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

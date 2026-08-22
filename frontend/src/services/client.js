@@ -10,6 +10,13 @@ import axios from 'axios';
  * services call paths like `/app/v1/auth/login`.
  */
 const RAW = (process.env.EXPO_PUBLIC_API_URL || '').trim().replace(/\/+$/, '');
+
+// Never send credentials/PII over plaintext in a release build. localhost/LAN
+// http is allowed in dev only. A misconfigured prod URL fails loudly here.
+if (RAW && !__DEV__ && !/^https:\/\//i.test(RAW)) {
+  throw new Error('Insecure API URL: EXPO_PUBLIC_API_URL must use https:// in production builds.');
+}
+
 export const API_BASE = RAW ? `${RAW}/api` : '';
 
 /** True when a backend URL is configured; false → app runs on demo fallback. */

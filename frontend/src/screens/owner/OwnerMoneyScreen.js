@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { usePreventScreenCapture } from 'expo-screen-capture';
 import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +13,7 @@ import ownerService from '../../services/ownerService';
 
 /** O5 · Money — payables and receivables. */
 export default function OwnerMoneyScreen({ navigation }) {
+  usePreventScreenCapture(); // block screenshots/recording of payables/receivables
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('pay');
 
