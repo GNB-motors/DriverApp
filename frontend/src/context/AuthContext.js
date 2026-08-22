@@ -1,8 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import logger from '../utils/logger';
 import authService from '../services/authService';
 import { setSession, clearSession, setOnUnauthorized, apiConfigured } from '../services/client';
+
+// The offline demo login (password-less, role-from-phone) must NEVER be reachable
+// in a release build. It is enabled only in dev, or when an explicit opt-in flag
+// is set. A production build with no API URL fails closed instead of granting access.
+const DEMO_ENABLED = __DEV__ || process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
 
 const AuthContext = createContext();
 
@@ -40,7 +46,8 @@ export function AuthProvider({ children }) {
   const persist = (u, t) =>
     Promise.all([
       AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(u)),
-      AsyncStorage.setItem(STORAGE_KEY_TOKEN, t),
+      // Bearer token lives in the OS keychain/keystore (encrypted), never plaintext.
+      SecureStore.setItemAsync(STORAGE_KEY_TOKEN, t),
       AsyncStorage.setItem(STORAGE_KEY_IDENTITY, `${u._id}:${u.orgId}`),
     ]);
 
@@ -51,7 +58,7 @@ export function AuthProvider({ children }) {
       try {
         const [storedUser, storedToken, storedIdentity] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEY_USER),
-          AsyncStorage.getItem(STORAGE_KEY_TOKEN),
+          SecureStore.getItemAsync(STORAGE_KEY_TOKEN),
           AsyncStorage.getItem(STORAGE_KEY_IDENTITY),
         ]);
         if (storedUser && storedToken) {
@@ -101,6 +108,10 @@ export function AuthProvider({ children }) {
    */
   const login = async (emailOrMobile, password) => {
     if (!apiConfigured()) {
+      // Fail closed in production: no API URL must NOT silently grant a demo session.
+      if (!DEMO_ENABLED) {
+        throw new Error('This app isn’t configured to reach the server. Please update the app or contact support.');
+      }
       const digits = String(emailOrMobile || '').replace(/\D/g, '');
       return demoLogin({ rawPhone: digits });
     }
@@ -147,7 +158,7 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     await Promise.all([
       AsyncStorage.removeItem(STORAGE_KEY_USER),
-      AsyncStorage.removeItem(STORAGE_KEY_TOKEN),
+      SecureStore.deleteItemAsync(STORAGE_KEY_TOKEN),
       AsyncStorage.removeItem(STORAGE_KEY_IDENTITY),
       wipePerAccountState(),
     ]);

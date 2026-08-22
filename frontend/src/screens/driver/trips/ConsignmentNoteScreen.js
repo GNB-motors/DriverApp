@@ -28,8 +28,9 @@ export default function ConsignmentNoteScreen({ navigation, route }) {
   const [confirmed, setConfirmed] = useState(true);
   const { submit, busy, error } = useSubmit();
 
+  // The backend stores exactly one bilty per trip, so we capture a single page.
   const addFile = (file) =>
-    setPages((p) => (p.length < 3 ? [...p, { name: file?.name || `Page ${p.length + 1}`, quality: 'ok', file }] : p));
+    setPages((p) => (p.length < 1 ? [...p, { name: file?.name || 'Page 1', quality: 'ok', file }] : p));
   const addPage = async () => { const f = await pickFromCamera(); if (f) addFile(f); };
   const addFromGallery = async () => { const f = await pickFromGallery(); if (f) addFile(f); };
   const removePage = (i) => setPages((p) => p.filter((_, idx) => idx !== i));
@@ -37,7 +38,7 @@ export default function ConsignmentNoteScreen({ navigation, route }) {
   const onUpload = () => {
     const withFile = pages.find((p) => p.file);
     submit(
-      () => consignmentService.uploadBilty({ tripId, cnNumber: noteNumber, file: withFile?.file }),
+      () => consignmentService.uploadBilty({ tripId, file: withFile?.file }),
       { onSuccess: () => navigation.goBack() },
     );
   };
@@ -67,8 +68,8 @@ export default function ConsignmentNoteScreen({ navigation, route }) {
         <TextField label="Note number" value={noteNumber} mono editable={false} style={styles.gap} />
 
         <PhotoUploader
-          title="Note pages"
-          max={3}
+          title="Note page"
+          max={1}
           photos={pages}
           onCapture={addPage}
           onAddPage={addPage}

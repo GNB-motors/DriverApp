@@ -3,8 +3,11 @@ import { View, ScrollView, Pressable, KeyboardAvoidingView, Platform, Alert, Sty
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import dayjs from 'dayjs';
 import { AppText, Button, Chip, TextField, PhotoUploader, colors, spacing, radius } from '../../../components/ui';
+import { useAuth } from '../../../context/AuthContext';
 import { useSubmit } from '../../../hooks/useSubmit';
+import { useDriverVehicle } from '../../../hooks/useDriverVehicle';
 import { pickFromCamera } from '../../../utils/pickImage';
 import maintenanceService from '../../../services/maintenanceService';
 
@@ -17,18 +20,40 @@ const REPAIR_CATEGORIES = ['Clutch', 'Brakes', 'Tyres', 'Engine', 'Electrical', 
 export default function LogRepairScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [category, setCategory] = useState('Clutch');
-  const [work, setWork] = useState('Clutch plate with pressure plate');
-  const [parts, setParts] = useState('6,900');
-  const [labour, setLabour] = useState('1,500');
+  const [work, setWork] = useState('');
+  const [parts, setParts] = useState('');
+  const [labour, setLabour] = useState('');
+  const [workshop, setWorkshop] = useState('');
   const [photos, setPhotos] = useState([]); // real captured files: { uri, name, type }
   const { submit, busy } = useSubmit();
+  const { user } = useAuth();
+  const { vehicleId } = useDriverVehicle();
   const totalNum = () =>
     (parseInt(String(parts).replace(/[^0-9]/g, ''), 10) || 0) + (parseInt(String(labour).replace(/[^0-9]/g, ''), 10) || 0);
-  const onSave = () =>
+  const onSave = () => {
+    if (!vehicleId) {
+      Alert.alert('No vehicle assigned', 'You don’t have a vehicle assigned yet. Ask your manager to assign one before logging a repair.');
+      return;
+    }
+    if (!workshop.trim()) {
+      Alert.alert('Workshop required', 'Enter the workshop / garage name.');
+      return;
+    }
     submit(
-      () => maintenanceService.createMaintenance({ recordType: 'REPAIR', type: category, notes: work, amount: totalNum(), workshop: 'Sai Auto Works' }),
+      () => maintenanceService.createMaintenance({
+        vehicleId,
+        driverId: user?._id,
+        recordType: 'REPAIR',
+        type: category,
+        notes: work,
+        amount: totalNum(),
+        workshop: workshop.trim(),
+        date: new Date().toISOString(),
+        photos,
+      }),
       { onSuccess: () => navigation.goBack(), onError: (e) => Alert.alert('Could not save', e?.message || 'Please try again.') },
     );
+  };
 
   const total = () => {
     const n = (parseInt(String(parts).replace(/[^0-9]/g, ''), 10) || 0) + (parseInt(String(labour).replace(/[^0-9]/g, ''), 10) || 0);
@@ -57,12 +82,12 @@ export default function LogRepairScreen({ navigation }) {
           ))}
         </View>
 
-        <TextField label="Work done" value={work} onChangeText={setWork} style={styles.field} />
+        <TextField label="Work done" value={work} onChangeText={setWork} placeholder="What was repaired?" style={styles.field} />
 
         <View style={styles.costCard}>
           <View style={styles.costRow}>
-            <View style={styles.col}><TextField label="Parts" value={parts} onChangeText={setParts} mono keyboardType="numeric" /></View>
-            <View style={styles.col}><TextField label="Labour" value={labour} onChangeText={setLabour} mono keyboardType="numeric" /></View>
+            <View style={styles.col}><TextField label="Parts" value={parts} onChangeText={setParts} placeholder="0" mono keyboardType="numeric" /></View>
+            <View style={styles.col}><TextField label="Labour" value={labour} onChangeText={setLabour} placeholder="0" mono keyboardType="numeric" /></View>
           </View>
           <View style={styles.totalRow}>
             <AppText variant="small" weight="bold">Total</AppText>
@@ -71,10 +96,10 @@ export default function LogRepairScreen({ navigation }) {
         </View>
 
         <View style={styles.threeCol}>
-          <View style={styles.col}><TextField label="Date" value="04 Aug 2026" mono editable={false} /></View>
-          <View style={styles.col}><TextField label="Odometer" value="482,540" mono editable={false} /></View>
+          <View style={styles.col}><TextField label="Date" value={dayjs().format('DD MMM YYYY')} mono editable={false} /></View>
+          <View style={styles.col}><TextField label="Odometer" value="—" mono editable={false} /></View>
         </View>
-        <TextField label="Workshop" value="Sai Auto Works" style={styles.field} />
+        <TextField label="Workshop" value={workshop} onChangeText={setWorkshop} placeholder="Garage / workshop name" style={styles.field} />
 
         <PhotoUploader title="Photos" max={4} photos={photos.map((f) => ({ uri: f.uri, name: f.name, quality: 'ok' }))} onCapture={capture} onAddPage={capture} onRemove={removePhoto} style={styles.field} />
       </ScrollView>

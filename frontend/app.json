@@ -15,8 +15,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "GNB Motors needs your location while you are on duty so managers can see your live driver position.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "GNB Motors needs Always location access only when you choose Always sharing for on-duty driver tracking."
+        "NSLocationWhenInUseUsageDescription": "GNBEdge needs your location while you are on duty so managers can see your live driver position.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "GNBEdge needs Always location access only when you choose Always sharing for on-duty driver tracking.",
+        "NSCameraUsageDescription": "GNBEdge needs the camera to photograph bills, fuel receipts, consignment notes and proof-of-delivery.",
+        "NSPhotoLibraryUsageDescription": "GNBEdge needs photo access so you can attach existing bill, receipt and delivery photos."
       },
       "bundleIdentifier": "com.gnbedge.driverapp"
     },
@@ -29,8 +31,10 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_LOCATION"
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.CAMERA"
       ],
+      "allowBackup": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -42,12 +46,20 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "GNB Motors needs your location while you are on duty so managers can see your live driver position.",
-          "locationAlwaysAndWhenInUsePermission": "GNB Motors needs Always location access only when you choose Always sharing for on-duty driver tracking.",
+          "locationWhenInUsePermission": "GNBEdge needs your location while you are on duty so managers can see your live driver position.",
+          "locationAlwaysAndWhenInUsePermission": "GNBEdge needs Always location access only when you choose Always sharing for on-duty driver tracking.",
           "isAndroidBackgroundLocationEnabled": true
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "GNBEdge needs photo access so you can attach existing bill, receipt and delivery photos.",
+          "cameraPermission": "GNBEdge needs the camera to photograph bills, fuel receipts, consignment notes and proof-of-delivery."
+        }
+      ]
     ],
     "web": {
       "favicon": "./assets/favicon.png"

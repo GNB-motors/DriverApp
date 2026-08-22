@@ -8,14 +8,21 @@ import { LanguageProvider } from './src/context/LanguageContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { useAppFonts } from './src/theme/fonts';
 import SplashScreen from './src/components/ui/SplashScreen';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
-Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
-  enableAutoSessionTracking: true,
-  // We only want API errors — disable automatic JS error capture.
-  enableNative: true,
-  tracesSampleRate: 0,
-});
+// Crash reporting — only initialise when a DSN is configured (per-env via eas.json),
+// and tag the environment/release so events are attributable. Without a DSN this is
+// a no-op and Sentry.wrap() below stays inert.
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
+if (SENTRY_DSN) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    environment: process.env.EXPO_PUBLIC_ENV || (__DEV__ ? 'development' : 'production'),
+    enableAutoSessionTracking: true,
+    enableNative: true,
+    tracesSampleRate: __DEV__ ? 0 : 0.2,
+  });
+}
 
 function App() {
   const [fontsLoaded, fontError] = useAppFonts();
@@ -28,14 +35,16 @@ function App() {
 
   return (
     <SafeAreaProvider>
-      <LanguageProvider>
-        <AuthProvider>
-          <NavigationContainer>
-            <StatusBar style="dark" />
-            <AppNavigator />
-          </NavigationContainer>
-        </AuthProvider>
-      </LanguageProvider>
+      <ErrorBoundary>
+        <LanguageProvider>
+          <AuthProvider>
+            <NavigationContainer>
+              <StatusBar style="dark" />
+              <AppNavigator />
+            </NavigationContainer>
+          </AuthProvider>
+        </LanguageProvider>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

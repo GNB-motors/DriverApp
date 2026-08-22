@@ -6,16 +6,31 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_ENV": "development",
+        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-DEV-API-HOST",
+        "EXPO_PUBLIC_SENTRY_DSN": ""
+      }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_ENV": "staging",
+        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-STAGING-API-HOST",
+        "EXPO_PUBLIC_SENTRY_DSN": "REPLACE-WITH-SENTRY-DSN"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-PROD-API-HOST",
+        "EXPO_PUBLIC_SENTRY_DSN": "REPLACE-WITH-SENTRY-DSN"
+      }
     }
   },
   "submit": {

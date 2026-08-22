@@ -5,8 +5,13 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert } from 'react-native';
 import { AppText, Button, TextField, Badge, SegmentedControl, StepProgress, WarningBanner, colors, spacing, radius } from '../../../components/ui';
+import { useAuth } from '../../../context/AuthContext';
 import { useSubmit } from '../../../hooks/useSubmit';
+import { useDriverVehicle } from '../../../hooks/useDriverVehicle';
 import fuelService from '../../../services/fuelService';
+
+const FUEL_TYPE = { Diesel: 'DIESEL', AdBlue: 'ADBLUE' };
+const FILLING = { 'Full tank': 'FULL_TANK', Partial: 'PARTIAL' };
 
 /**
  * 18 · Fuel details — confirm the reading and submit the fuel log.
@@ -19,15 +24,34 @@ export default function FuelEntryDetailsScreen({ navigation, route }) {
   const [rate, setRate] = useState(params.rate != null ? String(params.rate) : '');
   const [total, setTotal] = useState(params.total != null ? String(params.total) : '');
   const [paidBy, setPaidBy] = useState('My pocket');
+  const [fuelType, setFuelType] = useState('Diesel');
+  const [filling, setFilling] = useState('Full tank');
   const odometer = params.odometer != null ? String(params.odometer) : ''; // mapping to confirm
   const pump = params.pump || ''; // mapping to confirm
   const { submit, busy } = useSubmit();
+  const { user } = useAuth();
+  const { vehicleId } = useDriverVehicle();
 
   const totalNum = Number(String(total).replace(/[^0-9.]/g, ''));
   const totalFmt = totalNum > 0 ? `₹${totalNum.toLocaleString('en-IN')}` : 'the amount';
 
-  const onSave = () => submit(
-    () => fuelService.submitFuelLog({ litres, rate, totalAmount: total, paidBy, photo }), // mapping to confirm
+  const onSave = () => {
+    if (!vehicleId) {
+      Alert.alert('No vehicle assigned', 'You don’t have a vehicle assigned yet. Ask your manager to assign one before logging fuel.');
+      return;
+    }
+    submit(
+    () => fuelService.submitFuelLog({
+      vehicleId,
+      driverId: user?._id,
+      fuelType: FUEL_TYPE[fuelType] || 'DIESEL',
+      fillingType: FILLING[filling] || 'FULL_TANK',
+      litres,
+      rate,
+      odometerReading: odometer || undefined,
+      refuelTime: new Date().toISOString(),
+      photo,
+    }),
     {
       onSuccess: (log) => navigation.navigate('FuelSaved', {
         paidBy,
@@ -44,7 +68,8 @@ export default function FuelEntryDetailsScreen({ navigation, route }) {
       }),
       onError: (e) => Alert.alert('Could not save', e?.message || 'Please try again.'),
     },
-  );
+    );
+  };
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -78,6 +103,12 @@ export default function FuelEntryDetailsScreen({ navigation, route }) {
         </View>
 
         <TextField label="Odometer" value={odometer ? `${odometer} km` : '—'} mono editable={false} style={styles.gap} />
+
+        <AppText variant="label" muted style={styles.gap}>Fuel type</AppText>
+        <SegmentedControl options={['Diesel', 'AdBlue']} value={fuelType} onChange={setFuelType} style={styles.gapSm} />
+
+        <AppText variant="label" muted style={styles.gap}>Filling</AppText>
+        <SegmentedControl options={['Full tank', 'Partial']} value={filling} onChange={setFilling} style={styles.gapSm} />
 
         <AppText variant="label" muted style={styles.gap}>Paid by</AppText>
         <SegmentedControl options={['My pocket', 'Fuel card', 'Credit']} value={paidBy} onChange={setPaidBy} style={styles.gapSm} />
