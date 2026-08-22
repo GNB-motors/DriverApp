@@ -2,19 +2,23 @@ import React, { useState } from 'react';
 import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { AppText, AlertCard, colors, spacing } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
+import { AppText, AlertCard, Loading, EmptyState, colors, spacing } from '../../../components/ui';
 
 /**
- * 14 · Alerts — Needs action / All. UI-only demo.
+ * 14 · Alerts — Needs action / All. Real notifications only.
  */
 export default function AlertsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('action');
 
-  const actionAlerts = mock.alerts.filter((a) => a.group === 'action');
-  const earlierAlerts = mock.alerts.filter((a) => a.group === 'earlier');
+  // Real-only: there is no app notifications endpoint yet, so there is no data
+  // source to read — the screen renders an empty state until one exists.
+  // TODO: wire notifications endpoint when available
+  const loading = false;
+  const actionAlerts = [];
+  const earlierAlerts = [];
   const showEarlier = tab === 'all';
+  const visible = showEarlier ? [...actionAlerts, ...earlierAlerts] : actionAlerts;
 
   const onAction = (alert) => {
     if (alert.actionLabel === 'Re-submit bill') navigation.navigate('AddBill');
@@ -47,18 +51,26 @@ export default function AlertsScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
-        {actionAlerts.map((a) => (
-          <AlertCard key={a.id} tone={a.tone} icon={a.icon} title={a.title} time={a.time} message={a.message} actionLabel={a.actionLabel} onAction={() => onAction(a)} />
-        ))}
-
-        {showEarlier ? (
+        {loading ? (
+          <Loading />
+        ) : visible.length === 0 ? (
+          <EmptyState icon="notifications-outline" title="No alerts" message="You're all caught up." />
+        ) : (
           <>
-            <AppText variant="label" muted style={styles.section}>Earlier</AppText>
-            {earlierAlerts.map((a) => (
-              <AlertCard key={a.id} tone={a.tone} icon={a.icon} title={a.title} time={a.time} message={a.message} compact />
+            {actionAlerts.map((a) => (
+              <AlertCard key={a.id} tone={a.tone} icon={a.icon} title={a.title} time={a.time} message={a.message} actionLabel={a.actionLabel} onAction={() => onAction(a)} />
             ))}
+
+            {showEarlier ? (
+              <>
+                <AppText variant="label" muted style={styles.section}>Earlier</AppText>
+                {earlierAlerts.map((a) => (
+                  <AlertCard key={a.id} tone={a.tone} icon={a.icon} title={a.title} time={a.time} message={a.message} compact />
+                ))}
+              </>
+            ) : null}
           </>
-        ) : null}
+        )}
       </ScrollView>
     </View>
   );

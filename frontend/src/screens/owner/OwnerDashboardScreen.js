@@ -1,12 +1,11 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, ProgressBar, colors, spacing, radius } from '../../components/ui';
 import OwnerShell from './OwnerShell';
-import { StatTile, SectionHeader } from '../../components/ui';
-import * as own from '../../demo/ownerMock';
+import { StatTile, SectionHeader, Loading, EmptyState } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
@@ -16,87 +15,103 @@ import approvalService from '../../services/approvalService';
 /** O4 · Owner dashboard — the morning look. */
 export default function OwnerDashboardScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const dash = own.ownerDashboard;
 
-  // ERP dashboard + approvals summary → real when a backend is configured (else demo mock).
+  // ERP dashboard + approvals summary — real API only.
   const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const useReal = apiConfigured() && !!token;
   const { data: erpApi, loading: erpLoading } = useApi(
     () => ownerService.getErpDashboard(),
     [],
     { enabled: useReal, fallback: null },
   );
-  const { data: apprSummary } = useApi(
+  const { data: apprSummary, loading: apprLoading } = useApi(
     () => approvalService.getApprovalsSummary(),
     [],
     { enabled: useReal, fallback: null },
   );
 
-  // mapping to confirm against live API — spread mock first so unknown fields keep mock values.
+  // Map the API responses to the screen shape — optional chaining + safe
+  // defaults so a partial/empty response never crashes.
   const d = useMemo(() => {
-    if (!useReal || (!erpApi && !apprSummary)) return dash;
     const e = erpApi || {};
     const a = apprSummary || {};
-    const fmt = (v) => `₹${Number(v).toLocaleString('en-IN')}`;
+    const fmt = (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`;
     return {
-      ...dash,
-      name: e.ownerName || e.name || dash.name,
-      company: e.companyName || e.company || dash.company,
+      name: e?.ownerName ?? e?.name ?? '',
+      company: e?.companyName ?? e?.company ?? '',
       needs: {
-        ...dash.needs,
-        bills: a.pendingCount != null ? `${a.pendingCount} bills` : dash.needs.bills,
-        waiting: a.pendingTotal != null ? `${fmt(a.pendingTotal)} waiting for confirmation` : dash.needs.waiting,
-        items: a.itemsCount != null ? `${a.itemsCount} items` : dash.needs.items,
+        items: a?.itemsCount != null ? `${a.itemsCount} items` : '',
+        bills: a?.pendingCount != null ? `${a.pendingCount} bills` : '0 bills',
+        waiting: a?.pendingTotal != null ? `${fmt(a.pendingTotal)} waiting for confirmation` : '',
+        advances: a?.advancesCount != null ? `${a.advancesCount} advance requests` : '',
+        pods: a?.podsCount != null ? `${a.podsCount} PODs to review` : '',
       },
-      stats: Array.isArray(e.stats) && e.stats.length ? e.stats : dash.stats,
-      fleetNow: Array.isArray(e.fleetNow) && e.fleetNow.length ? e.fleetNow : dash.fleetNow,
-      week: Array.isArray(e.week) && e.week.length ? e.week : dash.week,
+      stats: Array.isArray(e?.stats) ? e.stats : [],
+      fleetNow: Array.isArray(e?.fleetNow) ? e.fleetNow : [],
+      week: Array.isArray(e?.week) ? e.week : [],
     };
-  }, [useReal, erpApi, apprSummary, dash]);
+  }, [erpApi, apprSummary]);
+
+  const loading = erpLoading || apprLoading;
+  const isEmpty = !erpApi && !apprSummary;
+  const subtitle = [d.name, d.company].filter(Boolean).join(' · ');
 
   return (
-    <OwnerShell title="Dashboard" subtitle={`${d.name} · ${d.company}`} navigation={navigation} active="OwnerDashboard"
+    <OwnerShell title="Dashboard" subtitle={subtitle} navigation={navigation} active="OwnerDashboard"
       right={<View style={styles.bell}><Ionicons name="notifications-outline" size={20} color={colors.text} /><View style={styles.bellDot} /></View>}>
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
-        {useReal && erpLoading ? <ActivityIndicator color={colors.primary} style={{ marginBottom: 4 }} /> : null}
-        <Pressable onPress={() => navigation.navigate('OwnerApprovals')}>
-          <LinearGradient colors={colors.gradient} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={styles.hero}>
-            <View style={styles.heroTop}>
-              <AppText variant="label" color={colors.onPrimaryMuted} numberOfLines={1} style={styles.heroTopLabel}>Needs you today</AppText>
-              <View style={styles.heroPill}><AppText variant="caption" weight="bold" color={colors.white} numberOfLines={1}>{d.needs.items}</AppText></View>
-            </View>
-            <View style={styles.heroMain}>
-              <View style={{ flex: 1 }}>
-                <AppText mono weight="semibold" color={colors.white} numberOfLines={1} style={styles.heroBig}>{d.needs.bills}</AppText>
-                <AppText variant="small" color={colors.onPrimaryMuted} numberOfLines={1}>{d.needs.waiting}</AppText>
+        {loading ? (
+          <Loading />
+        ) : isEmpty ? (
+          <EmptyState icon="speedometer-outline" title="No dashboard yet" message="Your daily summary appears once trips, bills and trucks are recorded." />
+        ) : (
+          <>
+            <Pressable onPress={() => navigation.navigate('OwnerApprovals')}>
+              <LinearGradient colors={colors.gradient} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={styles.hero}>
+                <View style={styles.heroTop}>
+                  <AppText variant="label" color={colors.onPrimaryMuted} numberOfLines={1} style={styles.heroTopLabel}>Needs you today</AppText>
+                  <View style={styles.heroPill}><AppText variant="caption" weight="bold" color={colors.white} numberOfLines={1}>{d.needs.items}</AppText></View>
+                </View>
+                <View style={styles.heroMain}>
+                  <View style={{ flex: 1 }}>
+                    <AppText mono weight="semibold" color={colors.white} numberOfLines={1} style={styles.heroBig}>{d.needs.bills}</AppText>
+                    <AppText variant="small" color={colors.onPrimaryMuted} numberOfLines={1}>{d.needs.waiting}</AppText>
+                  </View>
+                  <View style={styles.heroChevron}><Ionicons name="chevron-forward" size={18} color={colors.white} /></View>
+                </View>
+                <View style={styles.heroDivider} />
+                <View style={styles.heroFoot}>
+                  <AppText variant="caption" color={colors.onPrimaryMuted} numberOfLines={1} style={styles.heroFootItem}>{d.needs.advances}</AppText>
+                  <AppText variant="caption" color={colors.onPrimaryMuted} numberOfLines={1} style={styles.heroFootItem}>{d.needs.pods}</AppText>
+                </View>
+              </LinearGradient>
+            </Pressable>
+
+            {d.stats.length ? (
+              <View style={styles.grid}>
+                {d.stats.map((s) => <StatTile key={s.label} label={s.label} value={s.value} sub={s.sub} color={s.color} />)}
               </View>
-              <View style={styles.heroChevron}><Ionicons name="chevron-forward" size={18} color={colors.white} /></View>
-            </View>
-            <View style={styles.heroDivider} />
-            <View style={styles.heroFoot}>
-              <AppText variant="caption" color={colors.onPrimaryMuted} numberOfLines={1} style={styles.heroFootItem}>{d.needs.advances}</AppText>
-              <AppText variant="caption" color={colors.onPrimaryMuted} numberOfLines={1} style={styles.heroFootItem}>{d.needs.pods}</AppText>
-            </View>
-          </LinearGradient>
-        </Pressable>
+            ) : null}
 
-        <View style={styles.grid}>
-          {d.stats.map((s) => <StatTile key={s.label} label={s.label} value={s.value} sub={s.sub} color={s.color} />)}
-        </View>
+            {d.fleetNow.length ? (
+              <Card elevated="sm" padding={16}>
+                <SectionHeader label="Fleet right now" right={<Pressable onPress={() => navigation.navigate('OwnerFleet')}><AppText variant="small" weight="bold" color={colors.primary}>See all</AppText></Pressable>} />
+                <View style={{ gap: 8, marginTop: 12 }}>
+                  {d.fleetNow.map((f) => <ProgressBar key={f.label} label={f.label} percent={f.percent} value={f.count} color={f.color} />)}
+                </View>
+              </Card>
+            ) : null}
 
-        <Card elevated="sm" padding={16}>
-          <SectionHeader label="Fleet right now" right={<Pressable onPress={() => navigation.navigate('OwnerFleet')}><AppText variant="small" weight="bold" color={colors.primary}>See all</AppText></Pressable>} />
-          <View style={{ gap: 8, marginTop: 12 }}>
-            {d.fleetNow.map((f) => <ProgressBar key={f.label} label={f.label} percent={f.percent} value={f.count} color={f.color} />)}
-          </View>
-        </Card>
-
-        <Card elevated="sm" padding={16}>
-          <SectionHeader label="This week" right={<AppText variant="caption" mono muted>12–18 Aug</AppText>} />
-          <View style={styles.weekRow}>
-            {d.week.map((w) => <AppText key={w} variant="small" weight="semibold" style={styles.weekItem}>{w}</AppText>)}
-          </View>
-        </Card>
+            {d.week.length ? (
+              <Card elevated="sm" padding={16}>
+                <SectionHeader label="This week" right={<AppText variant="caption" mono muted>12–18 Aug</AppText>} />
+                <View style={styles.weekRow}>
+                  {d.week.map((w) => <AppText key={w} variant="small" weight="semibold" style={styles.weekItem}>{w}</AppText>)}
+                </View>
+              </Card>
+            ) : null}
+          </>
+        )}
       </ScrollView>
     </OwnerShell>
   );

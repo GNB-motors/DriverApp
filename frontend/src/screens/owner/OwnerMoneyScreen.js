@@ -1,11 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, SegmentedControl, colors, spacing, radius } from '../../components/ui';
 import OwnerShell from './OwnerShell';
-import { Monogram, SectionHeader } from '../../components/ui';
-import * as own from '../../demo/ownerMock';
+import { Monogram, SectionHeader, Loading, EmptyState } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
@@ -15,40 +14,47 @@ import ownerService from '../../services/ownerService';
 export default function OwnerMoneyScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('pay');
-  const money = own.ownerMoney;
 
-  // Khata driver list → real when a backend is configured (else demo mock).
+  // Khata driver list — real API only.
   const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const useReal = apiConfigured() && !!token;
   const { data: khataApi, loading: khataLoading } = useApi(
     () => ownerService.listKhataDrivers(),
     [],
-    { enabled: useReal, fallback: null },
+    { enabled: useReal, fallback: [] },
   );
 
-  // mapping to confirm against live API — map driver rows to the list shape;
-  // summary scalars stay on mock unless the API provides them.
+  // Map driver rows to the list shape and derive the summary totals — optional
+  // chaining + safe defaults so a partial/empty response never crashes.
   const m = useMemo(() => {
-    if (!useReal || !khataApi) return money;
     const rows = Array.isArray(khataApi)
       ? khataApi
-      : khataApi.drivers || khataApi.items || khataApi.results || khataApi.data || [];
-    if (!rows.length) return money;
+      : (khataApi?.drivers || khataApi?.items || khataApi?.results || khataApi?.data || []);
+    let owedNum = 0;
     const list = rows.map((r, i) => {
-      const mm = money.list[i] || {};
-      const name = r.driverName || r.name || r.driver?.name || mm.name;
-      const initials = r.initials
-        || (name ? name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase() : mm.initials);
-      const bal = r.balance ?? r.owed ?? r.netBalance ?? r.amount;
+      const name = r?.driverName || r?.name || r?.driver?.name || '';
+      const initials = r?.initials
+        || (name ? name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase() : '');
+      const bal = r?.balance ?? r?.owed ?? r?.netBalance ?? r?.amount ?? 0;
+      owedNum += Number(bal) || 0;
       return {
+        _id: r?._id || r?.driverId || r?.id || null, // raw id for the driver-account fetch
         initials,
         name,
-        meta: r.meta || mm.meta,
-        amount: bal != null ? `₹${Number(bal).toLocaleString('en-IN')}` : mm.amount,
+        meta: r?.meta || '',
+        amount: `₹${(Number(bal) || 0).toLocaleString('en-IN')}`,
       };
     });
-    return { ...money, list };
-  }, [useReal, khataApi, money]);
+    return {
+      owed: `₹${owedNum.toLocaleString('en-IN')}`,
+      drivers: list.length ? `across ${list.length} drivers` : '',
+      confirmed: '',
+      adjustments: '',
+      list,
+    };
+  }, [khataApi]);
+
+  const isEmpty = m.list.length === 0;
 
   return (
     <OwnerShell title="Money" navigation={navigation} active="OwnerMoney">
@@ -57,42 +63,50 @@ export default function OwnerMoneyScreen({ navigation }) {
           <SegmentedControl variant="pill" options={[{ label: 'To pay', value: 'pay' }, { label: 'To collect', value: 'collect' }]} value={tab} onChange={setTab} />
         </View>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Card elevated="sm" padding={16}>
-            <AppText variant="label" muted>Owed to drivers</AppText>
-            <AppText mono weight="semibold" style={styles.big}>{m.owed}</AppText>
-            <AppText variant="small" muted>{m.drivers}</AppText>
-            <View style={styles.subRow}>
-              <AppText variant="caption" mono muted>{m.confirmed}</AppText>
-              <AppText variant="caption" mono muted>{m.adjustments}</AppText>
-            </View>
-          </Card>
+          {khataLoading ? (
+            <Loading />
+          ) : isEmpty ? (
+            <EmptyState icon="cash-outline" title="No drivers yet" message="Drivers you settle with will appear here with what you owe them." />
+          ) : (
+            <>
+              <Card elevated="sm" padding={16}>
+                <AppText variant="label" muted>Owed to drivers</AppText>
+                <AppText mono weight="semibold" style={styles.big}>{m.owed}</AppText>
+                <AppText variant="small" muted>{m.drivers}</AppText>
+                {(m.confirmed || m.adjustments) ? (
+                  <View style={styles.subRow}>
+                    {m.confirmed ? <AppText variant="caption" mono muted>{m.confirmed}</AppText> : null}
+                    {m.adjustments ? <AppText variant="caption" mono muted>{m.adjustments}</AppText> : null}
+                  </View>
+                ) : null}
+              </Card>
 
-          <SectionHeader label="By driver" />
-          <Card padding={0} elevated="sm">
-            {useReal && khataLoading ? (
-              <ActivityIndicator color={colors.primary} style={{ margin: 24 }} />
-            ) : m.list.map((d, i) => (
-              <Pressable key={d.initials} onPress={() => navigation.navigate('OwnerDriver')} style={[styles.driver, i > 0 && styles.divider]}>
-                <Monogram initials={d.initials} size={40} />
-                <View style={{ flex: 1, gap: 3 }}>
-                  <AppText variant="bodyStrong" weight="bold">{d.name}</AppText>
-                  <AppText variant="caption" mono muted>{d.meta}</AppText>
-                </View>
-                <AppText mono variant="bodyStrong" weight="semibold">{d.amount}</AppText>
+              <SectionHeader label="By driver" />
+              <Card padding={0} elevated="sm">
+                {m.list.map((d, i) => (
+                  <Pressable key={d._id || d.initials || i} onPress={() => navigation.navigate('OwnerDriver', { driverId: d._id })} style={[styles.driver, i > 0 && styles.divider]}>
+                    <Monogram initials={d.initials} size={40} />
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <AppText variant="bodyStrong" weight="bold">{d.name}</AppText>
+                      <AppText variant="caption" mono muted>{d.meta}</AppText>
+                    </View>
+                    <AppText mono variant="bodyStrong" weight="semibold">{d.amount}</AppText>
+                  </Pressable>
+                ))}
+              </Card>
+
+              <Pressable onPress={() => navigation.navigate('OwnerApprovals')}>
+                <Card elevated="sm" padding={14} style={styles.advRow}>
+                  <View style={styles.advIcon}><Ionicons name="add" size={20} color={colors.warning} /></View>
+                  <View style={{ flex: 1 }}>
+                    <AppText variant="bodyStrong" weight="bold">3 advance requests</AppText>
+                    <AppText variant="caption" muted>₹9,500 asked for today</AppText>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#B4B4BC" />
+                </Card>
               </Pressable>
-            ))}
-          </Card>
-
-          <Pressable onPress={() => navigation.navigate('OwnerApprovals')}>
-            <Card elevated="sm" padding={14} style={styles.advRow}>
-              <View style={styles.advIcon}><Ionicons name="add" size={20} color={colors.warning} /></View>
-              <View style={{ flex: 1 }}>
-                <AppText variant="bodyStrong" weight="bold">3 advance requests</AppText>
-                <AppText variant="caption" muted>₹9,500 asked for today</AppText>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#B4B4BC" />
-            </Card>
-          </Pressable>
+            </>
+          )}
         </ScrollView>
 
         <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }]}>

@@ -1,91 +1,95 @@
-import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import dayjs from 'dayjs';
 import { AppText, Card, colors, spacing, radius } from '../../components/ui';
 import OwnerShell from './OwnerShell';
-import { Pill, FilterChips } from '../../components/ui';
-import * as mock from '../../demo/mock';
+import { Pill, FilterChips, Loading, EmptyState } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
-import approvalService from '../../services/approvalService';
+import billService from '../../services/billService';
 
 const CAT_TONE = { Other: 'purple', Repair: 'info', Toll: 'warning', Food: 'warning', Loading: 'purple', Parking: 'info' };
 
-/** O1 · Bills to confirm — the owner's queue. */
+/** O1 · Bills to confirm — the owner's queue (pending driver bills). */
 export default function OwnerApprovalsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState('All');
 
-  // Approvals queue → real when a backend is configured (else demo mock).
+  // Pending driver bills — real API only.
   const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
-  const { data: apprApi, loading: apprLoading } = useApi(
-    () => approvalService.listApprovals(),
+  const useReal = apiConfigured() && !!token;
+  const { data: apprApi, loading: apprLoading, refetch } = useApi(
+    () => billService.listBills({ status: 'PENDING' }),
     [],
-    { enabled: useReal, fallback: null },
+    { enabled: useReal, fallback: [] },
   );
+  // Refetch when returning from confirm/reject.
+  useFocusEffect(useCallback(() => { if (useReal) refetch(); }, [useReal, refetch]));
 
-  // mapping to confirm against live API — normalise each approval to the row
-  // shape; unknown fields fall back to the mock per-field.
+  // Normalise each bill to the row shape — optional chaining + safe defaults.
   const ownerBills = useMemo(() => {
-    if (!useReal || !apprApi) return mock.ownerBills;
     const rows = Array.isArray(apprApi)
       ? apprApi
-      : apprApi.items || apprApi.results || apprApi.approvals || apprApi.data || [];
-    if (!rows.length) return mock.ownerBills;
-    return rows.map((r, i) => {
-      const m = mock.ownerBills[i] || {};
-      const amt = r.amount ?? r.total ?? r.value;
-      return {
-        id: r._id || r.id || m.id || String(i),
-        name: r.driverName || r.driver?.name || r.name || m.name,
-        category: r.category || r.type || m.category,
-        plate: r.vehicleNumber || r.plate || r.vehicle?.registrationNumber || m.plate,
-        date: r.date || r.createdAt || m.date,
-        desc: r.description || r.desc || r.remarks || m.desc,
-        amount: amt != null ? `₹${Number(amt).toLocaleString('en-IN')}` : m.amount,
-        file: r.fileType || r.file || m.file,
-      };
-    });
-  }, [useReal, apprApi]);
+      : (apprApi?.results || apprApi?.items || apprApi?.rows || apprApi?.data || []);
+    return rows.map((r, i) => ({
+      id: r?._id || r?.id || String(i),
+      name: r?.driver?.name || r?.driverName || 'Driver',
+      category: (r?.title || r?.category || '').replace(/ bill$/i, '') || 'Bill',
+      plate: r?.vehicle?.registrationNumber || '',
+      date: r?.expenseDate ? dayjs(r.expenseDate).format('DD MMM') : '',
+      desc: r?.description || '',
+      amount: `₹${(Number(r?.amount) || 0).toLocaleString('en-IN')}`,
+      file: '',
+    }));
+  }, [apprApi]);
+
+  const pendingCount = ownerBills.length;
+  const isEmpty = pendingCount === 0;
 
   return (
     <OwnerShell
       title="Bills to confirm"
-      subtitle={`${mock.owner.pendingCount} pending · ${mock.owner.pendingTotal}`}
+      subtitle={`${pendingCount} pending`}
       navigation={navigation}
       active="OwnerApprovals"
-      right={<View style={styles.countPill}><AppText mono weight="bold" color={colors.white}>{mock.owner.pendingCount}</AppText></View>}
+      right={<View style={styles.countPill}><AppText mono weight="bold" color={colors.white}>{pendingCount}</AppText></View>}
     >
       <View style={styles.wrap}>
         <FilterChips options={['All', 'Today', 'Above ₹2,000']} value={filter} onChange={setFilter} style={styles.chips} />
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {useReal && apprLoading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
-          ) : ownerBills.map((b) => (
-            <Card key={b.id} elevated="sm" padding={12} onPress={() => navigation.navigate('OwnerBillDetail')} style={styles.row}>
-              <View style={styles.thumb}>
-                <Ionicons name="document-text-outline" size={18} color={colors.textMuted} />
-                <AppText variant="caption" mono muted style={{ fontSize: 8 }}>{b.file}</AppText>
-              </View>
-              <View style={{ flex: 1, gap: 5 }}>
-                <AppText variant="bodyStrong" weight="bold">{b.name}</AppText>
-                <View style={styles.metaRow}>
-                  <Pill tone={CAT_TONE[b.category] || 'neutral'} label={b.category} />
-                  <AppText variant="caption" mono muted>{b.plate}</AppText>
-                  <AppText variant="caption" mono muted>{b.date}</AppText>
-                </View>
-                <AppText variant="caption" muted numberOfLines={1}>{b.desc}</AppText>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                <AppText mono variant="bodyStrong" weight="semibold">{b.amount}</AppText>
-                <Ionicons name="chevron-forward" size={16} color="#B4B4BC" />
-              </View>
-            </Card>
-          ))}
-          <AppText variant="small" muted center style={styles.more}>8 more pending</AppText>
+          {apprLoading ? (
+            <Loading />
+          ) : isEmpty ? (
+            <EmptyState icon="checkmark-done-outline" title="No approvals" message="Bills waiting for your confirmation will show up here." />
+          ) : (
+            <>
+              {ownerBills.map((b) => (
+                <Card key={b.id} elevated="sm" padding={12} onPress={() => navigation.navigate('OwnerBillDetail', { id: b.id })} style={styles.row}>
+                  <View style={styles.thumb}>
+                    <Ionicons name="document-text-outline" size={18} color={colors.textMuted} />
+                    <AppText variant="caption" mono muted style={{ fontSize: 8 }}>{b.file}</AppText>
+                  </View>
+                  <View style={{ flex: 1, gap: 5 }}>
+                    <AppText variant="bodyStrong" weight="bold">{b.name}</AppText>
+                    <View style={styles.metaRow}>
+                      <Pill tone={CAT_TONE[b.category] || 'neutral'} label={b.category} />
+                      <AppText variant="caption" mono muted>{b.plate}</AppText>
+                      <AppText variant="caption" mono muted>{b.date}</AppText>
+                    </View>
+                    <AppText variant="caption" muted numberOfLines={1}>{b.desc}</AppText>
+                  </View>
+                  <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                    <AppText mono variant="bodyStrong" weight="semibold">{b.amount}</AppText>
+                    <Ionicons name="chevron-forward" size={16} color="#B4B4BC" />
+                  </View>
+                </Card>
+              ))}
+            </>
+          )}
         </ScrollView>
 
         <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }]}>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,9 +7,6 @@ import {
   AppText, Button, TextField, PhotoUploader, SegmentedControl, WarningBanner, Badge,
   KeyValueTable, KeyValueRow, colors, spacing, radius,
 } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
-import { useAuth } from '../../../context/AuthContext';
-import { apiConfigured } from '../../../services/client';
 import { useSubmit } from '../../../hooks/useSubmit';
 import podService from '../../../services/podService';
 import { pickFromCamera, pickFromGallery } from '../../../utils/pickImage';
@@ -17,23 +14,28 @@ import { pickFromCamera, pickFromGallery } from '../../../utils/pickImage';
 /**
  * 27 · Proof of delivery — at unload. UI-only demo.
  */
-export default function PodScreen({ navigation }) {
+export default function PodScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const p = mock.pod;
-  const [photo, setPhoto] = useState({ name: 'POD_4802', quality: 'ok' });
+  const params = route?.params ?? {};
+  const tripNumber = params.tripNumber ?? params.trip ?? '';
+  const tripId = params.tripId ?? params.trip ?? '';
+  const routeLabel = params.route ?? '';
+  const late = params.late ?? '';
+  const consignee = params.consignee ?? '';
+  const unloaded = params.unloaded ?? '';
+  const weight = params.weight ?? '';
+  const receiver = params.receiver ?? '';
+  const [photo, setPhoto] = useState(null);
   const [condition, setCondition] = useState('No damage');
   const [remarks, setRemarks] = useState('');
-  const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
-  const { submit, busy } = useSubmit();
+  const { submit, busy, error } = useSubmit();
 
   const capture = async () => { const f = await pickFromCamera(); if (f) setPhoto({ name: f.name, quality: 'ok', file: f }); };
   const captureFromGallery = async () => { const f = await pickFromGallery(); if (f) setPhoto({ name: f.name, quality: 'ok', file: f }); };
   const onSubmit = () => {
-    if (!useReal) return navigation.goBack();
-    return submit(
-      () => podService.uploadPod({ tripId: p.trip, condition, receiver: p.receiver, remarks, file: photo?.file }),
-      { onSuccess: () => navigation.goBack(), onError: (e) => Alert.alert('Submit failed', e?.message || 'Please try again.') },
+    submit(
+      () => podService.uploadPod({ tripId, condition, receiver, remarks, file: photo?.file }),
+      { onSuccess: () => navigation.goBack() },
     );
   };
 
@@ -46,16 +48,16 @@ export default function PodScreen({ navigation }) {
         </Pressable>
         <View style={{ flex: 1 }}>
           <AppText variant="h3" weight="extrabold">Proof of delivery</AppText>
-          <AppText variant="caption" mono muted>{p.trip} · {p.route}</AppText>
+          <AppText variant="caption" mono muted>{tripNumber} · {routeLabel}</AppText>
         </View>
-        <Badge tone="pending" label={p.late} />
+        <Badge tone="pending" label={late} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <KeyValueTable>
-          <KeyValueRow label="Consignee" value={p.consignee} />
-          <KeyValueRow label="Unloaded" value={p.unloaded} mono />
-          <KeyValueRow label="Weight received" value={p.weight} mono />
+          <KeyValueRow label="Consignee" value={consignee} />
+          <KeyValueRow label="Unloaded" value={unloaded} mono />
+          <KeyValueRow label="Weight received" value={weight} mono />
         </KeyValueTable>
 
         <PhotoUploader
@@ -72,10 +74,12 @@ export default function PodScreen({ navigation }) {
         <AppText variant="label" muted style={styles.gap}>Condition at delivery</AppText>
         <SegmentedControl options={['No damage', 'Shortage', 'Damage']} value={condition} onChange={setCondition} style={styles.gapSm} />
 
-        <TextField label="Receiver name" value={p.receiver} editable={false} style={styles.gap} />
+        <TextField label="Receiver name" value={receiver} editable={false} style={styles.gap} />
         <TextField label="Remarks" value={remarks} onChangeText={setRemarks} placeholder="Optional" style={styles.gapSm} />
 
         <WarningBanner tone="info" message="Submitting the POD closes the trip and releases your trip earning for settlement." style={styles.gap} />
+
+        {error ? <WarningBanner tone="error" message={error} style={styles.gap} /> : null}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>

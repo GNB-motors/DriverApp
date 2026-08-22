@@ -1,12 +1,11 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Card, colors, spacing, radius } from '../../components/ui';
+import { AppText, Card, Loading, EmptyState, colors, spacing, radius } from '../../components/ui';
 import ManagerShell from './ManagerShell';
 import { StatTile, SectionHeader, TONE } from '../../components/ui';
-import * as own from '../../demo/managerMock';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
@@ -16,39 +15,55 @@ import approvalService from '../../services/approvalService';
 export default function OpsHomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
-  // Real approvals summary when a backend is configured (else demo mock).
-  const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  // Real approvals summary — no data until a backend is configured and signed in.
+  const { token, user } = useAuth();
+  const enabled = apiConfigured() && !!token;
   const { data: summaryApi, loading } = useApi(
     () => approvalService.getApprovalsSummary(),
     [],
-    { enabled: useReal, fallback: null },
+    { enabled, fallback: null },
   );
 
-  // Merge the approvals summary onto the mock dashboard (per-field mock fallback).
-  // mapping to confirm against live API
+  // Normalize the approvals summary → the dashboard shape (optional chaining + safe defaults).
   const o = useMemo(() => {
-    const m = own.opsHome;
-    if (!useReal || !summaryApi) return m;
-    const s = summaryApi;
+    const s = summaryApi || {};
     const total = s.total ?? s.pending ?? s.pendingCount ?? s.count;
     const trips = s.blockedTrips ?? s.trips ?? s.tripsBlocked;
+    const inline = Array.isArray(s.inline)
+      ? s.inline
+      : Array.isArray(s.breakdown)
+        ? s.breakdown.map((b) => (b?.label || `${b?.count ?? ''} ${b?.type ?? ''}`.trim())).filter(Boolean)
+        : [];
+    const stats = Array.isArray(s.stats)
+      ? s.stats.map((x) => ({ label: x?.label, value: String(x?.value ?? x?.count ?? ''), sub: x?.sub, color: x?.color }))
+      : [];
+    const decisions = Array.isArray(s.decisions)
+      ? s.decisions.map((d) => ({ icon: d?.icon || 'alert-circle', tone: d?.tone || 'warning', title: d?.title || 'Needs a decision', meta: d?.meta || '', to: d?.to || 'OpsApprovals' }))
+      : [];
     return {
-      ...m,
+      name: user?.name || 'Ops desk',
+      shift: s.shift || null,
       blocked: {
-        ...m.blocked,
-        items: total != null ? `${total} items` : m.blocked.items,
-        trips: trips != null ? `${trips} trips` : m.blocked.trips,
+        items: total != null ? `${total} items` : '0 items',
+        trips: trips != null ? `${trips} trips` : '0 trips',
+        caption: 'waiting on a document or approval',
+        inline,
       },
+      stats,
+      decisions,
     };
-  }, [useReal, summaryApi]);
+  }, [summaryApi, user]);
+
+  const empty = !summaryApi;
 
   return (
-    <ManagerShell title="Ops home" subtitle={`${o.name} · ${o.desk.replace('Ops desk · ', '')}`} navigation={navigation} active="OpsHome"
-      right={<View style={styles.shift}><AppText variant="caption" mono weight="bold" color={colors.infoText}>{o.shift}</AppText></View>}>
+    <ManagerShell title="Ops home" subtitle={o.name} navigation={navigation} active="OpsHome"
+      right={o.shift ? <View style={styles.shift}><AppText variant="caption" mono weight="bold" color={colors.infoText}>{o.shift}</AppText></View> : undefined}>
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
-        {useReal && loading ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+        {loading ? (
+          <Loading />
+        ) : empty ? (
+          <EmptyState title="You're all caught up" message="Blocked trips and pending approvals will show up here." />
         ) : (
           <>
         <Pressable onPress={() => navigation.navigate('OpsApprovals')}>
@@ -75,7 +90,7 @@ export default function OpsHomeScreen({ navigation }) {
           {o.stats.map((s) => <StatTile key={s.label} label={s.label} value={s.value} sub={s.sub} color={s.color} />)}
         </View>
 
-        <SectionHeader label="Needs a decision" />
+        {o.decisions.length ? <SectionHeader label="Needs a decision" /> : null}
         {o.decisions.map((d) => (
           <Pressable key={d.title} onPress={() => navigation.navigate(d.to)}>
             <Card elevated="sm" padding={14} style={styles.decision}>

@@ -4,15 +4,22 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Badge, StepProgress, WarningBanner, colors, spacing, radius } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
+import { pickFromCamera, pickFromGallery } from '../../../utils/pickImage';
 
 /**
- * 17 · Fuel capture — the three photos. UI-only demo.
+ * 17 · Fuel capture — the three photos. Captures the real bill photo.
  */
-export default function FuelCaptureScreen({ navigation }) {
+export default function FuelCaptureScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { fuel } = mock;
-  const [billCaptured, setBillCaptured] = useState(false);
+  const [photo, setPhoto] = useState(null); // fuel bill photo { uri, name, type }
+  // Odometer + pump readings are confirmed on the next step; route params carry
+  // any values forwarded from an earlier OCR pass — nothing is prefilled. (mapping to confirm)
+  const odometer = route.params?.odometer;
+  const litres = route.params?.litres;
+  const billCaptured = !!photo;
+  const captured = (billCaptured ? 1 : 0) + (odometer != null ? 1 : 0) + (litres != null ? 1 : 0);
+  const captureBill = async () => { const f = await pickFromCamera(); if (f) setPhoto(f); };
+  const pickBill = async () => { const f = await pickFromGallery(); if (f) setPhoto(f); };
 
   return (
     <View style={styles.container}>
@@ -25,25 +32,25 @@ export default function FuelCaptureScreen({ navigation }) {
           <AppText variant="h3" weight="extrabold">Add fuel</AppText>
           <AppText variant="caption" muted>Step 1 of 2 · photos</AppText>
         </View>
-        <AppText mono variant="small" weight="semibold" muted>{billCaptured ? 3 : 2}/3</AppText>
+        <AppText mono variant="small" weight="semibold" muted>{captured}/3</AppText>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <StepProgress variant="segments" total={2} current={1} style={styles.step} />
 
-        <CaptureRow icon="speedometer-outline" title="Odometer" value={fuel.odometer} hint="Reading picked up automatically" captured />
-        <CaptureRow icon="water-outline" title="Pump meter" value={`${fuel.litres} L`} hint="Litres and rate read from meter" captured />
+        <CaptureRow icon="speedometer-outline" title="Odometer" value={odometer != null ? String(odometer) : '—'} hint="Reading picked up automatically" captured={odometer != null} />
+        <CaptureRow icon="water-outline" title="Pump meter" value={litres != null ? `${litres} L` : '—'} hint="Litres and rate read from meter" captured={litres != null} />
 
         {billCaptured ? (
-          <CaptureRow icon="receipt-outline" title="Fuel bill" value={fuel.totalFmt} hint="Amount and litres read from bill" captured />
+          <CaptureRow icon="receipt-outline" title="Fuel bill" value={photo.name} hint="Amount and litres read from bill" captured />
         ) : (
           <View style={styles.dropzone}>
             <View style={styles.dropIcon}><Ionicons name="camera" size={22} color={colors.primary} /></View>
             <AppText variant="bodyStrong" weight="bold" center>Photograph the fuel bill</AppText>
             <AppText variant="small" muted center style={styles.dropSub}>Keep the amount and litres inside the frame.</AppText>
             <View style={styles.dropBtns}>
-              <Button size="md" icon="camera" label="Camera" fullWidth={false} style={styles.dropBtn} onPress={() => setBillCaptured(true)} />
-              <Button variant="secondary" size="md" icon="image" label="Gallery" fullWidth={false} style={styles.dropBtn} onPress={() => setBillCaptured(true)} />
+              <Button size="md" icon="camera" label="Camera" fullWidth={false} style={styles.dropBtn} onPress={captureBill} />
+              <Button variant="secondary" size="md" icon="image" label="Gallery" fullWidth={false} style={styles.dropBtn} onPress={pickBill} />
             </View>
           </View>
         )}
@@ -52,7 +59,7 @@ export default function FuelCaptureScreen({ navigation }) {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Button size="lg" label="Continue" iconRight="arrow-forward" disabled={!billCaptured} onPress={() => navigation.navigate('FuelEntryDetails')} />
+        <Button size="lg" label="Continue" iconRight="arrow-forward" disabled={!billCaptured} onPress={() => navigation.navigate('FuelEntryDetails', { photo, odometer, litres })} />
       </View>
     </View>
   );

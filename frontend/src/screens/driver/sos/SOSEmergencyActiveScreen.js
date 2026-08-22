@@ -4,19 +4,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, colors, spacing, radius } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
 
 const WHITE = '#FFFFFF';
 const FAINT = 'rgba(255,255,255,0.12)';
 const LINE = 'rgba(255,255,255,0.22)';
 const MUTED = 'rgba(255,255,255,0.78)';
 
+const LOCATION = 'NH-48, 12 km before Karad';
+const TIME = '17:42';
+const CHECKLIST = [
+  { title: 'Owner notified', meta: 'Suresh · 17:42', done: true },
+  { title: 'Ops desk acknowledged', meta: 'Priya · 17:44', done: true },
+  { title: 'Mechanic being assigned', meta: 'ETA shared once confirmed', done: false },
+];
+
 /**
  * 25 · SOS active — help on the way. UI-only demo.
  */
 export default function SOSEmergencyActiveScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { sos } = mock;
   const title = route.params?.title || 'Emergency';
   const ping = useRef(new Animated.Value(0)).current;
 
@@ -38,7 +44,7 @@ export default function SOSEmergencyActiveScreen({ navigation, route }) {
       <View style={styles.topRow}>
         <View>
           <AppText variant="label" color={MUTED}>SOS active</AppText>
-          <AppText variant="small" mono color={WHITE}>Sent {sos.time} · 4 m ago</AppText>
+          <AppText variant="small" mono color={WHITE}>Sent {TIME} · 4 m ago</AppText>
         </View>
       </View>
 
@@ -54,7 +60,7 @@ export default function SOSEmergencyActiveScreen({ navigation, route }) {
       </View>
 
       <View style={styles.card}>
-        {sos.checklist.map((s, i) => (
+        {CHECKLIST.map((s, i) => (
           <View key={i} style={[styles.step, i > 0 && styles.stepDivider]}>
             {s.done ? (
               <Ionicons name="checkmark-circle" size={22} color={WHITE} />
@@ -72,7 +78,7 @@ export default function SOSEmergencyActiveScreen({ navigation, route }) {
       <View style={styles.locCard}>
         <Ionicons name="location" size={16} color={WHITE} />
         <AppText variant="small" color={WHITE}>Live location on · </AppText>
-        <AppText variant="small" mono color={MUTED}>{sos.location}</AppText>
+        <AppText variant="small" mono color={MUTED}>{LOCATION}</AppText>
       </View>
 
       <View style={styles.actions}>

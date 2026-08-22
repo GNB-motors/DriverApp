@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Card, Stepper, colors, spacing } from '../../components/ui';
-import { BackHeader, Pill, SectionHeader } from '../../components/ui';
-import * as own from '../../demo/managerMock';
+import { BackHeader, Pill, SectionHeader, Loading, EmptyState } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
@@ -13,49 +12,50 @@ import managerService from '../../services/managerService';
 export default function OpsDeliveryOrderScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
-  // Real delivery order when a backend is configured (else demo mock).
+  // Real delivery orders — no data until a backend is configured and signed in.
   const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const enabled = apiConfigured() && !!token;
   const { data: ordersApi, loading } = useApi(
     () => managerService.listDeliveryOrders(),
     [],
-    { enabled: useReal, fallback: null },
+    { enabled, fallback: [] },
   );
 
-  // Normalize the first delivery order → the DO shape (per-field mock fallback).
-  // mapping to confirm against live API
+  // Normalize the first delivery order → the DO shape (optional chaining + safe defaults).
   const o = useMemo(() => {
-    const m = own.opsDo;
-    if (!useReal || !ordersApi) return m;
-    const list = Array.isArray(ordersApi) ? ordersApi : (ordersApi.results || ordersApi.rows || ordersApi.items || ordersApi.data || []);
+    const list = Array.isArray(ordersApi)
+      ? ordersApi
+      : (ordersApi?.results || ordersApi?.rows || ordersApi?.items || ordersApi?.data || (ordersApi && typeof ordersApi === 'object' ? [ordersApi] : []));
     const d = list[0];
-    if (!d) return m;
+    if (!d) return null;
     const money = (v) => (v != null ? `₹${Number(v).toLocaleString('en-IN')}` : undefined);
     const stops = Array.isArray(d.stops) && d.stops.length
-      ? d.stops.map((s, i) => ({ place: s.place || s.name || s.location || m.stops[i]?.place || 'Stop', meta: s.meta || s.window || s.eta || m.stops[i]?.meta || '', status: s.status || m.stops[i]?.status || 'todo' }))
-      : m.stops;
+      ? d.stops.map((s) => ({ place: s?.place || s?.name || s?.location || 'Stop', meta: s?.meta || s?.window || s?.eta || '', status: s?.status || 'todo' }))
+      : [];
     const load = Array.isArray(d.load) ? d.load : [
-      [d.material || d.commodity || m.load[0][0], 'material'],
-      [d.weight != null ? `${d.weight} t` : m.load[1][0], 'weight'],
-      [money(d.freight) || m.load[2][0], 'freight'],
-      [d.rate || m.load[3][0], 'rate'],
+      [d.material || d.commodity || '—', 'material'],
+      [d.weight != null ? `${d.weight} t` : '—', 'weight'],
+      [money(d.freight) || '—', 'freight'],
+      [d.rate || '—', 'rate'],
     ];
     return {
-      id: d.doNo || d.code || d.id || d._id || m.id,
-      route: d.route || [d.origin || d.from, d.destination || d.to].filter(Boolean).join(' → ') || m.route,
+      id: d.doNo || d.code || d.id || d._id || '—',
+      route: d.route || [d.origin || d.from, d.destination || d.to].filter(Boolean).join(' → ') || '—',
       stops,
-      km: d.km != null ? `${d.km} km` : m.km,
+      km: d.km != null ? `${d.km} km` : '',
       load,
     };
-  }, [useReal, ordersApi]);
-  const timeline = o.stops.map((s) => ({ title: s.place, meta: s.meta, status: s.status }));
+  }, [ordersApi]);
+  const timeline = (o?.stops || []).map((s) => ({ title: s.place, meta: s.meta, status: s.status }));
 
   return (
     <View style={styles.container}>
-      <BackHeader title={o.id} subtitle={o.route} onBack={() => navigation.goBack()} right={<Pill tone="success" label="Placed" />} />
+      <BackHeader title={o?.id || 'Delivery order'} subtitle={o?.route} onBack={() => navigation.goBack()} right={<Pill tone="success" label="Placed" />} />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {useReal && loading ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+        {loading ? (
+          <Loading />
+        ) : !o ? (
+          <EmptyState icon="document-text-outline" title="No delivery order" message="Delivery order details will appear here once one is created." />
         ) : (
           <>
         <Card elevated="sm" padding={16}>

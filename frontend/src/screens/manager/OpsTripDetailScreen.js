@@ -1,10 +1,9 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Button, Card, Stepper, colors, spacing, radius } from '../../components/ui';
+import { AppText, Button, Card, Stepper, Loading, EmptyState, colors, spacing, radius } from '../../components/ui';
 import { BackHeader, Pill, Monogram, SectionHeader, toneColor } from '../../components/ui';
-import * as own from '../../demo/managerMock';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
@@ -14,52 +13,51 @@ import managerService from '../../services/managerService';
 export default function OpsTripDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
 
-  // Real ERP trip by id from route params (else stay on demo mock).
+  // Real ERP trip by id from route params — no data until configured, signed in, and given an id.
   const id = route?.params?.id;
   const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token' && !!id;
+  const enabled = apiConfigured() && !!token && !!id;
   const { data: tripApi, loading } = useApi(
     () => managerService.getErpTrip(id),
     [id],
-    { enabled: useReal, fallback: null },
+    { enabled, fallback: null },
   );
 
-  // Normalize the ERP trip → the detail shape (per-field mock fallback).
-  // mapping to confirm against live API
+  // Normalize the ERP trip → the detail shape (optional chaining + safe defaults).
   const t = useMemo(() => {
-    const m = own.opsTripDetail;
-    if (!useReal || !tripApi) return m;
     const d = tripApi;
+    if (!d) return null;
     const initials = (name) => String(name || '').split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
     const drv = d.driver || {};
     return {
-      ...m,
-      id: d.tripNo || d.code || d.id || d._id || m.id,
-      route: d.route || [d.origin || d.from, d.destination || d.to].filter(Boolean).join(' → ') || m.route,
-      stage: d.stage || (d.currentStage != null && d.totalStages != null ? `${d.currentStage}/${d.totalStages}` : m.stage),
+      id: d.tripNo || d.code || d.id || d._id || '—',
+      route: d.route || [d.origin || d.from, d.destination || d.to].filter(Boolean).join(' → ') || '—',
+      stage: d.stage || (d.currentStage != null && d.totalStages != null ? `${d.currentStage}/${d.totalStages}` : '—'),
       driver: {
-        initials: drv.initials || initials(drv.name || d.driverName) || m.driver.initials,
-        name: drv.name || d.driverName || m.driver.name,
-        phone: drv.phone || d.driverPhone || m.driver.phone,
+        initials: drv.initials || initials(drv.name || d.driverName),
+        name: drv.name || d.driverName || '—',
+        phone: drv.phone || d.driverPhone || '',
       },
-      stages: Array.isArray(d.stages) && d.stages.length
-        ? d.stages.map((s, i) => ({ title: s.title || s.name || m.stages[i]?.title || 'Stage', meta: s.meta || s.at || m.stages[i]?.meta, status: s.status || m.stages[i]?.status || 'todo' }))
-        : m.stages,
-      paperwork: Array.isArray(d.paperwork) && d.paperwork.length
-        ? d.paperwork.map((p, i) => ({ label: p.label || p.name || m.paperwork[i]?.label || 'Document', status: p.status || m.paperwork[i]?.status || 'neutral', badge: p.badge || p.statusLabel || m.paperwork[i]?.badge || '' }))
-        : m.paperwork,
-      money: Array.isArray(d.money) && d.money.length
-        ? d.money.map((mo, i) => ({ label: mo.label || m.money[i]?.label || '', value: mo.value || m.money[i]?.value || '', color: mo.color || m.money[i]?.color }))
-        : m.money,
+      stages: Array.isArray(d.stages)
+        ? d.stages.map((s) => ({ title: s?.title || s?.name || 'Stage', meta: s?.meta || s?.at || '', status: s?.status || 'todo' }))
+        : [],
+      paperwork: Array.isArray(d.paperwork)
+        ? d.paperwork.map((p) => ({ label: p?.label || p?.name || 'Document', status: p?.status || 'neutral', badge: p?.badge || p?.statusLabel || '' }))
+        : [],
+      money: Array.isArray(d.money)
+        ? d.money.map((mo) => ({ label: mo?.label || '', value: mo?.value || '', color: mo?.color }))
+        : [],
     };
-  }, [useReal, tripApi]);
+  }, [tripApi]);
 
   return (
     <View style={styles.container}>
-      <BackHeader title={t.id} subtitle={t.route} onBack={() => navigation.goBack()} right={<Pill tone="in_transit" label={t.stage} />} />
+      <BackHeader title={t?.id || 'Trip'} subtitle={t?.route} onBack={() => navigation.goBack()} right={t ? <Pill tone="in_transit" label={t.stage} /> : null} />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {useReal && loading ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+        {loading ? (
+          <Loading />
+        ) : !t ? (
+          <EmptyState title="Trip not found" message="This trip may have been closed or removed." />
         ) : (
           <>
         <Card elevated="sm" padding={14} style={styles.driver}>
@@ -102,7 +100,7 @@ export default function OpsTripDetailScreen({ navigation, route }) {
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
         <Button variant="secondary" size="lg" label="Message driver" style={{ flex: 1 }} onPress={() => {}} />
-        <Button size="lg" label="Close trip" style={{ flex: 1 }} onPress={() => navigation.navigate('OpsCloseTrip')} />
+        <Button size="lg" label="Close trip" style={{ flex: 1 }} onPress={() => navigation.navigate('OpsCloseTrip', { id })} />
       </View>
     </View>
   );

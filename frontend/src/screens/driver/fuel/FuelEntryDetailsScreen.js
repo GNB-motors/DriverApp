@@ -5,33 +5,46 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert } from 'react-native';
 import { AppText, Button, TextField, Badge, SegmentedControl, StepProgress, WarningBanner, colors, spacing, radius } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
-import { useAuth } from '../../../context/AuthContext';
-import { apiConfigured } from '../../../services/client';
 import { useSubmit } from '../../../hooks/useSubmit';
 import fuelService from '../../../services/fuelService';
 
 /**
- * 18 · Fuel details — read from the photos. UI-only demo.
+ * 18 · Fuel details — confirm the reading and submit the fuel log.
  */
-export default function FuelEntryDetailsScreen({ navigation }) {
+export default function FuelEntryDetailsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { fuel } = mock;
-  const [litres, setLitres] = useState(fuel.litres);
-  const [rate, setRate] = useState(fuel.rate);
-  const [total, setTotal] = useState(fuel.total);
+  const params = route.params || {};
+  const photo = params.photo || null; // fuel bill captured on the previous step
+  const [litres, setLitres] = useState(params.litres != null ? String(params.litres) : '');
+  const [rate, setRate] = useState(params.rate != null ? String(params.rate) : '');
+  const [total, setTotal] = useState(params.total != null ? String(params.total) : '');
   const [paidBy, setPaidBy] = useState('My pocket');
-  const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const odometer = params.odometer != null ? String(params.odometer) : ''; // mapping to confirm
+  const pump = params.pump || ''; // mapping to confirm
   const { submit, busy } = useSubmit();
-  const onSave = () => {
-    const go = () => navigation.navigate('FuelSaved', { paidBy });
-    if (!useReal) return go();
-    return submit(
-      () => fuelService.submitFuelLog({ litres, rate, totalAmount: total, paidBy }),
-      { onSuccess: go, onError: (e) => Alert.alert('Could not save', e?.message || 'Please try again.') },
-    );
-  };
+
+  const totalNum = Number(String(total).replace(/[^0-9.]/g, ''));
+  const totalFmt = totalNum > 0 ? `₹${totalNum.toLocaleString('en-IN')}` : 'the amount';
+
+  const onSave = () => submit(
+    () => fuelService.submitFuelLog({ litres, rate, totalAmount: total, paidBy, photo }), // mapping to confirm
+    {
+      onSuccess: (log) => navigation.navigate('FuelSaved', {
+        paidBy,
+        litres,
+        totalFmt,
+        // Real values from the created log when the backend returns them; FuelSaved falls back to '—'. (mapping to confirm)
+        tripId: log?.trip?.tripCode || log?.tripId,
+        mileage: log?.mileage != null ? Number(log.mileage).toFixed(1) : undefined,
+        mileageDelta: log?.mileageDelta,
+        fleetAvg: log?.fleetAvg != null ? Number(log.fleetAvg).toFixed(1) : undefined,
+        mileagePercent: log?.mileagePercent,
+        walletBefore: log?.walletBefore,
+        walletAfter: log?.walletAfter,
+      }),
+      onError: (e) => Alert.alert('Could not save', e?.message || 'Please try again.'),
+    },
+  );
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -64,15 +77,15 @@ export default function FuelEntryDetailsScreen({ navigation }) {
           <View style={styles.matchPill}><Badge tone="valid" label="Matches bill" /></View>
         </View>
 
-        <TextField label="Odometer" value={`${fuel.odometer} km`} mono editable={false} style={styles.gap} />
+        <TextField label="Odometer" value={odometer ? `${odometer} km` : '—'} mono editable={false} style={styles.gap} />
 
         <AppText variant="label" muted style={styles.gap}>Paid by</AppText>
         <SegmentedControl options={['My pocket', 'Fuel card', 'Credit']} value={paidBy} onChange={setPaidBy} style={styles.gapSm} />
 
-        <TextField label="Pump" value={fuel.pump} editable={false} style={styles.gap} />
+        <TextField label="Pump" value={pump || '—'} editable={false} style={styles.gap} />
 
         {paidBy === 'My pocket' ? (
-          <WarningBanner tone="info" message={`Paid from your pocket, so ${fuel.totalFmt} goes to the owner for confirmation and then into your wallet.`} style={styles.gap} />
+          <WarningBanner tone="info" message={`Paid from your pocket, so ${totalFmt} goes to the owner for confirmation and then into your wallet.`} style={styles.gap} />
         ) : null}
       </ScrollView>
 

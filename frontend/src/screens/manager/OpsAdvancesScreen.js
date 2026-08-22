@@ -1,10 +1,9 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppText, Button, Card, colors, spacing, radius } from '../../components/ui';
+import { AppText, Button, Card, Loading, EmptyState, colors, spacing, radius } from '../../components/ui';
 import ManagerShell from './ManagerShell';
 import { Pill, Monogram, SectionHeader } from '../../components/ui';
-import * as own from '../../demo/managerMock';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
@@ -14,22 +13,21 @@ import advanceService from '../../services/advanceService';
 export default function OpsAdvancesScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
-  // Real advances when a backend is configured (else demo mock).
+  // Real advances — no data until a backend is configured and signed in.
   const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const enabled = apiConfigured() && !!token;
   const { data: advancesApi, loading } = useApi(
     () => advanceService.listAdvances(),
     [],
-    { enabled: useReal, fallback: null },
+    { enabled, fallback: null },
   );
 
-  // Normalize advances → { out, limit, percent, waiting, recent }.
-  // Budget aggregates stay on mock; rows split by status. mapping to confirm against live API
+  // Normalize advances → { out, limit, percent, waiting, recent }; rows split by status.
+  // mapping to confirm against live API
   const a = useMemo(() => {
-    const m = own.opsAdvances;
-    if (!useReal || !advancesApi) return m;
-    const rowsRaw = Array.isArray(advancesApi) ? advancesApi : (advancesApi.results || advancesApi.rows || advancesApi.items || advancesApi.data || []);
-    if (!rowsRaw.length) return m;
+    const src = advancesApi || {};
+    const rowsRaw = Array.isArray(advancesApi) ? advancesApi : (src.results || src.rows || src.items || src.data || []);
+    if (!rowsRaw.length) return null;
     const money = (v) => (v != null ? `₹${Number(v).toLocaleString('en-IN')}` : '₹0');
     const initialsOf = (name) => String(name || '').split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
     const toneOf = (s) => {
@@ -40,26 +38,30 @@ export default function OpsAdvancesScreen({ navigation }) {
       return 'pending';
     };
     const mapRow = (r, i) => {
-      const tone = toneOf(r.status);
+      const tone = toneOf(r?.status);
       return {
-        initials: r.initials || initialsOf(r.driverName || r.driver || r.name),
-        id: r.advanceNo || r.code || r.id || r._id || String(i),
+        initials: r?.initials || initialsOf(r?.driverName || r?.driver || r?.name),
+        id: r?.advanceNo || r?.code || r?.id || r?._id || String(i),
         status: tone,
-        badge: r.badge || r.statusLabel || r.status || (tone === 'pending' ? 'Pending' : 'Approved'),
-        meta: r.meta || [r.driverName || r.driver || r.name, r.tripNo || r.ref, r.age].filter(Boolean).join(' · '),
-        amount: money(r.amount),
+        badge: r?.badge || r?.statusLabel || r?.status || (tone === 'pending' ? 'Pending' : 'Approved'),
+        meta: r?.meta || [r?.driverName || r?.driver || r?.name, r?.tripNo || r?.ref, r?.age].filter(Boolean).join(' · '),
+        amount: money(r?.amount),
         strike: tone === 'error',
       };
     };
-    const isPending = (r) => !r.status || String(r.status).toLowerCase().includes('pend');
+    const isPending = (r) => !r?.status || String(r.status).toLowerCase().includes('pend');
     const waitingRaw = rowsRaw.filter(isPending);
     const recentRaw = rowsRaw.filter((r) => !isPending(r));
+    const outNum = src.out != null ? Number(src.out) : rowsRaw.reduce((n, r) => n + (Number(r?.amount) || 0), 0);
+    const limitNum = src.limit != null ? Number(src.limit) : null;
     return {
-      ...m,
-      waiting: waitingRaw.length ? waitingRaw.map(mapRow) : m.waiting,
-      recent: recentRaw.length ? recentRaw.map(mapRow) : m.recent,
+      out: money(outNum),
+      limit: limitNum != null ? `limit ${money(limitNum)}` : '',
+      percent: limitNum ? Math.min(100, Math.round((outNum / limitNum) * 100)) : 0,
+      waiting: waitingRaw.map(mapRow),
+      recent: recentRaw.map(mapRow),
     };
-  }, [useReal, advancesApi]);
+  }, [advancesApi]);
 
   const list = (rows) => (
     <Card padding={0} elevated="sm">
@@ -80,12 +82,14 @@ export default function OpsAdvancesScreen({ navigation }) {
   );
 
   return (
-    <ManagerShell title="Advances" subtitle="3 waiting · ₹9,500" navigation={navigation} active="OpsAdvances"
+    <ManagerShell title="Advances" subtitle={a?.waiting?.length ? `${a.waiting.length} waiting` : undefined} navigation={navigation} active="OpsAdvances"
       right={<View style={styles.count}><AppText mono weight="bold" color={colors.white}>3</AppText></View>}>
       <View style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {useReal && loading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+          {loading ? (
+            <Loading />
+          ) : !a ? (
+            <EmptyState title="No advances" message="Advance requests will appear here." />
           ) : (
             <>
           <Card elevated="sm" padding={16}>

@@ -3,37 +3,50 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Button, Card, Badge, StatusBadge, BarChart, colors, spacing, radius } from '../../../components/ui';
+import { AppText, Button, Card, Badge, StatusBadge, BarChart, Loading, EmptyState, colors, spacing, radius } from '../../../components/ui';
 import dayjs from 'dayjs';
-import * as mock from '../../../demo/mock';
 import { useAuth } from '../../../context/AuthContext';
 import { apiConfigured } from '../../../services/client';
 import { useApi } from '../../../hooks/useApi';
 import fuelService from '../../../services/fuelService';
 
 /**
- * 20 · Fuel log — history and mileage trend. UI-only demo.
+ * 20 · Fuel log — history and mileage trend. Real data only.
  */
 export default function FuelLogScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { driver } = mock;
   const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
-  const { data: fuelApi } = useApi(() => fuelService.listFuelLogs(), [], { enabled: useReal, fallback: null });
+  const enabled = apiConfigured() && !!token;
+  const { data, loading } = useApi(() => fuelService.listFuelLogs(), [], { enabled, fallback: [] });
 
-  // Map fuel logs → history rows; trend/KPIs keep mock until confirmed.
-  // (mapping to confirm against live API)
-  const fuel = React.useMemo(() => {
-    const rows = Array.isArray(fuelApi) ? fuelApi : fuelApi?.results || fuelApi?.data || [];
-    if (!useReal || !rows.length) return mock.fuel;
-    const history = rows.map((f) => ({
-      litres: f.litres != null ? `${Number(f.litres).toFixed(1)} L` : '',
-      status: String(f.status || '').toLowerCase().includes('confirm') ? 'confirmed' : 'pending',
-      meta: [f.date || f.refuelTime ? dayjs(f.date || f.refuelTime).format('DD MMM') : null, f.station || f.location].filter(Boolean).join(' · '),
-      amount: f.totalAmount != null ? `₹${Number(f.totalAmount).toLocaleString('en-IN')}` : '',
-    }));
-    return { ...mock.fuel, history };
-  }, [useReal, fuelApi]);
+  // Derive header stats, trend and history from real fuel logs only. (mapping to confirm)
+  const { plate, mileage, trend, kpis, history, isEmpty } = React.useMemo(() => {
+    const rows = Array.isArray(data) ? data : (data?.results || data?.rows || data?.items || data?.data || []);
+    const when = (f) => f.date || f.refuelTime || f.refuelDate || f.createdAt;
+    const km = (f) => Number(f.mileage ?? f.kmpl);
+    const mileageRow = rows.find((f) => km(f) > 0);
+    return {
+      plate: rows[0]?.vehicle?.registrationNumber || rows[0]?.vehicleNumber || rows[0]?.plate || '—',
+      mileage: mileageRow ? km(mileageRow).toFixed(1) : '—',
+      trend: rows
+        .filter((f) => km(f) > 0)
+        .slice(0, 6)
+        .reverse()
+        .map((f) => ({ label: when(f) ? dayjs(when(f)).format('MMM') : '', value: km(f) })),
+      kpis: [
+        { label: 'Litres', value: rows.length ? String(Math.round(rows.reduce((s, f) => s + (Number(f.litres) || 0), 0))) : '—' },
+        { label: 'Spend', value: rows.length ? `₹${rows.reduce((s, f) => s + (Number(f.totalAmount ?? f.amount) || 0), 0).toLocaleString('en-IN')}` : '—' },
+        { label: 'Fills', value: rows.length ? String(rows.length) : '—' },
+      ],
+      history: rows.map((f) => ({
+        litres: f.litres != null ? `${Number(f.litres).toFixed(1)} L` : '',
+        status: String(f.status || '').toLowerCase().includes('confirm') ? 'confirmed' : 'pending',
+        meta: [when(f) ? dayjs(when(f)).format('DD MMM') : null, f.station || f.location || f.pump, km(f) > 0 ? `${km(f).toFixed(1)} km/L` : null].filter(Boolean).join(' · '),
+        amount: (f.totalAmount ?? f.amount) != null ? `₹${Number(f.totalAmount ?? f.amount).toLocaleString('en-IN')}` : '',
+      })),
+      isEmpty: rows.length === 0,
+    };
+  }, [data]);
 
   return (
     <View style={styles.container}>
@@ -44,7 +57,7 @@ export default function FuelLogScreen({ navigation }) {
         </Pressable>
         <View style={{ flex: 1 }}>
           <AppText variant="h3" weight="extrabold">Fuel log</AppText>
-          <AppText variant="caption" mono muted>{driver.plate} · August</AppText>
+          <AppText variant="caption" mono muted>{plate} · August</AppText>
         </View>
       </View>
 
@@ -53,17 +66,17 @@ export default function FuelLogScreen({ navigation }) {
         <Card elevated="sm" padding={16}>
           <View style={styles.cardHead}>
             <View style={styles.trendVal}>
-              <AppText mono weight="semibold" style={styles.bigVal}>{fuel.mileage}</AppText>
+              <AppText mono weight="semibold" style={styles.bigVal}>{mileage}</AppText>
               <AppText variant="small" muted>km/L</AppText>
             </View>
             <Badge tone="valid" label="Improving" />
           </View>
-          <BarChart data={fuel.trend} height={110} style={styles.chart} />
+          <BarChart data={trend} height={110} style={styles.chart} />
         </Card>
 
         {/* KPIs */}
         <View style={styles.kpiRow}>
-          {fuel.kpis.map((k) => (
+          {kpis.map((k) => (
             <Card key={k.label} elevated="sm" padding={14} style={styles.kpi}>
               <AppText variant="caption" muted>{k.label}</AppText>
               <AppText mono variant="h3" weight="semibold">{k.value}</AppText>
@@ -72,24 +85,30 @@ export default function FuelLogScreen({ navigation }) {
         </View>
 
         {/* History */}
-        <Card padding={0} elevated="sm" style={styles.gap}>
-          {fuel.history.map((h, i) => (
-            <View key={i}>
-              {i > 0 ? <View style={styles.divider} /> : null}
-              <View style={styles.histRow}>
-                <View style={styles.histIcon}><Ionicons name="water" size={18} color={colors.primary} /></View>
-                <View style={{ flex: 1, gap: 3 }}>
-                  <View style={styles.histTop}>
-                    <AppText mono variant="bodyStrong" weight="semibold">{h.litres}</AppText>
-                    <StatusBadge status={h.status} />
+        {loading ? (
+          <Loading />
+        ) : isEmpty ? (
+          <EmptyState icon="water-outline" title="No fuel entries yet" message="Add a fuel fill and it will appear here." style={styles.gap} />
+        ) : (
+          <Card padding={0} elevated="sm" style={styles.gap}>
+            {history.map((h, i) => (
+              <View key={i}>
+                {i > 0 ? <View style={styles.divider} /> : null}
+                <View style={styles.histRow}>
+                  <View style={styles.histIcon}><Ionicons name="water" size={18} color={colors.primary} /></View>
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <View style={styles.histTop}>
+                      <AppText mono variant="bodyStrong" weight="semibold">{h.litres}</AppText>
+                      <StatusBadge status={h.status} />
+                    </View>
+                    <AppText variant="caption" mono muted>{h.meta}</AppText>
                   </View>
-                  <AppText variant="caption" mono muted>{h.meta}</AppText>
+                  <AppText mono variant="bodyStrong" weight="semibold">{h.amount}</AppText>
                 </View>
-                <AppText mono variant="bodyStrong" weight="semibold">{h.amount}</AppText>
               </View>
-            </View>
-          ))}
-        </Card>
+            ))}
+          </Card>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }]}>

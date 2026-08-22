@@ -1,11 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Card, colors, spacing, radius } from '../../components/ui';
+import { AppText, Card, Loading, EmptyState, colors, spacing, radius } from '../../components/ui';
 import OwnerShell from './OwnerShell';
 import { Pill, RouteLine, toneColor } from '../../components/ui';
-import * as own from '../../demo/ownerMock';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
@@ -18,39 +17,34 @@ export default function OwnerFleetScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('all');
 
-  // Vehicle list → real when a backend is configured (else demo mock).
+  // Vehicle list — real API only.
   const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const useReal = apiConfigured() && !!token;
   const { data: vehApi, loading: vehLoading } = useApi(
     () => vehicleService.listVehicles(),
     [],
     { enabled: useReal, fallback: null },
   );
 
-  // mapping to confirm against live API — normalise vehicles; unknown fields
-  // fall back to the mock per-field. route is always a 2-item array so RouteLine is safe.
+  // Normalise vehicles defensively; fields without a real source fall back to
+  // '—'. route is always a 2-item array so RouteLine is safe. (mapping to confirm)
   const fleet = useMemo(() => {
-    if (!useReal || !vehApi) return own.fleet;
     const rows = Array.isArray(vehApi)
       ? vehApi
-      : vehApi.items || vehApi.results || vehApi.vehicles || vehApi.data || [];
-    if (!rows.length) return own.fleet;
-    return rows.map((r, i) => {
-      const m = own.fleet[i] || {};
-      return {
-        plate: r.registrationNumber || r.vehicleNumber || r.plate || m.plate,
-        status: r.status || m.status,
-        badge: r.statusLabel || r.badge || m.badge,
-        route: Array.isArray(r.route)
-          ? r.route
-          : [r.from ?? r.origin ?? m.route?.[0], r.to ?? r.destination ?? m.route?.[1]],
-        driver: r.driverName || r.driver?.name || r.driver || m.driver,
-        metric: r.metric || m.metric,
-        metricColor: r.metricColor || m.metricColor,
-        action: r.action || m.action,
-      };
-    });
-  }, [useReal, vehApi]);
+      : (vehApi?.items || vehApi?.results || vehApi?.vehicles || vehApi?.data || []);
+    return rows.map((r) => ({
+      plate: r.registrationNumber || r.vehicleNumber || r.plate || '—',
+      status: r.status || 'neutral',
+      badge: r.statusLabel || r.badge || r.status || '—',
+      route: Array.isArray(r.route)
+        ? r.route
+        : [r.from ?? r.origin ?? '—', r.to ?? r.destination ?? '—'],
+      driver: r.driverName || r.driver?.name || r.driver || '—',
+      metric: r.metric || '—',
+      metricColor: r.metricColor || null,
+      action: r.action || null,
+    }));
+  }, [vehApi]);
 
   return (
     <OwnerShell title="Fleet" navigation={navigation} active="OwnerFleet"
@@ -65,8 +59,10 @@ export default function OwnerFleetScreen({ navigation }) {
           ))}
         </View>
         <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
-          {useReal && vehLoading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
+          {vehLoading ? (
+            <Loading />
+          ) : fleet.length === 0 ? (
+            <EmptyState icon="bus-outline" title="No vehicles" message="Vehicles added to your fleet will appear here." />
           ) : fleet.map((v) => (
             <Card key={v.plate} elevated="sm" padding={14}>
               <View style={styles.top}>

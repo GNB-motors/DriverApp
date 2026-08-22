@@ -1,10 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Card, colors } from '../../components/ui';
 import OwnerShell from './OwnerShell';
-import { LedgerRow, FilterChips, SectionHeader } from '../../components/ui';
-import * as own from '../../demo/ownerMock';
+import { LedgerRow, FilterChips, SectionHeader, Loading, EmptyState } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
@@ -14,52 +13,54 @@ import ownerService from '../../services/ownerService';
 export default function OwnerLedgerScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState('All');
-  const companyLedger = own.companyLedger;
 
-  // Company ledger → real when a backend is configured (else demo mock).
+  // Company ledger — real API only.
   const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const useReal = apiConfigured() && !!token;
   const { data: ledgerApi, loading: ledgerLoading } = useApi(
     () => ownerService.getLedgerEntries(),
     [],
-    { enabled: useReal, fallback: null },
+    { enabled: useReal, fallback: [] },
   );
 
-  // mapping to confirm against live API — a flat feed maps into "This week";
-  // the "Earlier" grouping and summary scalars stay on mock.
+  // Normalise defensively — a flat feed maps into "This week"; if the API
+  // groups rows under week/earlier we use that. Unknown fields fall back.
   const l = useMemo(() => {
-    if (!useReal || !ledgerApi) return companyLedger;
-    const rows = Array.isArray(ledgerApi)
-      ? ledgerApi
-      : ledgerApi.entries || ledgerApi.results || ledgerApi.rows || ledgerApi.data || [];
-    if (!rows.length) return companyLedger;
-    const week = rows.map((e, i) => {
-      const lm = companyLedger.week[i] || {};
-      const amt = e.amount ?? e.delta;
-      const credit = /cred/i.test(String(e.direction || e.dir || e.type || ''))
+    const fmt = (v) => `₹${Number(v).toLocaleString('en-IN')}`;
+    const mapRow = (e) => {
+      const amt = e?.amount ?? e?.delta;
+      const credit = /cred/i.test(String(e?.direction || e?.dir || e?.type || ''))
         || (amt != null && Number(amt) >= 0);
-      const bal = e.runningBalance ?? e.balance;
+      const bal = e?.runningBalance ?? e?.balance;
       return {
-        title: e.title || e.description || e.narration || lm.title || 'Entry',
-        meta: e.meta || e.remarks || lm.meta,
+        title: e?.title || e?.description || e?.narration || 'Entry', // mapping to confirm
+        meta: e?.meta || e?.remarks || e?.date || '', // mapping to confirm
         delta: amt != null
           ? `${credit ? '+' : '−'}₹${Math.abs(Number(amt)).toLocaleString('en-IN')}`
-          : lm.delta,
-        dir: e.dir || (credit ? 'credit' : 'debit'),
-        balance: bal != null ? `₹${Number(bal).toLocaleString('en-IN')}` : lm.balance,
+          : '—',
+        dir: e?.dir || (credit ? 'credit' : 'debit'),
+        balance: bal != null ? fmt(bal) : '', // mapping to confirm
       };
-    });
-    return {
-      ...companyLedger,
-      closing: ledgerApi.closing != null ? `₹${Number(ledgerApi.closing).toLocaleString('en-IN')}` : companyLedger.closing,
-      week,
     };
-  }, [useReal, ledgerApi, companyLedger]);
+    const rows = Array.isArray(ledgerApi)
+      ? ledgerApi
+      : (ledgerApi?.entries || ledgerApi?.results || ledgerApi?.rows || ledgerApi?.items || ledgerApi?.data || []);
+    return {
+      closing: ledgerApi?.closing != null ? fmt(ledgerApi.closing)
+        : (ledgerApi?.closingBalance != null ? fmt(ledgerApi.closingBalance) : '—'), // mapping to confirm
+      moneyIn: ledgerApi?.moneyIn != null ? `In ${fmt(ledgerApi.moneyIn)}`
+        : (ledgerApi?.totalIn != null ? `In ${fmt(ledgerApi.totalIn)}` : '—'), // mapping to confirm
+      moneyOut: ledgerApi?.moneyOut != null ? `Out ${fmt(ledgerApi.moneyOut)}`
+        : (ledgerApi?.totalOut != null ? `Out ${fmt(ledgerApi.totalOut)}` : '—'), // mapping to confirm
+      week: Array.isArray(ledgerApi?.week) ? ledgerApi.week.map(mapRow) : rows.map(mapRow),
+      earlier: Array.isArray(ledgerApi?.earlier) ? ledgerApi.earlier.map(mapRow) : [], // mapping to confirm
+    };
+  }, [ledgerApi]);
 
   const group = (rows) => (
     <Card padding={0} elevated="sm">
       {rows.map((e, i) => (
-        <View key={e.title}>
+        <View key={`${e.title}-${i}`}>
           {i > 0 ? <View style={styles.divider} /> : null}
           <LedgerRow item={e} />
         </View>
@@ -83,10 +84,22 @@ export default function OwnerLedgerScreen({ navigation }) {
 
         <FilterChips options={['All', 'Money in', 'Money out']} value={filter} onChange={setFilter} />
 
-        <SectionHeader label="This week" />
-        {useReal && ledgerLoading ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} /> : group(l.week)}
-        <SectionHeader label="Earlier" />
-        {group(l.earlier)}
+        {ledgerLoading ? (
+          <Loading />
+        ) : (l.week.length === 0 && l.earlier.length === 0) ? (
+          <EmptyState icon="receipt-outline" title="No ledger entries" message="Money moving in and out will show here as it happens." />
+        ) : (
+          <>
+            <SectionHeader label="This week" />
+            {group(l.week)}
+            {l.earlier.length ? (
+              <>
+                <SectionHeader label="Earlier" />
+                {group(l.earlier)}
+              </>
+            ) : null}
+          </>
+        )}
       </ScrollView>
     </OwnerShell>
   );

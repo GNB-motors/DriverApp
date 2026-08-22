@@ -5,32 +5,29 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/AuthContext';
-import { AppText, Card, ListRow, Badge, WalletHeroCard, colors, spacing, radius } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
+import { AppText, Card, ListRow, WalletHeroCard, colors, spacing, radius } from '../../../components/ui';
 
 /**
- * 12 · Profile — wallet card and row groups. UI-only demo.
+ * 12 · Profile — wallet card and row groups. Real signed-in user only.
  */
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { logout, user } = useAuth();
-  const { wallet } = mock;
 
-  // Identity from the signed-in user (real or demo); mock fills any gaps.
-  const fullName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  // Identity from the signed-in user — safe '—' defaults for any missing field.
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || user?.name || '';
   const driver = {
-    name: fullName || mock.driver.name,
-    phone: user?.mobileNumber || user?.email || mock.driver.phone,
-    role: user?.role ? user.role.charAt(0) + user.role.slice(1).toLowerCase().replace(/_/g, ' ') : mock.driver.role,
-    initials: ((fullName || mock.driver.name).trim()[0] || 'R').toUpperCase(),
-    tripsThisMonth: mock.driver.tripsThisMonth,
+    name: fullName || '—',
+    phone: user?.mobileNumber || '—',
+    role: user?.role ? user.role.charAt(0) + user.role.slice(1).toLowerCase().replace(/_/g, ' ') : '—',
+    initials: (fullName.trim()[0] || '?').toUpperCase(),
   };
 
   const group1 = [
-    { icon: 'navigate-outline', title: 'My trips', right: <AppText mono variant="bodyStrong" weight="semibold">{driver.tripsThisMonth}</AppText>, onPress: () => navigation.navigate('Trips') },
-    { icon: 'cash-outline', title: 'My advances', right: <AppText mono variant="bodyStrong" weight="semibold">₹5,000</AppText>, onPress: () => navigation.navigate('Advances') },
-    { icon: 'wallet-outline', title: 'Khata & bills', right: <Badge tone="pending" label={`${wallet.pendingCount} pending`} />, onPress: () => navigation.navigate('Wallet') },
-    { icon: 'document-text-outline', title: 'Documents', right: <Badge tone="pending" label="1 expiring" />, onPress: () => navigation.navigate('MyDocuments') },
+    { icon: 'navigate-outline', title: 'My trips', onPress: () => navigation.navigate('Trips') },
+    { icon: 'cash-outline', title: 'My advances', onPress: () => navigation.navigate('Advances') },
+    { icon: 'wallet-outline', title: 'Khata & bills', onPress: () => navigation.navigate('Wallet') },
+    { icon: 'document-text-outline', title: 'Documents', onPress: () => navigation.navigate('MyDocuments') },
   ];
   const group2 = [
     { icon: 'language-outline', title: 'Language', right: <AppText variant="body" muted>English</AppText>, onPress: () => navigation.navigate('LanguageScreen') },
@@ -66,7 +63,7 @@ export default function ProfileScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
-        <WalletHeroCard balance={wallet.balance} caption={`${wallet.pendingCount} bill pending · ${wallet.confirmedCount} confirmed`} onPress={() => navigation.navigate('Wallet')} />
+        <WalletHeroCard balance="—" onPress={() => navigation.navigate('Wallet')} />
         {renderGroup(group1)}
         {renderGroup(group2)}
 

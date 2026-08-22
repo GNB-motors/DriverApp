@@ -4,15 +4,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, Badge, colors, spacing, radius } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
 
 /**
- * 19 · Fuel saved — with mileage feedback. UI-only demo.
+ * 19 · Fuel saved — with mileage feedback.
  */
 export default function FuelSavedScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { fuel } = mock;
-  const pocket = (route.params?.paidBy ?? 'My pocket') === 'My pocket';
+  // Success screen: values come from the previous step's route params only (no fetch). (mapping to confirm)
+  const p = route.params || {};
+  const pocket = (p.paidBy ?? 'My pocket') === 'My pocket';
+  const litres = p.litres ?? '—';
+  const totalFmt = p.totalFmt ?? '—';
+  const tripId = p.tripId ?? p.tripCode ?? '';
+  const mileage = p.mileage ?? '—';
+  const fleetAvg = p.fleetAvg ?? '—';
+  const mileageDelta = p.mileageDelta ?? '—';
+  const mileagePercent = p.mileagePercent ?? 0;
+  const walletBefore = p.walletBefore ?? '—';
+  const walletAfter = p.walletAfter ?? '—';
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.lg }]}>
@@ -24,20 +33,20 @@ export default function FuelSavedScreen({ navigation, route }) {
         </View>
         <AppText variant="h1" weight="extrabold" center style={styles.title}>Fuel entry saved</AppText>
         <AppText variant="body" muted center style={styles.sub}>
-          {fuel.litres} L for {fuel.totalFmt} recorded against {mock.activeTrip.id}.{pocket ? ' Sent to the owner for confirmation.' : ''}
+          {litres} L for {totalFmt} recorded{tripId ? ` against ${tripId}` : ''}.{pocket ? ' Sent to the owner for confirmation.' : ''}
         </AppText>
 
         {/* Mileage */}
         <Card elevated="sm" padding={16} style={styles.card}>
           <View style={styles.cardHead}>
             <AppText variant="label" muted>Mileage this tank</AppText>
-            <Badge tone="valid" label={fuel.mileageDelta} />
+            <Badge tone="valid" label={mileageDelta} />
           </View>
           <View style={styles.mileRow}>
-            <AppText mono weight="semibold" style={styles.bigVal}>{fuel.mileage}</AppText>
-            <AppText variant="small" mono muted>km/L · fleet avg {fuel.fleetAvg}</AppText>
+            <AppText mono weight="semibold" style={styles.bigVal}>{mileage}</AppText>
+            <AppText variant="small" mono muted>km/L · fleet avg {fleetAvg}</AppText>
           </View>
-          <View style={styles.track}><View style={[styles.fill, { width: `${fuel.mileagePercent}%` }]} /></View>
+          <View style={styles.track}><View style={[styles.fill, { width: `${mileagePercent}%` }]} /></View>
         </Card>
 
         {/* Wallet projection */}
@@ -45,8 +54,8 @@ export default function FuelSavedScreen({ navigation, route }) {
           <Card elevated="sm" padding={16} style={styles.card}>
             <AppText variant="label" muted>Wallet after confirmation</AppText>
             <View style={styles.walletRow}>
-              <AppText mono variant="small" muted>{fuel.walletBefore} + {fuel.totalFmt}</AppText>
-              <AppText mono weight="semibold" color={colors.success} style={styles.walletVal}>{fuel.walletAfter}</AppText>
+              <AppText mono variant="small" muted>{walletBefore} + {totalFmt}</AppText>
+              <AppText mono weight="semibold" color={colors.success} style={styles.walletVal}>{walletAfter}</AppText>
             </View>
           </Card>
         ) : null}

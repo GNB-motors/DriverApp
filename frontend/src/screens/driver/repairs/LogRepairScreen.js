@@ -4,14 +4,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Chip, TextField, PhotoUploader, colors, spacing, radius } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
-import { useAuth } from '../../../context/AuthContext';
-import { apiConfigured } from '../../../services/client';
 import { useSubmit } from '../../../hooks/useSubmit';
+import { pickFromCamera } from '../../../utils/pickImage';
 import maintenanceService from '../../../services/maintenanceService';
 
+// Repair categories (static UI labels, mapped to `type` on the backend).
+const REPAIR_CATEGORIES = ['Clutch', 'Brakes', 'Tyres', 'Engine', 'Electrical', 'Body'];
+
 /**
- * 22 · Log a repair — parts and labour. UI-only demo.
+ * 22 · Log a repair — parts and labour submitted to the backend.
  */
 export default function LogRepairScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -19,25 +20,21 @@ export default function LogRepairScreen({ navigation }) {
   const [work, setWork] = useState('Clutch plate with pressure plate');
   const [parts, setParts] = useState('6,900');
   const [labour, setLabour] = useState('1,500');
-  const [photos, setPhotos] = useState([{ name: 'wrench', quality: 'ok' }, { name: 'bill', quality: 'ok' }]);
-  const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const [photos, setPhotos] = useState([]); // real captured files: { uri, name, type }
   const { submit, busy } = useSubmit();
   const totalNum = () =>
     (parseInt(String(parts).replace(/[^0-9]/g, ''), 10) || 0) + (parseInt(String(labour).replace(/[^0-9]/g, ''), 10) || 0);
-  const onSave = () => {
-    if (!useReal) return navigation.goBack();
-    return submit(
+  const onSave = () =>
+    submit(
       () => maintenanceService.createMaintenance({ recordType: 'REPAIR', type: category, notes: work, amount: totalNum(), workshop: 'Sai Auto Works' }),
       { onSuccess: () => navigation.goBack(), onError: (e) => Alert.alert('Could not save', e?.message || 'Please try again.') },
     );
-  };
 
   const total = () => {
     const n = (parseInt(String(parts).replace(/[^0-9]/g, ''), 10) || 0) + (parseInt(String(labour).replace(/[^0-9]/g, ''), 10) || 0);
     return `₹${n.toLocaleString('en-IN')}`;
   };
-  const addPhoto = () => setPhotos((p) => (p.length < 4 ? [...p, { name: `photo${p.length + 1}`, quality: 'ok' }] : p));
+  const capture = async () => { const f = await pickFromCamera(); if (f) setPhotos((p) => (p.length < 4 ? [...p, f] : p)); };
   const removePhoto = (i) => setPhotos((p) => p.filter((_, idx) => idx !== i));
 
   return (
@@ -49,14 +46,13 @@ export default function LogRepairScreen({ navigation }) {
         </Pressable>
         <View style={{ flex: 1 }}>
           <AppText variant="h3" weight="extrabold">Log a repair</AppText>
-          <AppText variant="caption" mono muted>{mock.repairs.plate}</AppText>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <AppText variant="label" muted>Category</AppText>
         <View style={styles.chips}>
-          {mock.repairCategories.map((c) => (
+          {REPAIR_CATEGORIES.map((c) => (
             <Chip key={c} label={c} selected={category === c} onPress={() => setCategory(c)} />
           ))}
         </View>
@@ -80,7 +76,7 @@ export default function LogRepairScreen({ navigation }) {
         </View>
         <TextField label="Workshop" value="Sai Auto Works" style={styles.field} />
 
-        <PhotoUploader title="Photos" max={4} photos={photos} onCapture={addPhoto} onAddPage={addPhoto} onRemove={removePhoto} style={styles.field} />
+        <PhotoUploader title="Photos" max={4} photos={photos.map((f) => ({ uri: f.uri, name: f.name, quality: 'ok' }))} onCapture={capture} onAddPage={capture} onRemove={removePhoto} style={styles.field} />
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>

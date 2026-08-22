@@ -1,47 +1,76 @@
-import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 import {
   AppText, Button, Card, StatusBadge, SegmentedControl, ProgressBar, WarningBanner,
-  colors, spacing, radius,
+  Loading, EmptyState, colors, spacing, radius,
 } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
 import { useAuth } from '../../../context/AuthContext';
 import { apiConfigured } from '../../../services/client';
 import { useApi } from '../../../hooks/useApi';
 import walletService from '../../../services/walletService';
+import billService from '../../../services/billService';
 
 /**
- * 06 / 07 / 08 · Wallet — Bills, Ledger and empty state. UI-only demo.
+ * 06 / 07 / 08 · Wallet — Bills, Ledger and empty state. Real data only.
  */
 export default function WalletScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('bills');
-  const { wallet, bills, ledger, spendByCategory } = mock;
-  const isEmpty = bills.length === 0;
 
-  // Ledger tab → real khata when a backend is configured (else demo mock).
+  // Balance + Ledger + Bills → REAL only (no mock fallback).
   const { user, token } = useAuth();
   const driverId = user?._id;
   const useReal = apiConfigured() && !!driverId && !!token && token !== 'demo-token';
-  const { data: ledgerApi, loading: ledgerLoading } = useApi(
-    () => walletService.getDriverLedger(driverId),
+  const { data: summaryApi } = useApi(() => walletService.getDriverSummary(driverId), [driverId], { enabled: useReal, fallback: null });
+  const { data: ledgerApi, loading: ledgerLoading } = useApi(() => walletService.getDriverLedger(driverId), [driverId], { enabled: useReal, fallback: null });
+
+  // Driver's own bills (backend scopes to the signed-in driver by role).
+  const { data: billsApi, loading: billsLoading, refetch: refetchBills } = useApi(
+    () => billService.listBills(),
     [driverId],
     { enabled: useReal, fallback: null },
   );
+  // Refetch when returning to the wallet (e.g. after submitting a bill).
+  useFocusEffect(useCallback(() => { if (useReal) refetchBills(); }, [useReal, refetchBills]));
 
-  // Map khata entries → the LedgerView row shape. (Field mapping to confirm
-  // against live responses; falls back to mock when absent/empty.)
+  // Map bills → the BillRow shape (status lowercased for StatusBadge/BillRow).
+  const bills = useMemo(() => {
+    const rows = Array.isArray(billsApi) ? billsApi : (billsApi?.results || billsApi?.rows || billsApi?.items || []);
+    return rows.map((b, i) => {
+      const status = String(b.status || '').toLowerCase();
+      const amt = Number(b.amount || 0).toLocaleString('en-IN');
+      return {
+        id: b._id || String(i),
+        category: b.title || b.category || 'Bill',
+        status,
+        date: b.expenseDate ? dayjs(b.expenseDate).format('DD MMM') : '',
+        trip: b.vehicle?.registrationNumber || '',
+        amount: status === 'confirmed' ? `+₹${amt}` : `₹${amt}`,
+        reason: b.rejectionReason || null,
+      };
+    });
+  }, [billsApi]);
+  const pendingCount = bills.filter((b) => b.status === 'pending').length;
+  const isEmpty = bills.length === 0;
+
+  // Real balance + summary chips ('—' until the API responds). (mapping to confirm)
+  const balance = summaryApi ? `₹${Number(summaryApi.balance ?? summaryApi.totalAmount ?? 0).toLocaleString('en-IN')}` : '—';
+  const heroChips = summaryApi
+    ? [
+        summaryApi.confirmedTotal != null ? `+₹${Number(summaryApi.confirmedTotal).toLocaleString('en-IN')} confirmed` : null,
+        summaryApi.advancesTotal != null ? `−₹${Number(summaryApi.advancesTotal).toLocaleString('en-IN')} advances` : null,
+      ].filter(Boolean)
+    : [];
+
+  // Ledger rows — real entries only (empty → EmptyState). (mapping to confirm)
   const ledgerRows = useMemo(() => {
-    if (!useReal || !ledgerApi) return ledger;
-    const entries = Array.isArray(ledgerApi)
-      ? ledgerApi
-      : ledgerApi.entries || ledgerApi.results || ledgerApi.rows || [];
-    if (!entries.length) return ledger;
+    const entries = Array.isArray(ledgerApi) ? ledgerApi : ledgerApi?.entries || ledgerApi?.results || ledgerApi?.rows || [];
     return entries.map((e, i) => {
       const when = e.expenseDate || e.date;
       return {
@@ -53,7 +82,7 @@ export default function WalletScreen({ navigation }) {
         balance: e.runningBalance != null ? `₹${Number(e.runningBalance).toLocaleString('en-IN')}` : undefined,
       };
     });
-  }, [useReal, ledgerApi, ledger]);
+  }, [ledgerApi]);
 
   return (
     <View style={styles.container}>
@@ -71,18 +100,21 @@ export default function WalletScreen({ navigation }) {
           </Pressable>
         </View>
         <AppText variant="label" color={colors.onPrimaryMuted} style={styles.balanceLabel}>Balance</AppText>
-        <AppText mono weight="semibold" color={colors.white} style={styles.balance}>{wallet.balance}</AppText>
+        <AppText mono weight="semibold" color={colors.white} style={styles.balance}>{balance}</AppText>
         <AppText variant="small" color={colors.onPrimaryMuted}>Company owes you this much</AppText>
-        <View style={styles.heroChips}>
-          <View style={styles.heroChip}><AppText mono variant="small" weight="semibold" color={colors.white}>{wallet.confirmed}</AppText></View>
-          <View style={styles.heroChip}><AppText mono variant="small" weight="semibold" color={colors.white}>{wallet.advancesPaid}</AppText></View>
-        </View>
+        {heroChips.length ? (
+          <View style={styles.heroChips}>
+            {heroChips.map((c, i) => (
+              <View key={i} style={styles.heroChip}><AppText mono variant="small" weight="semibold" color={colors.white}>{c}</AppText></View>
+            ))}
+          </View>
+        ) : null}
       </LinearGradient>
 
       <View style={styles.sheet}>
         <SegmentedControl
           variant="pill"
-          options={[{ label: 'Bills', value: 'bills', badge: wallet.pendingCount || undefined }, { label: 'Ledger', value: 'ledger' }]}
+          options={[{ label: 'Bills', value: 'bills', badge: pendingCount || undefined }, { label: 'Ledger', value: 'ledger' }]}
           value={tab}
           onChange={setTab}
           style={styles.segment}
@@ -90,7 +122,9 @@ export default function WalletScreen({ navigation }) {
 
         <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 90 }]} showsVerticalScrollIndicator={false}>
           {tab === 'bills' ? (
-            isEmpty ? (
+            billsLoading ? (
+              <Loading />
+            ) : isEmpty ? (
               <View style={styles.empty}>
                 <View style={styles.emptyIcon}><Ionicons name="receipt-outline" size={40} color={colors.textMuted} /></View>
                 <AppText variant="h3" weight="bold" center>No bills yet</AppText>
@@ -101,10 +135,12 @@ export default function WalletScreen({ navigation }) {
             ) : (
               bills.map((b) => <BillRow key={b.id} bill={b} onResubmit={() => navigation.navigate('AddBill')} />)
             )
-          ) : useReal && ledgerLoading ? (
-            <ActivityIndicator color={colors.primary} style={styles.loader} />
+          ) : ledgerLoading ? (
+            <Loading />
+          ) : ledgerRows.length === 0 ? (
+            <EmptyState icon="receipt-outline" title="No ledger entries yet" message="Confirmed bills and advances will appear here." />
           ) : (
-            <LedgerView ledger={ledgerRows} spend={spendByCategory} />
+            <LedgerView ledger={ledgerRows} spend={[]} />
           )}
         </ScrollView>
 
@@ -180,14 +216,16 @@ function LedgerView({ ledger, spend }) {
 
       <WarningBanner tone="info" message="Bills add to the balance only after the owner confirms them. Advances paid to you are subtracted." />
 
-      <Card elevated="sm" padding={16}>
-        <AppText variant="label" muted style={{ marginBottom: 10 }}>Spend by category</AppText>
-        <View style={{ gap: 8 }}>
-          {spend.map((s) => (
-            <ProgressBar key={s.label} label={s.label} percent={s.percent} value={s.value} />
-          ))}
-        </View>
-      </Card>
+      {spend?.length ? (
+        <Card elevated="sm" padding={16}>
+          <AppText variant="label" muted style={{ marginBottom: 10 }}>Spend by category</AppText>
+          <View style={{ gap: 8 }}>
+            {spend.map((s) => (
+              <ProgressBar key={s.label} label={s.label} percent={s.percent} value={s.value} />
+            ))}
+          </View>
+        </Card>
+      ) : null}
     </View>
   );
 }

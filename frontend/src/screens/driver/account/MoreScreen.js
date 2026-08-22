@@ -2,22 +2,21 @@ import React from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { AppText, Card, ListRow, Badge, Button, WalletHeroCard, colors, spacing } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
+import { AppText, Card, ListRow, Button, WalletHeroCard, colors, spacing } from '../../../components/ui';
 
 /**
- * 16 · More — index for everything else. UI-only demo.
+ * 16 · More — index for everything else. Static navigation menu (no backend).
  */
 export default function MoreScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { wallet } = mock;
 
+  // Static menu config — pure navigation UI, no backend.
   const group1 = [
-    { icon: 'wallet-outline', title: 'Khata & bills', right: <Badge tone="pending" label={`${wallet.pendingCount} pending`} />, onPress: () => navigation.navigate('Wallet') },
-    { icon: 'cash-outline', title: 'My advances', right: <AppText mono variant="bodyStrong" weight="semibold">₹5,000</AppText>, onPress: () => navigation.navigate('Advances') },
+    { icon: 'wallet-outline', title: 'Khata & bills', onPress: () => navigation.navigate('Wallet') },
+    { icon: 'cash-outline', title: 'My advances', onPress: () => navigation.navigate('Advances') },
     { icon: 'water-outline', title: 'Fuel log', onPress: () => navigation.navigate('FuelLog') },
     { icon: 'build-outline', title: 'Repairs', onPress: () => navigation.navigate('Repairs') },
-    { icon: 'document-text-outline', title: 'Documents', right: <Badge tone="pending" label="1 expiring" />, onPress: () => navigation.navigate('MyDocuments') },
+    { icon: 'document-text-outline', title: 'Documents', onPress: () => navigation.navigate('MyDocuments') },
   ];
   const group2 = [
     { icon: 'person-outline', title: 'Profile', onPress: () => navigation.navigate('Profile') },
@@ -45,8 +44,7 @@ export default function MoreScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
         <WalletHeroCard
-          balance={wallet.balance}
-          caption={`${wallet.pendingCount} bill pending · ${wallet.confirmedCount} confirmed`}
+          balance="—"
           onPress={() => navigation.navigate('Wallet')}
         />
         {renderGroup(group1)}

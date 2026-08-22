@@ -4,8 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
-import { AppText, Card, StatusBadge, colors, spacing, radius } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
+import { AppText, Card, StatusBadge, Loading, EmptyState, colors, spacing, radius } from '../../../components/ui';
 import { useAuth } from '../../../context/AuthContext';
 import { apiConfigured } from '../../../services/client';
 import { useApi } from '../../../hooks/useApi';
@@ -32,18 +31,18 @@ export default function TripsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('active');
   const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
-  const { data: tripsApi } = useApi(() => tripService.listTrips(), [], { enabled: useReal, fallback: null });
+  const enabled = apiConfigured() && !!token;
+  const { data: tripsApi, loading } = useApi(() => tripService.listTrips(), [], { enabled, fallback: [] });
 
-  // Map API trips → card shape; fall back to mock when absent/empty.
+  // Map API trips → card shape (real data only).
   // (mapping to confirm against live API)
   const allTrips = React.useMemo(() => {
-    const rows = Array.isArray(tripsApi) ? tripsApi : tripsApi?.results || tripsApi?.trips || tripsApi?.data || [];
-    if (!useReal || !rows.length) return mock.trips;
+    const rows = Array.isArray(tripsApi) ? tripsApi : (tripsApi?.results || tripsApi?.rows || tripsApi?.trips || tripsApi?.items || tripsApi?.data || []);
     return rows.map((t) => {
       const s = statusOf(t.status);
       return {
         id: t.tripNumber || t.tripId || t._id || '',
+        _id: t._id || t.id || null, // raw id for the detail fetch
         status: s,
         from: t.origin?.city || t.origin?.name || t.source || t.from || '—',
         to: t.destination?.city || t.destination?.name || t.destination || t.to || '—',
@@ -52,13 +51,13 @@ export default function TripsScreen({ navigation }) {
         action: s === 'late' ? 'Upload POD' : 'Open',
       };
     });
-  }, [useReal, tripsApi]);
+  }, [tripsApi]);
   const list = allTrips.filter((tr) => tr.tab === tab);
 
   const openTrip = (tr) => {
-    if (tr.status === 'in_transit') navigation.navigate('ActiveTrip');
+    if (tr.status === 'in_transit') navigation.navigate('ActiveTrip', { id: tr._id });
     else if (tr.status === 'late') navigation.navigate('Pod');
-    else navigation.navigate('TripDetail');
+    else navigation.navigate('TripDetail', { id: tr._id });
   };
 
   return (
@@ -84,11 +83,10 @@ export default function TripsScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
-        {list.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="cube-outline" size={30} color={colors.textMuted} />
-            <AppText variant="body" muted style={{ marginTop: 8 }}>No {tab} trips</AppText>
-          </View>
+        {loading ? (
+          <Loading />
+        ) : list.length === 0 ? (
+          <EmptyState icon="cube-outline" title={`No ${tab} trips`} message="Trips will appear here once they're assigned to you." />
         ) : (
           list.map((tr) => (
             <Card key={tr.id} elevated="sm" padding={14} onPress={() => openTrip(tr)} style={[styles.tripCard, tr.status === 'in_transit' && styles.tripActive]}>

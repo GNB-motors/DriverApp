@@ -6,13 +6,13 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import {
   AppText, Button, Card, Switch, Badge, StatusBadge, WalletHeroCard,
-  WarningBanner, StepProgress, colors, spacing, radius,
+  WarningBanner, StepProgress, Loading, colors, spacing, radius,
 } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
 import { useAuth } from '../../../context/AuthContext';
 import { apiConfigured } from '../../../services/client';
 import { useApi } from '../../../hooks/useApi';
 import walletService from '../../../services/walletService';
+import tripService from '../../../services/tripService';
 
 /**
  * 01 / 02 · Driver Home — on-duty and off-duty variants. UI-only demo.
@@ -27,23 +27,64 @@ const QUICK_ACTIONS = [
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [onDuty, setOnDuty] = useState(true);
-  const { activeTrip, lastRefuel } = mock;
+  // Real data only — identity from the signed-in user, balance from the khata
+  // summary, and the active trip from the trips list.
   const { user, token } = useAuth();
-  const useReal = apiConfigured() && !!user?._id && !!token && token !== 'demo-token';
-  const { data: summary } = useApi(() => walletService.getDriverSummary(user._id), [user?._id], { enabled: useReal, fallback: null });
+  const driverId = user?._id;
+  const enabled = apiConfigured() && !!token;
+  const { data: summary } = useApi(
+    () => walletService.getDriverSummary(driverId),
+    [driverId],
+    { enabled: enabled && !!driverId, fallback: null },
+  );
+  const { data: tripsApi, loading: tripsLoading } = useApi(
+    () => tripService.listTrips(),
+    [],
+    { enabled, fallback: [] },
+  );
 
-  // Identity from signed-in user; wallet balance from khata summary. Mock fills gaps.
-  // (mapping to confirm against live API)
+  // Identity from the signed-in user.
   const fullName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
   const driver = {
-    ...mock.driver,
-    name: fullName || mock.driver.name,
-    initials: ((fullName || mock.driver.name).trim()[0] || 'R').toUpperCase(),
+    name: fullName || 'Driver',
+    initials: ((fullName || 'D').trim()[0] || 'D').toUpperCase(),
+    tripsThisMonth: summary?.tripsThisMonth ?? '—', // mapping to confirm
+    distance: summary?.distance ?? '—', // mapping to confirm
   };
-  const balance = useReal && summary && (summary.balance != null || summary.totalAmount != null)
-    ? `₹${Number(summary.balance ?? summary.totalAmount).toLocaleString('en-IN')}`
-    : mock.wallet.balance;
-  const wallet = { ...mock.wallet, balance };
+
+  // Balance '—' until the summary responds (mirrors WalletScreen).
+  const balance = summary
+    ? `₹${Number(summary.balance ?? summary.totalAmount ?? 0).toLocaleString('en-IN')}`
+    : '—';
+  const pendingCount = summary?.pendingCount ?? 0; // mapping to confirm
+  const confirmedCount = summary?.confirmedCount ?? 0; // mapping to confirm
+
+  // Active trip — pick the in-transit/active one, else the first trip.
+  const tripRows = Array.isArray(tripsApi)
+    ? tripsApi
+    : (tripsApi?.results || tripsApi?.rows || tripsApi?.items || tripsApi?.data || []);
+  const activeRaw = tripRows.find((tr) => {
+    const s = String(tr?.status || tr?.state || '').toLowerCase();
+    return s.includes('transit') || s.includes('active') || s.includes('progress');
+  }) || tripRows[0] || null;
+  // (mapping to confirm against live API)
+  const activeTrip = activeRaw && {
+    id: activeRaw.tripNumber || activeRaw.tripNo || activeRaw.code || activeRaw._id || '—',
+    status: activeRaw.status || activeRaw.state || 'in_transit',
+    from: activeRaw.origin?.city || activeRaw.origin?.name || activeRaw.source || activeRaw.from || '—',
+    to: activeRaw.destination?.city || activeRaw.destination?.name || activeRaw.destination || activeRaw.to || '—',
+    totalStages: Number(activeRaw.totalStages) || 8,
+    stage: Number(activeRaw.stage ?? activeRaw.currentStage) || 0,
+    stageLabel: activeRaw.stageLabel || activeRaw.stageName || '',
+    next: activeRaw.next || activeRaw.nextStage || '',
+  };
+
+  // Last refuel — from the summary if present, otherwise blank.
+  const lastRefuel = {
+    litres: summary?.lastRefuel?.litres ?? '—', // mapping to confirm
+    meta: summary?.lastRefuel?.meta ?? '', // mapping to confirm
+    amount: summary?.lastRefuel?.amount ?? '—', // mapping to confirm
+  };
 
   const openWallet = () => navigation.navigate('Wallet');
   const onQuick = (key) => {
@@ -92,12 +133,14 @@ export default function HomeScreen({ navigation }) {
 
         {/* Wallet hero */}
         <WalletHeroCard
-          balance={wallet.balance}
-          caption={onDuty ? '1 bill awaiting confirmation' : `${wallet.pendingCount} bill pending · ${wallet.confirmedCount} confirmed`}
+          balance={balance}
+          caption={onDuty ? '1 bill awaiting confirmation' : `${pendingCount} bill pending · ${confirmedCount} confirmed`}
           onPress={openWallet}
         />
 
-        {onDuty ? (
+        {tripsLoading ? (
+          <Loading />
+        ) : activeTrip ? (
           /* Active trip */
           <Card elevated="sm" padding={16} style={styles.gap}>
             <View style={styles.tripTop}>

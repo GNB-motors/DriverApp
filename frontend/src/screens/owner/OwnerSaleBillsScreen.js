@@ -1,10 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Card, colors, spacing } from '../../components/ui';
 import OwnerShell from './OwnerShell';
-import { Pill, FilterChips } from '../../components/ui';
-import * as own from '../../demo/ownerMock';
+import { Pill, FilterChips, Loading, EmptyState } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
@@ -15,44 +14,42 @@ export default function OwnerSaleBillsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState('All');
 
-  // Sale bills → real when a backend is configured (else demo mock).
+  // Sale bills — real API only.
   const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const useReal = apiConfigured() && !!token;
   const { data: saleApi, loading: saleLoading } = useApi(
     () => ownerService.listSaleBills(),
     [],
-    { enabled: useReal, fallback: null },
+    { enabled: useReal, fallback: [] },
   );
 
-  // mapping to confirm against live API — normalise invoices; unknown fields
-  // fall back to the mock per-field.
+  // Normalise invoices defensively; unknown fields fall back to '—'/empty.
   const saleBills = useMemo(() => {
-    if (!useReal || !saleApi) return own.saleBills;
     const rows = Array.isArray(saleApi)
       ? saleApi
-      : saleApi.items || saleApi.results || saleApi.bills || saleApi.data || [];
-    if (!rows.length) return own.saleBills;
+      : (saleApi?.results || saleApi?.rows || saleApi?.items || saleApi?.bills || saleApi?.data || []);
     return rows.map((r, i) => {
-      const m = own.saleBills[i] || {};
-      const amt = r.amount ?? r.total ?? r.value;
+      const amt = r?.amount ?? r?.total ?? r?.value;
       return {
-        id: r.invoiceNumber || r.number || r._id || r.id || m.id,
-        status: r.status || m.status,
-        badge: r.badge || r.statusLabel || m.badge,
-        amount: amt != null ? `₹${Number(amt).toLocaleString('en-IN')}` : m.amount,
-        customer: r.customerName || r.customer?.name || r.customer || m.customer,
-        meta: r.meta || m.meta,
+        id: r?.invoiceNumber || r?.number || r?._id || r?.id || String(i),
+        status: r?.status || r?.state || 'neutral', // mapping to confirm
+        badge: r?.badge || r?.statusLabel || r?.status || '—', // mapping to confirm
+        amount: amt != null ? `₹${Number(amt).toLocaleString('en-IN')}` : '—',
+        customer: r?.customerName || r?.customer?.name || r?.customer || '—', // mapping to confirm
+        meta: r?.meta || r?.remarks || '', // mapping to confirm
       };
     });
-  }, [useReal, saleApi]);
+  }, [saleApi]);
 
   return (
     <OwnerShell title="Sale bills" subtitle="24 invoices · ₹4.2 L outstanding" navigation={navigation} active="OwnerSaleBills">
       <View style={{ flex: 1 }}>
         <FilterChips options={['All', 'Overdue', 'Unpaid', 'Paid']} value={filter} onChange={setFilter} style={styles.chips} />
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {useReal && saleLoading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
+          {saleLoading ? (
+            <Loading />
+          ) : saleBills.length === 0 ? (
+            <EmptyState icon="receipt-outline" title="No sale bills" message="Invoices you raise will appear here with what customers owe." />
           ) : saleBills.map((inv) => (
             <Card key={inv.id} elevated="sm" padding={14} style={[inv.status === 'overdue' && styles.overdue]}>
               <View style={styles.top}>

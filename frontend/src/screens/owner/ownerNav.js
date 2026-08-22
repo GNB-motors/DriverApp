@@ -3,7 +3,7 @@ export const OWNER_NAV = [
   {
     group: 'Owner',
     items: [
-      { key: 'OwnerApprovals', label: 'Approvals', icon: 'checkmark-done-outline', badge: 12 },
+      { key: 'OwnerApprovals', label: 'Approvals', icon: 'checkmark-done-outline' },
       { key: 'OwnerDashboard', label: 'Dashboard', icon: 'grid-outline' },
       { key: 'OwnerMoney', label: 'Money', icon: 'cash-outline' },
       { key: 'OwnerDriver', label: 'Drivers', icon: 'people-outline' },

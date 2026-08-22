@@ -61,7 +61,6 @@ import OpsUnloadingScreen from '../screens/manager/OpsUnloadingScreen';
 import OpsDeliveryOrderScreen from '../screens/manager/OpsDeliveryOrderScreen';
 import OpsPlacementsScreen from '../screens/manager/OpsPlacementsScreen';
 import OpsAdvancesScreen from '../screens/manager/OpsAdvancesScreen';
-import { alertCount } from '../demo/mock';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -85,7 +84,7 @@ function BottomTabs() {
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: 'Home' }} />
       <Tab.Screen name="Vehicles" component={VehiclesScreen} options={{ tabBarLabel: 'Vehicles' }} />
       <Tab.Screen name="Trips" component={TripsScreen} options={{ tabBarLabel: 'Trips' }} />
-      <Tab.Screen name="Alerts" component={AlertsScreen} options={{ tabBarLabel: 'Alerts', tabBarBadge: alertCount || undefined }} />
+      <Tab.Screen name="Alerts" component={AlertsScreen} options={{ tabBarLabel: 'Alerts' }} />
       <Tab.Screen name="More" component={MoreScreen} options={{ tabBarLabel: 'More' }} />
     </Tab.Navigator>
   );
@@ -133,6 +132,9 @@ function ManagerStack() {
       <Stack.Screen name="OpsTrips" component={OpsTripsScreen} />
       <Stack.Screen name="OpsTripDetail" component={OpsTripDetailScreen} />
       <Stack.Screen name="OpsApprovals" component={OpsApprovalsScreen} />
+      {/* Shared bill-approval detail + reject (also used by the owner surface). */}
+      <Stack.Screen name="OwnerBillDetail" component={OwnerBillDetailScreen} />
+      <Stack.Screen name="OwnerReject" component={OwnerRejectScreen} />
       <Stack.Screen name="OpsLoads" component={OpsLoadsScreen} />
       <Stack.Screen name="OpsCloseTrip" component={OpsCloseTripScreen} />
       <Stack.Screen name="OpsUnloading" component={OpsUnloadingScreen} />

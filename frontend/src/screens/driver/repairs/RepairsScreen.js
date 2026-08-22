@@ -3,9 +3,8 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Button, Card, StatusBadge, colors, spacing, radius } from '../../../components/ui';
+import { AppText, Button, Card, StatusBadge, Loading, EmptyState, colors, spacing, radius } from '../../../components/ui';
 import dayjs from 'dayjs';
-import * as mock from '../../../demo/mock';
 import { useAuth } from '../../../context/AuthContext';
 import { apiConfigured } from '../../../services/client';
 import { useApi } from '../../../hooks/useApi';
@@ -17,15 +16,13 @@ import maintenanceService from '../../../services/maintenanceService';
 export default function RepairsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
-  const { data: maintApi } = useApi(() => maintenanceService.listMaintenance(), [], { enabled: useReal, fallback: null });
+  const enabled = apiConfigured() && !!token;
+  const { data, loading } = useApi(() => maintenanceService.listMaintenance(), [], { enabled, fallback: [] });
 
-  // Map maintenance records → repair-log cards; KPIs keep mock until confirmed.
-  // (mapping to confirm against live API)
-  const r = React.useMemo(() => {
-    const rows = Array.isArray(maintApi) ? maintApi : maintApi?.results || maintApi?.data || [];
-    if (!useReal || !rows.length) return mock.repairs;
-    const logs = rows.map((m, i) => {
+  // Map maintenance records → repair-log cards + header/KPIs. (mapping to confirm)
+  const { logs, plate, spendYear } = React.useMemo(() => {
+    const rows = Array.isArray(data) ? data : (data?.results || data?.rows || data?.items || data?.data || []);
+    const mapped = rows.map((m, i) => {
       const st = String(m.status || '').toLowerCase();
       return {
         id: m._id || String(i),
@@ -37,8 +34,10 @@ export default function RepairsScreen({ navigation }) {
         photos: (m.attachments?.length || m.photos?.length) ? `${m.attachments?.length || m.photos.length} photos` : 'No photo',
       };
     });
-    return { ...mock.repairs, logs };
-  }, [useReal, maintApi]);
+    const total = rows.reduce((s, m) => s + (Number(m.amount) || 0), 0);
+    const firstPlate = rows[0]?.vehicle?.registrationNumber || rows[0]?.vehicle?.plate || '';
+    return { logs: mapped, plate: firstPlate, spendYear: total ? `₹${total.toLocaleString('en-IN')}` : '—' };
+  }, [data]);
 
   return (
     <View style={styles.container}>
@@ -49,7 +48,7 @@ export default function RepairsScreen({ navigation }) {
         </Pressable>
         <View style={{ flex: 1 }}>
           <AppText variant="h3" weight="extrabold">Repairs</AppText>
-          <AppText variant="caption" mono muted>{r.plate} · {r.count} logs</AppText>
+          <AppText variant="caption" mono muted>{[plate, `${logs.length} logs`].filter(Boolean).join(' · ')}</AppText>
         </View>
       </View>
 
@@ -57,29 +56,36 @@ export default function RepairsScreen({ navigation }) {
         <View style={styles.kpiRow}>
           <Card elevated="sm" padding={14} style={styles.kpi}>
             <AppText variant="caption" muted>Spend this year</AppText>
-            <AppText mono variant="h3" weight="semibold">{r.spendYear}</AppText>
+            <AppText mono variant="h3" weight="semibold">{spendYear}</AppText>
           </Card>
           <Card elevated="sm" padding={14} style={styles.kpi}>
             <AppText variant="caption" muted>Downtime</AppText>
-            <AppText mono variant="h3" weight="semibold">{r.downtime}</AppText>
+            {/* downtime not exposed by the maintenance API — mapping to confirm */}
+            <AppText mono variant="h3" weight="semibold">—</AppText>
           </Card>
         </View>
 
-        {r.logs.map((log) => (
-          <Card key={log.id} elevated="sm" padding={14} style={[styles.logCard, log.active && styles.logActive]}>
-            <View style={styles.logTop}>
-              <AppText variant="bodyStrong" weight="bold">{log.title}</AppText>
-              <StatusBadge status={log.status} label={log.status === 'in_workshop' ? 'In workshop' : 'Done'} />
-              <AppText mono variant="bodyStrong" weight="semibold" style={styles.amount}>{log.amount}</AppText>
-            </View>
-            <AppText variant="small" muted>{log.desc}</AppText>
-            <View style={styles.logDivider} />
-            <View style={styles.logFooter}>
-              <AppText variant="caption" mono muted>{log.meta}</AppText>
-              <AppText variant="caption" weight="bold" color={log.photos === 'No photo' ? colors.textMuted : colors.primary}>{log.photos}</AppText>
-            </View>
-          </Card>
-        ))}
+        {loading ? (
+          <Loading />
+        ) : logs.length === 0 ? (
+          <EmptyState icon="build-outline" title="No repairs logged yet" message="Log a repair to keep a service history for this truck." />
+        ) : (
+          logs.map((log) => (
+            <Card key={log.id} elevated="sm" padding={14} style={[styles.logCard, log.active && styles.logActive]}>
+              <View style={styles.logTop}>
+                <AppText variant="bodyStrong" weight="bold">{log.title}</AppText>
+                <StatusBadge status={log.status} label={log.status === 'in_workshop' ? 'In workshop' : 'Done'} />
+                <AppText mono variant="bodyStrong" weight="semibold" style={styles.amount}>{log.amount}</AppText>
+              </View>
+              <AppText variant="small" muted>{log.desc}</AppText>
+              <View style={styles.logDivider} />
+              <View style={styles.logFooter}>
+                <AppText variant="caption" mono muted>{log.meta}</AppText>
+                <AppText variant="caption" weight="bold" color={log.photos === 'No photo' ? colors.textMuted : colors.primary}>{log.photos}</AppText>
+              </View>
+            </Card>
+          ))
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }]}>

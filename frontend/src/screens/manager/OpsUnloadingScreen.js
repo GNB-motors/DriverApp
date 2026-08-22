@@ -1,10 +1,9 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, colors, spacing, radius } from '../../components/ui';
-import { BackHeader, Pill, SectionHeader } from '../../components/ui';
-import * as own from '../../demo/managerMock';
+import { BackHeader, Pill, SectionHeader, Loading, EmptyState } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
@@ -14,46 +13,47 @@ import managerService from '../../services/managerService';
 export default function OpsUnloadingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
-  // Real unloading records when a backend is configured (else demo mock).
+  // Unloading records — real API only (no data until a backend is configured and signed in).
   const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const enabled = apiConfigured() && !!token;
   const { data: unloadApi, loading } = useApi(
     () => managerService.listUnloading(),
     [],
-    { enabled: useReal, fallback: null },
+    { enabled, fallback: [] },
   );
 
-  // Normalize the first unloading record → the screen shape (per-field mock fallback).
-  // mapping to confirm against live API
+  // Normalize the first unloading record → the screen shape (optional chaining + safe defaults).
   const u = useMemo(() => {
-    const m = own.opsUnload;
-    if (!useReal || !unloadApi) return m;
-    const list = Array.isArray(unloadApi) ? unloadApi : (unloadApi.results || unloadApi.rows || unloadApi.items || unloadApi.data || []);
-    const d = list[0] || (Array.isArray(unloadApi) ? null : unloadApi);
-    if (!d) return m;
+    const list = Array.isArray(unloadApi)
+      ? unloadApi
+      : (unloadApi?.results || unloadApi?.rows || unloadApi?.items || unloadApi?.data || (unloadApi && typeof unloadApi === 'object' ? [unloadApi] : []));
+    const d = list[0];
+    if (!d) return null;
     const w = d.weight || d;
-    const wt = (v, fb) => (v == null ? fb : (typeof v === 'number' ? `${v} t` : String(v)));
+    const wt = (v) => (v == null ? '—' : (typeof v === 'number' ? `${v} t` : String(v)));
     return {
-      id: d.tripNo || d.code || d.id || d._id || m.id,
-      place: d.place || d.location || d.depot || m.place,
+      id: d.tripNo || d.code || d.id || d._id || '—',
+      place: d.place || d.location || d.depot || '—',
       weight: {
-        loaded: wt(w.loaded, m.weight.loaded),
-        received: wt(w.received, m.weight.received),
-        short: wt(w.short, m.weight.short),
-        tolerance: w.tolerance || m.weight.tolerance,
+        loaded: wt(w?.loaded),
+        received: wt(w?.received),
+        short: wt(w?.short),
+        tolerance: w?.tolerance || '—',
       },
-      details: Array.isArray(d.details) ? d.details : m.details,
-      evidence: Array.isArray(d.evidence) ? d.evidence : m.evidence,
-      remark: d.remark || d.note || m.remark,
+      details: Array.isArray(d.details) ? d.details : [],
+      evidence: Array.isArray(d.evidence) ? d.evidence : [],
+      remark: d.remark || d.note || '',
     };
-  }, [useReal, unloadApi]);
+  }, [unloadApi]);
 
   return (
     <View style={styles.container}>
-      <BackHeader title="Unloading" subtitle={`${u.id} · ${u.place}`} onBack={() => navigation.goBack()} right={<Pill tone="pending" label="Shortage" />} />
+      <BackHeader title="Unloading" subtitle={u ? `${u.id} · ${u.place}` : undefined} onBack={() => navigation.goBack()} right={<Pill tone="pending" label="Shortage" />} />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {useReal && loading ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
+        {loading ? (
+          <Loading />
+        ) : !u ? (
+          <EmptyState icon="cube-outline" title="No unloading record" message="Unloading details will appear here once the depot records them." />
         ) : (
           <>
         <Card elevated="sm" padding={16}>

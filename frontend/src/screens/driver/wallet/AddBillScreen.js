@@ -3,21 +3,51 @@ import { View, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Button, Chip, TextField, PhotoUploader, colors, spacing, radius } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
+import dayjs from 'dayjs';
+import { AppText, Button, Chip, TextField, PhotoUploader, WarningBanner, colors, spacing, radius } from '../../../components/ui';
+import { useSubmit } from '../../../hooks/useSubmit';
+import { pickFromCamera, pickFromGallery } from '../../../utils/pickImage';
+import billService from '../../../services/billService';
+
+// Static UI labels (mapped to expense categories on the backend).
+const CATEGORIES = ['Toll', 'Food', 'Parking', 'Repair', 'Loading', 'Other'];
 
 /**
- * 09 · Add bill — attach and submit. UI-only demo (photo is simulated).
+ * 09 · Add bill — capture a real photo and submit to the backend. The owner
+ * confirms it before it reaches the wallet.
  */
 export default function AddBillScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [category, setCategory] = useState('Other');
-  const [amount, setAmount] = useState('1,250');
-  const [desc, setDesc] = useState('Tyre air fill and wheel balance');
-  const [photo, setPhoto] = useState({ name: 'IMG_2381', quality: 'ok' });
+  const [amount, setAmount] = useState('');
+  const [desc, setDesc] = useState('');
+  const [photo, setPhoto] = useState(null); // { uri, name, type }
+  const { submit, busy, error } = useSubmit();
 
-  const ready = !!amount && !!photo;
-  const send = () => navigation.navigate('BillSent', { amount: `₹${amount}`, category, trip: 'TR-4821', date: '04 Aug' });
+  const amountNum = Number(String(amount).replace(/[^0-9.]/g, ''));
+  const ready = amountNum > 0 && !!photo && !busy;
+
+  const capture = async () => { const f = await pickFromCamera(); if (f) setPhoto(f); };
+  const pick = async () => { const f = await pickFromGallery(); if (f) setPhoto(f); };
+
+  const send = () => {
+    submit(
+      () => billService.submitBill({
+        amount: amountNum,
+        category,
+        description: desc,
+        expenseDate: new Date().toISOString(),
+        photo,
+      }),
+      {
+        onSuccess: (bill) => navigation.navigate('BillSent', {
+          amount: `₹${Number(bill?.amount ?? amountNum).toLocaleString('en-IN')}`,
+          category: bill?.title || category,
+          date: dayjs(bill?.expenseDate).format('DD MMM'),
+        }),
+      },
+    );
+  };
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -35,29 +65,28 @@ export default function AddBillScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <AppText variant="label" muted>Category</AppText>
         <View style={styles.chips}>
-          {mock.billCategories.map((c) => (
+          {CATEGORIES.map((c) => (
             <Chip key={c} label={c} selected={category === c} onPress={() => setCategory(c)} />
           ))}
         </View>
 
-        <TextField label="Amount" value={amount} onChangeText={setAmount} mono keyboardType="numeric" icon="cash-outline" style={styles.field} />
-        <TextField label="What was it for?" value={desc} onChangeText={setDesc} style={styles.field} />
+        <TextField label="Amount" value={amount} onChangeText={setAmount} placeholder="0" mono keyboardType="numeric" icon="cash-outline" style={styles.field} />
+        <TextField label="What was it for?" value={desc} onChangeText={setDesc} placeholder="Short note (optional)" style={styles.field} />
 
-        <View style={styles.twoCol}>
-          <View style={styles.col}><TextField label="Date" value="04 Aug 2026" mono editable={false} /></View>
-          <View style={styles.col}><TextField label="Trip" value="TR-4821" mono editable={false} /></View>
-        </View>
+        <TextField label="Date" value={dayjs().format('DD MMM YYYY')} mono editable={false} style={styles.field} />
 
         <PhotoUploader
           title="Bill photo"
           required
-          photos={photo ? [photo] : []}
-          onCapture={() => setPhoto({ name: 'IMG_2381', quality: 'ok' })}
-          onPick={() => setPhoto({ name: 'IMG_2381', quality: 'ok' })}
+          photos={photo ? [{ name: photo.name, quality: 'ok' }] : []}
+          onCapture={capture}
+          onPick={pick}
           onRemove={() => setPhoto(null)}
-          note="Amount read from photo"
+          note="The owner reads the amount from this photo"
           style={styles.field}
         />
+
+        {error ? <WarningBanner tone="error" message={error} style={styles.field} /> : null}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
@@ -65,7 +94,7 @@ export default function AddBillScreen({ navigation }) {
           <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
           <AppText variant="caption" muted>The owner confirms it before it reaches your wallet</AppText>
         </View>
-        <Button size="lg" label="Send for confirmation" iconRight="arrow-forward" disabled={!ready} onPress={send} />
+        <Button size="lg" label={busy ? 'Sending…' : 'Send for confirmation'} iconRight="arrow-forward" disabled={!ready} onPress={send} />
       </View>
     </KeyboardAvoidingView>
   );
@@ -78,8 +107,6 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4, marginBottom: 4 },
   field: { marginTop: 4 },
-  twoCol: { flexDirection: 'row', gap: 12 },
-  col: { flex: 1 },
   footer: { paddingHorizontal: 20, paddingTop: 12, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, gap: 10 },
   hintRow: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' },
 });

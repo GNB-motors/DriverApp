@@ -1,11 +1,10 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AppText, Card, BarChart, ProgressBar, colors, spacing, radius } from '../../components/ui';
+import { AppText, Card, BarChart, ProgressBar, colors, radius } from '../../components/ui';
 import OwnerShell from './OwnerShell';
-import { StatTile, SectionHeader } from '../../components/ui';
-import * as own from '../../demo/ownerMock';
+import { SectionHeader, Loading, EmptyState } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
@@ -14,39 +13,42 @@ import ownerService from '../../services/ownerService';
 /** O9 · ERP overview — how the business is doing. */
 export default function OwnerErpScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const erp = own.erp;
 
-  // ERP overview → real when a backend is configured (else demo mock).
+  // ERP overview — real API only. getErpDashboard returns a single object.
   const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
+  const useReal = apiConfigured() && !!token;
   const { data: erpApi, loading: erpLoading } = useApi(
     () => ownerService.getErpDashboard(),
     [],
     { enabled: useReal, fallback: null },
   );
 
-  // mapping to confirm against live API — spread mock first so unknown fields keep mock values.
+  // Read the dashboard object defensively — unknown sub-fields fall back to '—'/[].
   const e = useMemo(() => {
-    if (!useReal || !erpApi) return erp;
+    if (!erpApi) return null;
     const fmt = (v) => `₹${Number(v).toLocaleString('en-IN')}`;
     return {
-      ...erp,
-      margin: erpApi.netMargin != null ? fmt(erpApi.netMargin) : (erpApi.margin ?? erp.margin),
-      marginPct: erpApi.marginPct != null ? `${erpApi.marginPct}%` : erp.marginPct,
-      delta: erpApi.delta ?? erp.delta,
-      revenue: erpApi.revenue != null ? `Revenue ${fmt(erpApi.revenue)}` : erp.revenue,
-      cost: erpApi.cost != null ? `Cost ${fmt(erpApi.cost)}` : erp.cost,
-      months: Array.isArray(erpApi.months) && erpApi.months.length ? erpApi.months : erp.months,
-      costBreak: Array.isArray(erpApi.costBreak) && erpApi.costBreak.length ? erpApi.costBreak : erp.costBreak,
-      perUnit: Array.isArray(erpApi.perUnit) && erpApi.perUnit.length ? erpApi.perUnit : erp.perUnit,
+      delta: erpApi?.delta ?? erpApi?.marginDelta ?? '—', // mapping to confirm
+      margin: erpApi?.netMargin != null ? fmt(erpApi.netMargin) : (erpApi?.margin != null ? fmt(erpApi.margin) : '—'), // mapping to confirm
+      marginPct: erpApi?.marginPct != null ? `${erpApi.marginPct}%` : '—', // mapping to confirm
+      revenue: erpApi?.revenue != null ? `Revenue ${fmt(erpApi.revenue)}` : '—', // mapping to confirm
+      cost: erpApi?.cost != null ? `Cost ${fmt(erpApi.cost)}` : '—', // mapping to confirm
+      months: Array.isArray(erpApi?.months) ? erpApi.months : [], // mapping to confirm
+      costBreak: Array.isArray(erpApi?.costBreak) ? erpApi.costBreak : [], // mapping to confirm
+      perUnit: Array.isArray(erpApi?.perUnit) ? erpApi.perUnit : [], // mapping to confirm
     };
-  }, [useReal, erpApi, erp]);
+  }, [erpApi]);
 
   return (
     <OwnerShell title="Business overview" subtitle="July 2026 · 18 trucks" navigation={navigation} active="OwnerErp"
       right={<View style={styles.monthPill}><AppText variant="caption" weight="bold" muted>July</AppText></View>}>
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
-        {useReal && erpLoading ? <ActivityIndicator color={colors.primary} style={{ marginBottom: 4 }} /> : null}
+        {erpLoading ? (
+          <Loading />
+        ) : !e ? (
+          <EmptyState icon="stats-chart-outline" title="No overview yet" message="Business metrics will appear here once data is available." />
+        ) : (
+          <>
         <LinearGradient colors={colors.gradient} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={styles.hero}>
           <View style={styles.heroTop}>
             <AppText variant="label" color={colors.onPrimaryMuted}>Net margin</AppText>
@@ -86,6 +88,8 @@ export default function OwnerErpScreen({ navigation }) {
             ))}
           </View>
         </Card>
+          </>
+        )}
       </ScrollView>
     </OwnerShell>
   );

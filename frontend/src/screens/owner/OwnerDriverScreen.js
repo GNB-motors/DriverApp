@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppText, Button, Card, WarningBanner, colors, spacing } from '../../components/ui';
+import { AppText, Button, Card, WarningBanner, Loading, EmptyState, colors, spacing } from '../../components/ui';
 import { BackHeader, Pill, LedgerRow, SectionHeader, toneColor } from '../../components/ui';
-import * as own from '../../demo/ownerMock';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
@@ -12,13 +11,12 @@ import walletService from '../../services/walletService';
 /** O6 · Driver account — settle up. */
 export default function OwnerDriverScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const driver = own.ownerDriver;
 
-  // Driver ledger + balance summary → real when a backend is configured and we
-  // have a driver id (route param, else the mock's id). Otherwise demo mock.
+  // Driver ledger + balance summary — real API only, keyed by the driver id
+  // resolved from the route params.
   const { token } = useAuth();
-  const driverId = route?.params?.driverId || route?.params?.id || driver.id || driver._id || null;
-  const useReal = apiConfigured() && !!driverId && !!token && token !== 'demo-token';
+  const driverId = route?.params?.driverId || route?.params?.id || null;
+  const useReal = apiConfigured() && !!token && !!driverId;
   const { data: summaryApi, loading: summaryLoading } = useApi(
     () => walletService.getDriverSummary(driverId),
     [driverId],
@@ -29,72 +27,90 @@ export default function OwnerDriverScreen({ navigation, route }) {
     [driverId],
     { enabled: useReal, fallback: null },
   );
+  const loading = useReal && (summaryLoading || ledgerLoading);
 
-  // mapping to confirm against live API — spread mock first; breakdown shape is
-  // unconfirmed so it stays on mock.
+  // Map the summary + ledger into the existing UI shape defensively; missing
+  // fields fall back to '—'/0. (mapping to confirm)
   const d = useMemo(() => {
-    if (!useReal || (!summaryApi && !ledgerApi)) return driver;
     const s = summaryApi || {};
+    const inr = (n, sign = '') =>
+      n == null ? '—' : `${sign}₹${Math.abs(Number(n)).toLocaleString('en-IN')}`;
     const owe = s.balance ?? s.owe ?? s.netBalance ?? s.amount;
     const raw = Array.isArray(ledgerApi)
       ? ledgerApi
       : (ledgerApi?.entries || ledgerApi?.results || ledgerApi?.rows || []);
-    const ledger = raw.length
-      ? raw.map((e, i) => {
-          const lm = driver.ledger[i] || {};
-          const amt = e.amount ?? e.delta;
-          const credit = /cred/i.test(String(e.direction || e.dir || e.type || ''))
-            || (amt != null && Number(amt) >= 0);
-          const bal = e.runningBalance ?? e.balance;
-          return {
-            title: e.title || e.category || e.description || lm.title,
-            meta: e.meta || e.remarks || lm.meta,
-            delta: amt != null
-              ? `${credit ? '+' : '−'}₹${Math.abs(Number(amt)).toLocaleString('en-IN')}`
-              : lm.delta,
-            dir: e.dir || (credit ? 'credit' : 'debit'),
-            balance: bal != null ? `₹${Number(bal).toLocaleString('en-IN')}` : lm.balance,
-          };
-        })
-      : driver.ledger;
+    const ledger = raw.map((e) => {
+      const amt = e.amount ?? e.delta;
+      const credit = /cred/i.test(String(e.direction || e.dir || e.type || ''))
+        || (amt != null && Number(amt) >= 0);
+      const bal = e.runningBalance ?? e.balance;
+      return {
+        title: e.title || e.category || e.description || '—',
+        meta: e.meta || e.remarks || '',
+        delta: amt != null
+          ? `${credit ? '+' : '−'}₹${Math.abs(Number(amt)).toLocaleString('en-IN')}`
+          : '—',
+        dir: e.dir || (credit ? 'credit' : 'debit'),
+        balance: bal != null ? `₹${Number(bal).toLocaleString('en-IN')}` : undefined,
+      };
+    });
     return {
-      ...driver,
-      name: s.driverName || s.name || driver.name,
-      plate: s.vehicleNumber || s.plate || driver.plate,
-      owe: owe != null ? `₹${Number(owe).toLocaleString('en-IN')}` : driver.owe,
+      name: s.driverName || s.name || '—',
+      plate: s.vehicleNumber || s.plate || '—',
+      owe: inr(owe),
+      breakdown: [
+        { label: 'Confirmed bills', value: inr(s.confirmedTotal, '+'), color: 'success' },
+        { label: 'Advances paid', value: inr(s.advancesTotal, '−'), color: 'error' },
+        { label: 'Pending confirmation', value: inr(s.pendingTotal ?? s.pending), color: 'warning' },
+      ],
       ledger,
     };
-  }, [useReal, summaryApi, ledgerApi, driver]);
+  }, [summaryApi, ledgerApi]);
+
+  const hasData = !!summaryApi || d.ledger.length > 0;
+  const showEmpty = !driverId || (!loading && !hasData);
 
   return (
     <View style={styles.container}>
       <BackHeader title={d.name} subtitle={d.plate} onBack={() => navigation.goBack()} right={<Pill tone="success" label="Active" />} />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Card elevated="sm" padding={16}>
-          <AppText variant="label" muted>You owe him</AppText>
-          <AppText mono weight="semibold" style={styles.big}>{d.owe}</AppText>
-          <View style={styles.divider} />
-          {d.breakdown.map((b) => (
-            <View key={b.label} style={styles.kv}>
-              <AppText variant="small" muted>{b.label}</AppText>
-              <AppText mono variant="bodyStrong" weight="semibold" color={toneColor(b.color)}>{b.value}</AppText>
-            </View>
-          ))}
-        </Card>
+        {loading ? (
+          <Loading />
+        ) : showEmpty ? (
+          <EmptyState
+            icon="wallet-outline"
+            title={driverId ? 'Nothing to settle' : 'No driver selected'}
+            message={driverId ? 'This driver has no bills or advances yet.' : 'Open a driver from the Money screen to settle up.'}
+          />
+        ) : (
+          <>
+            <Card elevated="sm" padding={16}>
+              <AppText variant="label" muted>You owe him</AppText>
+              <AppText mono weight="semibold" style={styles.big}>{d.owe}</AppText>
+              <View style={styles.divider} />
+              {d.breakdown.map((b) => (
+                <View key={b.label} style={styles.kv}>
+                  <AppText variant="small" muted>{b.label}</AppText>
+                  <AppText mono variant="bodyStrong" weight="semibold" color={toneColor(b.color)}>{b.value}</AppText>
+                </View>
+              ))}
+            </Card>
 
-        <SectionHeader label="Ledger" />
-        <Card padding={0} elevated="sm">
-          {useReal && (ledgerLoading || summaryLoading) ? (
-            <ActivityIndicator color={colors.primary} style={{ margin: 24 }} />
-          ) : d.ledger.map((e, i) => (
-            <View key={e.title}>
-              {i > 0 ? <View style={styles.rowDivider} /> : null}
-              <LedgerRow item={e} />
-            </View>
-          ))}
-        </Card>
+            <SectionHeader label="Ledger" />
+            <Card padding={0} elevated="sm">
+              {d.ledger.length === 0 ? (
+                <EmptyState icon="receipt-outline" title="No ledger entries yet" />
+              ) : d.ledger.map((e, i) => (
+                <View key={e.title}>
+                  {i > 0 ? <View style={styles.rowDivider} /> : null}
+                  <LedgerRow item={e} />
+                </View>
+              ))}
+            </Card>
 
-        <WarningBanner tone="info" message="Settling records a payout and resets his wallet to zero. The pending ₹1,250 stays out of it until you confirm that bill." />
+            <WarningBanner tone="info" message="Settling records a payout and resets his wallet to zero. The pending ₹1,250 stays out of it until you confirm that bill." />
+          </>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>

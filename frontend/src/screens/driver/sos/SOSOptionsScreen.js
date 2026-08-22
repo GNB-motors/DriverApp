@@ -4,7 +4,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, colors, spacing, radius } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
 
 /**
  * 24 · SOS options — pick the kind of trouble. UI-only demo.
@@ -17,9 +16,17 @@ const TONES = {
   info: { fg: colors.infoText, bg: colors.infoBg },
 };
 
+const LOCATION = 'NH-48, 12 km before Karad';
+const TIME = '17:42';
+const OPTIONS = [
+  { key: 'accident', title: 'Accident', desc: 'Alerts owner, ops and the nearest workshop', icon: 'car-sport', tone: 'error' },
+  { key: 'breakdown', title: 'Breakdown', desc: 'Truck cannot move · needs mechanic', icon: 'construct', tone: 'warning' },
+  { key: 'theft', title: 'Theft or threat', desc: 'Escalates to ops and police helpline', icon: 'shield-half', tone: 'purple' },
+  { key: 'medical', title: 'Medical help', desc: 'Ambulance and nearest hospital', icon: 'medkit', tone: 'info' },
+];
+
 export default function SOSOptionsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { sos } = mock;
 
   const pick = (opt) => navigation.navigate('SOSEmergencyActive', { title: opt.title, key: opt.key });
 
@@ -41,7 +48,7 @@ export default function SOSOptionsScreen({ navigation }) {
         </View>
 
         <View style={styles.options}>
-          {sos.options.map((opt) => {
+          {OPTIONS.map((opt) => {
             const t = TONES[opt.tone] || TONES.error;
             return (
               <Pressable
@@ -64,7 +71,7 @@ export default function SOSOptionsScreen({ navigation }) {
 
         <View style={styles.locationChip}>
           <Ionicons name="location" size={15} color={colors.textMuted} />
-          <AppText variant="caption" mono muted>{sos.location} · {sos.time}</AppText>
+          <AppText variant="caption" mono muted>{LOCATION} · {TIME}</AppText>
         </View>
 
         <Pressable style={styles.cancel} onPress={() => navigation.goBack()}>

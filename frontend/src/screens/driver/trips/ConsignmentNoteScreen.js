@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,9 +7,6 @@ import {
   AppText, Button, TextField, PhotoUploader, WarningBanner, KeyValueTable, KeyValueRow,
   colors, spacing, radius,
 } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
-import { useAuth } from '../../../context/AuthContext';
-import { apiConfigured } from '../../../services/client';
 import { useSubmit } from '../../../hooks/useSubmit';
 import consignmentService from '../../../services/consignmentService';
 import { pickFromCamera, pickFromGallery } from '../../../utils/pickImage';
@@ -17,14 +14,19 @@ import { pickFromCamera, pickFromGallery } from '../../../utils/pickImage';
 /**
  * 26 · Consignment note — upload before gate out. UI-only demo.
  */
-export default function ConsignmentNoteScreen({ navigation }) {
+export default function ConsignmentNoteScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const cn = mock.consignment;
-  const [pages, setPages] = useState(cn.pages);
+  const params = route?.params ?? {};
+  const tripNumber = params.tripNumber ?? params.trip ?? '';
+  const tripId = params.tripId ?? params.trip ?? '';
+  const stage = params.stage ?? '';
+  const consignor = params.consignor ?? '';
+  const material = params.material ?? '';
+  const weight = params.weight ?? '';
+  const noteNumber = params.noteNumber ?? params.cnNumber ?? '';
+  const [pages, setPages] = useState([]);
   const [confirmed, setConfirmed] = useState(true);
-  const { token } = useAuth();
-  const useReal = apiConfigured() && !!token && token !== 'demo-token';
-  const { submit, busy } = useSubmit();
+  const { submit, busy, error } = useSubmit();
 
   const addFile = (file) =>
     setPages((p) => (p.length < 3 ? [...p, { name: file?.name || `Page ${p.length + 1}`, quality: 'ok', file }] : p));
@@ -33,11 +35,10 @@ export default function ConsignmentNoteScreen({ navigation }) {
   const removePage = (i) => setPages((p) => p.filter((_, idx) => idx !== i));
 
   const onUpload = () => {
-    if (!useReal) return navigation.goBack();
     const withFile = pages.find((p) => p.file);
-    return submit(
-      () => consignmentService.uploadBilty({ tripId: cn.trip, cnNumber: cn.noteNumber, file: withFile?.file }),
-      { onSuccess: () => navigation.goBack(), onError: (e) => Alert.alert('Upload failed', e?.message || 'Please try again.') },
+    submit(
+      () => consignmentService.uploadBilty({ tripId, cnNumber: noteNumber, file: withFile?.file }),
+      { onSuccess: () => navigation.goBack() },
     );
   };
 
@@ -50,7 +51,7 @@ export default function ConsignmentNoteScreen({ navigation }) {
         </Pressable>
         <View style={{ flex: 1 }}>
           <AppText variant="h3" weight="extrabold">Consignment note</AppText>
-          <AppText variant="caption" mono muted>{cn.trip} · {cn.stage}</AppText>
+          <AppText variant="caption" mono muted>{tripNumber} · {stage}</AppText>
         </View>
       </View>
 
@@ -58,12 +59,12 @@ export default function ConsignmentNoteScreen({ navigation }) {
         <WarningBanner tone="warning" message="Gate out stays locked until the note is uploaded." />
 
         <KeyValueTable style={styles.gap}>
-          <KeyValueRow label="Consignor" value={cn.consignor} />
-          <KeyValueRow label="Material" value={cn.material} />
-          <KeyValueRow label="Loaded weight" value={cn.weight} mono />
+          <KeyValueRow label="Consignor" value={consignor} />
+          <KeyValueRow label="Material" value={material} />
+          <KeyValueRow label="Loaded weight" value={weight} mono />
         </KeyValueTable>
 
-        <TextField label="Note number" value={cn.noteNumber} mono editable={false} style={styles.gap} />
+        <TextField label="Note number" value={noteNumber} mono editable={false} style={styles.gap} />
 
         <PhotoUploader
           title="Note pages"
@@ -81,6 +82,8 @@ export default function ConsignmentNoteScreen({ navigation }) {
           </View>
           <AppText variant="small" style={{ flex: 1 }}>Weight and material match what is written on the note.</AppText>
         </Pressable>
+
+        {error ? <WarningBanner tone="error" message={error} style={styles.gap} /> : null}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>

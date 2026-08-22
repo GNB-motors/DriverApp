@@ -3,15 +3,52 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Card, Stepper, StatusBadge, KeyValueTable, KeyValueRow, colors, spacing, radius } from '../../../components/ui';
-import * as mock from '../../../demo/mock';
+import dayjs from 'dayjs';
+import { AppText, Card, Stepper, StatusBadge, KeyValueTable, KeyValueRow, Loading, EmptyState, colors, spacing, radius } from '../../../components/ui';
+import { useAuth } from '../../../context/AuthContext';
+import { apiConfigured } from '../../../services/client';
+import { useApi } from '../../../hooks/useApi';
+import tripService from '../../../services/tripService';
 
 /**
- * 05 · Trip detail — closed & settled. UI-only demo.
+ * 05 · Trip detail — closed & settled. Real data only.
  */
-export default function TripDetailScreen({ navigation }) {
+export default function TripDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const t = mock.tripDetail;
+  const id = route?.params?.id;
+  const { token } = useAuth();
+  const enabled = apiConfigured() && !!token && !!id;
+  const { data, loading } = useApi(() => tripService.getTrip(id), [id], { enabled, fallback: null });
+
+  // Map the trip → the detail shape this screen renders.
+  // (mapping to confirm against live API)
+  const from = data?.origin?.city || data?.origin?.name || data?.source || data?.from;
+  const to = data?.destination?.city || data?.destination?.name || data?.destination || data?.to;
+  const when = data?.startDate || data?.date || data?.tripDate;
+  const t = data && {
+    id: data.tripNumber || data.tripNo || data.code || data._id || id || '—',
+    route: [[from, to].filter(Boolean).join(' → '), when && dayjs(when).isValid() ? dayjs(when).format('DD MMM') : null].filter(Boolean).join(' · ') || '—',
+    status: data.status || data.state || '',
+    timeline: (Array.isArray(data.timeline) ? data.timeline : data.events || data.stages || data.stops || []).map((s) => {
+      const d = s.date || s.time;
+      return {
+        title: s.title || s.name || s.label || s.location || '—',
+        meta: s.meta || [d && dayjs(d).isValid() ? dayjs(d).format('DD MMM · HH:mm') : null, s.note].filter(Boolean).join(' · '),
+        status: s.status === 'current' ? 'current' : (s.status === 'done' || s.completed || s.done) ? 'done' : 'todo',
+      };
+    }),
+    summary: Array.isArray(data.summary) ? data.summary : [
+      { label: 'Distance', value: data.distance != null ? `${data.distance} km` : '—' },
+      { label: 'Diesel filled', value: data.dieselLitres != null ? `${data.dieselLitres} L` : '—' },
+      { label: 'Advance taken', value: data.advance != null ? `₹${Number(data.advance).toLocaleString('en-IN')}` : '—' },
+      { label: 'Bills confirmed', value: data.billsConfirmed != null ? `₹${Number(data.billsConfirmed).toLocaleString('en-IN')}` : '—', color: 'success' },
+    ],
+    earning: data.earning != null ? `₹${Number(data.earning).toLocaleString('en-IN')}` : '—',
+    docs: (Array.isArray(data.docs) ? data.docs : []).map((d) => ({
+      label: d.label || d.type || d.name || 'Doc',
+      sub: d.sub || (d.count != null ? String(d.count) : ''),
+    })),
+  };
 
   return (
     <View style={styles.container}>
@@ -21,38 +58,44 @@ export default function TripDetailScreen({ navigation }) {
           <Ionicons name="chevron-back" size={22} color={colors.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <AppText mono variant="h3" weight="semibold">{t.id}</AppText>
-          <AppText variant="caption" muted>{t.route}</AppText>
+          <AppText mono variant="h3" weight="semibold">{t?.id ?? 'Trip'}</AppText>
+          {t?.route ? <AppText variant="caption" muted>{t.route}</AppText> : null}
         </View>
-        <StatusBadge status={t.status} />
+        {t?.status ? <StatusBadge status={t.status} /> : null}
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
-        <Card elevated="sm" padding={16}>
-          <AppText variant="label" muted style={{ marginBottom: 12 }}>Route</AppText>
-          <Stepper steps={t.timeline} />
-        </Card>
+      {loading ? (
+        <Loading />
+      ) : !t ? (
+        <EmptyState icon="cube-outline" title="Trip not found" message="This trip could not be loaded." />
+      ) : (
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+          <Card elevated="sm" padding={16}>
+            <AppText variant="label" muted style={{ marginBottom: 12 }}>Route</AppText>
+            <Stepper steps={t.timeline} />
+          </Card>
 
-        <KeyValueTable style={styles.gap}>
-          {t.summary.map((s) => (
-            <KeyValueRow key={s.label} label={s.label} value={s.value} mono valueColor={s.color === 'success' ? colors.success : undefined} />
-          ))}
-          <KeyValueRow label="Trip earning" value={t.earning} mono highlight valueColor={colors.success} />
-        </KeyValueTable>
-
-        <Card elevated="sm" padding={16} style={styles.gap}>
-          <AppText variant="label" muted style={{ marginBottom: 12 }}>Documents</AppText>
-          <View style={styles.docRow}>
-            {t.docs.map((d) => (
-              <View key={d.label} style={styles.docTile}>
-                <Ionicons name="document-text-outline" size={22} color={colors.primary} />
-                <AppText variant="small" weight="bold">{d.label}</AppText>
-                <AppText variant="caption" mono muted>{d.sub}</AppText>
-              </View>
+          <KeyValueTable style={styles.gap}>
+            {t.summary.map((s) => (
+              <KeyValueRow key={s.label} label={s.label} value={s.value} mono valueColor={s.color === 'success' ? colors.success : undefined} />
             ))}
-          </View>
-        </Card>
-      </ScrollView>
+            <KeyValueRow label="Trip earning" value={t.earning} mono highlight valueColor={colors.success} />
+          </KeyValueTable>
+
+          <Card elevated="sm" padding={16} style={styles.gap}>
+            <AppText variant="label" muted style={{ marginBottom: 12 }}>Documents</AppText>
+            <View style={styles.docRow}>
+              {t.docs.map((d) => (
+                <View key={d.label} style={styles.docTile}>
+                  <Ionicons name="document-text-outline" size={22} color={colors.primary} />
+                  <AppText variant="small" weight="bold">{d.label}</AppText>
+                  <AppText variant="caption" mono muted>{d.sub}</AppText>
+                </View>
+              ))}
+            </View>
+          </Card>
+        </ScrollView>
+      )}
     </View>
   );
 }
