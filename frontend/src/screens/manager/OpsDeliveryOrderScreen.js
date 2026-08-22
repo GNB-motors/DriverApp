@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Card, Stepper, colors, spacing } from '../../components/ui';
 import { BackHeader, Pill, SectionHeader, Loading, EmptyState } from '../../components/ui';
@@ -15,7 +15,7 @@ export default function OpsDeliveryOrderScreen({ navigation }) {
   // Real delivery orders — no data until a backend is configured and signed in.
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token;
-  const { data: ordersApi, loading } = useApi(
+  const { data: ordersApi, loading, error, refetch } = useApi(
     () => managerService.listDeliveryOrders(),
     [],
     { enabled, fallback: [] },
@@ -51,9 +51,12 @@ export default function OpsDeliveryOrderScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <BackHeader title={o?.id || 'Delivery order'} subtitle={o?.route} onBack={() => navigation.goBack()} right={<Pill tone="success" label="Placed" />} />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}>
         {loading ? (
           <Loading />
+        ) : error ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
         ) : !o ? (
           <EmptyState icon="document-text-outline" title="No delivery order" message="Delivery order details will appear here once one is created." />
         ) : (

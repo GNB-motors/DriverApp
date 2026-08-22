@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,16 +19,17 @@ export default function OwnerDashboardScreen({ navigation }) {
   // ERP dashboard + approvals summary — real API only.
   const { token } = useAuth();
   const useReal = apiConfigured() && !!token;
-  const { data: erpApi, loading: erpLoading } = useApi(
+  const { data: erpApi, loading: erpLoading, error, refetch: refetchErp } = useApi(
     () => ownerService.getErpDashboard(),
     [],
     { enabled: useReal, fallback: null },
   );
-  const { data: apprSummary, loading: apprLoading } = useApi(
+  const { data: apprSummary, loading: apprLoading, refetch: refetchAppr } = useApi(
     () => approvalService.getApprovalsSummary(),
     [],
     { enabled: useReal, fallback: null },
   );
+  const onRefresh = () => { refetchErp(); refetchAppr(); };
 
   // Map the API responses to the screen shape — optional chaining + safe
   // defaults so a partial/empty response never crashes.
@@ -59,9 +60,12 @@ export default function OwnerDashboardScreen({ navigation }) {
   return (
     <OwnerShell title="Dashboard" subtitle={subtitle} navigation={navigation} active="OwnerDashboard"
       right={<View style={styles.bell}><Ionicons name="notifications-outline" size={20} color={colors.text} /><View style={styles.bellDot} /></View>}>
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {loading ? (
           <Loading />
+        ) : error ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={onRefresh} />
         ) : isEmpty ? (
           <EmptyState icon="speedometer-outline" title="No dashboard yet" message="Your daily summary appears once trips, bills and trucks are recorded." />
         ) : (

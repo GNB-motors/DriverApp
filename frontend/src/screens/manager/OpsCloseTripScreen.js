@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, WarningBanner, Loading, EmptyState, colors, spacing } from '../../components/ui';
@@ -18,7 +18,7 @@ export default function OpsCloseTripScreen({ navigation, route }) {
   const id = route?.params?.id;
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token && !!id;
-  const { data: tripApi, loading } = useApi(
+  const { data: tripApi, loading, error: loadError, refetch } = useApi(
     () => managerService.getErpTrip(id),
     [id],
     { enabled, fallback: null },
@@ -56,9 +56,12 @@ export default function OpsCloseTripScreen({ navigation, route }) {
   return (
     <View style={styles.container}>
       <BackHeader title={c ? `Close ${c.id}` : 'Close trip'} subtitle={c?.route} onBack={() => navigation.goBack()} right={c ? <Pill tone="success" label="Ready" /> : null} />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}>
         {loading ? (
           <Loading />
+        ) : loadError ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
         ) : !c ? (
           <EmptyState title="Trip not found" message="This trip may have been closed or removed." />
         ) : (

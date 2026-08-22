@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, Image, StyleSheet } from 'react-native';
+import { View, ScrollView, Image, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
@@ -20,7 +20,7 @@ export default function OwnerBillDetailScreen({ navigation, route }) {
 
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token && !!id;
-  const { data: bill, loading, refetch } = useApi(() => billService.getBill(id), [id], { enabled, fallback: null });
+  const { data: bill, loading, error, refetch } = useApi(() => billService.getBill(id), [id], { enabled, fallback: null });
   const { submit, busy } = useSubmit();
 
   const amount = bill ? `₹${Number(bill.amount || 0).toLocaleString('en-IN')}` : '';
@@ -40,9 +40,12 @@ export default function OwnerBillDetailScreen({ navigation, route }) {
         onBack={() => navigation.goBack()}
         right={bill ? <Pill tone={STATUS_TONE[bill.status] || 'neutral'} label={bill.status} /> : null}
       />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}>
         {loading ? (
           <Loading />
+        ) : error ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
         ) : !bill ? (
           <EmptyState icon="receipt-outline" title="Bill not found" message="This bill may have been reviewed or removed." />
         ) : (

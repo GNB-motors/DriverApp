@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +18,7 @@ export default function ActiveTripScreen({ navigation, route }) {
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token;
   // With an id, fetch that trip; otherwise list trips and pick the active one.
-  const { data, loading } = useApi(
+  const { data, loading, error, refetch } = useApi(
     () => (id ? tripService.getTrip(id) : tripService.listTrips()),
     [id],
     { enabled, fallback: null },
@@ -66,10 +66,16 @@ export default function ActiveTripScreen({ navigation, route }) {
 
       {loading ? (
         <Loading />
+      ) : error ? (
+        <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
       ) : !raw ? (
         <EmptyState icon="cube-outline" title="No active trip" message="You have no trip in progress right now." />
       ) : (
-        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}
+        >
           {/* Progress */}
           <Card elevated="sm" padding={16}>
             <View style={styles.cardHead}>

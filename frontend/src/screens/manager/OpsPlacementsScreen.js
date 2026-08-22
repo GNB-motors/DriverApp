@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, colors, spacing, radius } from '../../components/ui';
@@ -20,7 +20,7 @@ export default function OpsPlacementsScreen({ navigation }) {
   // Real placements board — no data until a backend is configured and signed in.
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token;
-  const { data: boardApi, loading } = useApi(
+  const { data: boardApi, loading, error, refetch } = useApi(
     () => managerService.getPlacementsBoard(),
     [],
     { enabled, fallback: null },
@@ -89,9 +89,12 @@ export default function OpsPlacementsScreen({ navigation }) {
             </Pressable>
           ))}
         </View>
-        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}>
           {loading ? (
             <Loading />
+          ) : error ? (
+            <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
           ) : (!p.stats.length && !p.today.length && !p.yesterday.length) ? (
             <EmptyState icon="grid-outline" title="No placements" message="Placed delivery orders will appear here." />
           ) : (

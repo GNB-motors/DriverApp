@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppText, Card, BarChart, ProgressBar, colors, radius } from '../../components/ui';
@@ -17,7 +17,7 @@ export default function OwnerErpScreen({ navigation }) {
   // ERP overview — real API only. getErpDashboard returns a single object.
   const { token } = useAuth();
   const useReal = apiConfigured() && !!token;
-  const { data: erpApi, loading: erpLoading } = useApi(
+  const { data: erpApi, loading: erpLoading, error, refetch } = useApi(
     () => ownerService.getErpDashboard(),
     [],
     { enabled: useReal, fallback: null },
@@ -42,9 +42,12 @@ export default function OwnerErpScreen({ navigation }) {
   return (
     <OwnerShell title="Business overview" subtitle="July 2026 · 18 trucks" navigation={navigation} active="OwnerErp"
       right={<View style={styles.monthPill}><AppText variant="caption" weight="bold" muted>July</AppText></View>}>
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={erpLoading} onRefresh={refetch} tintColor={colors.primary} />}>
         {erpLoading ? (
           <Loading />
+        ) : error ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
         ) : !e ? (
           <EmptyState icon="stats-chart-outline" title="No overview yet" message="Business metrics will appear here once data is available." />
         ) : (

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,7 +22,7 @@ export default function OwnerApprovalsScreen({ navigation }) {
   // Pending driver bills — real API only.
   const { token } = useAuth();
   const useReal = apiConfigured() && !!token;
-  const { data: apprApi, loading: apprLoading, refetch } = useApi(
+  const { data: apprApi, loading: apprLoading, error, refetch } = useApi(
     () => billService.listBills({ status: 'PENDING' }),
     [],
     { enabled: useReal, fallback: [] },
@@ -60,9 +60,12 @@ export default function OwnerApprovalsScreen({ navigation }) {
     >
       <View style={styles.wrap}>
         <FilterChips options={['All', 'Today', 'Above ₹2,000']} value={filter} onChange={setFilter} style={styles.chips} />
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={apprLoading} onRefresh={refetch} tintColor={colors.primary} />}>
           {apprLoading ? (
             <Loading />
+          ) : error ? (
+            <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
           ) : isEmpty ? (
             <EmptyState icon="checkmark-done-outline" title="No approvals" message="Bills waiting for your confirmation will show up here." />
           ) : (

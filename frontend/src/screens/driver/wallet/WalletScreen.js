@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -27,15 +27,16 @@ export default function WalletScreen({ navigation }) {
   const { user, token } = useAuth();
   const driverId = user?._id;
   const useReal = apiConfigured() && !!driverId && !!token && token !== 'demo-token';
-  const { data: summaryApi } = useApi(() => walletService.getDriverSummary(driverId), [driverId], { enabled: useReal, fallback: null });
-  const { data: ledgerApi, loading: ledgerLoading } = useApi(() => walletService.getDriverLedger(driverId), [driverId], { enabled: useReal, fallback: null });
+  const { data: summaryApi, refetch: refetchSummary } = useApi(() => walletService.getDriverSummary(driverId), [driverId], { enabled: useReal, fallback: null });
+  const { data: ledgerApi, loading: ledgerLoading, error: ledgerError, refetch: refetchLedger } = useApi(() => walletService.getDriverLedger(driverId), [driverId], { enabled: useReal, fallback: null });
 
   // Driver's own bills (backend scopes to the signed-in driver by role).
-  const { data: billsApi, loading: billsLoading, refetch: refetchBills } = useApi(
+  const { data: billsApi, loading: billsLoading, error: billsError, refetch: refetchBills } = useApi(
     () => billService.listBills(),
     [driverId],
     { enabled: useReal, fallback: null },
   );
+  const onRefresh = () => { refetchSummary(); refetchLedger(); refetchBills(); };
   // Refetch when returning to the wallet (e.g. after submitting a bill).
   useFocusEffect(useCallback(() => { if (useReal) refetchBills(); }, [useReal, refetchBills]));
 
@@ -120,10 +121,16 @@ export default function WalletScreen({ navigation }) {
           style={styles.segment}
         />
 
-        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 90 }]} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 90 }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={billsLoading} onRefresh={onRefresh} tintColor={colors.primary} />}
+        >
           {tab === 'bills' ? (
             billsLoading ? (
               <Loading />
+            ) : billsError ? (
+              <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={onRefresh} />
             ) : isEmpty ? (
               <View style={styles.empty}>
                 <View style={styles.emptyIcon}><Ionicons name="receipt-outline" size={40} color={colors.textMuted} /></View>
@@ -137,6 +144,8 @@ export default function WalletScreen({ navigation }) {
             )
           ) : ledgerLoading ? (
             <Loading />
+          ) : ledgerError ? (
+            <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={onRefresh} />
           ) : ledgerRows.length === 0 ? (
             <EmptyState icon="receipt-outline" title="No ledger entries yet" message="Confirmed bills and advances will appear here." />
           ) : (

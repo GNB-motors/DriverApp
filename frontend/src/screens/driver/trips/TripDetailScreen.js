@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +18,7 @@ export default function TripDetailScreen({ navigation, route }) {
   const id = route?.params?.id;
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token && !!id;
-  const { data, loading } = useApi(() => tripService.getTrip(id), [id], { enabled, fallback: null });
+  const { data, loading, error, refetch } = useApi(() => tripService.getTrip(id), [id], { enabled, fallback: null });
 
   // Map the trip → the detail shape this screen renders.
   // (mapping to confirm against live API)
@@ -66,10 +66,16 @@ export default function TripDetailScreen({ navigation, route }) {
 
       {loading ? (
         <Loading />
+      ) : error ? (
+        <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
       ) : !t ? (
         <EmptyState icon="cube-outline" title="Trip not found" message="This trip could not be loaded." />
       ) : (
-        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}
+        >
           <Card elevated="sm" padding={16}>
             <AppText variant="label" muted style={{ marginBottom: 12 }}>Route</AppText>
             <Stepper steps={t.timeline} />

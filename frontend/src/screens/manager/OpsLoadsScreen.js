@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, Loading, EmptyState, colors, spacing, radius } from '../../components/ui';
@@ -17,7 +17,7 @@ export default function OpsLoadsScreen({ navigation }) {
   // Real delivery orders — no data until a backend is configured and signed in.
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token;
-  const { data: ordersApi, loading } = useApi(
+  const { data: ordersApi, loading, error, refetch } = useApi(
     () => managerService.listDeliveryOrders(),
     [],
     { enabled, fallback: null },
@@ -70,9 +70,12 @@ export default function OpsLoadsScreen({ navigation }) {
   return (
     <ManagerShell title="Loads to place" subtitle="Assign trucks to open loads" navigation={navigation} active="OpsLoads">
       <View style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}>
           {loading ? (
             <Loading />
+          ) : error ? (
+            <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
           ) : !loads ? (
             <EmptyState title="No loads to place" message="Loads will appear here once delivery orders are created." />
           ) : (

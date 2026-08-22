@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Card, colors } from '../../components/ui';
 import OwnerShell from './OwnerShell';
@@ -17,7 +17,7 @@ export default function OwnerLedgerScreen({ navigation }) {
   // Company ledger — real API only.
   const { token } = useAuth();
   const useReal = apiConfigured() && !!token;
-  const { data: ledgerApi, loading: ledgerLoading } = useApi(
+  const { data: ledgerApi, loading: ledgerLoading, error, refetch } = useApi(
     () => ownerService.getLedgerEntries(),
     [],
     { enabled: useReal, fallback: [] },
@@ -71,7 +71,8 @@ export default function OwnerLedgerScreen({ navigation }) {
   return (
     <OwnerShell title="Company ledger" subtitle="Sahayak Roadlines · Aug 2026" navigation={navigation} active="OwnerLedger"
       right={<View style={styles.exportPill}><AppText variant="caption" weight="bold" muted>Export</AppText></View>}>
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={ledgerLoading} onRefresh={refetch} tintColor={colors.primary} />}>
         <Card elevated="sm" padding={16}>
           <AppText variant="label" muted>Closing balance</AppText>
           <AppText mono weight="semibold" style={styles.big}>{l.closing}</AppText>
@@ -86,6 +87,8 @@ export default function OwnerLedgerScreen({ navigation }) {
 
         {ledgerLoading ? (
           <Loading />
+        ) : error ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
         ) : (l.week.length === 0 && l.earlier.length === 0) ? (
           <EmptyState icon="receipt-outline" title="No ledger entries" message="Money moving in and out will show here as it happens." />
         ) : (

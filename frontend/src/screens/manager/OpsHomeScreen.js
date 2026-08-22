@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +18,7 @@ export default function OpsHomeScreen({ navigation }) {
   // Real approvals summary — no data until a backend is configured and signed in.
   const { token, user } = useAuth();
   const enabled = apiConfigured() && !!token;
-  const { data: summaryApi, loading } = useApi(
+  const { data: summaryApi, loading, error, refetch } = useApi(
     () => approvalService.getApprovalsSummary(),
     [],
     { enabled, fallback: null },
@@ -59,9 +59,12 @@ export default function OpsHomeScreen({ navigation }) {
   return (
     <ManagerShell title="Ops home" subtitle={o.name} navigation={navigation} active="OpsHome"
       right={o.shift ? <View style={styles.shift}><AppText variant="caption" mono weight="bold" color={colors.infoText}>{o.shift}</AppText></View> : undefined}>
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}>
         {loading ? (
           <Loading />
+        ) : error ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
         ) : empty ? (
           <EmptyState title="You're all caught up" message="Blocked trips and pending approvals will show up here." />
         ) : (

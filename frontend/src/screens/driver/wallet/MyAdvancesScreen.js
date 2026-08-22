@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +20,7 @@ export default function MyAdvancesScreen({ navigation }) {
   const { user, token } = useAuth();
   const driverId = user?._id;
   const enabled = apiConfigured() && !!token;
-  const { data: advancesApi, loading } = useApi(
+  const { data: advancesApi, loading, error, refetch } = useApi(
     () => advanceService.listAdvances(driverId ? { driverId } : {}),
     [driverId],
     { enabled, fallback: null },
@@ -67,9 +67,15 @@ export default function MyAdvancesScreen({ navigation }) {
         <AppText variant="h3" weight="extrabold">My advances</AppText>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 90 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 90 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}
+      >
         {loading ? (
           <Loading />
+        ) : error ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
         ) : isEmpty ? (
           <EmptyState icon="cash-outline" title="No advances yet" message="Advances paid to you will appear here." />
         ) : (

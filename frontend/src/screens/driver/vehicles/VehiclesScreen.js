@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,8 +18,9 @@ export default function VehiclesScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token;
-  const { data: vehiclesApi, loading } = useApi(() => vehicleService.listVehicles(), [], { enabled, fallback: [] });
-  const { data: fuelApi } = useApi(() => fuelService.listFuelLogs(), [], { enabled, fallback: [] });
+  const { data: vehiclesApi, loading, error, refetch: refetchVehicles } = useApi(() => vehicleService.listVehicles(), [], { enabled, fallback: [] });
+  const { data: fuelApi, refetch: refetchFuel } = useApi(() => fuelService.listFuelLogs(), [], { enabled, fallback: [] });
+  const onRefresh = () => { refetchVehicles(); refetchFuel(); };
 
   // First assigned vehicle → hero fields. (mapping to confirm against live API)
   const v = React.useMemo(() => {
@@ -57,9 +58,15 @@ export default function VehiclesScreen({ navigation }) {
         <Pressable hitSlop={8} style={styles.iconBtn}><Ionicons name="search" size={20} color={colors.text} /></Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         {loading ? (
           <Loading />
+        ) : error ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={onRefresh} />
         ) : !v ? (
           <EmptyState icon="car-outline" title="No vehicle assigned" message="Once the owner assigns you a truck, it shows up here." />
         ) : (

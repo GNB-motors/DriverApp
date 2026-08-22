@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +17,7 @@ export default function FuelLogScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token;
-  const { data, loading } = useApi(() => fuelService.listFuelLogs(), [], { enabled, fallback: [] });
+  const { data, loading, error, refetch } = useApi(() => fuelService.listFuelLogs(), [], { enabled, fallback: [] });
 
   // Derive header stats, trend and history from real fuel logs only. (mapping to confirm)
   const { plate, mileage, trend, kpis, history, isEmpty } = React.useMemo(() => {
@@ -61,7 +61,11 @@ export default function FuelLogScreen({ navigation }) {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 90 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 90 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}
+      >
         {/* Trend */}
         <Card elevated="sm" padding={16}>
           <View style={styles.cardHead}>
@@ -87,6 +91,8 @@ export default function FuelLogScreen({ navigation }) {
         {/* History */}
         {loading ? (
           <Loading />
+        ) : error ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} style={styles.gap} />
         ) : isEmpty ? (
           <EmptyState icon="water-outline" title="No fuel entries yet" message="Add a fuel fill and it will appear here." style={styles.gap} />
         ) : (

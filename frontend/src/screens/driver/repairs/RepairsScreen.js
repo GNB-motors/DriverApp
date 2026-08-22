@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +17,7 @@ export default function RepairsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token;
-  const { data, loading } = useApi(() => maintenanceService.listMaintenance(), [], { enabled, fallback: [] });
+  const { data, loading, error, refetch } = useApi(() => maintenanceService.listMaintenance(), [], { enabled, fallback: [] });
 
   // Map maintenance records → repair-log cards + header/KPIs. (mapping to confirm)
   const { logs, plate, spendYear } = React.useMemo(() => {
@@ -52,7 +52,11 @@ export default function RepairsScreen({ navigation }) {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 90 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 90 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}
+      >
         <View style={styles.kpiRow}>
           <Card elevated="sm" padding={14} style={styles.kpi}>
             <AppText variant="caption" muted>Spend this year</AppText>
@@ -67,6 +71,8 @@ export default function RepairsScreen({ navigation }) {
 
         {loading ? (
           <Loading />
+        ) : error ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
         ) : logs.length === 0 ? (
           <EmptyState icon="build-outline" title="No repairs logged yet" message="Log a repair to keep a service history for this truck." />
         ) : (

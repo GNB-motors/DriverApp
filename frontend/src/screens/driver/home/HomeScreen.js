@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import {
   AppText, Button, Card, Switch, Badge, StatusBadge, WalletHeroCard,
-  WarningBanner, StepProgress, Loading, colors, spacing, radius,
+  WarningBanner, StepProgress, Loading, EmptyState, colors, spacing, radius,
 } from '../../../components/ui';
 import { useAuth } from '../../../context/AuthContext';
 import { apiConfigured } from '../../../services/client';
@@ -32,16 +32,17 @@ export default function HomeScreen({ navigation }) {
   const { user, token } = useAuth();
   const driverId = user?._id;
   const enabled = apiConfigured() && !!token;
-  const { data: summary } = useApi(
+  const { data: summary, refetch: refetchSummary } = useApi(
     () => walletService.getDriverSummary(driverId),
     [driverId],
     { enabled: enabled && !!driverId, fallback: null },
   );
-  const { data: tripsApi, loading: tripsLoading } = useApi(
+  const { data: tripsApi, loading: tripsLoading, error: tripsError, refetch: refetchTrips } = useApi(
     () => tripService.listTrips(),
     [],
     { enabled, fallback: [] },
   );
+  const onRefresh = () => { refetchSummary(); refetchTrips(); };
 
   // Identity from the signed-in user.
   const fullName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
@@ -113,7 +114,11 @@ export default function HomeScreen({ navigation }) {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={tripsLoading} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         {/* Duty status */}
         <Card onPress={() => setOnDuty((v) => !v)} elevated="sm" padding={15} style={styles.dutyCard}>
           <View style={[styles.dutyIcon, { backgroundColor: onDuty ? colors.validBg : colors.background }]}>
@@ -140,6 +145,8 @@ export default function HomeScreen({ navigation }) {
 
         {tripsLoading ? (
           <Loading />
+        ) : tripsError ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={onRefresh} />
         ) : activeTrip ? (
           /* Active trip */
           <Card elevated="sm" padding={16} style={styles.gap}>

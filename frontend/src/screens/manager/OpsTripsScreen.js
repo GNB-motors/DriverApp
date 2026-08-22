@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, Loading, EmptyState, colors, spacing, radius } from '../../components/ui';
@@ -20,7 +20,7 @@ export default function OpsTripsScreen({ navigation }) {
   // Real ERP trips — no data until a backend is configured and signed in.
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token;
-  const { data: tripsApi, loading } = useApi(
+  const { data: tripsApi, loading, error, refetch } = useApi(
     () => managerService.listErpTrips(),
     [],
     { enabled, fallback: [] },
@@ -58,9 +58,12 @@ export default function OpsTripsScreen({ navigation }) {
             </Pressable>
           ))}
         </View>
-        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}>
           {loading ? (
             <Loading />
+          ) : error ? (
+            <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
           ) : trips.length === 0 ? (
             <EmptyState title="No trips" message="Trips will appear here once they're created." />
           ) : (

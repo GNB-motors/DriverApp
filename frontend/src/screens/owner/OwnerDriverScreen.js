@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Card, WarningBanner, Loading, EmptyState, colors, spacing } from '../../components/ui';
 import { BackHeader, Pill, LedgerRow, SectionHeader, toneColor } from '../../components/ui';
@@ -17,17 +17,18 @@ export default function OwnerDriverScreen({ navigation, route }) {
   const { token } = useAuth();
   const driverId = route?.params?.driverId || route?.params?.id || null;
   const useReal = apiConfigured() && !!token && !!driverId;
-  const { data: summaryApi, loading: summaryLoading } = useApi(
+  const { data: summaryApi, loading: summaryLoading, error, refetch: refetchSummary } = useApi(
     () => walletService.getDriverSummary(driverId),
     [driverId],
     { enabled: useReal, fallback: null },
   );
-  const { data: ledgerApi, loading: ledgerLoading } = useApi(
+  const { data: ledgerApi, loading: ledgerLoading, refetch: refetchLedger } = useApi(
     () => walletService.getDriverLedger(driverId),
     [driverId],
     { enabled: useReal, fallback: null },
   );
   const loading = useReal && (summaryLoading || ledgerLoading);
+  const onRefresh = () => { refetchSummary(); refetchLedger(); };
 
   // Map the summary + ledger into the existing UI shape defensively; missing
   // fields fall back to '—'/0. (mapping to confirm)
@@ -73,9 +74,12 @@ export default function OwnerDriverScreen({ navigation, route }) {
   return (
     <View style={styles.container}>
       <BackHeader title={d.name} subtitle={d.plate} onBack={() => navigation.goBack()} right={<Pill tone="success" label="Active" />} />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {loading ? (
           <Loading />
+        ) : error ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={onRefresh} />
         ) : showEmpty ? (
           <EmptyState
             icon="wallet-outline"

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, SegmentedControl, colors, spacing, radius } from '../../components/ui';
@@ -18,7 +18,7 @@ export default function OwnerMoneyScreen({ navigation }) {
   // Khata driver list — real API only.
   const { token } = useAuth();
   const useReal = apiConfigured() && !!token;
-  const { data: khataApi, loading: khataLoading } = useApi(
+  const { data: khataApi, loading: khataLoading, error, refetch } = useApi(
     () => ownerService.listKhataDrivers(),
     [],
     { enabled: useReal, fallback: [] },
@@ -62,9 +62,12 @@ export default function OwnerMoneyScreen({ navigation }) {
         <View style={styles.top}>
           <SegmentedControl variant="pill" options={[{ label: 'To pay', value: 'pay' }, { label: 'To collect', value: 'collect' }]} value={tab} onChange={setTab} />
         </View>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={khataLoading} onRefresh={refetch} tintColor={colors.primary} />}>
           {khataLoading ? (
             <Loading />
+          ) : error ? (
+            <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
           ) : isEmpty ? (
             <EmptyState icon="cash-outline" title="No drivers yet" message="Drivers you settle with will appear here with what you owe them." />
           ) : (

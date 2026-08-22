@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Card, Loading, EmptyState, colors, spacing, radius } from '../../components/ui';
 import ManagerShell from './ManagerShell';
@@ -16,7 +16,7 @@ export default function OpsAdvancesScreen({ navigation }) {
   // Real advances — no data until a backend is configured and signed in.
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token;
-  const { data: advancesApi, loading } = useApi(
+  const { data: advancesApi, loading, error, refetch } = useApi(
     () => advanceService.listAdvances(),
     [],
     { enabled, fallback: null },
@@ -85,9 +85,12 @@ export default function OpsAdvancesScreen({ navigation }) {
     <ManagerShell title="Advances" subtitle={a?.waiting?.length ? `${a.waiting.length} waiting` : undefined} navigation={navigation} active="OpsAdvances"
       right={<View style={styles.count}><AppText mono weight="bold" color={colors.white}>3</AppText></View>}>
       <View style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}>
           {loading ? (
             <Loading />
+          ) : error ? (
+            <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
           ) : !a ? (
             <EmptyState title="No advances" message="Advance requests will appear here." />
           ) : (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +17,7 @@ export default function MyDocumentsScreen({ navigation }) {
   const { user, token } = useAuth();
   // A driver's own docs — entityType 'USER', entityId = user._id. (mapping to confirm)
   const enabled = apiConfigured() && !!token && !!user?._id;
-  const { data: docsApi, loading } = useApi(
+  const { data: docsApi, loading, error, refetch } = useApi(
     () => documentService.listDocuments('USER', user._id),
     [user?._id],
     { enabled, fallback: [] },
@@ -50,7 +50,11 @@ export default function MyDocumentsScreen({ navigation }) {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}
+      >
         <WarningBanner
           tone="warning"
           message="Driving licence expires in 24 days. Upload the renewed copy to keep taking trips."
@@ -60,6 +64,8 @@ export default function MyDocumentsScreen({ navigation }) {
 
         {loading ? (
           <Loading />
+        ) : error ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
         ) : docs.length === 0 ? (
           <EmptyState icon="document-text-outline" title="No documents yet" message="Add your licence and ID papers to keep them handy on the road." />
         ) : (

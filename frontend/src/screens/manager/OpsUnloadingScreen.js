@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, colors, spacing, radius } from '../../components/ui';
@@ -16,7 +16,7 @@ export default function OpsUnloadingScreen({ navigation }) {
   // Unloading records — real API only (no data until a backend is configured and signed in).
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token;
-  const { data: unloadApi, loading } = useApi(
+  const { data: unloadApi, loading, error, refetch } = useApi(
     () => managerService.listUnloading(),
     [],
     { enabled, fallback: [] },
@@ -49,9 +49,12 @@ export default function OpsUnloadingScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <BackHeader title="Unloading" subtitle={u ? `${u.id} · ${u.place}` : undefined} onBack={() => navigation.goBack()} right={<Pill tone="pending" label="Shortage" />} />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}>
         {loading ? (
           <Loading />
+        ) : error ? (
+          <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
         ) : !u ? (
           <EmptyState icon="cube-outline" title="No unloading record" message="Unloading details will appear here once the depot records them." />
         ) : (

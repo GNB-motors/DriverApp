@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Card, Loading, EmptyState, colors, spacing, radius } from '../../components/ui';
@@ -20,7 +20,7 @@ export default function OwnerFleetScreen({ navigation }) {
   // Vehicle list — real API only.
   const { token } = useAuth();
   const useReal = apiConfigured() && !!token;
-  const { data: vehApi, loading: vehLoading } = useApi(
+  const { data: vehApi, loading: vehLoading, error, refetch } = useApi(
     () => vehicleService.listVehicles(),
     [],
     { enabled: useReal, fallback: null },
@@ -58,9 +58,12 @@ export default function OwnerFleetScreen({ navigation }) {
             </Pressable>
           ))}
         </View>
-        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={vehLoading} onRefresh={refetch} tintColor={colors.primary} />}>
           {vehLoading ? (
             <Loading />
+          ) : error ? (
+            <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
           ) : fleet.length === 0 ? (
             <EmptyState icon="bus-outline" title="No vehicles" message="Vehicles added to your fleet will appear here." />
           ) : fleet.map((v) => (

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Card, colors, spacing } from '../../components/ui';
 import OwnerShell from './OwnerShell';
@@ -17,7 +17,7 @@ export default function OwnerSaleBillsScreen({ navigation }) {
   // Sale bills — real API only.
   const { token } = useAuth();
   const useReal = apiConfigured() && !!token;
-  const { data: saleApi, loading: saleLoading } = useApi(
+  const { data: saleApi, loading: saleLoading, error, refetch } = useApi(
     () => ownerService.listSaleBills(),
     [],
     { enabled: useReal, fallback: [] },
@@ -45,9 +45,12 @@ export default function OwnerSaleBillsScreen({ navigation }) {
     <OwnerShell title="Sale bills" subtitle="24 invoices · ₹4.2 L outstanding" navigation={navigation} active="OwnerSaleBills">
       <View style={{ flex: 1 }}>
         <FilterChips options={['All', 'Overdue', 'Unpaid', 'Paid']} value={filter} onChange={setFilter} style={styles.chips} />
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={saleLoading} onRefresh={refetch} tintColor={colors.primary} />}>
           {saleLoading ? (
             <Loading />
+          ) : error ? (
+            <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
           ) : saleBills.length === 0 ? (
             <EmptyState icon="receipt-outline" title="No sale bills" message="Invoices you raise will appear here with what customers owe." />
           ) : saleBills.map((inv) => (
