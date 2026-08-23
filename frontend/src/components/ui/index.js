@@ -39,7 +39,7 @@ export { default as Loading } from './Loading';
 export { default as EmptyState } from './EmptyState';
 
 // Owner + Manager back-office primitives
-export { TONE, toneColor, Pill, Monogram, SectionHeader, StatTile, RouteLine, LedgerRow, FilterChips, BackHeader } from './BackOfficeBits';
+export { TONE, toneColor, Pill, Monogram, SectionHeader, StatTile, Eyebrow, KpiTile, RouteLine, LedgerRow, FilterChips, BackHeader } from './BackOfficeBits';
 
 // Tokens, re-exported for convenience.
 export { colors, spacing, radius, elevation, typography, fontFamily, bodyFont, headingFont, monoFont } from '../../theme/tokens';

@@ -60,6 +60,34 @@ export const colors = {
   dotGreen: '#25BA4C',
   dotAmber: '#F0AA48',
 
+  // Nova Rage scale — rage-400 is `primary`, rage-800 is `primaryDeep`
+  rage700: '#2646BE', // links / "See all" / inline actions
+  rage500: '#2F58EE',
+  rage200: '#6D8AF3',
+
+  // Morning Fog neutrals
+  fog700: '#ECECEE', // progress tracks, disabled fills
+  fog300: '#93939A', // faint meta text (timestamps, hints)
+
+  // SpiceKit card rim — 1px, very low contrast, sits under the soft shadow
+  hairline: 'rgba(5,8,22,0.05)',
+  // Card shadow tint (rgba(30,34,56,.10)) — the blue-navy "paper on paper" look
+  shadowTint: '#1E2238',
+
+  // O4 hero — linear-gradient(180deg, rage-800, rage-500). Two stops, vertical.
+  heroGradient: ['#213EA7', '#2F58EE'],
+
+  // Nova spot colors — status / category tags and chart series.
+  spot: {
+    rage: '#4469F0',
+    rageLight: '#6D8AF3',
+    nebula: '#6A43D8',
+    blush: '#E5686B',
+    sky: '#2E81ED',
+    splash: '#36D7A6',
+    leaf: '#F0AA48',
+  },
+
   // Translucent overlays (e.g. content on the blue header)
   onPrimary: '#FFFFFF',
   onPrimaryMuted: 'rgba(255,255,255,0.72)',

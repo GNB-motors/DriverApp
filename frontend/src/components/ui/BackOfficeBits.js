@@ -60,6 +60,35 @@ export function SectionHeader({ label, right }) {
   );
 }
 
+/**
+ * Eyebrow — SpiceKit's category label: 11px / 600 / .08em tracking / uppercase.
+ * Heads the cards on the Owner and Ops boards.
+ */
+export function Eyebrow({ children, style }) {
+  return (
+    <AppText weight="semibold" style={[styles.eyebrow, style]} numberOfLines={1}>{children}</AppText>
+  );
+}
+
+/**
+ * KpiTile — eyebrow, then a baseline-aligned mono value with an optional short
+ * unit beside it ("14" + "of 18").
+ *
+ * Differs from StatTile in that the label sits on its own line, so a compound
+ * unit never runs into the value. Keep `unit` to one or two words.
+ */
+export function KpiTile({ label, value, unit, tone }) {
+  return (
+    <Card elevated="sm" padding={14} style={styles.kpiTile}>
+      <Eyebrow>{label}</Eyebrow>
+      <View style={styles.kpiValueRow}>
+        <AppText mono weight="medium" color={tone} style={styles.kpiValue} numberOfLines={1}>{value}</AppText>
+        {unit ? <AppText mono muted style={styles.kpiUnit} numberOfLines={1}>{unit}</AppText> : null}
+      </View>
+    </Card>
+  );
+}
+
 export function StatTile({ label, value, sub, color }) {
   return (
     <Card elevated="sm" padding={14} style={styles.statTile}>
@@ -141,6 +170,11 @@ const styles = StyleSheet.create({
   mono: { backgroundColor: '#F0EEF6', alignItems: 'center', justifyContent: 'center' },
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   statTile: { flex: 1, gap: 6, minWidth: 0 },
+  eyebrow: { fontSize: 11, lineHeight: 14, letterSpacing: 0.88, textTransform: 'uppercase', color: colors.textMuted },
+  kpiTile: { gap: 3, minWidth: 0 },
+  kpiValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 6 },
+  kpiValue: { fontSize: 22, lineHeight: 26, flexShrink: 1 },
+  kpiUnit: { fontSize: 12, lineHeight: 16, flexShrink: 0 },
   statValRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
   statValue: { flexShrink: 1 },
   statSub: { flexShrink: 0 },
