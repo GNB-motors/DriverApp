@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import dayjs from 'dayjs';
 import { AppText, Card, colors, spacing, radius } from '../../components/ui';
 import ManagerShell from './ManagerShell';
 import { Pill, StatTile, SectionHeader, Loading, EmptyState } from '../../components/ui';
@@ -10,14 +10,24 @@ import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
 import managerService from '../../services/managerService';
 
-const TABS = [{ key: 'all', label: 'All 13' }, { key: 'failed', label: 'Failed 2' }, { key: 'late', label: 'Late 3' }];
+/** Tanker board state → Pill tone + label. */
+const BOARD_TONE = {
+  AVAILABLE: { tone: 'success', label: 'Available' },
+  ON_TRIP: { tone: 'in_transit', label: 'On trip' },
+  MAINTENANCE: { tone: 'warning', label: 'Maintenance' },
+};
 
-/** M9 · Placements — what was assigned, and how it went. */
+/**
+ * M9 · Placements — the tanker availability board.
+ *
+ * /erp/placements/board returns vehicle availability grouped by location, not a
+ * placed/failed history: { summary: { total, available, onTrip, maintenance },
+ * locations: [{ location, available, tankers: [...] }] }. The screen shows that.
+ */
 export default function OpsPlacementsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('all');
 
-  // Real placements board — no data until a backend is configured and signed in.
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token;
   const { data: boardApi, loading, error, refetch } = useApi(
@@ -26,60 +36,71 @@ export default function OpsPlacementsScreen({ navigation }) {
     { enabled, fallback: null },
   );
 
-  // Normalize the placements board → { stats, today, yesterday }.
-  // The board may arrive as {today,yesterday}, a flat/paginated list, or a
-  // columns/lists board — guard every shape with optional chaining.
   const p = useMemo(() => {
     const b = boardApi || {};
-    const mapRow = (r, i) => ({
-      id: r?.doNo || r?.code || r?.id || r?._id || String(i),
-      status: r?.status || r?.state || 'confirmed',
-      badge: r?.badge || r?.statusLabel || r?.status || 'On time',
-      route: r?.route || [r?.origin || r?.from, r?.destination || r?.to].filter(Boolean).join(' → '),
-      meta: r?.meta || [r?.vehicleNo || r?.plate, r?.driverName || r?.driver].filter(Boolean).join(' · '),
-      right: r?.right || r?.time || r?.placedAt || r?.note || '',
-    });
-    const cols = Array.isArray(b.columns) ? b.columns : (Array.isArray(b.lists) ? b.lists : null);
-    const pick = (c) => c?.items || c?.cards || c?.rows || c?.list || c?.data;
-    const colRows = cols ? cols.reduce((acc, c) => acc.concat(Array.isArray(pick(c)) ? pick(c) : []), []) : null;
-    const flat = Array.isArray(b) ? b : (b.results || b.rows || b.items || b.data || colRows);
-    let today = Array.isArray(b.today) ? b.today.map(mapRow) : null;
-    let yesterday = Array.isArray(b.yesterday) ? b.yesterday.map(mapRow) : null;
-    if (!today && Array.isArray(flat)) today = flat.map(mapRow);
-    const stats = Array.isArray(b.stats)
-      ? b.stats.map((s) => ({ label: s?.label, value: String(s?.value ?? s?.count ?? ''), color: s?.color }))
-      : [];
+    const s = b.summary || {};
+    const locations = Array.isArray(b.locations) ? b.locations : [];
+
+    // tanker → row. Fields per the board payload.
+    const mapTanker = (t, i) => {
+      const meta = BOARD_TONE[t?.boardState] || { tone: 'neutral', label: t?.boardState || '—' };
+      return {
+        key: t?.vehicleId || String(i),
+        id: t?.registrationNumber || '—',
+        state: t?.boardState,
+        tone: meta.tone,
+        badge: meta.label,
+        capacity: t?.capacity ? `${t.capacity} ${t.capacityUnit || ''}`.trim() : '',
+        meta: [
+          t?.previousMaterial ? `last: ${t.previousMaterial}` : null,
+          t?.requiresCleaning ? 'needs cleaning' : null,
+        ].filter(Boolean).join(' · '),
+        right: t?.expectedFreeAt ? `free ${dayjs(t.expectedFreeAt).format('DD MMM')}` : '',
+      };
+    };
+
+    const groups = locations.map((l) => ({
+      location: l?.location || '—',
+      rows: (Array.isArray(l?.tankers) ? l.tankers : []).map(mapTanker),
+    }));
+
     return {
-      stats,
-      today: today || [],
-      yesterday: yesterday || [],
+      stats: [
+        { label: 'Total', value: String(Number(s.total) || 0) },
+        { label: 'Available', value: String(Number(s.available) || 0), color: 'success' },
+        { label: 'On trip', value: String(Number(s.onTrip) || 0) },
+        { label: 'Service', value: String(Number(s.maintenance) || 0), color: (Number(s.maintenance) || 0) > 0 ? 'warning' : undefined },
+      ],
+      summary: s,
+      groups,
+      total: groups.reduce((n, g) => n + g.rows.length, 0),
     };
   }, [boardApi]);
 
-  const group = (label, rows) => (
-    <>
-      <SectionHeader label={label} />
-      <Card padding={0} elevated="sm">
-        {rows.map((r, i) => (
-          <Pressable key={r.id} onPress={() => navigation.navigate('OpsDeliveryOrder')} style={[styles.row, i > 0 && styles.rowDivider]}>
-            <View style={{ flex: 1, gap: 4 }}>
-              <View style={styles.top}>
-                <AppText mono variant="bodyStrong" weight="semibold">{r.id}</AppText>
-                <Pill tone={r.status} label={r.badge} />
-              </View>
-              <AppText variant="small" weight="semibold">{r.route}</AppText>
-              <AppText variant="caption" mono muted>{r.meta}</AppText>
-            </View>
-            <AppText variant="caption" mono muted>{r.right}</AppText>
-          </Pressable>
-        ))}
-      </Card>
-    </>
-  );
+  // Tabs filter by board state; counts come from the payload.
+  const TABS = [
+    { key: 'all', label: `All ${Number(p.summary.total) || 0}` },
+    { key: 'available', label: `Available ${Number(p.summary.available) || 0}` },
+    { key: 'onTrip', label: `On trip ${Number(p.summary.onTrip) || 0}` },
+  ];
+  const WANT = { all: null, available: 'AVAILABLE', onTrip: 'ON_TRIP' };
+
+  const groups = useMemo(() => {
+    const want = WANT[tab];
+    return p.groups
+      .map((g) => ({ ...g, rows: want ? g.rows.filter((r) => r.state === want) : g.rows }))
+      .filter((g) => g.rows.length);
+  }, [p.groups, tab]);
+
+  const isEmpty = p.total === 0;
 
   return (
-    <ManagerShell title="Placements" subtitle="This week · 11 placed · 2 failed" navigation={navigation} active="OpsPlacements"
-      right={<View style={styles.search}><Ionicons name="search" size={18} color={colors.text} /></View>}>
+    <ManagerShell
+      title="Placements"
+      subtitle={p.total ? `${Number(p.summary.available) || 0} of ${Number(p.summary.total) || 0} available` : ''}
+      navigation={navigation}
+      active="OpsPlacements"
+    >
       <View style={{ flex: 1 }}>
         <View style={styles.tabs}>
           {TABS.map((t) => (
@@ -95,15 +116,40 @@ export default function OpsPlacementsScreen({ navigation }) {
             <Loading />
           ) : error ? (
             <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
-          ) : (!p.stats.length && !p.today.length && !p.yesterday.length) ? (
-            <EmptyState icon="grid-outline" title="No placements" message="Placed delivery orders will appear here." />
+          ) : isEmpty ? (
+            <EmptyState icon="grid-outline" title="No tankers" message="Vehicles on the placement board will appear here." />
           ) : (
             <>
-          <View style={styles.statRow}>
-            {p.stats.map((s) => <StatTile key={s.label} label={s.label} value={s.value} color={s.color} />)}
-          </View>
-          {group('Today', p.today)}
-          {group('Yesterday', p.yesterday)}
+              <View style={styles.statRow}>
+                {p.stats.map((s) => (
+                  <View key={s.label} style={styles.statItem}>
+                    <StatTile label={s.label} value={s.value} color={s.color} />
+                  </View>
+                ))}
+              </View>
+
+              {groups.length === 0 ? (
+                <EmptyState title="None in this state" message="Try another tab." />
+              ) : groups.map((g) => (
+                <View key={g.location}>
+                  <SectionHeader label={g.location} right={<AppText variant="caption" mono muted>{g.rows.length}</AppText>} />
+                  <Card padding={0} elevated="sm">
+                    {g.rows.map((r, i) => (
+                      <View key={r.key} style={[styles.row, i > 0 && styles.rowDivider]}>
+                        <View style={{ flex: 1, gap: 4 }}>
+                          <View style={styles.top}>
+                            <AppText mono variant="bodyStrong" weight="semibold">{r.id}</AppText>
+                            <Pill tone={r.tone} label={r.badge} />
+                          </View>
+                          {r.capacity ? <AppText variant="small" weight="semibold">{r.capacity}</AppText> : null}
+                          {r.meta ? <AppText variant="caption" mono muted numberOfLines={1}>{r.meta}</AppText> : null}
+                        </View>
+                        {r.right ? <AppText variant="caption" mono muted>{r.right}</AppText> : null}
+                      </View>
+                    ))}
+                  </Card>
+                </View>
+              ))}
             </>
           )}
         </ScrollView>
@@ -113,13 +159,13 @@ export default function OpsPlacementsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  search: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   tabs: { flexDirection: 'row', gap: spacing.lg, paddingHorizontal: 18, paddingTop: 12 },
   tab: { alignItems: 'center', gap: 8, paddingTop: 4 },
   underline: { height: 2.5, width: '100%', borderRadius: 2, backgroundColor: 'transparent' },
   underlineOn: { backgroundColor: colors.primary },
   scroll: { padding: 18, paddingTop: 12, gap: 12 },
-  statRow: { flexDirection: 'row', gap: 10 },
+  statRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  statItem: { flexBasis: '47%', flexGrow: 1, minWidth: 0 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13 },
   rowDivider: { borderTopWidth: 1, borderTopColor: colors.border },
   top: { flexDirection: 'row', alignItems: 'center', gap: 8 },

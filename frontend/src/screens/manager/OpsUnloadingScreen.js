@@ -2,18 +2,28 @@ import React, { useMemo } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Button, Card, colors, spacing, radius } from '../../components/ui';
+import dayjs from 'dayjs';
+import { AppText, Card, colors, spacing } from '../../components/ui';
 import { BackHeader, Pill, SectionHeader, Loading, EmptyState } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
 import managerService from '../../services/managerService';
 
-/** M7 · Unloading — what the depot recorded. */
+const money = (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`;
+
+/**
+ * M7 · Unloading — what the depot recorded, per consignment.
+ *
+ * /erp/unloading → [{ cnNumber, material, loadedQty, unloadedQty, qtyUnit,
+ *   shortageQty, allowedShortageQty, chargeableShortageQty, shortageAmount,
+ *   shortageRemark, detentionDays, chargeableDetentionDays, detentionAmount,
+ *   otherChargesTotal, freightAmount, netReceivable, status, unloadedAt }]
+ * The screen lists every record — it previously rendered only the first.
+ */
 export default function OpsUnloadingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
-  // Unloading records — real API only (no data until a backend is configured and signed in).
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token;
   const { data: unloadApi, loading, error, refetch } = useApi(
@@ -22,92 +32,104 @@ export default function OpsUnloadingScreen({ navigation }) {
     { enabled, fallback: [] },
   );
 
-  // Normalize the first unloading record → the screen shape (optional chaining + safe defaults).
-  const u = useMemo(() => {
+  const rows = useMemo(() => {
     const list = Array.isArray(unloadApi)
       ? unloadApi
-      : (unloadApi?.results || unloadApi?.rows || unloadApi?.items || unloadApi?.data || (unloadApi && typeof unloadApi === 'object' ? [unloadApi] : []));
-    const d = list[0];
-    if (!d) return null;
-    const w = d.weight || d;
-    const wt = (v) => (v == null ? '—' : (typeof v === 'number' ? `${v} t` : String(v)));
-    return {
-      id: d.tripNo || d.code || d.id || d._id || '—',
-      place: d.place || d.location || d.depot || '—',
-      weight: {
-        loaded: wt(w?.loaded),
-        received: wt(w?.received),
-        short: wt(w?.short),
-        tolerance: w?.tolerance || '—',
-      },
-      details: Array.isArray(d.details) ? d.details : [],
-      evidence: Array.isArray(d.evidence) ? d.evidence : [],
-      remark: d.remark || d.note || '',
-    };
+      : (unloadApi?.results || unloadApi?.rows || unloadApi?.items || unloadApi?.data || []);
+    return list.map((d, i) => {
+      const unit = d?.qtyUnit || '';
+      const q = (v) => (v == null ? '—' : `${v}${unit ? ` ${unit}` : ''}`);
+      const shortage = Number(d?.shortageQty) || 0;
+      const chargeable = Number(d?.chargeableShortageQty) || 0;
+      return {
+        key: d?._id || String(i),
+        id: d?.cnNumber || '—',
+        material: d?.material || '—',
+        status: d?.status || '',
+        loaded: q(d?.loadedQty),
+        unloaded: q(d?.unloadedQty),
+        shortage: q(d?.shortageQty),
+        hasShortage: shortage > 0,
+        chargeable,
+        allowed: q(d?.allowedShortageQty),
+        when: d?.unloadedAt ? dayjs(d.unloadedAt).format('DD MMM YYYY') : '',
+        remark: d?.shortageRemark || '',
+        moneyRows: [
+          ['Freight', money(d?.freightAmount)],
+          ...(Number(d?.shortageAmount) ? [['Shortage', `−${money(d.shortageAmount)}`]] : []),
+          ...(Number(d?.detentionAmount) ? [['Detention', money(d.detentionAmount)]] : []),
+          ...(Number(d?.otherChargesTotal) ? [['Other charges', money(d.otherChargesTotal)]] : []),
+          ['Net receivable', money(d?.netReceivable)],
+        ],
+      };
+    });
   }, [unloadApi]);
 
   return (
     <View style={styles.container}>
-      <BackHeader title="Unloading" subtitle={u ? `${u.id} · ${u.place}` : undefined} onBack={() => navigation.goBack()} right={<Pill tone="pending" label="Shortage" />} />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
+      <BackHeader
+        title="Unloading"
+        subtitle={rows.length ? `${rows.length} ${rows.length === 1 ? 'record' : 'records'}` : undefined}
+        onBack={() => navigation.goBack()}
+      />
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + spacing.lg }]} showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}>
         {loading ? (
           <Loading />
         ) : error ? (
           <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
-        ) : !u ? (
-          <EmptyState icon="cube-outline" title="No unloading record" message="Unloading details will appear here once the depot records them." />
-        ) : (
-          <>
-        <Card elevated="sm" padding={16}>
-          <SectionHeader label="Weight reconciliation" />
-          <View style={styles.weights}>
-            <Weight value={u.weight.loaded} label="loaded" />
-            <Ionicons name="arrow-forward" size={16} color={colors.textMuted} />
-            <Weight value={u.weight.received} label="received" />
-            <Ionicons name="arrow-forward" size={16} color={colors.textMuted} />
-            <Weight value={u.weight.short} label="short" color={colors.warning} />
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.tolRow}>
-            <AppText variant="small">Within 0.5% tolerance</AppText>
-            <Pill tone="pending" label={u.weight.tolerance} />
-          </View>
-        </Card>
+        ) : rows.length === 0 ? (
+          <EmptyState icon="cube-outline" title="No unloading records" message="Unloading details will appear here once the depot records them." />
+        ) : rows.map((u) => (
+          <Card key={u.key} elevated="sm" padding={16}>
+            <SectionHeader
+              label={u.id}
+              right={u.hasShortage
+                ? <Pill tone="pending" label={u.chargeable > 0 ? 'Chargeable shortage' : 'Shortage'} />
+                : <Pill tone="success" label="No shortage" />}
+            />
 
-        <Card elevated="sm" padding={16}>
-          {u.details.map(([k, v], i) => (
-            <View key={k} style={[styles.detail, i > 0 && styles.rowDivider]}>
-              <AppText variant="small" muted>{k}</AppText>
-              <AppText mono={k !== 'Received by'} variant="small" weight="semibold">{v}</AppText>
+            <View style={styles.weights}>
+              <Weight value={u.loaded} label="loaded" />
+              <Ionicons name="arrow-forward" size={16} color={colors.textMuted} />
+              <Weight value={u.unloaded} label="unloaded" />
+              <Ionicons name="arrow-forward" size={16} color={colors.textMuted} />
+              <Weight value={u.shortage} label="short" color={u.hasShortage ? colors.warning : colors.textMuted} />
             </View>
-          ))}
-        </Card>
 
-        <Card elevated="sm" padding={16}>
-          <SectionHeader label="Evidence" right={<Pill tone="neutral" label="3 files" />} />
-          <View style={styles.evidence}>
-            {u.evidence.map((e) => (
-              <View key={e} style={styles.thumb}>
-                <Ionicons name="image-outline" size={20} color={colors.textMuted} />
-                <AppText variant="caption" mono muted>{e}</AppText>
+            <View style={styles.divider} />
+            <View style={styles.detail}>
+              <AppText variant="small" muted>Allowed shortage</AppText>
+              <AppText mono variant="small" weight="semibold">{u.allowed}</AppText>
+            </View>
+            <View style={[styles.detail, styles.rowDivider]}>
+              <AppText variant="small" muted>Material</AppText>
+              <AppText variant="small" weight="semibold">{u.material}</AppText>
+            </View>
+            {u.when ? (
+              <View style={[styles.detail, styles.rowDivider]}>
+                <AppText variant="small" muted>Unloaded</AppText>
+                <AppText mono variant="small" weight="semibold">{u.when}</AppText>
+              </View>
+            ) : null}
+
+            <View style={styles.divider} />
+            {u.moneyRows.map(([label, value], i) => (
+              <View key={label} style={[styles.detail, i > 0 && styles.rowDivider]}>
+                <AppText variant="small" muted>{label}</AppText>
+                <AppText mono variant="small" weight="semibold">{value}</AppText>
               </View>
             ))}
-          </View>
-        </Card>
 
-        <Card elevated="sm" padding={16}>
-          <SectionHeader label="Depot remark" />
-          <AppText variant="small" muted style={{ marginTop: 8 }}>{u.remark}</AppText>
-        </Card>
-          </>
-        )}
+            {u.remark ? (
+              <>
+                <View style={styles.divider} />
+                <AppText variant="caption" muted>{u.remark}</AppText>
+              </>
+            ) : null}
+          </Card>
+        ))}
       </ScrollView>
-
-      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Button variant="secondary" size="lg" label="Raise claim" style={{ flex: 1 }} onPress={() => {}} />
-        <Button size="lg" label="Accept and close" style={{ flex: 1.3 }} onPress={() => navigation.navigate('OpsCloseTrip')} />
-      </View>
     </View>
   );
 }
@@ -126,12 +148,8 @@ const styles = StyleSheet.create({
   scroll: { padding: 18, gap: 12 },
   weights: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
   weight: { alignItems: 'center', gap: 2 },
-  weightVal: { fontSize: 20, lineHeight: 24 },
+  weightVal: { fontSize: 18, lineHeight: 24 },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: 12 },
-  tolRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  detail: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 11 },
+  detail: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, gap: 8 },
   rowDivider: { borderTopWidth: 1, borderTopColor: colors.border },
-  evidence: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  thumb: { flex: 1, height: 80, borderRadius: radius.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', gap: 4 },
-  footer: { flexDirection: 'row', gap: 10, paddingHorizontal: 18, paddingTop: 12, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border },
 });

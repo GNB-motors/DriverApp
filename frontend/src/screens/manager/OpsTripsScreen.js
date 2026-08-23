@@ -1,23 +1,40 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import dayjs from 'dayjs';
 import { AppText, Card, Loading, EmptyState, colors, spacing, radius } from '../../components/ui';
 import ManagerShell from './ManagerShell';
-import { Pill, RouteLine, toneColor } from '../../components/ui';
+import { Pill, RouteLine } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
 import managerService from '../../services/managerService';
+import { TRIP_STATE, metaFor } from '../../constants/erpStatus';
 
-const TABS = [{ key: 'running', label: 'Running 14' }, { key: 'blocked', label: 'Blocked 3' }, { key: 'close', label: 'To close 4' }];
+/** Trips still moving. */
+const RUNNING_STATES = ['PLACED', 'DISPATCHED'];
+
+/**
+ * A trip is blocked when a gate still has to clear before it can move on:
+ * the advance is awaiting approval, or the CN has not been entered yet.
+ * (erpTrip.constants.js: ADVANCE_GATES / CN_GATES.)
+ */
+const isBlocked = (t) =>
+  t?.state === 'PLACED' && (t?.advanceGate === 'PENDING' || t?.cnGate === 'NONE');
+
+/** The backend only accepts a close from DISPATCHED (erpTrip.service.js). */
+const isCloseable = (t) => t?.state === 'DISPATCHED';
 
 /** M2 · Trips board — the board ops works from. */
-export default function OpsTripsScreen({ navigation }) {
+export default function OpsTripsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState('running');
+  // Ops home deep-links into a specific bucket ("3 consignment notes" → blocked).
+  const wantTab = route?.params?.tab;
+  const [tab, setTab] = useState(wantTab || 'running');
+  // Navigating here again with a different tab must move the selection, which a
+  // useState initialiser alone would not do.
+  useEffect(() => { if (wantTab) setTab(wantTab); }, [wantTab]);
 
-  // Real ERP trips — no data until a backend is configured and signed in.
   const { token } = useAuth();
   const enabled = apiConfigured() && !!token;
   const { data: tripsApi, loading, error, refetch } = useApi(
@@ -26,29 +43,53 @@ export default function OpsTripsScreen({ navigation }) {
     { enabled, fallback: [] },
   );
 
-  // Normalize ERP trips → the board row shape (optional chaining + safe defaults).
-  const trips = useMemo(() => {
-    const rows = Array.isArray(tripsApi) ? tripsApi : (tripsApi?.results || tripsApi?.rows || tripsApi?.items || tripsApi?.data || []);
+  // /erp/trips → [{ _id, tripNumber, state, fromLocation, toLocation, material,
+  //   vehicleNumber, vehicleType, plannedQty, loadedQty, totalKm, tripDate,
+  //   advanceGate, cnGate, partyId: { name, code }, doId: { doNumber } }]
+  const all = useMemo(() => {
+    const rows = Array.isArray(tripsApi)
+      ? tripsApi
+      : (tripsApi?.results || tripsApi?.rows || tripsApi?.items || tripsApi?.data || []);
     return rows.map((e, i) => {
-      const route = Array.isArray(e?.route) ? e.route : [e?.origin ?? e?.from ?? e?.source, e?.destination ?? e?.to ?? e?.dest];
+      const meta = metaFor(TRIP_STATE, e?.state);
+      const qty = e?.loadedQty ?? e?.plannedQty;
       return {
-        id: e?.tripNo || e?.code || e?.id || e?._id || String(i),
-        _id: e?._id || e?.id || null, // raw id for the detail fetch
-        status: e?.status || e?.state || 'in_transit',
-        badge: e?.badge || e?.statusLabel || e?.status || 'In transit',
-        route: [route?.[0] || '—', route?.[1] || '—'],
-        foot: e?.foot || [e?.driverName || e?.driver, e?.stage].filter(Boolean).join(' · '),
-        meta: e?.meta || e?.eta || undefined,
-        action: e?.action,
-        actionTone: e?.actionTone,
-        metaColor: e?.metaColor,
+        key: e?._id || String(i),
+        _id: e?._id || null,
+        id: e?.tripNumber || '—',
+        raw: e,
+        tone: meta.tone,
+        badge: meta.label,
+        route: [e?.fromLocation || '—', e?.toLocation || '—'],
+        foot: [e?.vehicleNumber, e?.partyId?.name].filter(Boolean).join(' · '),
+        meta: [
+          e?.material,
+          qty != null ? `${qty}` : null,
+          e?.totalKm ? `${e.totalKm} km` : null,
+        ].filter(Boolean).join(' · '),
+        date: e?.tripDate ? dayjs(e.tripDate).format('DD MMM') : '',
+        blocked: isBlocked(e),
       };
     });
   }, [tripsApi]);
 
+  // Counts are derived, not baked into the tab labels.
+  const buckets = useMemo(() => ({
+    running: all.filter((t) => RUNNING_STATES.includes(t.raw?.state)),
+    blocked: all.filter((t) => t.blocked),
+    close: all.filter((t) => isCloseable(t.raw)),
+  }), [all]);
+
+  const TABS = [
+    { key: 'running', label: `Running ${buckets.running.length}` },
+    { key: 'blocked', label: `Blocked ${buckets.blocked.length}` },
+    { key: 'close', label: `To close ${buckets.close.length}` },
+  ];
+
+  const list = buckets[tab] || [];
+
   return (
-    <ManagerShell title="Trips" navigation={navigation} active="OpsTrips"
-      right={<View style={styles.search}><Ionicons name="search" size={18} color={colors.text} /></View>}>
+    <ManagerShell title="Trips" subtitle={all.length ? `${all.length} total` : ''} navigation={navigation} active="OpsTrips">
       <View style={{ flex: 1 }}>
         <View style={styles.tabs}>
           {TABS.map((t) => (
@@ -64,27 +105,34 @@ export default function OpsTripsScreen({ navigation }) {
             <Loading />
           ) : error ? (
             <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
-          ) : trips.length === 0 ? (
-            <EmptyState title="No trips" message="Trips will appear here once they're created." />
+          ) : list.length === 0 ? (
+            <EmptyState
+              title={all.length ? 'Nothing in this bucket' : 'No trips'}
+              message={all.length ? 'Try another tab.' : "Trips will appear here once they're created."}
+            />
           ) : (
-            trips.map((t) => (
-            <Card key={t.id} elevated="sm" padding={14} onPress={() => navigation.navigate('OpsTripDetail', { id: t._id })} style={[t.status === 'error' && styles.errBorder, t.status === 'pending' && styles.warnBorder]}>
-              <View style={styles.top}>
-                <AppText mono variant="bodyStrong" weight="semibold">{t.id}</AppText>
-                <Pill tone={t.status} label={t.badge} />
-              </View>
-              <View style={styles.routeWrap}><RouteLine from={t.route[0]} to={t.route[1]} /></View>
-              <View style={styles.divider} />
-              <View style={styles.foot}>
-                <AppText variant="caption" mono muted>{t.foot}</AppText>
-                {t.action ? (
-                  <AppText variant="small" weight="bold" color={toneColor(t.actionTone === 'error' ? 'error' : 'info') || colors.primary}>{t.action}</AppText>
-                ) : (
-                  <AppText mono variant="small" weight="semibold" color={t.metaColor ? toneColor(t.metaColor) : colors.text}>{t.meta}</AppText>
-                )}
-              </View>
-            </Card>
-          )))}
+            list.map((t) => (
+              <Card
+                key={t.key}
+                elevated="sm"
+                padding={14}
+                onPress={() => navigation.navigate('OpsTripDetail', { id: t._id })}
+                style={t.blocked && styles.warnBorder}
+              >
+                <View style={styles.top}>
+                  <AppText mono variant="bodyStrong" weight="semibold" numberOfLines={1} style={{ flexShrink: 1 }}>{t.id}</AppText>
+                  <Pill tone={t.tone} label={t.badge} />
+                </View>
+                <View style={styles.routeWrap}><RouteLine from={t.route[0]} to={t.route[1]} /></View>
+                <View style={styles.divider} />
+                <View style={styles.foot}>
+                  <AppText variant="caption" mono muted numberOfLines={1} style={{ flexShrink: 1 }}>{t.foot}</AppText>
+                  <AppText variant="caption" mono muted>{t.date}</AppText>
+                </View>
+                {t.meta ? <AppText variant="caption" muted numberOfLines={1}>{t.meta}</AppText> : null}
+              </Card>
+            ))
+          )}
         </ScrollView>
       </View>
     </ManagerShell>
@@ -92,16 +140,14 @@ export default function OpsTripsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  search: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   tabs: { flexDirection: 'row', gap: spacing.lg, paddingHorizontal: 18, paddingTop: 12 },
   tab: { alignItems: 'center', gap: 8, paddingTop: 4 },
   underline: { height: 2.5, width: '100%', borderRadius: 2, backgroundColor: 'transparent' },
   underlineOn: { backgroundColor: colors.primary },
   scroll: { padding: 18, paddingTop: 12, gap: 10 },
-  errBorder: { borderWidth: 1, borderColor: '#F0CFCB' },
   warnBorder: { borderWidth: 1, borderColor: '#F3D9AE' },
-  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   routeWrap: { marginTop: 10 },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: 10 },
-  foot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  foot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
 });

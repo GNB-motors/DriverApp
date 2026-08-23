@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
 import managerService from '../../services/managerService';
+import { DO_STATUS, metaFor } from '../../constants/erpStatus';
 
 /** M5 · Loads — place a truck against a load. */
 export default function OpsLoadsScreen({ navigation }) {
@@ -23,49 +24,71 @@ export default function OpsLoadsScreen({ navigation }) {
     { enabled, fallback: null },
   );
 
-  // Normalize delivery orders → { primary, secondary } (loads = orders to place).
-  // mapping to confirm against live API
-  const loads = useMemo(() => {
-    const list = Array.isArray(ordersApi) ? ordersApi : (ordersApi?.results || ordersApi?.rows || ordersApi?.items || ordersApi?.data || []);
-    if (!list.length) return null;
-    const money = (v) => (v != null ? `₹${Number(v).toLocaleString('en-IN')}` : undefined);
-    const routeOf = (d) => (Array.isArray(d?.route) ? d.route : [d?.origin ?? d?.from ?? d?.source, d?.destination ?? d?.to ?? d?.dest]);
-    const [p, s] = list;
-    const pr = routeOf(p);
-    const primary = {
-      id: p?.doNo || p?.code || p?.id || p?._id || '—',
-      badge: p?.badge || p?.pickupLabel || 'Pickup',
-      route: [pr?.[0] || '—', pr?.[1] || '—'],
-      facts: Array.isArray(p?.facts) ? p.facts : [
-        ['Material', p?.material || p?.commodity || '—'],
-        ['Weight', p?.weight != null ? `${p.weight} t` : '—'],
-        ['Freight', money(p?.freight) || '—'],
-      ],
-      trucks: Array.isArray(p?.trucks) && p.trucks.length
-        ? p.trucks.map((tk, i) => ({
-            plate: tk?.plate || tk?.regNo || tk?.vehicleNo || `Truck ${i + 1}`,
-            meta: tk?.meta || [tk?.driverName || tk?.driver, tk?.availability].filter(Boolean).join(' · '),
-            selected: i === 0,
-          }))
-        : [],
-    };
-    let secondary = null;
-    if (s) {
-      const sr = routeOf(s);
-      secondary = {
-        id: s?.doNo || s?.code || s?.id || s?._id || '—',
-        badge: s?.badge || 'Next',
-        route: [sr?.[0] || '—', sr?.[1] || '—'],
-        meta: s?.meta || [s?.material || s?.commodity, s?.weight != null ? `${s.weight} t` : null, money(s?.freight)].filter(Boolean).join(' · '),
-      };
-    }
-    return { primary, secondary };
+  const money = (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`;
+
+  // /erp/delivery-orders → [{ doNumber, fromLocation, toLocation, material,
+  //   qty, qtyUnit, liftedQty, balanceQty, sbRate, sbRateUnit, totalKm, status,
+  //   partyId: { name, code }, routeId: { name } }]
+  // Only orders with quantity still to lift can be placed.
+  const openOrders = useMemo(() => {
+    const list = Array.isArray(ordersApi)
+      ? ordersApi
+      : (ordersApi?.results || ordersApi?.rows || ordersApi?.items || ordersApi?.data || []);
+    return list
+      .filter((d) => ['PENDING', 'PARTIAL'].includes(d?.status) && (Number(d?.balanceQty) || 0) > 0)
+      .map((d) => {
+        const meta = metaFor(DO_STATUS, d?.status);
+        const unit = d?.qtyUnit ? String(d.qtyUnit).toLowerCase() : '';
+        return {
+          key: d?._id,
+          id: d?.doNumber || '—',
+          badge: meta.label,
+          tone: meta.tone,
+          route: [d?.fromLocation || '—', d?.toLocation || '—'],
+          party: d?.partyId?.name || '—',
+          material: d?.material || '—',
+          balance: `${Number(d?.balanceQty) || 0}${unit ? ` ${unit}` : ''}`,
+          rate: money(d?.sbRate),
+          facts: [
+            ['Material', d?.material || '—'],
+            ['To lift', `${Number(d?.balanceQty) || 0}${unit ? ` ${unit}` : ''}`],
+            ['Rate', money(d?.sbRate)],
+          ],
+          meta: [d?.partyId?.name, d?.material, d?.totalKm ? `${d.totalKm} km` : null]
+            .filter(Boolean).join(' · '),
+        };
+      });
   }, [ordersApi]);
 
-  const primary = loads?.primary;
-  const secondary = loads?.secondary;
+  const primary = openOrders[0] || null;
+  const secondary = openOrders[1] || null;
+
+  // Suggested trucks come from the placement board for the primary DO — the
+  // delivery order itself carries no vehicle suggestions.
+  const { data: boardApi, loading: boardLoading } = useApi(
+    () => managerService.getPlacementsBoard(primary ? { doId: primary.key } : {}),
+    [primary?.key],
+    { enabled: enabled && !!primary, fallback: null },
+  );
+
+  // board → { summary, locations: [{ location, tankers: [...] }] }
+  const trucks = useMemo(() => {
+    const locations = Array.isArray(boardApi?.locations) ? boardApi.locations : [];
+    return locations
+      .flatMap((l) => (Array.isArray(l.tankers) ? l.tankers : []))
+      .filter((t) => t?.isAvailable)
+      .map((t) => ({
+        plate: t?.registrationNumber || '—',
+        meta: [
+          t?.location,
+          t?.capacity ? `${t.capacity} ${t.capacityUnit || ''}`.trim() : null,
+          t?.requiresCleaning ? 'needs cleaning' : null,
+        ].filter(Boolean).join(' · '),
+      }));
+  }, [boardApi]);
+
   const [picked, setPicked] = useState(null);
-  const selected = picked ?? primary?.trucks?.find((t) => t.selected)?.plate;
+  const selected = picked ?? trucks[0]?.plate;
 
   return (
     <ManagerShell title="Loads to place" subtitle="Assign trucks to open loads" navigation={navigation} active="OpsLoads">
@@ -76,14 +99,14 @@ export default function OpsLoadsScreen({ navigation }) {
             <Loading />
           ) : error ? (
             <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
-          ) : !loads ? (
+          ) : !primary ? (
             <EmptyState title="No loads to place" message="Loads will appear here once delivery orders are created." />
           ) : (
             <>
           <Card elevated="sm" padding={16} style={styles.primaryCard}>
             <View style={styles.top}>
               <AppText mono variant="bodyStrong" weight="semibold">{primary.id}</AppText>
-              <Pill tone="pending" label={primary.badge} />
+              <Pill tone={primary.tone} label={primary.badge} />
             </View>
             <View style={styles.routeWrap}><RouteLine from={primary.route[0]} to={primary.route[1]} /></View>
             <View style={styles.facts}>
@@ -96,7 +119,10 @@ export default function OpsLoadsScreen({ navigation }) {
             </View>
             <View style={styles.divider} />
             <SectionHeader label="Suggested trucks" />
-            {primary.trucks.map((t) => {
+            {!boardLoading && trucks.length === 0 ? (
+              <AppText variant="caption" muted style={{ marginTop: 8 }}>No available trucks at this location.</AppText>
+            ) : null}
+            {trucks.map((t) => {
               const on = t.plate === selected;
               return (
                 <Pressable key={t.plate} onPress={() => setPicked(t.plate)} style={[styles.truck, on && styles.truckOn]}>
@@ -114,7 +140,7 @@ export default function OpsLoadsScreen({ navigation }) {
           <Card elevated="sm" padding={14}>
             <View style={styles.top}>
               <AppText mono variant="bodyStrong" weight="semibold">{secondary.id}</AppText>
-              <Pill tone="in_transit" label={secondary.badge} />
+              <Pill tone={secondary.tone} label={secondary.badge} />
             </View>
             <View style={styles.routeWrap}><RouteLine from={secondary.route[0]} to={secondary.route[1]} /></View>
             <View style={styles.divider} />
@@ -129,7 +155,7 @@ export default function OpsLoadsScreen({ navigation }) {
         </ScrollView>
 
         <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }]}>
-          <Button size="lg" label={selected ? `Assign ${selected}` : 'Assign truck'} onPress={() => navigation.navigate('OpsDeliveryOrder')} />
+          <Button size="lg" label={selected ? `Assign ${selected}` : 'Assign truck'} disabled={!selected} onPress={() => navigation.navigate('OpsDeliveryOrder')} />
         </View>
       </View>
     </ManagerShell>
