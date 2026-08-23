@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Button, Card, Stepper, StatusBadge, WarningBanner, Loading, EmptyState, colors, spacing, radius } from '../../../components/ui';
+import { AppText, Button, Card, StatusBadge, WarningBanner, Loading, EmptyState, colors, spacing, radius } from '../../../components/ui';
 import { useAuth } from '../../../context/AuthContext';
 import { apiConfigured } from '../../../services/client';
 import { useApi } from '../../../hooks/useApi';
@@ -36,19 +36,15 @@ export default function ActiveTripScreen({ navigation, route }) {
     }) || rows[0] || null;
   }
 
-  // (mapping to confirm against live API)
-  const tripId = raw ? (raw.tripNumber || raw.tripNo || raw.code || raw._id || id || '—') : '';
-  const plate = raw ? (raw.vehicle?.registrationNumber || raw.vehicle?.plate || raw.plate || '') : '';
+  // /app/v1/trips/:id → one ERP trip, scoped to this driver.
+  const tripId = raw ? (raw.tripNumber || id || '—') : '';
+  const plate = raw?.vehicleNumber || raw?.vehicleId?.registrationNumber || '';
   const subtitle = [tripId, plate].filter(Boolean).join(' · ');
-  const status = raw?.status || raw?.state || 'in_transit';
-  const totalStages = Number(raw?.totalStages) || 8;
-  const advance = raw?.advance != null ? `₹${Number(raw.advance).toLocaleString('en-IN')}` : '—';
-  const stages = (Array.isArray(raw?.stages) ? raw.stages : raw?.timeline || raw?.events || []).map((s) => ({
-    title: s.title || s.name || s.label || '—',
-    meta: s.meta || '',
-    status: s.status === 'current' ? 'current' : (s.status === 'done' || s.completed || s.done) ? 'done' : 'todo',
-  }));
-  const done = stages.filter((s) => s.status === 'done' || s.status === 'current').length;
+  const status = raw?.state || 'PLACED';
+  const routeText = raw ? [raw.fromLocation, raw.toLocation].filter(Boolean).join(' → ') : '';
+  const distance = raw?.totalKm != null ? `${Number(raw.totalKm).toLocaleString('en-IN')} km` : '—';
+  const litres = raw?.material || '—';
+  const advance = raw?.plannedQty != null ? String(raw.plannedQty) : '—';
 
   return (
     <View style={styles.container}>
@@ -76,26 +72,31 @@ export default function ActiveTripScreen({ navigation, route }) {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}
         >
-          {/* Progress */}
+          {/* Trip figures — what the trip record actually reports. */}
           <Card elevated="sm" padding={16}>
             <View style={styles.cardHead}>
-              <AppText variant="label" muted>Progress</AppText>
-              <AppText mono variant="small" weight="semibold">{done} / {totalStages}</AppText>
-            </View>
-            <Stepper steps={stages} style={styles.stepper} />
-          </Card>
-
-          {/* Trip advance */}
-          <Card elevated="sm" padding={16} style={styles.gap}>
-            <View style={styles.cardHead}>
-              <AppText variant="bodyStrong" weight="bold">Trip advance</AppText>
-              <StatusBadge status="paid" />
+              <AppText variant="label" muted>Trip so far</AppText>
+              <StatusBadge status={status === 'CANCELLED' ? 'rejected' : 'in_transit'} label={String(status).replace(/_/g, ' ')} />
             </View>
             <View style={styles.advRow}>
               <View>
-                <AppText variant="caption" mono muted>UPI · 01 Aug · ADV-1192</AppText>
-                <AppText variant="caption" muted>Debited from your wallet</AppText>
+                <AppText variant="caption" muted>Distance</AppText>
+                <AppText mono variant="h3" weight="semibold">{distance}</AppText>
               </View>
+              <View>
+                <AppText variant="caption" muted>Material</AppText>
+                <AppText mono variant="h3" weight="semibold">{litres}</AppText>
+              </View>
+            </View>
+          </Card>
+
+          {/* Fuel spend on this trip. */}
+          <Card elevated="sm" padding={16} style={styles.gap}>
+            <View style={styles.cardHead}>
+              <AppText variant="bodyStrong" weight="bold">Planned quantity</AppText>
+            </View>
+            <View style={styles.advRow}>
+              <AppText variant="caption" muted>{routeText}</AppText>
               <AppText mono variant="h3" weight="semibold">{advance}</AppText>
             </View>
           </Card>

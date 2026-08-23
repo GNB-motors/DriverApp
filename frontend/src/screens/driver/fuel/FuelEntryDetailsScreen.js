@@ -26,8 +26,9 @@ export default function FuelEntryDetailsScreen({ navigation, route }) {
   const [paidBy, setPaidBy] = useState('My pocket');
   const [fuelType, setFuelType] = useState('Diesel');
   const [filling, setFilling] = useState('Full tank');
-  const odometer = params.odometer != null ? String(params.odometer) : ''; // mapping to confirm
-  const pump = params.pump || ''; // mapping to confirm
+  // Forwarded from the OCR capture step (route params), not fetched here.
+  const odometer = params.odometer != null ? String(params.odometer) : '';
+  const pump = params.pump || '';
   const { submit, busy } = useSubmit();
   const { user } = useAuth();
   const { vehicleId } = useDriverVehicle();
@@ -53,18 +54,18 @@ export default function FuelEntryDetailsScreen({ navigation, route }) {
       photo,
     }),
     {
-      onSuccess: (log) => navigation.navigate('FuelSaved', {
+      // POST /mileage/fuel-log responds { id, message, fuelLog } — the log is
+      // one level down, and mileage is `calculatedMileage` on it. Fleet average,
+      // mileage delta and wallet projection are not returned by this endpoint,
+      // so FuelSaved renders only what actually came back.
+      onSuccess: (res) => navigation.navigate('FuelSaved', {
         paidBy,
         litres,
         totalFmt,
-        // Real values from the created log when the backend returns them; FuelSaved falls back to '—'. (mapping to confirm)
-        tripId: log?.trip?.tripCode || log?.tripId,
-        mileage: log?.mileage != null ? Number(log.mileage).toFixed(1) : undefined,
-        mileageDelta: log?.mileageDelta,
-        fleetAvg: log?.fleetAvg != null ? Number(log.fleetAvg).toFixed(1) : undefined,
-        mileagePercent: log?.mileagePercent,
-        walletBefore: log?.walletBefore,
-        walletAfter: log?.walletAfter,
+        tripId: res?.fuelLog?.tripId,
+        mileage: res?.fuelLog?.calculatedMileage != null
+          ? Number(res.fuelLog.calculatedMileage).toFixed(1)
+          : undefined,
       }),
       onError: (e) => Alert.alert('Could not save', e?.message || 'Please try again.'),
     },

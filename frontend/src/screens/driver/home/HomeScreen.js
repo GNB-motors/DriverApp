@@ -6,13 +6,27 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import {
   AppText, Button, Card, Switch, Badge, StatusBadge, WalletHeroCard,
-  WarningBanner, StepProgress, Loading, EmptyState, colors, spacing, radius,
+  WarningBanner, Loading, EmptyState, colors, spacing, radius,
 } from '../../../components/ui';
 import { useAuth } from '../../../context/AuthContext';
 import { apiConfigured } from '../../../services/client';
 import { useApi } from '../../../hooks/useApi';
 import walletService from '../../../services/walletService';
 import tripService from '../../../services/tripService';
+import billService from '../../../services/billService';
+import fuelService from '../../../services/fuelService';
+import documentService from '../../../services/documentService';
+
+/** ERP trip state → StatusBadge vocabulary. */
+const TRIP_BADGE = {
+  PLACED: { key: 'assigned', label: 'Placed' },
+  ADVANCE_PENDING: { key: 'pending', label: 'Advance pending' },
+  ADVANCE_PAID: { key: 'confirmed', label: 'Advance paid' },
+  CN_PENDING: { key: 'pending', label: 'CN pending' },
+  CN_UPDATED: { key: 'confirmed', label: 'CN updated' },
+  DISPATCHED: { key: 'in_transit', label: 'In transit' },
+};
+import dayjs from 'dayjs';
 
 /**
  * 01 / 02 · Driver Home — on-duty and off-duty variants. UI-only demo.
@@ -42,49 +56,88 @@ export default function HomeScreen({ navigation }) {
     [],
     { enabled, fallback: [] },
   );
-  const onRefresh = () => { refetchSummary(); refetchTrips(); };
+  // Bill counts, last refuel and document expiry each have their own endpoint —
+  // the khata summary carries balances only.
+  const { data: billsApi, refetch: refetchBills } = useApi(
+    () => billService.listBills(),
+    [],
+    { enabled, fallback: null },
+  );
+  const { data: fuelApi, refetch: refetchFuel } = useApi(
+    () => fuelService.listFuelLogs({ limit: 1 }),
+    [],
+    { enabled, fallback: null },
+  );
+  const { data: docsApi, refetch: refetchDocs } = useApi(
+    () => documentService.listDocuments('USER', driverId),
+    [driverId],
+    { enabled: enabled && !!driverId, fallback: null },
+  );
+  const onRefresh = () => { refetchSummary(); refetchTrips(); refetchBills(); refetchFuel(); refetchDocs(); };
+
+  const rowsOf = (data) =>
+    Array.isArray(data) ? data : (data?.results || data?.rows || data?.items || data?.data || []);
 
   // Identity from the signed-in user.
   const fullName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  // /app/v1/trips → the driver's own ERP trips:
+  // [{ tripNumber, state, fromLocation, toLocation, material, vehicleNumber,
+  //    plannedQty, loadedQty, totalKm, tripDate, partyId: { name } }]
+  const tripRowsAll = rowsOf(tripsApi);
+  const monthStart = dayjs().startOf('month');
+  const tripsThisMonth = tripRowsAll.filter((t) => t?.tripDate && dayjs(t.tripDate).isAfter(monthStart));
+  const distanceKm = tripsThisMonth.reduce((n, t) => n + (Number(t?.totalKm) || 0), 0);
+
   const driver = {
     name: fullName || 'Driver',
     initials: ((fullName || 'D').trim()[0] || 'D').toUpperCase(),
-    tripsThisMonth: summary?.tripsThisMonth ?? '—', // mapping to confirm
-    distance: summary?.distance ?? '—', // mapping to confirm
+    tripsThisMonth: String(tripsThisMonth.length),
+    distance: distanceKm ? `${distanceKm.toLocaleString('en-IN')} km` : '—',
   };
 
-  // Balance '—' until the summary responds (mirrors WalletScreen).
+  // Balance '—' until the summary responds. /khata/drivers/:id/summary → { totalAmount }
   const balance = summary
-    ? `₹${Number(summary.balance ?? summary.totalAmount ?? 0).toLocaleString('en-IN')}`
+    ? `₹${Number(summary.totalAmount ?? 0).toLocaleString('en-IN')}`
     : '—';
-  const pendingCount = summary?.pendingCount ?? 0; // mapping to confirm
-  const confirmedCount = summary?.confirmedCount ?? 0; // mapping to confirm
 
-  // Active trip — pick the in-transit/active one, else the first trip.
-  const tripRows = Array.isArray(tripsApi)
-    ? tripsApi
-    : (tripsApi?.results || tripsApi?.rows || tripsApi?.items || tripsApi?.data || []);
-  const activeRaw = tripRows.find((tr) => {
-    const s = String(tr?.status || tr?.state || '').toLowerCase();
-    return s.includes('transit') || s.includes('active') || s.includes('progress');
-  }) || tripRows[0] || null;
-  // (mapping to confirm against live API)
+  // Bill counts come from the driver's own bill list, not the khata summary.
+  const billRows = rowsOf(billsApi);
+  const pendingCount = billRows.filter((b) => b?.status === 'PENDING').length;
+  const confirmedCount = billRows.filter((b) => b?.status === 'CONFIRMED').length;
+
+  // Active trip — anything not yet closed out. ERP states, per
+  // erpTrip.constants.js ERP_TRIP_STATES.
+  const ACTIVE_TRIP_STATES = ['PLACED', 'ADVANCE_PENDING', 'ADVANCE_PAID', 'CN_PENDING', 'CN_UPDATED', 'DISPATCHED'];
+  const activeRaw = tripRowsAll.find((tr) => ACTIVE_TRIP_STATES.includes(tr?.state)) || null;
   const activeTrip = activeRaw && {
-    id: activeRaw.tripNumber || activeRaw.tripNo || activeRaw.code || activeRaw._id || '—',
-    status: activeRaw.status || activeRaw.state || 'in_transit',
-    from: activeRaw.origin?.city || activeRaw.origin?.name || activeRaw.source || activeRaw.from || '—',
-    to: activeRaw.destination?.city || activeRaw.destination?.name || activeRaw.destination || activeRaw.to || '—',
-    totalStages: Number(activeRaw.totalStages) || 8,
-    stage: Number(activeRaw.stage ?? activeRaw.currentStage) || 0,
-    stageLabel: activeRaw.stageLabel || activeRaw.stageName || '',
-    next: activeRaw.next || activeRaw.nextStage || '',
+    _id: activeRaw._id,
+    id: activeRaw.tripNumber || '—',
+    state: activeRaw.state,
+    from: activeRaw.fromLocation || '—',
+    to: activeRaw.toLocation || '—',
+    plate: activeRaw.vehicleNumber || activeRaw.vehicleId?.registrationNumber || '—',
+    material: activeRaw.material || '',
+    party: activeRaw.partyId?.name || '',
+    started: activeRaw.tripDate ? dayjs(activeRaw.tripDate).format('DD MMM') : '',
+    distance: Number(activeRaw.totalKm) || 0,
   };
 
-  // Last refuel — from the summary if present, otherwise blank.
+  // Licence / document expiry — real expiryDate off the driver's own documents.
+  const expiringDoc = rowsOf(docsApi)
+    .filter((d) => d?.expiryDate)
+    .map((d) => ({ ...d, days: dayjs(d.expiryDate).diff(dayjs(), 'day') }))
+    .filter((d) => d.days <= 45)
+    .sort((a, b) => a.days - b.days)[0] || null;
+
+  // Last refuel — most recent fuel log. /fuel-logs → [{ litres, totalAmount,
+  // refuelTime, location, fuelType }]
+  const lastLog = rowsOf(fuelApi)[0] || null;
   const lastRefuel = {
-    litres: summary?.lastRefuel?.litres ?? '—', // mapping to confirm
-    meta: summary?.lastRefuel?.meta ?? '', // mapping to confirm
-    amount: summary?.lastRefuel?.amount ?? '—', // mapping to confirm
+    litres: lastLog?.litres != null ? `${lastLog.litres} L` : '—',
+    meta: lastLog
+      ? [lastLog.refuelTime ? dayjs(lastLog.refuelTime).format('DD MMM') : null, lastLog.location].filter(Boolean).join(' · ')
+      : 'No refuel logged yet',
+    amount: lastLog?.totalAmount != null ? `₹${Number(lastLog.totalAmount).toLocaleString('en-IN')}` : '—',
   };
 
   const openWallet = () => navigation.navigate('Wallet');
@@ -130,7 +183,7 @@ export default function HomeScreen({ navigation }) {
               {onDuty ? <View style={styles.dutyDot} /> : null}
             </View>
             <AppText variant="small" muted numberOfLines={1}>
-              {onDuty ? 'Since 06:12 · 3 h 18 m' : 'Last shift ended 21:40'}
+              {onDuty ? 'Available for trips' : 'Not accepting trips'}
             </AppText>
           </View>
           <View pointerEvents="none"><Switch value={onDuty} /></View>
@@ -139,7 +192,9 @@ export default function HomeScreen({ navigation }) {
         {/* Wallet hero */}
         <WalletHeroCard
           balance={balance}
-          caption={onDuty ? '1 bill awaiting confirmation' : `${pendingCount} bill pending · ${confirmedCount} confirmed`}
+          caption={pendingCount
+            ? `${pendingCount} bill${pendingCount === 1 ? '' : 's'} awaiting confirmation`
+            : `${confirmedCount} confirmed`}
           onPress={openWallet}
         />
 
@@ -152,21 +207,24 @@ export default function HomeScreen({ navigation }) {
           <Card elevated="sm" padding={16} style={styles.gap}>
             <View style={styles.tripTop}>
               <Badge tone="neutral" label={activeTrip.id} />
-              <StatusBadge status={activeTrip.status} dot />
+              <StatusBadge status={TRIP_BADGE[activeTrip.state]?.key || 'in_transit'} label={TRIP_BADGE[activeTrip.state]?.label || activeTrip.state} dot />
             </View>
-            <View style={styles.route}>
-              <AppText variant="bodyStrong" weight="bold" numberOfLines={1} style={styles.routeText}>{activeTrip.from}</AppText>
-              <View style={styles.dashed} />
-              <AppText variant="bodyStrong" weight="bold" numberOfLines={1} style={styles.routeText}>{activeTrip.to}</AppText>
+            <View style={styles.routeRow}>
+              <AppText variant="bodyStrong" weight="bold" numberOfLines={1} style={{ flex: 1 }}>{activeTrip.from}</AppText>
+              <AppText variant="small" muted>→</AppText>
+              <AppText variant="bodyStrong" weight="bold" numberOfLines={1} style={{ flex: 1, textAlign: 'right' }}>{activeTrip.to}</AppText>
             </View>
-            <StepProgress variant="dots" total={activeTrip.totalStages} current={activeTrip.stage} style={styles.gapSm} />
             <View style={styles.tripMetaRow}>
-              <AppText variant="small" weight="semibold" numberOfLines={1} style={styles.tripMetaLeft}>
-                Stage {activeTrip.stage} of {activeTrip.totalStages} · {activeTrip.stageLabel}
+              <AppText variant="caption" mono muted numberOfLines={1} style={styles.tripMetaLeft}>
+                {[activeTrip.plate, activeTrip.material].filter(Boolean).join(' · ')}
               </AppText>
-              <AppText variant="small" muted numberOfLines={1} style={styles.tripMetaRight}>Next: {activeTrip.next}</AppText>
+              {activeTrip.distance ? (
+                <AppText variant="caption" mono muted numberOfLines={1} style={styles.tripMetaRight}>
+                  {activeTrip.distance.toLocaleString('en-IN')} km
+                </AppText>
+              ) : null}
             </View>
-            <Button variant="secondary" size="sm" label="Open trip" onPress={() => navigation.navigate('ActiveTrip')} style={styles.gapSm} />
+            <Button variant="secondary" size="sm" label="Open trip" onPress={() => navigation.navigate('ActiveTrip', { id: activeTrip._id })} style={styles.gapSm} />
           </Card>
         ) : (
           /* Off-duty: no trip + licence warning + stats */
@@ -178,14 +236,18 @@ export default function HomeScreen({ navigation }) {
               <Button size="md" label="Go on duty" onPress={() => setOnDuty(true)} style={styles.gapSm} />
             </Card>
 
-            <WarningBanner
-              tone="warning"
-              title="Licence expires in 24 days."
-              message="Renew it to keep taking trips."
-              actionLabel="Open documents"
-              onAction={() => navigation.navigate('MyDocuments')}
-              style={styles.gap}
-            />
+            {expiringDoc ? (
+              <WarningBanner
+                tone={expiringDoc.days < 0 ? 'error' : 'warning'}
+                title={expiringDoc.days < 0
+                  ? `${expiringDoc.docType || 'Document'} has expired.`
+                  : `${expiringDoc.docType || 'Document'} expires in ${expiringDoc.days} day${expiringDoc.days === 1 ? '' : 's'}.`}
+                message="Renew it to keep taking trips."
+                actionLabel="Open documents"
+                onAction={() => navigation.navigate('MyDocuments')}
+                style={styles.gap}
+              />
+            ) : null}
 
             <View style={[styles.statRow, styles.gap]}>
               <Card elevated="sm" padding={14} style={styles.statCard}>
@@ -234,6 +296,7 @@ export default function HomeScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  routeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 22, paddingBottom: 12 },
   avatar: { width: 48, height: 48, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 18 },

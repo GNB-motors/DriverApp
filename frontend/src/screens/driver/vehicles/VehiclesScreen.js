@@ -3,12 +3,19 @@ import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Card, Badge, ProgressBar, Loading, EmptyState, colors, spacing, radius } from '../../../components/ui';
+import { AppText, Card, Badge, StatusBadge, Loading, EmptyState, colors, spacing, radius } from '../../../components/ui';
 import dayjs from 'dayjs';
 import { useAuth } from '../../../context/AuthContext';
 import { apiConfigured } from '../../../services/client';
 import { useApi } from '../../../hooks/useApi';
 import vehicleService from '../../../services/vehicleService';
+
+/** Vehicle.status → StatusBadge vocabulary. */
+const STATUS_BADGE = {
+  AVAILABLE: { key: 'valid', label: 'Available' },
+  ON_TRIP: { key: 'in_transit', label: 'On trip' },
+  MAINTENANCE: { key: 'in_workshop', label: 'In workshop' },
+};
 import fuelService from '../../../services/fuelService';
 
 /**
@@ -20,34 +27,68 @@ export default function VehiclesScreen({ navigation }) {
   const enabled = apiConfigured() && !!token;
   const { data: vehiclesApi, loading, error, refetch: refetchVehicles } = useApi(() => vehicleService.listVehicles(), [], { enabled, fallback: [] });
   const { data: fuelApi, refetch: refetchFuel } = useApi(() => fuelService.listFuelLogs(), [], { enabled, fallback: [] });
-  const onRefresh = () => { refetchVehicles(); refetchFuel(); };
+  const onRefresh = () => { refetchVehicles(); refetchFuel(); refetchPapers(); };
 
-  // First assigned vehicle → hero fields. (mapping to confirm against live API)
+  // /vehicles → [{ _id, registrationNumber, vehicleType, chassisNumber, model,
+  //   status, manufacturer, vehicleCategory, classification }]
+  // (VEHICLE_LIST_FIELDS in vehicle.service.js). Odometer, mileage, fastag and
+  // service intervals are not on this payload, so the hero shows what is real.
   const v = React.useMemo(() => {
-    const rows = Array.isArray(vehiclesApi) ? vehiclesApi : (vehiclesApi?.results || vehiclesApi?.rows || vehiclesApi?.items || vehiclesApi?.data || []);
+    const rows = Array.isArray(vehiclesApi)
+      ? vehiclesApi
+      : (vehiclesApi?.results || vehiclesApi?.rows || vehiclesApi?.items || vehiclesApi?.data || []);
     const fv = rows[0];
     if (!fv) return null;
     return {
-      plate: fv.registrationNumber || fv.regNumber || fv.plate || '—',
-      spec: [fv.model, fv.capacity ? `${fv.capacity} t` : null, fv.year].filter(Boolean).join(' · ') || '—',
-      odometer: fv.odometer != null ? Number(fv.odometer).toLocaleString('en-IN') : '—',
-      mileage: fv.mileage != null ? String(fv.mileage) : '—',
-      fastag: fv.fastagBalance != null ? `₹${Number(fv.fastagBalance).toLocaleString('en-IN')}` : (fv.fastag || '—'),
-      papers: Array.isArray(fv.papers) ? fv.papers : [],
-      serviceDueKm: fv.serviceDueKm || '—',
-      servicePercent: fv.servicePercent != null ? fv.servicePercent : 0,
+      _id: fv._id,
+      plate: fv.registrationNumber || '—',
+      spec: [fv.manufacturer, fv.model, fv.vehicleType].filter(Boolean).join(' · ') || '—',
+      status: fv.status || 'AVAILABLE',
+      chassis: fv.chassisNumber || '—',
+      category: fv.vehicleCategory || null,
     };
   }, [vehiclesApi]);
-  const duePapers = (v?.papers || []).filter((p) => !p.ok).length;
 
-  // Most recent fuel log → "last refuel" tile. (mapping to confirm against live API)
+  // Papers come from the vehicle's own document set, not the vehicle record.
+  const { data: papersApi, refetch: refetchPapers } = useApi(
+    () => vehicleService.getVehicleDocuments(v?._id),
+    [v?._id],
+    { enabled: enabled && !!v?._id, fallback: null },
+  );
+
+  // /vehicles/:id/documents → [{ docType, expiryDate, files, uploadedAt }]
+  const papers = React.useMemo(() => {
+    const rows = Array.isArray(papersApi)
+      ? papersApi
+      : (papersApi?.results || papersApi?.rows || papersApi?.items || papersApi?.data || []);
+    return rows.map((pp) => {
+      const exp = pp?.expiryDate ? dayjs(pp.expiryDate) : null;
+      const days = exp ? exp.diff(dayjs(), 'day') : null;
+      return {
+        label: String(pp?.docType || 'Document').replace(/_/g, ' '),
+        date: exp ? exp.format('DD MMM YYYY') : 'no expiry',
+        // "ok" means not expiring inside 30 days.
+        ok: days == null || days > 30,
+      };
+    });
+  }, [papersApi]);
+  const duePapers = papers.filter((pp) => !pp.ok).length;
+
+  // Most recent fuel log → the "last refuel" tile.
+  // /fuel-logs → [{ litres, totalAmount, refuelTime, location }]
   const lastRefuelText = React.useMemo(() => {
-    const rows = Array.isArray(fuelApi) ? fuelApi : (fuelApi?.results || fuelApi?.rows || fuelApi?.items || fuelApi?.data || []);
-    if (!rows.length) return '—';
-    const f = [...rows].sort((a, b) => new Date(b.date || b.filledAt || b.createdAt || 0) - new Date(a.date || a.filledAt || a.createdAt || 0))[0];
-    const litres = f.litres ?? f.liters ?? f.quantity;
-    const when = f.date || f.filledAt || f.createdAt;
-    return [litres != null ? `Last ${litres} L` : 'Last refuel', when ? dayjs(when).format('DD MMM') : null].filter(Boolean).join(' · ');
+    const rows = Array.isArray(fuelApi)
+      ? fuelApi
+      : (fuelApi?.results || fuelApi?.rows || fuelApi?.items || fuelApi?.data || []);
+    if (!rows.length) return 'No refuel yet';
+    const f = [...rows].sort(
+      (a, b) => new Date(b?.refuelTime || b?.createdAt || 0) - new Date(a?.refuelTime || a?.createdAt || 0),
+    )[0];
+    const when = f?.refuelTime || f?.createdAt;
+    return [
+      f?.litres != null ? `Last ${f.litres} L` : 'Last refuel',
+      when ? dayjs(when).format('DD MMM') : null,
+    ].filter(Boolean).join(' · ');
   }, [fuelApi]);
 
   return (
@@ -75,13 +116,14 @@ export default function VehiclesScreen({ navigation }) {
             <Card variant="outline" elevated="sm" padding={16} style={styles.hero}>
               <View style={styles.heroTop}>
                 <AppText mono variant="h3" weight="semibold">{v.plate}</AppText>
-                <Badge tone="valid" label="Assigned to you" />
+                <StatusBadge status={STATUS_BADGE[v.status]?.key || 'draft'} label={STATUS_BADGE[v.status]?.label || v.status} />
               </View>
               <AppText variant="small" muted>{v.spec}</AppText>
               <View style={styles.statGrid}>
-                <View style={styles.stat}><AppText variant="caption" muted>Odometer</AppText><AppText mono variant="bodyStrong" weight="semibold">{v.odometer}</AppText></View>
-                <View style={styles.stat}><AppText variant="caption" muted>Mileage</AppText><AppText mono variant="bodyStrong" weight="semibold">{v.mileage}</AppText></View>
-                <View style={styles.stat}><AppText variant="caption" muted>Fastag</AppText><AppText mono variant="bodyStrong" weight="semibold">{v.fastag}</AppText></View>
+                <View style={styles.stat}><AppText variant="caption" muted>Chassis</AppText><AppText mono variant="small" weight="semibold" numberOfLines={1}>{v.chassis}</AppText></View>
+                {v.category ? (
+                  <View style={styles.stat}><AppText variant="caption" muted>Category</AppText><AppText mono variant="small" weight="semibold" numberOfLines={1}>{v.category}</AppText></View>
+                ) : null}
               </View>
             </Card>
 
@@ -91,7 +133,10 @@ export default function VehiclesScreen({ navigation }) {
                 <AppText variant="label" muted>Vehicle papers</AppText>
                 {duePapers ? <Badge tone="pending" label={`${duePapers} due`} /> : null}
               </View>
-              {v.papers.map((p, i) => (
+              {papers.length === 0 ? (
+                <AppText variant="small" muted style={{ marginTop: 8 }}>No papers uploaded yet.</AppText>
+              ) : null}
+              {papers.map((p, i) => (
                 <View key={p.label} style={[styles.paperRow, i > 0 && styles.paperDivider]}>
                   <AppText variant="body" style={{ flex: 1 }}>{p.label}</AppText>
                   <AppText mono variant="small" color={p.ok ? colors.textMuted : colors.warning}>{p.date}</AppText>
@@ -114,14 +159,6 @@ export default function VehiclesScreen({ navigation }) {
               </Pressable>
             </View>
 
-            {/* Next service */}
-            <Card elevated="sm" padding={16} style={styles.gap}>
-              <View style={styles.cardHead}>
-                <AppText variant="label" muted>Next service</AppText>
-                <AppText mono variant="small" weight="semibold">Due in {v.serviceDueKm}</AppText>
-              </View>
-              <ProgressBar label="" percent={v.servicePercent} value={`${v.servicePercent}%`} style={styles.gapSm} />
-            </Card>
           </>
         )}
       </ScrollView>

@@ -26,34 +26,48 @@ export default function MyAdvancesScreen({ navigation }) {
     { enabled, fallback: null },
   );
 
-  // Normalise rows defensively → the card shape. mapping to confirm against live API
+  // /erp/advances → [{ advanceNumber, status, requestedAmount, netPayable,
+  //   totalDeductions, paymentMode, paidAt, createdAt,
+  //   tripId: { tripNumber, material, fromLocation, toLocation } }]
+  // `deductions` is an array of subdocuments; `totalDeductions` is the figure.
   const rows = useMemo(() => {
     const raw = Array.isArray(advancesApi)
       ? advancesApi
       : (advancesApi?.results || advancesApi?.rows || advancesApi?.items || advancesApi?.data || []);
     const money = (v) => `₹${(Number(v) || 0).toLocaleString('en-IN')}`;
+    // StatusBadge keys off its own vocabulary, so the enum maps onto it here.
+    const BADGE = {
+      PENDING_APPROVAL: { key: 'pending', label: 'Pending approval' },
+      APPROVED: { key: 'approved', label: 'Approved' },
+      PAID: { key: 'paid', label: 'Paid' },
+      CANCELLED: { key: 'rejected', label: 'Cancelled' },
+    };
     return raw.map((r, i) => {
-      const status = String(r.status || '').toLowerCase();
-      const when = r.paidAt || r.approvedAt || r.requestedAt || r.createdAt || r.date;
-      const trip = r.tripNo || r.tripId || r.trip?.tripNumber || r.ref || '';
-      const hasDetail = r.requestedAmount != null || r.netAmount != null || r.net != null || !!(r.method || r.paymentMethod);
+      const badge = BADGE[r?.status] || { key: 'draft', label: r?.status || '—' };
+      const when = r?.paidAt || r?.createdAt;
+      const deductions = Number(r?.totalDeductions) || 0;
       return {
-        id: r.advanceNo || r.code || r._id || r.id || String(i),
-        status,
-        meta: r.meta || [when ? dayjs(when).format('DD MMM') : null, trip].filter(Boolean).join(' · '),
-        amount: money(r.amount ?? r.netAmount ?? r.net),
-        // Detail fields for the featured card (only present on some responses). mapping to confirm
-        requested: money(r.requestedAmount ?? r.requested ?? r.amount),
-        deductions: (r.deductions ?? r.deduction) != null ? `−${money(r.deductions ?? r.deduction)}` : null,
-        net: money(r.netAmount ?? r.net ?? r.amount),
-        method: r.method || r.paymentMethod || r.paidVia || '',
-        hasDetail,
+        id: r?.advanceNumber || String(i),
+        key: r?._id || String(i),
+        rawStatus: r?.status,
+        status: badge.key,
+        statusLabel: badge.label,
+        meta: [
+          when ? dayjs(when).format('DD MMM') : null,
+          r?.tripId?.tripNumber,
+        ].filter(Boolean).join(' · '),
+        amount: money(r?.netPayable),
+        requested: money(r?.requestedAmount || r?.netPayable),
+        deductions: deductions ? `−${money(deductions)}` : null,
+        net: money(r?.netPayable),
+        method: r?.paymentMode || '',
+        hasDetail: r?.requestedAmount != null || deductions > 0 || !!r?.paymentMode,
       };
     });
   }, [advancesApi]);
 
   // Featured = the most recent paid advance that carries payout detail (else none).
-  const featured = rows.find((a) => a.status === 'paid' && a.hasDetail) || null;
+  const featured = rows.find((a) => a.rawStatus === 'PAID' && a.hasDetail) || null;
   const rest = featured ? rows.filter((a) => a !== featured) : rows;
   const isEmpty = rows.length === 0;
 
@@ -87,7 +101,7 @@ export default function MyAdvancesScreen({ navigation }) {
                     <AppText mono variant="bodyStrong" weight="semibold">{featured.id}</AppText>
                     <AppText variant="caption" mono muted>{featured.meta}</AppText>
                   </View>
-                  <StatusBadge status={featured.status} />
+                  <StatusBadge status={featured.status} label={featured.statusLabel} />
                 </View>
                 <View style={styles.divider} />
                 <Row label="Requested" value={featured.requested} />
@@ -103,18 +117,18 @@ export default function MyAdvancesScreen({ navigation }) {
             ) : null}
 
             {rest.map((a) => (
-              <Card key={a.id} elevated="sm" padding={14} style={styles.rowCard}>
+              <Card key={a.key} elevated="sm" padding={14} style={styles.rowCard}>
                 <View style={{ flex: 1, gap: 3 }}>
                   <View style={styles.rowTop}>
                     <AppText mono variant="bodyStrong" weight="semibold">{a.id}</AppText>
-                    <StatusBadge status={a.status} />
+                    <StatusBadge status={a.status} label={a.statusLabel} />
                   </View>
                   <AppText variant="caption" mono muted>{a.meta}</AppText>
                 </View>
                 <AppText
                   mono variant="h3" weight="semibold"
-                  color={a.status === 'rejected' ? colors.textMuted : colors.text}
-                  style={a.status === 'rejected' ? styles.strike : null}
+                  color={a.rawStatus === 'CANCELLED' ? colors.textMuted : colors.text}
+                  style={a.rawStatus === 'CANCELLED' ? styles.strike : null}
                 >
                   {a.amount}
                 </AppText>

@@ -19,14 +19,20 @@ export default function FuelLogScreen({ navigation }) {
   const enabled = apiConfigured() && !!token;
   const { data, loading, error, refetch } = useApi(() => fuelService.listFuelLogs(), [], { enabled, fallback: [] });
 
-  // Derive header stats, trend and history from real fuel logs only. (mapping to confirm)
+  // /fuel-logs → [{ litres, rate, totalAmount, odometerReading, refuelTime,
+  //   location, fuelType, fillingType, calculatedMileage,
+  //   vehicleId: { registrationNumber, vehicleType } }]
+  // (fuelLog.service.js populates vehicleId / driverId / loggedBy.)
+  // A fuel log has no approval status — every row here is a recorded fill.
   const { plate, mileage, trend, kpis, history, isEmpty } = React.useMemo(() => {
-    const rows = Array.isArray(data) ? data : (data?.results || data?.rows || data?.items || data?.data || []);
-    const when = (f) => f.date || f.refuelTime || f.refuelDate || f.createdAt;
-    const km = (f) => Number(f.mileage ?? f.kmpl);
+    const rows = Array.isArray(data)
+      ? data
+      : (data?.results || data?.rows || data?.items || data?.data || []);
+    const when = (f) => f?.refuelTime || f?.createdAt;
+    const km = (f) => Number(f?.calculatedMileage) || 0;
     const mileageRow = rows.find((f) => km(f) > 0);
     return {
-      plate: rows[0]?.vehicle?.registrationNumber || rows[0]?.vehicleNumber || rows[0]?.plate || '—',
+      plate: rows[0]?.vehicleId?.registrationNumber || '—',
       mileage: mileageRow ? km(mileageRow).toFixed(1) : '—',
       trend: rows
         .filter((f) => km(f) > 0)
@@ -34,15 +40,21 @@ export default function FuelLogScreen({ navigation }) {
         .reverse()
         .map((f) => ({ label: when(f) ? dayjs(when(f)).format('MMM') : '', value: km(f) })),
       kpis: [
-        { label: 'Litres', value: rows.length ? String(Math.round(rows.reduce((s, f) => s + (Number(f.litres) || 0), 0))) : '—' },
-        { label: 'Spend', value: rows.length ? `₹${rows.reduce((s, f) => s + (Number(f.totalAmount ?? f.amount) || 0), 0).toLocaleString('en-IN')}` : '—' },
+        { label: 'Litres', value: rows.length ? String(Math.round(rows.reduce((n, f) => n + (Number(f?.litres) || 0), 0))) : '—' },
+        { label: 'Spend', value: rows.length ? `₹${rows.reduce((n, f) => n + (Number(f?.totalAmount) || 0), 0).toLocaleString('en-IN')}` : '—' },
         { label: 'Fills', value: rows.length ? String(rows.length) : '—' },
       ],
-      history: rows.map((f) => ({
-        litres: f.litres != null ? `${Number(f.litres).toFixed(1)} L` : '',
-        status: String(f.status || '').toLowerCase().includes('confirm') ? 'confirmed' : 'pending',
-        meta: [when(f) ? dayjs(when(f)).format('DD MMM') : null, f.station || f.location || f.pump, km(f) > 0 ? `${km(f).toFixed(1)} km/L` : null].filter(Boolean).join(' · '),
-        amount: (f.totalAmount ?? f.amount) != null ? `₹${Number(f.totalAmount ?? f.amount).toLocaleString('en-IN')}` : '',
+      history: rows.map((f, i) => ({
+        id: f?._id || String(i),
+        litres: f?.litres != null ? `${Number(f.litres).toFixed(1)} L` : '',
+        status: 'captured',
+        statusLabel: f?.fillingType || 'Captured',
+        meta: [
+          when(f) ? dayjs(when(f)).format('DD MMM') : null,
+          f?.location,
+          km(f) > 0 ? `${km(f).toFixed(1)} km/L` : null,
+        ].filter(Boolean).join(' · '),
+        amount: f?.totalAmount != null ? `₹${Number(f.totalAmount).toLocaleString('en-IN')}` : '',
       })),
       isEmpty: rows.length === 0,
     };
@@ -98,14 +110,14 @@ export default function FuelLogScreen({ navigation }) {
         ) : (
           <Card padding={0} elevated="sm" style={styles.gap}>
             {history.map((h, i) => (
-              <View key={i}>
+              <View key={h.id}>
                 {i > 0 ? <View style={styles.divider} /> : null}
                 <View style={styles.histRow}>
                   <View style={styles.histIcon}><Ionicons name="water" size={18} color={colors.primary} /></View>
                   <View style={{ flex: 1, gap: 3 }}>
                     <View style={styles.histTop}>
                       <AppText mono variant="bodyStrong" weight="semibold">{h.litres}</AppText>
-                      <StatusBadge status={h.status} />
+                      <StatusBadge status={h.status} label={h.statusLabel} />
                     </View>
                     <AppText variant="caption" mono muted>{h.meta}</AppText>
                   </View>

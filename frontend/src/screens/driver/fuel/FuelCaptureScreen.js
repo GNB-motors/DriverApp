@@ -13,7 +13,7 @@ export default function FuelCaptureScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const [photo, setPhoto] = useState(null); // fuel bill photo { uri, name, type }
   // Odometer + pump readings are confirmed on the next step; route params carry
-  // any values forwarded from an earlier OCR pass — nothing is prefilled. (mapping to confirm)
+  // any values forwarded from an earlier OCR pass — nothing is prefilled.
   const odometer = route.params?.odometer;
   const litres = route.params?.litres;
   const billCaptured = !!photo;

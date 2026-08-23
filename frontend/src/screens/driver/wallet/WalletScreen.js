@@ -62,29 +62,43 @@ export default function WalletScreen({ navigation }) {
   const pendingCount = bills.filter((b) => b.status === 'pending').length;
   const isEmpty = bills.length === 0;
 
-  // Real balance + summary chips ('—' until the API responds). (mapping to confirm)
-  const balance = summaryApi ? `₹${Number(summaryApi.balance ?? summaryApi.totalAmount ?? 0).toLocaleString('en-IN')}` : '—';
-  const heroChips = summaryApi
-    ? [
-        summaryApi.confirmedTotal != null ? `+₹${Number(summaryApi.confirmedTotal).toLocaleString('en-IN')} confirmed` : null,
-        summaryApi.advancesTotal != null ? `−₹${Number(summaryApi.advancesTotal).toLocaleString('en-IN')} advances` : null,
-      ].filter(Boolean)
-    : [];
+  // /khata/drivers/:id/summary → { totalAmount, byCategory, bySource,
+  //   byVehicle, unattributedAmount, count }. There is no confirmed/advance
+  //   split on this payload, so the chips report entry count and top category.
+  const balance = summaryApi ? `₹${Number(summaryApi.totalAmount ?? 0).toLocaleString('en-IN')}` : '—';
+  const heroChips = useMemo(() => {
+    if (!summaryApi) return [];
+    const count = Number(summaryApi.count) || 0;
+    const topCategory = Object.entries(summaryApi.byCategory || {})
+      .sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+    return [
+      count ? `${count} ${count === 1 ? 'entry' : 'entries'}` : null,
+      topCategory
+        ? `${String(topCategory[0]).replace(/_/g, ' ').toLowerCase()} ₹${Number(topCategory[1]).toLocaleString('en-IN')}`
+        : null,
+    ].filter(Boolean);
+  }, [summaryApi]);
 
-  // Ledger rows — real entries only (empty → EmptyState). (mapping to confirm)
+  // /khata/drivers/:id/ledger → { results: [{ title, amount, category,
+  //   description, expenseDate, vehicle, source }] }. Every row is money the
+  //   driver spent on the firm's behalf, so all of them are credits. The API
+  //   carries no running balance, so the row shows none.
   const ledgerRows = useMemo(() => {
-    const entries = Array.isArray(ledgerApi) ? ledgerApi : ledgerApi?.entries || ledgerApi?.results || ledgerApi?.rows || [];
-    return entries.map((e, i) => {
-      const when = e.expenseDate || e.date;
-      return {
-        id: e._id || String(i),
-        title: e.title || e.category || 'Entry',
-        meta: [when ? dayjs(when).format('DD MMM') : null, e.category].filter(Boolean).join(' · '),
-        delta: `+₹${Number(e.amount || 0).toLocaleString('en-IN')}`,
-        dir: 'credit',
-        balance: e.runningBalance != null ? `₹${Number(e.runningBalance).toLocaleString('en-IN')}` : undefined,
-      };
-    });
+    const entries = Array.isArray(ledgerApi)
+      ? ledgerApi
+      : (ledgerApi?.results || ledgerApi?.entries || ledgerApi?.rows || []);
+    return entries.map((e, i) => ({
+      id: e?._id || String(i),
+      title: e?.title || e?.category || 'Entry',
+      meta: [
+        e?.expenseDate ? dayjs(e.expenseDate).format('DD MMM') : null,
+        e?.category,
+        e?.vehicle?.registrationNumber,
+      ].filter(Boolean).join(' · '),
+      delta: `+₹${Number(e?.amount || 0).toLocaleString('en-IN')}`,
+      dir: 'credit',
+      balance: undefined,
+    }));
   }, [ledgerApi]);
 
   return (

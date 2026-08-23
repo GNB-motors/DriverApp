@@ -8,6 +8,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { apiConfigured } from '../../../services/client';
 import { useApi } from '../../../hooks/useApi';
 import documentService from '../../../services/documentService';
+import dayjs from 'dayjs';
 
 /**
  * 23 · Documents — validity at a glance.
@@ -15,7 +16,7 @@ import documentService from '../../../services/documentService';
 export default function MyDocumentsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, token } = useAuth();
-  // A driver's own docs — entityType 'USER', entityId = user._id. (mapping to confirm)
+  // A driver's own docs — entityType 'USER', entityId = user._id.
   const enabled = apiConfigured() && !!token && !!user?._id;
   const { data: docsApi, loading, error, refetch } = useApi(
     () => documentService.listDocuments('USER', user._id),
@@ -23,17 +24,34 @@ export default function MyDocumentsScreen({ navigation }) {
     { enabled, fallback: [] },
   );
 
-  // Map API documents → row shape. (mapping to confirm against live API)
+  // /documents → [{ _id, docType, expiryDate, fileKey, publicUrl, isVerified,
+  //   ocrData: { processedData, processingStatus, confidence }, createdAt }].
+  //   There is no document-number column; when OCR has read one it lands in
+  //   ocrData.processedData, so that is where the meta line looks.
   const docs = React.useMemo(() => {
-    const rows = Array.isArray(docsApi) ? docsApi : (docsApi?.results || docsApi?.rows || docsApi?.items || docsApi?.data || []);
-    return rows.map((d, i) => ({
-      id: d._id || String(i),
-      title: d.docType || d.title || 'Document',
-      status: d.expiryDate ? 'valid' : 'verified',
-      badge: undefined,
-      meta: [d.number || d.docNumber, d.expiryDate ? `valid to ${d.expiryDate}` : 'no expiry'].filter(Boolean).join(' · '),
-      ok: true,
-    }));
+    const rows = Array.isArray(docsApi)
+      ? docsApi
+      : (docsApi?.results || docsApi?.rows || docsApi?.items || docsApi?.data || []);
+    return rows.map((d, i) => {
+      const exp = d?.expiryDate ? dayjs(d.expiryDate) : null;
+      const days = exp ? exp.diff(dayjs(), 'day') : null;
+      const expired = days != null && days < 0;
+      const expiring = days != null && days >= 0 && days <= 30;
+      // Document stores OCR output under ocrData.processedData (Mixed), not `ocr`.
+      const ocr = d?.ocrData?.processedData || {};
+      const number = ocr.number || ocr.documentNumber || ocr.licenseNumber || null;
+      return {
+        id: d?._id || String(i),
+        title: String(d?.docType || 'Document').replace(/_/g, ' '),
+        status: expired ? 'rejected' : expiring ? 'expiring' : d?.isVerified ? 'verified' : 'valid',
+        badge: expired ? 'Expired' : expiring ? `${days}d left` : undefined,
+        meta: [
+          number,
+          exp ? `valid to ${exp.format('DD MMM YYYY')}` : 'no expiry',
+        ].filter(Boolean).join(' · '),
+        ok: !expired && !expiring,
+      };
+    });
   }, [docsApi]);
   const expiring = docs.filter((d) => !d.ok).length;
 

@@ -19,23 +19,33 @@ export default function RepairsScreen({ navigation }) {
   const enabled = apiConfigured() && !!token;
   const { data, loading, error, refetch } = useApi(() => maintenanceService.listMaintenance(), [], { enabled, fallback: [] });
 
-  // Map maintenance records → repair-log cards + header/KPIs. (mapping to confirm)
+  // /maintenance → [{ _id, recordType: 'SERVICE'|'REPAIR', date, workshop, type,
+  //   amount, notes, currentKm, attachments,
+  //   vehicleId: { registrationNumber, chassisNumber } }]
+  // The record has no lifecycle status — recordType is what distinguishes rows.
   const { logs, plate, spendYear } = React.useMemo(() => {
-    const rows = Array.isArray(data) ? data : (data?.results || data?.rows || data?.items || data?.data || []);
+    const rows = Array.isArray(data)
+      ? data
+      : (data?.results || data?.rows || data?.items || data?.data || []);
     const mapped = rows.map((m, i) => {
-      const st = String(m.status || '').toLowerCase();
+      const count = m?.attachments?.length || 0;
       return {
-        id: m._id || String(i),
-        title: m.type || m.workshop || 'Repair',
-        status: st.includes('workshop') || st.includes('progress') ? 'in_workshop' : 'done',
-        amount: m.amount != null ? `₹${Number(m.amount).toLocaleString('en-IN')}` : '',
-        desc: m.notes || m.workshop || '',
-        meta: [m.date ? dayjs(m.date).format('DD MMM') : null, m.odometer ? `${m.odometer} km` : null].filter(Boolean).join(' · '),
-        photos: (m.attachments?.length || m.photos?.length) ? `${m.attachments?.length || m.photos.length} photos` : 'No photo',
+        id: m?._id || String(i),
+        title: m?.type || m?.workshop || 'Repair',
+        // SERVICE is scheduled upkeep; REPAIR is a fix. Both are completed records.
+        status: m?.recordType === 'SERVICE' ? 'done' : 'confirmed',
+        statusLabel: m?.recordType === 'SERVICE' ? 'Service' : 'Repair',
+        amount: m?.amount != null ? `₹${Number(m.amount).toLocaleString('en-IN')}` : '',
+        desc: m?.notes || m?.workshop || '',
+        meta: [
+          m?.date ? dayjs(m.date).format('DD MMM') : null,
+          m?.currentKm ? `${Number(m.currentKm).toLocaleString('en-IN')} km` : null,
+        ].filter(Boolean).join(' · '),
+        photos: count ? `${count} photo${count === 1 ? '' : 's'}` : 'No photo',
       };
     });
-    const total = rows.reduce((s, m) => s + (Number(m.amount) || 0), 0);
-    const firstPlate = rows[0]?.vehicle?.registrationNumber || rows[0]?.vehicle?.plate || '';
+    const total = rows.reduce((n, m) => n + (Number(m?.amount) || 0), 0);
+    const firstPlate = rows[0]?.vehicleId?.registrationNumber || '';
     return { logs: mapped, plate: firstPlate, spendYear: total ? `₹${total.toLocaleString('en-IN')}` : '—' };
   }, [data]);
 
@@ -64,7 +74,7 @@ export default function RepairsScreen({ navigation }) {
           </Card>
           <Card elevated="sm" padding={14} style={styles.kpi}>
             <AppText variant="caption" muted>Downtime</AppText>
-            {/* downtime not exposed by the maintenance API — mapping to confirm */}
+            {/* MaintenanceRecord has no downtime field — nothing to show here yet. */}
             <AppText mono variant="h3" weight="semibold">—</AppText>
           </Card>
         </View>
@@ -80,7 +90,7 @@ export default function RepairsScreen({ navigation }) {
             <Card key={log.id} elevated="sm" padding={14} style={[styles.logCard, log.active && styles.logActive]}>
               <View style={styles.logTop}>
                 <AppText variant="bodyStrong" weight="bold">{log.title}</AppText>
-                <StatusBadge status={log.status} label={log.status === 'in_workshop' ? 'In workshop' : 'Done'} />
+                <StatusBadge status={log.status} label={log.statusLabel} />
                 <AppText mono variant="bodyStrong" weight="semibold" style={styles.amount}>{log.amount}</AppText>
               </View>
               <AppText variant="small" muted>{log.desc}</AppText>

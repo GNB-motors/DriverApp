@@ -10,7 +10,11 @@ import { AppText, Button, Card, StatusBadge, colors, spacing, radius } from '../
  */
 export default function BillSentScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { amount = '₹1,250', category = 'Other', trip = 'TR-4821', date = '04 Aug' } = route.params || {};
+  // Handed over by AddBillScreen from the created bill. AddBill does not send a
+  // trip reference, so the meta line omits it rather than inventing one.
+  const { amount, category = 'Bill', trip, date } = route.params || {};
+  const amountText = amount || '—';
+  const meta = [date, trip].filter(Boolean).join(' · ');
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.lg }]}>
@@ -24,7 +28,7 @@ export default function BillSentScreen({ navigation, route }) {
         </View>
         <AppText variant="h1" weight="extrabold" center style={styles.title}>Sent for confirmation</AppText>
         <AppText variant="body" muted center style={styles.sub}>
-          {amount} will be added to your wallet once the owner confirms this bill. Your balance has not changed yet.
+          {amountText} will be added to your wallet once the owner confirms this bill. Your balance has not changed yet.
         </AppText>
 
         <Card elevated="sm" padding={0} style={styles.receipt}>
@@ -34,8 +38,8 @@ export default function BillSentScreen({ navigation, route }) {
           </View>
           <View style={styles.receiptDivider} />
           <View style={styles.receiptRow}>
-            <AppText variant="caption" mono muted>{date} · {trip}</AppText>
-            <AppText mono variant="h3" weight="semibold">{amount}</AppText>
+            <AppText variant="caption" mono muted>{meta}</AppText>
+            <AppText mono variant="h3" weight="semibold">{amountText}</AppText>
           </View>
         </Card>
 

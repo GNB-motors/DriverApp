@@ -21,33 +21,24 @@ export default function TripDetailScreen({ navigation, route }) {
   const { data, loading, error, refetch } = useApi(() => tripService.getTrip(id), [id], { enabled, fallback: null });
 
   // Map the trip → the detail shape this screen renders.
-  // (mapping to confirm against live API)
-  const from = data?.origin?.city || data?.origin?.name || data?.source || data?.from;
-  const to = data?.destination?.city || data?.destination?.name || data?.destination || data?.to;
-  const when = data?.startDate || data?.date || data?.tripDate;
+  // /app/v1/trips/:id → one ERP trip, scoped to this driver.
   const t = data && {
-    id: data.tripNumber || data.tripNo || data.code || data._id || id || '—',
-    route: [[from, to].filter(Boolean).join(' → '), when && dayjs(when).isValid() ? dayjs(when).format('DD MMM') : null].filter(Boolean).join(' · ') || '—',
-    status: data.status || data.state || '',
-    timeline: (Array.isArray(data.timeline) ? data.timeline : data.events || data.stages || data.stops || []).map((s) => {
-      const d = s.date || s.time;
-      return {
-        title: s.title || s.name || s.label || s.location || '—',
-        meta: s.meta || [d && dayjs(d).isValid() ? dayjs(d).format('DD MMM · HH:mm') : null, s.note].filter(Boolean).join(' · '),
-        status: s.status === 'current' ? 'current' : (s.status === 'done' || s.completed || s.done) ? 'done' : 'todo',
-      };
-    }),
-    summary: Array.isArray(data.summary) ? data.summary : [
-      { label: 'Distance', value: data.distance != null ? `${data.distance} km` : '—' },
-      { label: 'Diesel filled', value: data.dieselLitres != null ? `${data.dieselLitres} L` : '—' },
-      { label: 'Advance taken', value: data.advance != null ? `₹${Number(data.advance).toLocaleString('en-IN')}` : '—' },
-      { label: 'Bills confirmed', value: data.billsConfirmed != null ? `₹${Number(data.billsConfirmed).toLocaleString('en-IN')}` : '—', color: 'success' },
+    id: data.tripNumber || (id || '—'),
+    route: [
+      [data.fromLocation, data.toLocation].filter(Boolean).join(' → '),
+      data.tripDate && dayjs(data.tripDate).isValid() ? dayjs(data.tripDate).format('DD MMM') : null,
+    ].filter(Boolean).join(' · ') || '—',
+    status: data.state || '',
+    timeline: [],
+    summary: [
+      { label: 'Vehicle', value: data.vehicleNumber || data.vehicleId?.registrationNumber || '—' },
+      { label: 'Material', value: data.material || '—' },
+      { label: 'Planned qty', value: data.plannedQty != null ? String(data.plannedQty) : '—' },
+      { label: 'Loaded qty', value: data.loadedQty != null ? String(data.loadedQty) : '—' },
+      { label: 'Distance', value: data.totalKm != null ? `${Number(data.totalKm).toLocaleString('en-IN')} km` : '—' },
+      { label: 'Party', value: data.partyId?.name || '—' },
+      { label: 'Delivery order', value: data.doId?.doNumber || '—' },
     ],
-    earning: data.earning != null ? `₹${Number(data.earning).toLocaleString('en-IN')}` : '—',
-    docs: (Array.isArray(data.docs) ? data.docs : []).map((d) => ({
-      label: d.label || d.type || d.name || 'Doc',
-      sub: d.sub || (d.count != null ? String(d.count) : ''),
-    })),
   };
 
   return (
@@ -76,10 +67,12 @@ export default function TripDetailScreen({ navigation, route }) {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}
         >
-          <Card elevated="sm" padding={16}>
-            <AppText variant="label" muted style={{ marginBottom: 12 }}>Route</AppText>
-            <Stepper steps={t.timeline} />
-          </Card>
+          {t.timeline.length ? (
+            <Card elevated="sm" padding={16}>
+              <AppText variant="label" muted style={{ marginBottom: 12 }}>Route</AppText>
+              <Stepper steps={t.timeline} />
+            </Card>
+          ) : null}
 
           <KeyValueTable style={styles.gap}>
             {t.summary.map((s) => (

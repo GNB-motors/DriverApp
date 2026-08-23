@@ -3,25 +3,22 @@ import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, Button, Card, Badge, colors, spacing, radius } from '../../../components/ui';
+import { AppText, Button, Card, colors, spacing } from '../../../components/ui';
 
 /**
  * 19 · Fuel saved — with mileage feedback.
  */
 export default function FuelSavedScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  // Success screen: values come from the previous step's route params only (no fetch). (mapping to confirm)
+  // Success screen: values are handed over by FuelEntryDetails from the create
+  // response (no fetch of its own). The fuel-log endpoint returns neither a
+  // fleet average nor a wallet projection, so neither is shown.
   const p = route.params || {};
   const pocket = (p.paidBy ?? 'My pocket') === 'My pocket';
   const litres = p.litres ?? '—';
   const totalFmt = p.totalFmt ?? '—';
-  const tripId = p.tripId ?? p.tripCode ?? '';
-  const mileage = p.mileage ?? '—';
-  const fleetAvg = p.fleetAvg ?? '—';
-  const mileageDelta = p.mileageDelta ?? '—';
-  const mileagePercent = p.mileagePercent ?? 0;
-  const walletBefore = p.walletBefore ?? '—';
-  const walletAfter = p.walletAfter ?? '—';
+  const tripId = p.tripId ?? '';
+  const mileage = p.mileage ?? null;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.lg }]}>
@@ -37,25 +34,14 @@ export default function FuelSavedScreen({ navigation, route }) {
         </AppText>
 
         {/* Mileage */}
-        <Card elevated="sm" padding={16} style={styles.card}>
-          <View style={styles.cardHead}>
-            <AppText variant="label" muted>Mileage this tank</AppText>
-            <Badge tone="valid" label={mileageDelta} />
-          </View>
-          <View style={styles.mileRow}>
-            <AppText mono weight="semibold" style={styles.bigVal}>{mileage}</AppText>
-            <AppText variant="small" mono muted>km/L · fleet avg {fleetAvg}</AppText>
-          </View>
-          <View style={styles.track}><View style={[styles.fill, { width: `${mileagePercent}%` }]} /></View>
-        </Card>
-
-        {/* Wallet projection */}
-        {pocket ? (
+        {mileage ? (
           <Card elevated="sm" padding={16} style={styles.card}>
-            <AppText variant="label" muted>Wallet after confirmation</AppText>
-            <View style={styles.walletRow}>
-              <AppText mono variant="small" muted>{walletBefore} + {totalFmt}</AppText>
-              <AppText mono weight="semibold" color={colors.success} style={styles.walletVal}>{walletAfter}</AppText>
+            <View style={styles.cardHead}>
+              <AppText variant="label" muted>Mileage this tank</AppText>
+            </View>
+            <View style={styles.mileRow}>
+              <AppText mono weight="semibold" style={styles.bigVal}>{mileage}</AppText>
+              <AppText variant="small" mono muted>km/L</AppText>
             </View>
           </Card>
         ) : null}
@@ -80,9 +66,5 @@ const styles = StyleSheet.create({
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   mileRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   bigVal: { fontSize: 28, lineHeight: 32 },
-  track: { height: 7, borderRadius: radius.full, backgroundColor: colors.border, overflow: 'hidden', marginTop: 4 },
-  fill: { height: 7, borderRadius: radius.full, backgroundColor: colors.success },
-  walletRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  walletVal: { fontSize: 20, lineHeight: 24 },
   actions: { gap: spacing.sm },
 });
