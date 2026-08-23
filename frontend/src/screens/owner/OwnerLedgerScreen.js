@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import dayjs from 'dayjs';
 import { AppText, Card, colors } from '../../components/ui';
 import OwnerShell from './OwnerShell';
 import { LedgerRow, FilterChips, SectionHeader, Loading, EmptyState } from '../../components/ui';
@@ -9,53 +10,76 @@ import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
 import ownerService from '../../services/ownerService';
 
-/** O10 · Company ledger — every movement, in order. */
+const money = (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`;
+
+/**
+ * O10 · Company ledger — every movement, in order.
+ *
+ * Uses the ERP's own vocabulary (debit / credit) rather than "money in / out":
+ * the feed mixes PARTY, VENDOR and SUPPLIER accounts, where the same credit means
+ * opposite things, so a directional label would be wrong half the time. This
+ * matches the web ErpLedger statement columns.
+ */
 export default function OwnerLedgerScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState('All');
 
-  // Company ledger — real API only.
-  const { token } = useAuth();
+  const { token, organization } = useAuth();
   const useReal = apiConfigured() && !!token;
   const { data: ledgerApi, loading: ledgerLoading, error, refetch } = useApi(
-    () => ownerService.getLedgerEntries(),
+    () => ownerService.getLedgerEntries({ limit: 100 }),
     [],
-    { enabled: useReal, fallback: [] },
+    { enabled: useReal, fallback: null },
   );
 
-  // Normalise defensively — a flat feed maps into "This week"; if the API
-  // groups rows under week/earlier we use that. Unknown fields fall back.
+  // /erp/ledger/entries → { entries: [{ entryDate, sourceLabel, narration, debit,
+  // credit, balanceAfter, accountName, accountCode }], totals: { debit, credit } }
   const l = useMemo(() => {
-    const fmt = (v) => `₹${Number(v).toLocaleString('en-IN')}`;
+    const entries = Array.isArray(ledgerApi?.entries) ? ledgerApi.entries : [];
+    const totals = ledgerApi?.totals || {};
+
     const mapRow = (e) => {
-      const amt = e?.amount ?? e?.delta;
-      const credit = /cred/i.test(String(e?.direction || e?.dir || e?.type || ''))
-        || (amt != null && Number(amt) >= 0);
-      const bal = e?.runningBalance ?? e?.balance;
+      const debit = Number(e?.debit) || 0;
+      const credit = Number(e?.credit) || 0;
+      const isCredit = credit > 0;
+      const amt = isCredit ? credit : debit;
+      const bal = e?.balanceAfter;
       return {
-        title: e?.title || e?.description || e?.narration || 'Entry', // mapping to confirm
-        meta: e?.meta || e?.remarks || e?.date || '', // mapping to confirm
-        delta: amt != null
-          ? `${credit ? '+' : '−'}₹${Math.abs(Number(amt)).toLocaleString('en-IN')}`
-          : '—',
-        dir: e?.dir || (credit ? 'credit' : 'debit'),
-        balance: bal != null ? fmt(bal) : '', // mapping to confirm
+        dir: isCredit ? 'credit' : 'debit',
+        title: e?.narration || e?.sourceLabel || e?.sourceType || 'Entry',
+        meta: [e?.accountName, e?.sourceLabel, e?.entryDate ? dayjs(e.entryDate).format('DD MMM') : null]
+          .filter(Boolean).join(' · '),
+        delta: `${isCredit ? '+' : '−'}${money(amt)}`,
+        balance: bal != null ? money(bal) : '',
+        _date: e?.entryDate,
+        _isCredit: isCredit,
       };
     };
-    const rows = Array.isArray(ledgerApi)
-      ? ledgerApi
-      : (ledgerApi?.entries || ledgerApi?.results || ledgerApi?.rows || ledgerApi?.items || ledgerApi?.data || []);
+
+    const rows = entries.map(mapRow).filter((r) => {
+      if (filter === 'Credit') return r._isCredit;
+      if (filter === 'Debit') return !r._isCredit;
+      return true;
+    });
+
+    // Split on actual dates rather than assuming the feed is one week long.
+    const weekAgo = dayjs().subtract(7, 'day');
+    const week = rows.filter((r) => r._date && dayjs(r._date).isAfter(weekAgo));
+    const earlier = rows.filter((r) => !r._date || !dayjs(r._date).isAfter(weekAgo));
+
+    const debit = Number(totals.debit) || 0;
+    const credit = Number(totals.credit) || 0;
+
     return {
-      closing: ledgerApi?.closing != null ? fmt(ledgerApi.closing)
-        : (ledgerApi?.closingBalance != null ? fmt(ledgerApi.closingBalance) : '—'), // mapping to confirm
-      moneyIn: ledgerApi?.moneyIn != null ? `In ${fmt(ledgerApi.moneyIn)}`
-        : (ledgerApi?.totalIn != null ? `In ${fmt(ledgerApi.totalIn)}` : '—'), // mapping to confirm
-      moneyOut: ledgerApi?.moneyOut != null ? `Out ${fmt(ledgerApi.moneyOut)}`
-        : (ledgerApi?.totalOut != null ? `Out ${fmt(ledgerApi.totalOut)}` : '—'), // mapping to confirm
-      week: Array.isArray(ledgerApi?.week) ? ledgerApi.week.map(mapRow) : rows.map(mapRow),
-      earlier: Array.isArray(ledgerApi?.earlier) ? ledgerApi.earlier.map(mapRow) : [], // mapping to confirm
+      net: money(credit - debit),
+      netPositive: credit - debit >= 0,
+      debit: money(debit),
+      credit: money(credit),
+      week,
+      earlier,
+      count: rows.length,
     };
-  }, [ledgerApi]);
+  }, [ledgerApi, filter]);
 
   const group = (rows) => (
     <Card padding={0} elevated="sm">
@@ -68,33 +92,50 @@ export default function OwnerLedgerScreen({ navigation }) {
     </Card>
   );
 
+  const subtitle = [organization?.companyName, dayjs().format('MMM YYYY')].filter(Boolean).join(' · ');
+
   return (
-    <OwnerShell title="Company ledger" subtitle="Sahayak Roadlines · Aug 2026" navigation={navigation} active="OwnerLedger"
-      right={<View style={styles.exportPill}><AppText variant="caption" weight="bold" muted>Export</AppText></View>}>
+    <OwnerShell title="Company ledger" subtitle={subtitle} navigation={navigation} active="OwnerLedger">
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={ledgerLoading} onRefresh={refetch} tintColor={colors.primary} />}>
         <Card elevated="sm" padding={16}>
-          <AppText variant="label" muted>Closing balance</AppText>
-          <AppText mono weight="semibold" style={styles.big}>{l.closing}</AppText>
+          <AppText variant="label" muted>Net movement</AppText>
+          <AppText weight="bold" color={l.netPositive ? colors.success : colors.error} style={styles.big}>{l.net}</AppText>
           <View style={styles.divider2} />
           <View style={styles.inout}>
-            <AppText variant="small" mono weight="semibold" color={colors.success}>{l.moneyIn}</AppText>
-            <AppText variant="small" mono weight="semibold" color={colors.error}>{l.moneyOut}</AppText>
+            <View style={{ gap: 2 }}>
+              <AppText variant="caption" muted>Credit</AppText>
+              <AppText variant="small" weight="bold" color={colors.success}>{l.credit}</AppText>
+            </View>
+            <View style={{ gap: 2, alignItems: 'flex-end' }}>
+              <AppText variant="caption" muted>Debit</AppText>
+              <AppText variant="small" weight="bold" color={colors.error}>{l.debit}</AppText>
+            </View>
           </View>
         </Card>
 
-        <FilterChips options={['All', 'Money in', 'Money out']} value={filter} onChange={setFilter} />
+        <FilterChips options={['All', 'Credit', 'Debit']} value={filter} onChange={setFilter} />
 
         {ledgerLoading ? (
           <Loading />
         ) : error ? (
           <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
-        ) : (l.week.length === 0 && l.earlier.length === 0) ? (
-          <EmptyState icon="receipt-outline" title="No ledger entries" message="Money moving in and out will show here as it happens." />
+        ) : l.count === 0 ? (
+          <EmptyState
+            icon="receipt-outline"
+            title={filter === 'All' ? 'No ledger entries' : `No ${filter.toLowerCase()} entries`}
+            message={filter === 'All'
+              ? 'Money moving in and out will show here as it happens.'
+              : 'Try a different filter.'}
+          />
         ) : (
           <>
-            <SectionHeader label="This week" />
-            {group(l.week)}
+            {l.week.length ? (
+              <>
+                <SectionHeader label="This week" />
+                {group(l.week)}
+              </>
+            ) : null}
             {l.earlier.length ? (
               <>
                 <SectionHeader label="Earlier" />
@@ -109,9 +150,8 @@ export default function OwnerLedgerScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  exportPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.background },
   scroll: { padding: 18, gap: 12 },
-  big: { fontSize: 30, lineHeight: 34, marginVertical: 4 },
+  big: { fontSize: 30, lineHeight: 36, marginVertical: 4 },
   divider2: { height: 1, backgroundColor: colors.border, marginVertical: 10 },
   inout: { flexDirection: 'row', justifyContent: 'space-between' },
   divider: { height: 1, backgroundColor: colors.border, marginHorizontal: 13 },

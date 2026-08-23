@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppText, Button, Card, colors, spacing } from '../../components/ui';
+import dayjs from 'dayjs';
+import { AppText, Card, colors, spacing } from '../../components/ui';
 import OwnerShell from './OwnerShell';
 import { Pill, FilterChips, Loading, EmptyState } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
@@ -9,12 +10,24 @@ import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
 import ownerService from '../../services/ownerService';
 
-/** O7 · Sale bills — what customers owe. */
+const money = (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`;
+
+/** Sale bill status → Pill tone + the words the web ERP uses. */
+const STATUS_META = {
+  DRAFT: { tone: 'neutral', label: 'Draft' },
+  PENDING_APPROVAL: { tone: 'pending', label: 'Pending approval' },
+  APPROVED: { tone: 'info', label: 'Approved' },
+  SUBMITTED: { tone: 'info', label: 'Submitted' },
+  PARTIALLY_PAID: { tone: 'warning', label: 'Part paid' },
+  PAID: { tone: 'success', label: 'Paid' },
+  CANCELLED: { tone: 'rejected', label: 'Cancelled' },
+};
+
+/** O7 · Sale bills — invoices raised and what's still owed against them. */
 export default function OwnerSaleBillsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState('All');
 
-  // Sale bills — real API only.
   const { token } = useAuth();
   const useReal = apiConfigured() && !!token;
   const { data: saleApi, loading: saleLoading, error, refetch } = useApi(
@@ -23,58 +36,94 @@ export default function OwnerSaleBillsScreen({ navigation }) {
     { enabled: useReal, fallback: [] },
   );
 
-  // Normalise invoices defensively; unknown fields fall back to '—'/empty.
-  const saleBills = useMemo(() => {
+  // /erp/sale-bills → [{ billNumber, billDate, partyId: { name }, netAmount,
+  // outstandingAmount, status, dueDate }]
+  const all = useMemo(() => {
     const rows = Array.isArray(saleApi)
       ? saleApi
-      : (saleApi?.results || saleApi?.rows || saleApi?.items || saleApi?.bills || saleApi?.data || []);
+      : (saleApi?.results || saleApi?.rows || saleApi?.items || saleApi?.data || []);
+    const today = dayjs();
     return rows.map((r, i) => {
-      const amt = r?.amount ?? r?.total ?? r?.value;
+      const status = r?.status || 'DRAFT';
+      const meta = STATUS_META[status] || { tone: 'neutral', label: status };
+      const outstanding = Number(r?.outstandingAmount) || 0;
+      const due = r?.dueDate ? dayjs(r.dueDate) : null;
+      const overdue = outstanding > 0 && due && due.isBefore(today, 'day') && status !== 'CANCELLED';
+      const overdueDays = overdue ? today.diff(due, 'day') : 0;
       return {
-        id: r?.invoiceNumber || r?.number || r?._id || r?.id || String(i),
-        status: r?.status || r?.state || 'neutral', // mapping to confirm
-        badge: r?.badge || r?.statusLabel || r?.status || '—', // mapping to confirm
-        amount: amt != null ? `₹${Number(amt).toLocaleString('en-IN')}` : '—',
-        customer: r?.customerName || r?.customer?.name || r?.customer || '—', // mapping to confirm
-        meta: r?.meta || r?.remarks || '', // mapping to confirm
+        key: r?._id || r?.billNumber || String(i),
+        number: r?.billNumber || '—',
+        customer: r?.partyId?.name || r?.partyName || '—',
+        net: money(r?.netAmount),
+        outstanding,
+        outstandingLabel: money(outstanding),
+        status,
+        tone: overdue ? 'rejected' : meta.tone,
+        badge: overdue ? `${overdueDays}d overdue` : meta.label,
+        overdue,
+        paid: status === 'PAID',
+        meta: [
+          r?.billDate ? dayjs(r.billDate).format('DD MMM YYYY') : null,
+          due ? `due ${due.format('DD MMM')}` : null,
+        ].filter(Boolean).join(' · '),
       };
     });
   }, [saleApi]);
 
+  const saleBills = useMemo(() => {
+    if (filter === 'Overdue') return all.filter((b) => b.overdue);
+    if (filter === 'Unpaid') return all.filter((b) => b.outstanding > 0 && b.status !== 'CANCELLED');
+    if (filter === 'Paid') return all.filter((b) => b.paid);
+    return all;
+  }, [all, filter]);
+
+  const totalOutstanding = all.reduce((s, b) => s + b.outstanding, 0);
+  const subtitle = all.length
+    ? `${all.length} ${all.length === 1 ? 'invoice' : 'invoices'} · ${money(totalOutstanding)} outstanding`
+    : '';
+
   return (
-    <OwnerShell title="Sale bills" subtitle="24 invoices · ₹4.2 L outstanding" navigation={navigation} active="OwnerSaleBills">
+    <OwnerShell title="Sale bills" subtitle={subtitle} navigation={navigation} active="OwnerSaleBills">
       <View style={{ flex: 1 }}>
         <FilterChips options={['All', 'Overdue', 'Unpaid', 'Paid']} value={filter} onChange={setFilter} style={styles.chips} />
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={saleLoading} onRefresh={refetch} tintColor={colors.primary} />}>
           {saleLoading ? (
             <Loading />
           ) : error ? (
             <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
           ) : saleBills.length === 0 ? (
-            <EmptyState icon="receipt-outline" title="No sale bills" message="Invoices you raise will appear here with what customers owe." />
+            <EmptyState
+              icon="receipt-outline"
+              title={filter === 'All' ? 'No sale bills' : `Nothing ${filter.toLowerCase()}`}
+              message={filter === 'All'
+                ? 'Invoices you raise will appear here with what customers owe.'
+                : 'Try a different filter.'}
+            />
           ) : saleBills.map((inv) => (
-            <Card key={inv.id} elevated="sm" padding={14} style={[inv.status === 'overdue' && styles.overdue]}>
+            <Card key={inv.key} elevated="sm" padding={14} style={inv.overdue && styles.overdue}>
               <View style={styles.top}>
-                <View style={styles.idRow}>
-                  <AppText mono variant="bodyStrong" weight="semibold">{inv.id}</AppText>
-                  <Pill tone={inv.status} label={inv.badge} />
+                <AppText mono variant="bodyStrong" weight="semibold" numberOfLines={1} style={{ flexShrink: 1 }}>{inv.number}</AppText>
+                <Pill tone={inv.tone} label={inv.badge} />
+              </View>
+              <AppText variant="bodyStrong" weight="bold" numberOfLines={1} style={styles.customer}>{inv.customer}</AppText>
+              <View style={styles.amounts}>
+                <View style={{ gap: 2 }}>
+                  <AppText variant="caption" muted>Bill value</AppText>
+                  <AppText variant="small" weight="semibold" color={colors.textMuted}>{inv.net}</AppText>
                 </View>
-                <AppText mono variant="bodyStrong" weight="semibold" color={inv.status === 'paid' ? colors.textMuted : colors.text}>{inv.amount}</AppText>
+                <View style={{ gap: 2, alignItems: 'flex-end' }}>
+                  <AppText variant="caption" muted>Outstanding</AppText>
+                  <AppText variant="bodyStrong" weight="bold" color={inv.paid ? colors.success : inv.overdue ? colors.error : colors.text}>
+                    {inv.outstandingLabel}
+                  </AppText>
+                </View>
               </View>
-              <AppText variant="bodyStrong" weight="bold" style={styles.customer}>{inv.customer}</AppText>
               <View style={styles.divider} />
-              <View style={styles.foot}>
-                <AppText variant="caption" mono muted>{inv.meta}</AppText>
-                <AppText variant="small" weight="bold" color={inv.status === 'overdue' ? colors.error : colors.primary}>View</AppText>
-              </View>
+              <AppText variant="caption" muted>{inv.meta}</AppText>
             </Card>
           ))}
         </ScrollView>
-
-        <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }]}>
-          <Button size="lg" icon="add" label="Raise a sale bill" onPress={() => {}} />
-        </View>
       </View>
     </OwnerShell>
   );
@@ -82,12 +131,10 @@ export default function OwnerSaleBillsScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   chips: { paddingHorizontal: 18, paddingTop: 12 },
-  scroll: { padding: 18, paddingTop: 12, gap: 10, paddingBottom: 90 },
+  scroll: { padding: 18, paddingTop: 12, gap: 10 },
   overdue: { borderWidth: 1, borderColor: '#F0CFCB' },
-  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  idRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   customer: { marginTop: 8 },
+  amounts: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 10 },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: 10 },
-  foot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 18, paddingTop: 10, backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.border },
 });

@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
 import billService from '../../services/billService';
+import approvalService from '../../services/approvalService';
 import branchService from '../../services/branchService';
 import { OWNER_NAV } from './ownerNav';
 
@@ -131,17 +132,24 @@ function OwnerSidebar({ navigation, active, onClose }) {
   const { user, organization, token, logout } = useAuth();
   const name = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || '—';
   const role = user?.role ? user.role.charAt(0) + user.role.slice(1).toLowerCase().replace(/_/g, ' ') : '';
-  const company = organization?.name || name;
+  const company = organization?.companyName || organization?.name || name;
   const subline = [name !== company ? name : null, role].filter(Boolean).join(' · ');
 
-  // Live "bills to approve" count for the Approvals sidebar badge (fetched when
-  // the drawer opens, since this component only mounts then).
+  // Live count for the Approvals sidebar badge (fetched when the drawer opens,
+  // since this component only mounts then). The Approvals screen is one inbox over
+  // two queues, so the badge sums both — ERP exceptions and driver bills.
+  const enabled = apiConfigured() && !!token;
   const { data: pendingData } = useApi(
     () => billService.listBills({ status: 'PENDING' }),
     [],
-    { enabled: apiConfigured() && !!token, fallback: null },
+    { enabled, fallback: null },
   );
-  const pendingBills = pendingCountOf(pendingData);
+  const { data: pendingErpData } = useApi(
+    () => approvalService.getApprovalsSummary(),
+    [],
+    { enabled, fallback: null },
+  );
+  const pendingBills = pendingCountOf(pendingData) + (Number(pendingErpData?.total) || 0);
   const confirmLogout = () => Alert.alert('Log out?', 'You will need to sign in again.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Log out', style: 'destructive', onPress: logout }]);
   const go = (key) => {
     onClose();

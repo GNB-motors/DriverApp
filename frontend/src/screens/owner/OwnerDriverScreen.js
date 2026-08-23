@@ -2,22 +2,44 @@ import React, { useMemo } from 'react';
 import { usePreventScreenCapture } from 'expo-screen-capture';
 import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppText, Button, Card, WarningBanner, Loading, EmptyState, colors, spacing } from '../../components/ui';
-import { BackHeader, Pill, LedgerRow, SectionHeader, toneColor } from '../../components/ui';
+import dayjs from 'dayjs';
+import { AppText, Card, Loading, EmptyState, colors } from '../../components/ui';
+import { BackHeader, LedgerRow, SectionHeader } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
 import walletService from '../../services/walletService';
 
-/** O6 · Driver account — settle up. */
+const money = (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`;
+
+/** Turn a { CATEGORY: amount } map into sorted rows with readable labels. */
+const breakdownRows = (map) =>
+  Object.entries(map || {})
+    .filter(([, v]) => Number(v))
+    .sort((a, b) => Number(b[1]) - Number(a[1]))
+    .map(([key, value]) => ({
+      label: key.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase()),
+      value: money(value),
+    }));
+
+/**
+ * O6 · Driver account — what the business owes one driver.
+ *
+ * Read-only: the khata API exposes GET routes only (khata.routes.js), so there is
+ * no settle or advance-payout call to make from here. Settlement happens in the
+ * back office; this screen is the statement.
+ */
 export default function OwnerDriverScreen({ navigation, route }) {
   usePreventScreenCapture(); // block screenshots/recording of driver settlement/PII
   const insets = useSafeAreaInsets();
 
-  // Driver ledger + balance summary — real API only, keyed by the driver id
-  // resolved from the route params.
   const { token } = useAuth();
   const driverId = route?.params?.driverId || route?.params?.id || null;
+  // The list screen already knows the name; passing it avoids a blank header,
+  // since the khata summary payload carries figures only.
+  const passedName = route?.params?.name || '';
+  const passedMeta = route?.params?.mobile || '';
+
   const useReal = apiConfigured() && !!token && !!driverId;
   const { data: summaryApi, loading: summaryLoading, error, refetch: refetchSummary } = useApi(
     () => walletService.getDriverSummary(driverId),
@@ -25,47 +47,47 @@ export default function OwnerDriverScreen({ navigation, route }) {
     { enabled: useReal, fallback: null },
   );
   const { data: ledgerApi, loading: ledgerLoading, refetch: refetchLedger } = useApi(
-    () => walletService.getDriverLedger(driverId),
+    () => walletService.getDriverLedger(driverId, { limit: 100 }),
     [driverId],
     { enabled: useReal, fallback: null },
   );
   const loading = useReal && (summaryLoading || ledgerLoading);
   const onRefresh = () => { refetchSummary(); refetchLedger(); };
 
-  // Map the summary + ledger into the existing UI shape defensively; missing
-  // fields fall back to '—'/0. (mapping to confirm)
+  // /khata/drivers/:id/summary → { totalAmount, byCategory, bySource, byVehicle,
+  //                                unattributedAmount, count }
+  // /khata/drivers/:id/ledger  → { results: [{ title, amount, category,
+  //                                description, expenseDate, vehicle, source }] }
   const d = useMemo(() => {
     const s = summaryApi || {};
-    const inr = (n, sign = '') =>
-      n == null ? '—' : `${sign}₹${Math.abs(Number(n)).toLocaleString('en-IN')}`;
-    const owe = s.balance ?? s.owe ?? s.netBalance ?? s.amount;
     const raw = Array.isArray(ledgerApi)
       ? ledgerApi
-      : (ledgerApi?.entries || ledgerApi?.results || ledgerApi?.rows || []);
-    const ledger = raw.map((e) => {
-      const amt = e.amount ?? e.delta;
-      const credit = /cred/i.test(String(e.direction || e.dir || e.type || ''))
-        || (amt != null && Number(amt) >= 0);
-      const bal = e.runningBalance ?? e.balance;
-      return {
-        title: e.title || e.category || e.description || '—',
-        meta: e.meta || e.remarks || '',
-        delta: amt != null
-          ? `${credit ? '+' : '−'}₹${Math.abs(Number(amt)).toLocaleString('en-IN')}`
-          : '—',
-        dir: e.dir || (credit ? 'credit' : 'debit'),
-        balance: bal != null ? `₹${Number(bal).toLocaleString('en-IN')}` : undefined,
-      };
-    });
+      : (ledgerApi?.results || ledgerApi?.entries || ledgerApi?.rows || []);
+
+    // Every khata row is money the driver spent on the firm's behalf, so each one
+    // increases what he is owed — always a credit.
+    const ledger = raw.map((e, i) => ({
+      key: e?._id || String(i),
+      dir: 'credit',
+      title: e?.title || e?.category || e?.description || 'Expense',
+      meta: [
+        e?.category,
+        e?.vehicle?.registrationNumber,
+        e?.expenseDate ? dayjs(e.expenseDate).format('DD MMM') : null,
+      ].filter(Boolean).join(' · '),
+      delta: `+${money(e?.amount)}`,
+      balance: '',
+    }));
+
+    const unattributed = Number(s.unattributedAmount) || 0;
+
     return {
-      name: s.driverName || s.name || '—',
-      plate: s.vehicleNumber || s.plate || '—',
-      owe: inr(owe),
-      breakdown: [
-        { label: 'Confirmed bills', value: inr(s.confirmedTotal, '+'), color: 'success' },
-        { label: 'Advances paid', value: inr(s.advancesTotal, '−'), color: 'error' },
-        { label: 'Pending confirmation', value: inr(s.pendingTotal ?? s.pending), color: 'warning' },
-      ],
+      owe: money(s.totalAmount),
+      count: Number(s.count) || 0,
+      byCategory: breakdownRows(s.byCategory),
+      byVehicle: breakdownRows(s.byVehicle),
+      unattributed,
+      unattributedLabel: money(unattributed),
       ledger,
     };
   }, [summaryApi, ledgerApi]);
@@ -75,8 +97,12 @@ export default function OwnerDriverScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      <BackHeader title={d.name} subtitle={d.plate} onBack={() => navigation.goBack()} right={<Pill tone="success" label="Active" />} />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
+      <BackHeader
+        title={passedName || 'Driver account'}
+        subtitle={passedMeta || (d.count ? `${d.count} ${d.count === 1 ? 'entry' : 'entries'}` : '')}
+        onBack={() => navigation.goBack()}
+      />
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {loading ? (
           <Loading />
@@ -86,43 +112,59 @@ export default function OwnerDriverScreen({ navigation, route }) {
           <EmptyState
             icon="wallet-outline"
             title={driverId ? 'Nothing to settle' : 'No driver selected'}
-            message={driverId ? 'This driver has no bills or advances yet.' : 'Open a driver from the Money screen to settle up.'}
+            message={driverId ? 'This driver has no bills or advances yet.' : 'Open a driver from the Money screen to see their account.'}
           />
         ) : (
           <>
             <Card elevated="sm" padding={16}>
               <AppText variant="label" muted>You owe him</AppText>
-              <AppText mono weight="semibold" style={styles.big}>{d.owe}</AppText>
-              <View style={styles.divider} />
-              {d.breakdown.map((b) => (
-                <View key={b.label} style={styles.kv}>
-                  <AppText variant="small" muted>{b.label}</AppText>
-                  <AppText mono variant="bodyStrong" weight="semibold" color={toneColor(b.color)}>{b.value}</AppText>
-                </View>
-              ))}
+              <AppText weight="bold" style={styles.big}>{d.owe}</AppText>
+              {d.byCategory.length ? (
+                <>
+                  <View style={styles.divider} />
+                  {d.byCategory.map((b) => (
+                    <View key={b.label} style={styles.kv}>
+                      <AppText variant="small" muted>{b.label}</AppText>
+                      <AppText variant="bodyStrong" weight="semibold">{b.value}</AppText>
+                    </View>
+                  ))}
+                </>
+              ) : null}
+              {d.unattributed > 0 ? (
+                <AppText variant="caption" color={colors.warning} style={styles.note}>
+                  {d.unattributedLabel} not attributed to a vehicle
+                </AppText>
+              ) : null}
             </Card>
+
+            {d.byVehicle.length ? (
+              <Card elevated="sm" padding={16}>
+                <SectionHeader label="By vehicle" />
+                <View style={{ marginTop: 4 }}>
+                  {d.byVehicle.map((b) => (
+                    <View key={b.label} style={styles.kv}>
+                      <AppText variant="small" muted>{b.label}</AppText>
+                      <AppText variant="bodyStrong" weight="semibold">{b.value}</AppText>
+                    </View>
+                  ))}
+                </View>
+              </Card>
+            ) : null}
 
             <SectionHeader label="Ledger" />
             <Card padding={0} elevated="sm">
               {d.ledger.length === 0 ? (
                 <EmptyState icon="receipt-outline" title="No ledger entries yet" />
               ) : d.ledger.map((e, i) => (
-                <View key={e.title}>
+                <View key={e.key}>
                   {i > 0 ? <View style={styles.rowDivider} /> : null}
                   <LedgerRow item={e} />
                 </View>
               ))}
             </Card>
-
-            <WarningBanner tone="info" message="Settling records a payout and resets his wallet to zero. The pending ₹1,250 stays out of it until you confirm that bill." />
           </>
         )}
       </ScrollView>
-
-      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Button variant="secondary" size="lg" label="Pay advance" style={{ flex: 1 }} onPress={() => {}} />
-        <Button size="lg" label={`Settle ${d.owe}`} style={{ flex: 1.3 }} onPress={() => navigation.goBack()} />
-      </View>
     </View>
   );
 }
@@ -130,9 +172,9 @@ export default function OwnerDriverScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: 20, gap: 12 },
-  big: { fontSize: 32, lineHeight: 36, marginVertical: 4 },
+  big: { fontSize: 32, lineHeight: 38, marginVertical: 4 },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: 10 },
   kv: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 },
   rowDivider: { height: 1, backgroundColor: colors.border, marginHorizontal: 13 },
-  footer: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 12, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border },
+  note: { marginTop: 10 },
 });
