@@ -8,7 +8,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -63,9 +62,6 @@
         }
       ]
     ],
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
     "extra": {
       "eas": {
         "projectId": "52c37263-1c8b-4f7b-b086-e58d7d6648ef"
