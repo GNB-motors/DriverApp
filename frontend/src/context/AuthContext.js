@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { requestDriverOtp, verifyDriverOtp } from '../services/api';
+import { requestDriverOtp, verifyDriverOtp, loginWithPassword } from '../services/api';
 import logger from '../utils/logger';
 
 const AuthContext = createContext();
@@ -89,6 +89,31 @@ export function AuthProvider({ children }) {
     return true;
   };
 
+  // Phone/email + password login (all roles) against POST /auth/login.
+  const login = async (emailOrMobile, password) => {
+    const result = await loginWithPassword(emailOrMobile, password);
+    const { user: loggedInUser, token: jwt, organization: org } = result;
+    const newIdentity = `${loggedInUser._id}:${loggedInUser.orgId}`;
+
+    const prevIdentity = await AsyncStorage.getItem(STORAGE_KEY_IDENTITY);
+    if (prevIdentity && prevIdentity !== newIdentity) {
+      await wipePerAccountState();
+    }
+
+    await Promise.all([
+      AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(loggedInUser)),
+      AsyncStorage.setItem(STORAGE_KEY_TOKEN, jwt),
+      AsyncStorage.setItem(STORAGE_KEY_IDENTITY, newIdentity),
+    ]);
+
+    setUser(loggedInUser);
+    setToken(jwt);
+    setOrg(org);
+    setIsNewLogin(true);
+    logger.info('Auth', `Password login success — role=${loggedInUser.role} id=${loggedInUser._id}`);
+    return true;
+  };
+
   const logout = async () => {
     await Promise.all([
       AsyncStorage.removeItem(STORAGE_KEY_USER),
@@ -104,7 +129,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, organization, loading, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, logout }}>
+    <AuthContext.Provider value={{ user, token, organization, loading, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

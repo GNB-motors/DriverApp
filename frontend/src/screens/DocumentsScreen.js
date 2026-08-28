@@ -155,7 +155,7 @@ export default function DocumentsScreen({ route, navigation }) {
             {expiredCount > 0 && (
               <View style={styles.alert}>
                 <Ionicons name="alert-circle" size={19} color={colors.expiredText} style={{ marginTop: 1 }} />
-                <AppText variant="small" weight="semibold" color="#A6291F" style={{ flex: 1 }}>
+                <AppText variant="small" weight="semibold" color="#BB2626" style={{ flex: 1 }}>
                   {expiredCount} document{expiredCount === 1 ? '' : 's'} expired. Renew to stay compliant.
                 </AppText>
               </View>
@@ -260,13 +260,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     marginBottom: 12,
-    shadowColor: '#102824',
+    shadowColor: '#0A1024',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
   },
-  docCardExpired: { borderWidth: 1.5, borderColor: '#F3CFCB' },
+  docCardExpired: { borderWidth: 1.5, borderColor: '#F0CFCB' },
   docIcon: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   viewBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
 

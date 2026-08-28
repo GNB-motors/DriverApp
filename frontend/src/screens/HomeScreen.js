@@ -197,7 +197,7 @@ export default function HomeScreen({ navigation }) {
           <AppText variant="h3" weight="extrabold" numberOfLines={1}>{driverName}</AppText>
         </View>
         <Pressable style={styles.bell} hitSlop={8}>
-          <Ionicons name="notifications-outline" size={21} color="#3C4C47" />
+          <Ionicons name="notifications-outline" size={21} color="#5D5D5E" />
           <View style={styles.bellDot} />
         </Pressable>
       </View>
@@ -231,7 +231,7 @@ export default function HomeScreen({ navigation }) {
 
         {/* ── Hero: Start Refuel ── */}
         <LinearGradient
-          colors={['#1AA28E', '#0C5A50']}
+          colors={['#2F58EE', '#213EA7']}
           start={{ x: 0.1, y: 0 }}
           end={{ x: 0.9, y: 1 }}
           style={styles.hero}
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#102824',
+    shadowColor: '#0A1024',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     padding: 20,
     overflow: 'hidden',
-    shadowColor: '#0C5A50',
+    shadowColor: '#213EA7',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.4,
     shadowRadius: 24,
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: 14,
-    shadowColor: '#102824',
+    shadowColor: '#0A1024',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,

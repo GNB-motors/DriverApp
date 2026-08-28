@@ -1,14 +1,14 @@
 import React from 'react';
 import { Text } from 'react-native';
-import { colors, typography, bodyFont, monoFont } from '../../theme/tokens';
+import { colors, typography, bodyFont, headingFont, monoFont } from '../../theme/tokens';
 import { useLanguage } from '../../context/LanguageContext';
 
 /**
  * AppText — the typographic primitive.
  *
  * Picks the correct font family for the active script automatically
- * (Latin → Plus Jakarta Sans, हिन्दी → Hind, বাংলা → Hind Siliguri),
- * unless `mono` is set (Spline Sans Mono — for plates, ₹, litres, odometer).
+ * (Latin → Inter for body / DM Sans for headings, हिन्दी → Hind, বাংলা → Hind Siliguri),
+ * unless `mono` is set (DM Mono — for plates, ₹, litres, odometer).
  *
  *   <AppText variant="h2">Section</AppText>
  *   <AppText mono weight="semibold">MH 12 AB 1234</AppText>
@@ -36,7 +36,12 @@ export default function AppText({
   const { language } = useLanguage();
   const t = typography[variant] || typography.body;
   const w = weight || t.weight;
-  const family = mono ? monoFont(w) : bodyFont(language, w);
+  const isHeading = variant === 'display' || variant === 'h1' || variant === 'h2' || variant === 'h3';
+  const family = mono
+    ? monoFont(w)
+    : isHeading
+    ? headingFont(language, w)
+    : bodyFont(language, w);
 
   const resolved = {
     fontFamily: family,

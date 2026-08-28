@@ -72,7 +72,7 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.logoutIcon}>
             <Ionicons name="log-out-outline" size={20} color={colors.error} />
           </View>
-          <AppText variant="bodyStrong" weight="bold" color="#C42820" style={{ flex: 1 }}>{t('profile', 'logout')}</AppText>
+          <AppText variant="bodyStrong" weight="bold" color="#BB2626" style={{ flex: 1 }}>{t('profile', 'logout')}</AppText>
           <Ionicons name="chevron-forward" size={19} color="#E0978F" />
         </Pressable>
       </ScrollView>
@@ -94,7 +94,7 @@ function SettingsGroup({ rows }) {
           </View>
           <AppText variant="bodyStrong" weight="bold" style={{ flex: 1 }}>{r.label}</AppText>
           {r.value ? <AppText variant="small" weight="semibold" muted style={{ marginRight: 6 }}>{r.value}</AppText> : null}
-          <Ionicons name="chevron-forward" size={19} color="#B7C3BF" />
+          <Ionicons name="chevron-forward" size={19} color="#B4B4BC" />
         </Pressable>
       ))}
     </View>
@@ -134,14 +134,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 18,
-    shadowColor: '#102824',
+    shadowColor: '#0A1024',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 15 },
-  rowDivider: { borderBottomWidth: 1, borderBottomColor: '#F0F3F1' },
+  rowDivider: { borderBottomWidth: 1, borderBottomColor: '#F0EEF6' },
   rowIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.tealTint, alignItems: 'center', justifyContent: 'center' },
 
   logout: {

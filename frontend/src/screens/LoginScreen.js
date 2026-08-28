@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -18,55 +18,16 @@ import { useLanguage } from '../context/LanguageContext';
 import BrandMark from '../Assets/BrandMark';
 import { AppText, Button, colors, spacing, radius, fontFamily } from '../components/ui';
 
-// ── Step indicator ──────────────────────────────────────────────────────
-function StepDots({ step }) {
-  return (
-    <View style={styles.stepRow}>
-      {[1, 2].map((s) => (
-        <View key={s} style={[styles.stepDot, step === s && styles.stepDotActive]} />
-      ))}
-    </View>
-  );
-}
-
-// ── OTP input (6 boxes) ─────────────────────────────────────────────────
-function OtpInput({ value, onChange }) {
-  const inputRef = useRef(null);
-  const digits = value.padEnd(6, ' ').split('');
-
-  return (
-    <Pressable onPress={() => inputRef.current?.focus()} style={{ position: 'relative' }}>
-      <TextInput
-        ref={inputRef}
-        value={value}
-        onChangeText={(t) => onChange(t.replace(/[^0-9]/g, '').slice(0, 6))}
-        keyboardType="number-pad"
-        maxLength={6}
-        style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }}
-        autoFocus
-      />
-      <View style={styles.otpRow}>
-        {digits.map((d, i) => (
-          <View key={i} style={[styles.otpBox, value.length === i && styles.otpBoxActive]}>
-            <AppText mono weight="bold" style={styles.otpDigit}>{d.trim()}</AppText>
-          </View>
-        ))}
-      </View>
-    </Pressable>
-  );
-}
-
 // ── Main screen ─────────────────────────────────────────────────────────
 export default function LoginScreen() {
-  const [step, setStep] = useState(1);
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [normalisedPhone, setNormalisedPhone] = useState('');
-  const [otp, setOtp] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const insets = useSafeAreaInsets();
-  const { sendOtp, verifyOtp } = useAuth();
+  const { login } = useAuth();
   const { language, setLanguage, t } = useLanguage();
 
   const lt = (key) => {
@@ -77,12 +38,9 @@ export default function LoginScreen() {
       subtitle: 'Driver Portal Login',
       phoneLabel: 'ENTER PHONE NUMBER',
       phonePlaceholder: '00000 00000',
-      sendOtpButton: 'Send OTP',
-      otpLabel: 'ENTER OTP',
-      otpSubtitle: 'sent to',
-      verifyButton: 'Verify & Login',
-      resend: 'Resend OTP',
-      changeNumber: 'Change Number',
+      passwordLabel: 'ENTER PASSWORD',
+      passwordPlaceholder: 'Your password',
+      loginButton: 'Login',
       help: 'Help / Login Issues?',
       secureAccess: 'SECURE DRIVER ACCESS',
       support: 'SUPPORT',
@@ -103,43 +61,20 @@ export default function LoginScreen() {
     if (cleaned.length <= 10) setPhoneNumber(cleaned);
   };
 
-  const handleSendOtp = async () => {
-    if (phoneNumber.length < 10) return;
-    setError('');
-    setLoading(true);
-    try {
-      const normalised = await sendOtp(phoneNumber);
-      setNormalisedPhone(normalised);
-      setStep(2);
-    } catch (err) {
-      setError(err.message || 'Failed to send OTP. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const canSubmit = phoneNumber.length === 10 && password.length >= 1;
 
-  const handleVerifyOtp = async () => {
-    if (otp.length < 6) return;
+  const handleLogin = async () => {
+    if (!canSubmit) return;
     setError('');
     setLoading(true);
     try {
-      await verifyOtp(normalisedPhone, otp);
+      // Backend matches on email OR mobileNumber; the OTP flow stores numbers as
+      // +91XXXXXXXXXX, so normalise the same way for password login.
+      const emailOrMobile = `+91${phoneNumber}`;
+      await login(emailOrMobile, password);
     } catch (err) {
-      setError(err.message || 'Invalid OTP. Please try again.');
-      setOtp('');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    setError('');
-    setOtp('');
-    setLoading(true);
-    try {
-      await sendOtp(phoneNumber);
-    } catch (err) {
-      setError(err.message || 'Failed to resend OTP.');
+      setError(err.message || 'Incorrect phone or password. Please try again.');
+      setPassword('');
     } finally {
       setLoading(false);
     }
@@ -184,76 +119,59 @@ export default function LoginScreen() {
 
         {/* ── White card overlapping header ── */}
         <View style={[styles.card, { paddingBottom: insets.bottom + 60 }]}>
-          <StepDots step={step} />
+          {/* Phone number */}
+          <AppText variant="label" muted style={styles.label}>{lt('phoneLabel')}</AppText>
+          <View style={styles.phoneField}>
+            <AppText mono weight="bold" color={colors.primary} style={styles.countryCode}>+91</AppText>
+            <View style={styles.fieldDivider} />
+            <TextInput
+              style={styles.phoneInput}
+              placeholder={lt('phonePlaceholder')}
+              placeholderTextColor={colors.textMuted}
+              value={formatPhone(phoneNumber)}
+              onChangeText={handlePhoneChange}
+              keyboardType="phone-pad"
+              maxLength={11}
+              editable={!loading}
+              returnKeyType="next"
+            />
+          </View>
 
-          {step === 1 ? (
-            <>
-              <AppText variant="label" muted style={styles.label}>{lt('phoneLabel')}</AppText>
-              <View style={styles.phoneField}>
-                <AppText mono weight="bold" color={colors.primary} style={styles.countryCode}>+91</AppText>
-                <View style={styles.fieldDivider} />
-                <TextInput
-                  style={styles.phoneInput}
-                  placeholder={lt('phonePlaceholder')}
-                  placeholderTextColor={colors.textMuted}
-                  value={formatPhone(phoneNumber)}
-                  onChangeText={handlePhoneChange}
-                  keyboardType="phone-pad"
-                  maxLength={11}
-                  editable={!loading}
-                />
-              </View>
+          {/* Password */}
+          <AppText variant="label" muted style={styles.label}>{lt('passwordLabel')}</AppText>
+          <View style={styles.phoneField}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder={lt('passwordPlaceholder')}
+              placeholderTextColor={colors.textMuted}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!loading}
+              onSubmitEditing={handleLogin}
+              returnKeyType="go"
+            />
+            <Pressable onPress={() => setShowPassword((s) => !s)} hitSlop={8} style={styles.eyeBtn}>
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
+            </Pressable>
+          </View>
 
-              {error ? (
-                <AppText variant="small" weight="semibold" color={colors.error} center style={styles.error}>
-                  {error}
-                </AppText>
-              ) : null}
+          {error ? (
+            <AppText variant="small" weight="semibold" color={colors.error} center style={styles.error}>
+              {error}
+            </AppText>
+          ) : null}
 
-              <Button
-                label={lt('sendOtpButton')}
-                iconRight="arrow-forward"
-                onPress={handleSendOtp}
-                loading={loading}
-                disabled={phoneNumber.length < 10 || loading}
-                size="lg"
-              />
-            </>
-          ) : (
-            <>
-              <AppText variant="label" muted style={styles.label}>{lt('otpLabel')}</AppText>
-              <AppText variant="small" muted style={styles.otpSubtitle}>
-                {lt('otpSubtitle')} {normalisedPhone}
-              </AppText>
-              <View style={{ marginTop: 12, marginBottom: 18 }}>
-                <OtpInput value={otp} onChange={setOtp} />
-              </View>
-
-              {error ? (
-                <AppText variant="small" weight="semibold" color={colors.error} center style={styles.error}>
-                  {error}
-                </AppText>
-              ) : null}
-
-              <Button
-                label={lt('verifyButton')}
-                iconRight="checkmark"
-                onPress={handleVerifyOtp}
-                loading={loading}
-                disabled={otp.length < 6 || loading}
-                size="lg"
-              />
-
-              <View style={styles.linkRow}>
-                <Pressable onPress={handleResend} disabled={loading} hitSlop={8}>
-                  <AppText variant="small" weight="bold" color={colors.primary}>{lt('resend')}</AppText>
-                </Pressable>
-                <Pressable onPress={() => { setStep(1); setOtp(''); setError(''); }} disabled={loading} hitSlop={8}>
-                  <AppText variant="small" weight="bold" color={colors.primary}>{lt('changeNumber')}</AppText>
-                </Pressable>
-              </View>
-            </>
-          )}
+          <Button
+            label={lt('loginButton')}
+            iconRight="arrow-forward"
+            onPress={handleLogin}
+            loading={loading}
+            disabled={!canSubmit || loading}
+            size="lg"
+          />
 
           {/* Help link */}
           <Pressable hitSlop={8} style={styles.helpWrap}>
@@ -363,7 +281,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   countryCode: { fontSize: 16 },
-  fieldDivider: { width: 1, height: 22, backgroundColor: '#D8E0DD' },
+  fieldDivider: { width: 1, height: 22, backgroundColor: '#D8D8DE' },
   phoneInput: {
     flex: 1,
     fontFamily: fontFamily.mono.medium,
@@ -372,6 +290,14 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     padding: 0,
   },
+  passwordInput: {
+    flex: 1,
+    fontFamily: fontFamily.display.medium,
+    fontSize: 16,
+    color: colors.text,
+    padding: 0,
+  },
+  eyeBtn: { padding: 2 },
 
   // OTP
   otpSubtitle: { marginTop: 2 },
@@ -426,7 +352,7 @@ const styles = StyleSheet.create({
     marginTop: 280,
     fontSize: 34,
     letterSpacing: 4,
-    color: '#E7ECEA',
+    color: '#ECECEE',
     textAlign: 'center',
     fontWeight: '800',
   },

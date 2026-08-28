@@ -124,6 +124,13 @@ export async function verifyDriverOtp(mobileNumber, otp) {
   return res.data?.data;
 }
 
+// Phone/email + password login (all roles). Backend: POST /auth/login
+// → { status, data: { user, token, organization } }
+export async function loginWithPassword(emailOrMobile, password) {
+  const res = await apiClient.post('/auth/login', { emailOrMobile, password });
+  return res.data?.data ?? res.data;
+}
+
 // ── Vehicles ───────────────────────────────────────────────────────────
 
 export async function fetchVehicles(token, limit = 100) {

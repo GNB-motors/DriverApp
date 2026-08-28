@@ -131,7 +131,7 @@ export default function FuelHistoryScreen({ navigation }) {
                 onPress={() => setFilter(f.key)}
                 style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}
               >
-                <AppText variant="small" weight={active ? 'bold' : 'semibold'} color={active ? colors.white : '#566661'}>
+                <AppText variant="small" weight={active ? 'bold' : 'semibold'} color={active ? colors.white : '#5D5D5E'}>
                   {f.label}
                 </AppText>
               </Pressable>
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 13,
     marginBottom: 11,
-    shadowColor: '#102824',
+    shadowColor: '#0A1024',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,

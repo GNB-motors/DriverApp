@@ -27,14 +27,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 const { height } = Dimensions.get('window');
 
 const COLORS = {
-  primary: '#429690',
-  primaryDark: '#2F7E79',
+  primary: '#4469F0',
+  primaryDark: '#213EA7',
   white: '#FFFFFF',
-  background: '#F8FAFA',
+  background: '#F3F3F6',
   textDark: '#222222',
   textMuted: '#888888',
-  border: '#E8EEEE',
-  surface: '#F1F5F5',
+  border: '#E6E6EB',
+  surface: '#F0EEF6',
   cardBg: 'rgba(66, 150, 144, 0.08)',
   selectedBg: 'rgba(66, 150, 144, 0.12)',
   disabledBg: '#D0D8D8',

@@ -2,12 +2,12 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { FuelIcon } from './NavIcons';
 import { storage } from '../utils/storage';
 import { SELECTED_VEHICLE_KEY } from '../screens/VehicleScreen';
 import { AppText, colors } from '../components/ui';
 
-const INACTIVE = '#A7B4AF';
+const INACTIVE = '#93939A';
 
 /**
  * FloatingTabBar — the rounded floating tab bar from the dashboard design.
@@ -48,7 +48,7 @@ export default function FloatingTabBar({ state, descriptors, navigation, showFab
     return (
       <Pressable key={route.key} style={styles.tab} onPress={onPress} hitSlop={6}>
         {options.tabBarIcon ? options.tabBarIcon({ focused, color, size: 22 }) : null}
-        <AppText weight={focused ? 'bold' : 'semibold'} color={color} style={styles.label}>
+        <AppText weight={focused ? 'bold' : 'semibold'} color={focused ? colors.primaryDeep : color} style={styles.label}>
           {label}
         </AppText>
       </Pressable>
@@ -76,12 +76,12 @@ export default function FloatingTabBar({ state, descriptors, navigation, showFab
       {showFab ? (
         <Pressable style={styles.fab} onPress={handleRefuel} accessibilityRole="button" accessibilityLabel="Start refuel">
           <LinearGradient
-            colors={['#1AA28E', '#0C5A50']}
+            colors={colors.gradient}
             start={{ x: 0.1, y: 0 }}
             end={{ x: 0.9, y: 1 }}
             style={styles.fabGradient}
           >
-            <Ionicons name="water" size={26} color={colors.white} />
+            <FuelIcon size={26} color={colors.white} />
           </LinearGradient>
         </Pressable>
       ) : null}
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 24,
     paddingHorizontal: 14,
-    shadowColor: '#102824',
+    shadowColor: '#0A1024',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.18,
     shadowRadius: 24,
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    shadowColor: '#0C5A50',
+    shadowColor: '#213EA7',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.5,
     shadowRadius: 16,

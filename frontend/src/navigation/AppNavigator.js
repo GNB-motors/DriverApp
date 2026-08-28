@@ -1,7 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
+import { NAV_ICONS } from './NavIcons';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import SplashScreen from '../components/ui/SplashScreen';
@@ -29,13 +29,9 @@ import RefuelSuccessScreen from '../screens/RefuelSuccessScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const tabIcon = (routeName) => ({ focused, color, size }) => {
-  let iconName;
-  if (routeName === 'Home') iconName = focused ? 'home' : 'home-outline';
-  else if (routeName === 'Repairs') iconName = focused ? 'build' : 'build-outline';
-  else if (routeName === 'Documents') iconName = focused ? 'document-text' : 'document-text-outline';
-  else if (routeName === 'Profile') iconName = focused ? 'person' : 'person-outline';
-  return <Ionicons name={iconName} size={size} color={color} />;
+const tabIcon = (routeName) => ({ color, size }) => {
+  const Icon = NAV_ICONS[routeName] || NAV_ICONS.Home;
+  return <Icon size={size} color={color} />;
 };
 
 // Driver: Home · Repairs · [Refuel FAB] · Docs · Profile

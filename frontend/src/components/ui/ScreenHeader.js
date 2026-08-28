@@ -7,7 +7,7 @@ import { colors, radius, spacing } from '../../theme/tokens';
 import AppText from './AppText';
 
 /**
- * ScreenHeader — the teal gradient header (linear-gradient(165deg,#1AA28E,#0C5A50)).
+ * ScreenHeader — the Nova blue gradient header (linear-gradient(#213EA7,#2F58EE,#4469F0)).
  * Handles the status-bar inset itself.
  *
  *   <ScreenHeader title="Documents" subtitle="Step 2 of 3" onBack={() => nav.goBack()} />

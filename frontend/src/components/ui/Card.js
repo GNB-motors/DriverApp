@@ -7,7 +7,7 @@ import { colors, radius, spacing, elevation } from '../../theme/tokens';
  *
  *   <Card>…</Card>
  *   <Card elevated="md" onPress={…} />
- *   <Card variant="tinted" />   // teal-tint background, no border
+ *   <Card variant="tinted" />   // blue-tint background, no border
  *
  * Props: variant (surface|tinted|outline), elevated (none|sm|md|lg),
  *        padding (number), onPress, style.
@@ -26,7 +26,7 @@ export default function Card({
       ? { backgroundColor: colors.tealTint }
       : variant === 'outline'
       ? { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }
-      : { backgroundColor: colors.surface };
+      : { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.hairline };
 
   const composed = [
     styles.card,
@@ -55,6 +55,6 @@ export default function Card({
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.lg },
+  card: { borderRadius: radius.lg, overflow: 'hidden' },
   pressed: { opacity: 0.9 },
 });
