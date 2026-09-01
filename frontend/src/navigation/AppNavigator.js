@@ -73,7 +73,7 @@ const tabIcon = (routeName) => ({ focused, color, size }) => {
   return <Ionicons name={iconName} size={size} color={color} />;
 };
 
-// Driver tabs: Home · Vehicles · [Trips FAB] · Alerts · More
+// Driver tabs: Home · Vehicles · [Trips FAB] · Alerts · Profile
 function BottomTabs() {
   return (
     <Tab.Navigator
@@ -84,12 +84,16 @@ function BottomTabs() {
       <Tab.Screen name="Vehicles" component={VehiclesScreen} options={{ tabBarLabel: 'Vehicles' }} />
       <Tab.Screen name="Trips" component={TripsScreen} options={{ tabBarLabel: 'Trips' }} />
       <Tab.Screen name="Alerts" component={AlertsScreen} options={{ tabBarLabel: 'Alerts' }} />
-      <Tab.Screen name="More" component={MoreScreen} options={{ tabBarLabel: 'More' }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
     </Tab.Navigator>
   );
 }
 
-// Field agent: floating bar, Home · Profile, no FAB
+// Field Agent: Home · Fuel · Profile (no FAB)
+// - Home has the hamburger sidebar (DriverSidebar) from Phase 1, so field agents
+//   get the full slide-out menu without any extra wiring here.
+// - Fuel tab reuses FuelLogScreen which has its own header + "Add fuel" CTA
+//   that pushes FuelCapture into the shared DriverStack.
 function FieldAgentTabs() {
   const { t } = useLanguage();
   return (
@@ -98,6 +102,7 @@ function FieldAgentTabs() {
       screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: tabIcon(route.name) })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: t('home', 'tabName') || 'Home' }} />
+      <Tab.Screen name="Fuel" component={FuelLogScreen} options={{ tabBarLabel: 'Fuel' }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('profile', 'title') || 'Profile' }} />
     </Tab.Navigator>
   );
@@ -118,6 +123,7 @@ function OwnerStack() {
       <Stack.Screen name="OwnerFleet" component={OwnerFleetScreen} />
       <Stack.Screen name="OwnerErp" component={OwnerErpScreen} />
       <Stack.Screen name="OwnerLedger" component={OwnerLedgerScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
     </Stack.Navigator>
   );
 }
@@ -140,6 +146,7 @@ function ManagerStack() {
       <Stack.Screen name="OpsDeliveryOrder" component={OpsDeliveryOrderScreen} />
       <Stack.Screen name="OpsPlacements" component={OpsPlacementsScreen} />
       <Stack.Screen name="OpsAdvances" component={OpsAdvancesScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
     </Stack.Navigator>
   );
 }

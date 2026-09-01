@@ -82,7 +82,7 @@ function ManagerSidebar({ navigation, active, onClose }) {
           </View>
         </LinearGradient>
 
-        <ScrollView contentContainerStyle={styles.navScroll} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.navScroll} showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
           {MANAGER_NAV.map((section) => (
             <View key={section.group} style={styles.section}>
               <AppText variant="label" muted style={styles.sectionLabel}>{section.group}</AppText>
@@ -103,12 +103,15 @@ function ManagerSidebar({ navigation, active, onClose }) {
               })}
             </View>
           ))}
-
-          <Pressable onPress={() => { onClose(); confirmLogout(); }} style={styles.backItem}>
-            <Ionicons name="log-out-outline" size={19} color={colors.textMuted} />
-            <AppText variant="bodyStrong" weight="semibold" muted>Log out</AppText>
-          </Pressable>
         </ScrollView>
+
+        {/* Fixed logout footer — pinned below scroll area */}
+        <View style={[styles.navFooter, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+          <Pressable onPress={() => { onClose(); confirmLogout(); }} style={styles.backItem}>
+            <Ionicons name="log-out-outline" size={19} color={colors.error} />
+            <AppText variant="bodyStrong" weight="semibold" color={colors.error}>Log out</AppText>
+          </Pressable>
+        </View>
       </View>
       <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="Close menu" />
     </View>
@@ -125,7 +128,7 @@ const styles = StyleSheet.create({
   body: { flex: 1 },
 
   overlay: { ...StyleSheet.absoluteFillObject, flexDirection: 'row', zIndex: 100 },
-  panel: { width: 300, maxWidth: '84%', backgroundColor: colors.surface },
+  panel: { width: 300, maxWidth: '84%', backgroundColor: colors.surface, flexDirection: 'column' },
   scrim: { flex: 1, backgroundColor: 'rgba(18,18,20,0.5)' },
   brand: { padding: spacing.lg, paddingBottom: spacing.lg },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -137,5 +140,6 @@ const styles = StyleSheet.create({
   navItemActive: { backgroundColor: colors.tealTint },
   navBadge: { minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   navBadgeText: { fontSize: 10, lineHeight: 13 },
-  backItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 12, marginTop: 4, borderTopWidth: 1, borderTopColor: colors.border },
+  navFooter: { borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  backItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 12, borderRadius: radius.md },
 });

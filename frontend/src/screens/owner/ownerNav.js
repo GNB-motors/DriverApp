@@ -11,6 +11,7 @@ export const OWNER_NAV = [
       { key: 'OwnerFleet', label: 'Fleet', icon: 'bus-outline' },
       { key: 'OwnerErp', label: 'ERP overview', icon: 'analytics-outline' },
       { key: 'OwnerLedger', label: 'Company ledger', icon: 'book-outline' },
+      { key: 'Profile', label: 'Profile', icon: 'person-outline' },
     ],
   },
 ];

@@ -46,8 +46,36 @@ export function AlertsIcon(props) {
   );
 }
 
-export function MoreIcon(props) {
+export function FuelIcon(props) {
+  return (
+    <Base {...props}>
+      <Path d="M12 3C9 8 6 10.5 6 14a6 6 0 0 0 12 0c0-3.5-3-6-6-11z" />
+    </Base>
+  );
+}
+
+export function MenuIcon(props) {
   return <Base {...props}><Path d="M4 8h16M4 16h16" /></Base>;
 }
 
-export const NAV_ICONS = { Home: HomeIcon, Vehicles: VehiclesIcon, Trips: TripsIcon, Alerts: AlertsIcon, More: MoreIcon };
+// Kept for backward compat — points at MenuIcon.
+export const MoreIcon = MenuIcon;
+
+export function ProfileIcon(props) {
+  return (
+    <Base {...props}>
+      <Circle cx="12" cy="8" r="3.5" />
+      <Path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+    </Base>
+  );
+}
+
+export const NAV_ICONS = {
+  Home: HomeIcon,
+  Vehicles: VehiclesIcon,
+  Trips: TripsIcon,
+  Alerts: AlertsIcon,
+  Fuel: FuelIcon,
+  More: MenuIcon,
+  Profile: ProfileIcon,
+};
