@@ -1,9 +1,12 @@
 import React from 'react';
+import { View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
+import { DrawerProvider } from '../context/DrawerContext';
 import SplashScreen from '../components/ui/SplashScreen';
 import FloatingTabBar from './FloatingTabBar';
 import { NAV_ICONS } from './NavIcons';
@@ -15,6 +18,7 @@ import OtpScreen from '../screens/onboarding/OtpScreen';
 import PasswordScreen from '../screens/onboarding/PasswordScreen';
 import LoginScreen from '../screens/onboarding/LoginScreen';
 import HomeScreen from '../screens/driver/home/HomeScreen';
+import FieldAgentHomeScreen from '../screens/driver/home/FieldAgentHomeScreen';
 import SOSOptionsScreen from '../screens/driver/sos/SOSOptionsScreen';
 import SOSEmergencyActiveScreen from '../screens/driver/sos/SOSEmergencyActiveScreen';
 import ProfileScreen from '../screens/driver/account/ProfileScreen';
@@ -38,6 +42,7 @@ import FuelLogScreen from '../screens/driver/fuel/FuelLogScreen';
 import MyDocumentsScreen from '../screens/driver/documents/MyDocumentsScreen';
 import RepairsScreen from '../screens/driver/repairs/RepairsScreen';
 import LogRepairScreen from '../screens/driver/repairs/LogRepairScreen';
+import DriverSidebar from '../screens/driver/account/DriverSidebar';
 // Owner (O1–O10)
 import OwnerApprovalsScreen from '../screens/owner/OwnerApprovalsScreen';
 import OwnerBillDetailScreen from '../screens/owner/OwnerBillDetailScreen';
@@ -49,6 +54,7 @@ import OwnerSaleBillsScreen from '../screens/owner/OwnerSaleBillsScreen';
 import OwnerFleetScreen from '../screens/owner/OwnerFleetScreen';
 import OwnerErpScreen from '../screens/owner/OwnerErpScreen';
 import OwnerLedgerScreen from '../screens/owner/OwnerLedgerScreen';
+import OwnerProfileScreen from '../screens/owner/OwnerProfileScreen';
 // Manager + Ops
 import OpsHomeScreen from '../screens/manager/OpsHomeScreen';
 import OpsTripsScreen from '../screens/manager/OpsTripsScreen';
@@ -90,10 +96,9 @@ function BottomTabs() {
 }
 
 // Field Agent: Home · Fuel · Profile (no FAB)
-// - Home has the hamburger sidebar (DriverSidebar) from Phase 1, so field agents
-//   get the full slide-out menu without any extra wiring here.
-// - Fuel tab reuses FuelLogScreen which has its own header + "Add fuel" CTA
-//   that pushes FuelCapture into the shared DriverStack.
+// - FieldAgentHomeScreen is dedicated: fuel-upload CTA + recent uploads.
+// - Home opens the DriverSidebar via DrawerContext (hamburger in header).
+// - Fuel tab shows the full FuelLogScreen for history + capture.
 function FieldAgentTabs() {
   const { t } = useLanguage();
   return (
@@ -101,7 +106,7 @@ function FieldAgentTabs() {
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: tabIcon(route.name) })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: t('home', 'tabName') || 'Home' }} />
+      <Tab.Screen name="Home" component={FieldAgentHomeScreen} options={{ tabBarLabel: t('home', 'tabName') || 'Home' }} />
       <Tab.Screen name="Fuel" component={FuelLogScreen} options={{ tabBarLabel: 'Fuel' }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('profile', 'title') || 'Profile' }} />
     </Tab.Navigator>
@@ -123,13 +128,14 @@ function OwnerStack() {
       <Stack.Screen name="OwnerFleet" component={OwnerFleetScreen} />
       <Stack.Screen name="OwnerErp" component={OwnerErpScreen} />
       <Stack.Screen name="OwnerLedger" component={OwnerLedgerScreen} />
-      <Stack.Screen name="Profile" component={ProfileScreen} />
+      {/* Owner-specific profile (company + account info, no wallet) */}
+      <Stack.Screen name="Profile" component={OwnerProfileScreen} />
+      <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} options={{ presentation: 'transparentModal', animation: 'fade' }} />
     </Stack.Navigator>
   );
 }
 
-// Manager / Ops (M1–M10) — its own stack, no route into Owner or the driver
-// app. ManagerShell's sidebar can only navigate to names registered here.
+// Manager / Ops (M1–M10) — its own stack.
 function ManagerStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -146,14 +152,16 @@ function ManagerStack() {
       <Stack.Screen name="OpsDeliveryOrder" component={OpsDeliveryOrderScreen} />
       <Stack.Screen name="OpsPlacements" component={OpsPlacementsScreen} />
       <Stack.Screen name="OpsAdvances" component={OpsAdvancesScreen} />
-      <Stack.Screen name="Profile" component={ProfileScreen} />
+      {/* Manager profile shows company info, not driver wallet */}
+      <Stack.Screen name="Profile" component={OwnerProfileScreen} />
+      <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} options={{ presentation: 'transparentModal', animation: 'fade' }} />
     </Stack.Navigator>
   );
 }
 
-// Driver + Field Agent — everything below Main. No Owner/Ops route exists
-// in this stack, so the driver app has no path into the owner surface.
-function DriverStack() {
+// Driver + Field Agent — everything below Main. Wrapped in DrawerProvider so
+// the animated DriverSidebar renders above the tab bar overlay.
+function DriverStackInner() {
   const { user } = useAuth();
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -190,6 +198,28 @@ function DriverStack() {
   );
 }
 
+function DriverStack() {
+  const { user } = useAuth();
+  // The navigation prop passed here is used by DriverSidebar to navigate
+  // to any screen in the DriverStack (Wallet, FuelLog, etc.)
+  return (
+    <DrawerProvider>
+      <View style={styles.fill}>
+        <DriverStackInner />
+        {/* Sidebar rendered here so it overlays the tab bar too */}
+        <DriverSidebarWrapper />
+      </View>
+    </DrawerProvider>
+  );
+}
+
+// Thin wrapper so DriverSidebar can call navigation.navigate() for any
+// screen registered in the parent DriverStack.
+function DriverSidebarWrapper() {
+  const nav = useNavigation();
+  return <DriverSidebar navigation={nav} />;
+}
+
 export default function AppNavigator() {
   const { language, isLoaded } = useLanguage();
   const { user, loading: authLoading, activeBranchId } = useAuth();
@@ -224,3 +254,7 @@ export default function AppNavigator() {
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  fill: { flex: 1 },
+});

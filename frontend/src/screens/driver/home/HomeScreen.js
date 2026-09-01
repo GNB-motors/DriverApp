@@ -9,6 +9,7 @@ import {
   WarningBanner, Loading, EmptyState, colors, spacing, radius,
 } from '../../../components/ui';
 import { useAuth } from '../../../context/AuthContext';
+import { useDrawer } from '../../../context/DrawerContext';
 import { apiConfigured } from '../../../services/client';
 import { useApi } from '../../../hooks/useApi';
 import walletService from '../../../services/walletService';
@@ -16,7 +17,6 @@ import tripService from '../../../services/tripService';
 import billService from '../../../services/billService';
 import fuelService from '../../../services/fuelService';
 import documentService from '../../../services/documentService';
-import DriverSidebar from '../account/DriverSidebar';
 
 /** ERP trip state → StatusBadge vocabulary. */
 const TRIP_BADGE = {
@@ -42,7 +42,7 @@ const QUICK_ACTIONS = [
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [onDuty, setOnDuty] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { openDrawer } = useDrawer();
   // Real data only — identity from the signed-in user, balance from the khata
   // summary, and the active trip from the trips list.
   const { user, token } = useAuth();
@@ -156,9 +156,9 @@ export default function HomeScreen({ navigation }) {
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        {/* Hamburger — opens the side drawer */}
+        {/* Hamburger — opens the side drawer via DrawerContext */}
         <Pressable
-          onPress={() => setSidebarOpen(true)}
+          onPress={openDrawer}
           hitSlop={10}
           style={styles.menuBtn}
           accessibilityLabel="Open menu"
@@ -298,14 +298,6 @@ export default function HomeScreen({ navigation }) {
           </View>
         </Card>
       </ScrollView>
-
-      {/* Side drawer — rendered above everything when open */}
-      {sidebarOpen ? (
-        <DriverSidebar
-          navigation={navigation}
-          onClose={() => setSidebarOpen(false)}
-        />
-      ) : null}
     </View>
   );
 }

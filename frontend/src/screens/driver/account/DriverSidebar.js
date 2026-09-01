@@ -1,16 +1,17 @@
 ﻿import React from "react";
 import {
-  View, Pressable, ScrollView, StyleSheet, Alert,
+  View, Pressable, ScrollView, StyleSheet, Alert, Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { AppText, colors, spacing, radius } from "../../../components/ui";
 import { useAuth } from "../../../context/AuthContext";
+import { useDrawer, DRAWER_WIDTH_EXPORT } from "../../../context/DrawerContext";
 
 /**
- * Primary navigation links inside the Driver/Field-Agent sidebar.
- * All items that were previously in the old "More" tab screen live here.
+ * Primary navigation links inside the Driver sidebar.
+ * Organised in two groups so the list stays scannable.
  */
 const DRIVER_SIDEBAR_ITEMS = [
   {
@@ -26,23 +27,27 @@ const DRIVER_SIDEBAR_ITEMS = [
   {
     group: "Settings",
     items: [
-      { key: "LanguageScreen", label: "Language",        icon: "language-outline" },
-      { key: "SOSOptions",     label: "Emergency SOS",   icon: "alert-circle-outline", danger: true },
-      { key: "Profile",        label: "Profile",         icon: "person-outline" },
+      { key: "LanguageScreen", label: "Language",       icon: "language-outline" },
+      { key: "SOSOptions",     label: "Emergency SOS",  icon: "alert-circle-outline", danger: true },
+      { key: "Profile",        label: "Profile",        icon: "person-outline" },
     ],
   },
 ];
 
 /**
- * DriverSidebar — hamburger side-drawer for Driver & Field Agent roles.
+ * DriverSidebar — animated side-drawer for Driver role.
+ * Animation state lives in DrawerContext (spring-in / timing-out).
+ * Rendered at the DriverStack root so it overlays the tab bar too.
  *
  * Props:
- *   navigation — React-Navigation navigation prop from the host screen.
- *   onClose    — called when the user taps the scrim or a nav item.
+ *   navigation — React-Navigation navigation prop.
  */
-export default function DriverSidebar({ navigation, onClose }) {
+export default function DriverSidebar({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, organization, logout } = useAuth();
+  const { isOpen, translateX, scrimOpacity, closeDrawer } = useDrawer();
+
+  if (!isOpen) return null;
 
   const fullName =
     user?.name ||
@@ -54,25 +59,29 @@ export default function DriverSidebar({ navigation, onClose }) {
   const company = organization?.companyName || organization?.name || "";
 
   const confirmLogout = () => {
-    Alert.alert(
-      "Log out?",
-      "You will need to sign in again.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Log out", style: "destructive", onPress: logout },
-      ],
-    );
+    closeDrawer();
+    setTimeout(() =>
+      Alert.alert(
+        "Log out?",
+        "You will need to sign in again.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Log out", style: "destructive", onPress: logout },
+        ],
+      ), 250);
   };
 
   const go = (key) => {
-    onClose();
-    navigation.navigate(key);
+    closeDrawer();
+    setTimeout(() => navigation.navigate(key), 220);
   };
 
   return (
-    <View style={styles.overlay}>
-      {/* Drawer panel */}
-      <View style={[styles.panel, { paddingTop: insets.top }]}>
+    <View style={styles.overlay} pointerEvents="box-none">
+      {/* Animated panel */}
+      <Animated.View
+        style={[styles.panel, { paddingTop: insets.top, transform: [{ translateX }] }]}
+      >
         {/* Brand / identity header */}
         <LinearGradient
           colors={colors.gradient}
@@ -142,7 +151,7 @@ export default function DriverSidebar({ navigation, onClose }) {
           ))}
         </ScrollView>
 
-        {/* Fixed logout footer — outside ScrollView so it never scrolls away */}
+        {/* Fixed logout footer */}
         <View style={[styles.logoutFooter, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
           <Pressable
             onPress={confirmLogout}
@@ -155,10 +164,15 @@ export default function DriverSidebar({ navigation, onClose }) {
             </AppText>
           </Pressable>
         </View>
-      </View>
+      </Animated.View>
 
-      {/* Scrim — tap outside to close */}
-      <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="Close menu" />
+      {/* Animated scrim */}
+      <Animated.View
+        style={[styles.scrim, { opacity: scrimOpacity }]}
+        pointerEvents={isOpen ? "auto" : "none"}
+      >
+        <Pressable style={StyleSheet.absoluteFill} onPress={closeDrawer} accessibilityLabel="Close menu" />
+      </Animated.View>
     </View>
   );
 }
@@ -167,17 +181,24 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: "row",
-    zIndex: 100,
+    zIndex: 200,
   },
   panel: {
-    width: 300,
+    width: DRAWER_WIDTH_EXPORT,
     maxWidth: "84%",
     backgroundColor: colors.surface,
     flexDirection: "column",
+    zIndex: 201,
+    shadowColor: "#000",
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 16,
   },
   scrim: {
-    flex: 1,
-    backgroundColor: "rgba(18,18,20,0.5)",
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(18,18,20,0.52)",
+    zIndex: 200,
   },
   brand: {
     padding: spacing.lg,
@@ -195,20 +216,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  brandAvatarText: {
-    fontSize: 18,
-  },
+  brandAvatarText: { fontSize: 18 },
   navScroll: {
     padding: spacing.md,
     flexGrow: 1,
   },
-  section: {
-    marginBottom: spacing.md,
-  },
-  sectionLabel: {
-    marginLeft: 8,
-    marginBottom: 4,
-  },
+  section: { marginBottom: spacing.md },
+  sectionLabel: { marginLeft: 8, marginBottom: 4 },
   navItem: {
     flexDirection: "row",
     alignItems: "center",

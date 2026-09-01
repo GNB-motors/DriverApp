@@ -153,6 +153,25 @@ export default function OpsHomeScreen({ navigation }) {
               </View>
             </View>
 
+            {/* Quick actions strip */}
+            <View style={styles.quickRow}>
+              {[
+                { icon: 'add-circle-outline',     label: 'Create DO',     to: 'OpsDeliveryOrder' },
+                { icon: 'swap-horizontal-outline', label: 'Assign vehicle', to: 'OpsPlacements' },
+                { icon: 'cube-outline',            label: 'Unloading',     to: 'OpsUnloading' },
+                { icon: 'checkmark-circle-outline', label: 'Approve',      to: 'OpsApprovals' },
+              ].map((q) => (
+                <Pressable key={q.to} onPress={() => navigation.navigate(q.to)} style={styles.quickItem}>
+                  <View style={styles.quickIcon}>
+                    <Ionicons name={q.icon} size={20} color={colors.primary} />
+                  </View>
+                  <AppText variant="caption" weight="semibold" center numberOfLines={2} style={styles.quickLabel}>
+                    {q.label}
+                  </AppText>
+                </Pressable>
+              ))}
+            </View>
+
             <Card elevated="sm" padding={16} style={styles.card}>
               <View style={styles.cardHead}>
                 <Eyebrow>Action queues</Eyebrow>
@@ -238,4 +257,9 @@ const styles = StyleSheet.create({
   queueCount: { fontSize: 15, lineHeight: 20 },
   clearRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingVertical: 4 },
   decision: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+
+  quickRow: { flexDirection: 'row', gap: 10 },
+  quickItem: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 12, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
+  quickIcon: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.tealTint, alignItems: 'center', justifyContent: 'center' },
+  quickLabel: { fontSize: 11, lineHeight: 14, paddingHorizontal: 4 },
 });
