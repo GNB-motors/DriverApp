@@ -32,12 +32,13 @@ export async function getLastOdometer(vehicleId) {
  * (the captured fuel bill); it is uploaded as multipart `fuelPhoto` and stored
  * as the log's FUEL_SLIP document — not dropped into the JSON body.
  */
-export async function submitFuelLog({ photo, ...fields } = {}) {
+export async function submitFuelLog({ photo, odometerPhoto, ...fields } = {}) {
   const fd = new FormData();
   FUEL_LOG_FIELDS.forEach((k) => {
     if (fields[k] != null && fields[k] !== '') fd.append(k, String(fields[k]));
   });
   if (photo) fd.append('fuelPhoto', photo);
+  if (odometerPhoto) fd.append('odometerPhoto', odometerPhoto);
   return postForm('/mileage/fuel-log', fd);
 }
 
