@@ -20,6 +20,7 @@ import managerService from '../../services/managerService';
 const QUEUES = [
   // A trip with no CN yet is what the board calls "blocked", so that row opens
   // the blocked bucket rather than the whole list.
+  { key: 'pendingEwbs', label: 'Inbound e-Way Bills', icon: 'document-attach-outline', tone: 'purple', to: 'OpsInboundEwb' },
   { key: 'pendingCns', label: 'Consignment notes', icon: 'document-text-outline', tone: 'purple', to: 'OpsTrips', params: { tab: 'blocked' } },
   { key: 'pendingTripClose', label: 'Trips to close', icon: 'checkmark-done-outline', tone: 'warning', to: 'OpsTrips', params: { tab: 'close' } },
   { key: 'pendingUnloadings', label: 'Unloading to record', icon: 'cube-outline', tone: 'info', to: 'OpsUnloading' },
@@ -158,6 +159,7 @@ export default function OpsHomeScreen({ navigation }) {
               {[
                 { icon: 'add-circle-outline',     label: 'Create DO',     to: 'OpsDeliveryOrder' },
                 { icon: 'swap-horizontal-outline', label: 'Assign vehicle', to: 'OpsPlacements' },
+                { icon: 'document-attach-outline', label: 'e-Way Bills',  to: 'OpsInboundEwb' },
                 { icon: 'cube-outline',            label: 'Unloading',     to: 'OpsUnloading' },
                 { icon: 'checkmark-circle-outline', label: 'Approve',      to: 'OpsApprovals' },
               ].map((q) => (

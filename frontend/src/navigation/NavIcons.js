@@ -58,6 +58,16 @@ export function MenuIcon(props) {
   return <Base {...props}><Path d="M4 8h16M4 16h16" /></Base>;
 }
 
+export function OrgsIcon(props) {
+  return (
+    <Base {...props}>
+      <Path d="M4 21V5a2 2 0 012-2h4a2 2 0 012 2v16" />
+      <Path d="M12 9h8a2 2 0 012 2v10" />
+      <Path d="M2 21h20M8 7v.01M8 11v.01M8 15v.01M16 13v.01M16 17v.01" />
+    </Base>
+  );
+}
+
 // Kept for backward compat — points at MenuIcon.
 export const MoreIcon = MenuIcon;
 
@@ -72,10 +82,20 @@ export function ProfileIcon(props) {
 
 export const NAV_ICONS = {
   Home: HomeIcon,
+  OwnerDashboard: HomeIcon,
   Vehicles: VehiclesIcon,
+  OwnerFleet: VehiclesIcon,
   Trips: TripsIcon,
   Alerts: AlertsIcon,
+  OwnerApprovals: AlertsIcon,
+  OpsHome: HomeIcon,
+  OpsTrips: TripsIcon,
+  OpsApprovals: AlertsIcon,
+  OpsProfile: ProfileIcon,
   Fuel: FuelIcon,
   More: MenuIcon,
   Profile: ProfileIcon,
+  OwnerProfile: ProfileIcon,
+  OwnerDriversDashboard: ProfileIcon,
+  Orgs: OrgsIcon,
 };

@@ -9,7 +9,7 @@ export const MANAGER_NAV = [
       { key: 'OpsLoads',     label: 'Loads',        icon: 'cube-outline' },
       { key: 'OpsPlacements',label: 'Placements',   icon: 'swap-horizontal-outline' },
       { key: 'OpsAdvances',  label: 'Advances',     icon: 'wallet-outline' },
-      { key: 'Profile',      label: 'Profile',      icon: 'person-outline' },
+      { key: 'OpsProfile',   label: 'Profile',      icon: 'person-outline' },
     ],
   },
 ];
