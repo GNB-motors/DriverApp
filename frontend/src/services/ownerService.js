@@ -56,6 +56,11 @@ export async function getLedgerEntries(params = {}) {
   return res.data?.data ?? res.data;
 }
 
+export async function getDriversDashboard(params = {}) {
+  const res = await client.get('/app/v1/owner/drivers/dashboard', { params });
+  return res.data?.data ?? res.data;
+}
+
 export default {
   getErpDashboard,
   getFinanceSummary,
@@ -64,4 +69,5 @@ export default {
   listSaleBills,
   listOutstanding,
   getLedgerEntries,
+  getDriversDashboard,
 };

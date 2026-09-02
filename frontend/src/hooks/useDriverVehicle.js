@@ -11,7 +11,7 @@ import vehicleService from '../services/vehicleService';
  *   const { vehicleId, vehicle, loading } = useDriverVehicle();
  */
 export function useDriverVehicle() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { data, loading } = useApi(
     () => vehicleService.listVehicles(),
     [],
@@ -19,8 +19,11 @@ export function useDriverVehicle() {
   );
   const rows = Array.isArray(data) ? data : (data?.results || data?.rows || data?.items || data?.data || []);
   const vehicle = rows[0] || null;
-  const vehicleId = vehicle?._id || vehicle?.id || null;
-  return { vehicleId, vehicle, loading };
+  // Field agents log fuel for any vehicle in the org, don't default it.
+  const isAgent = user?.role === 'FIELD_AGENT';
+  const defaultVehicleId = isAgent ? null : (vehicle?._id || vehicle?.id || null);
+  
+  return { vehicleId: defaultVehicleId, vehicle: isAgent ? null : vehicle, vehicles: rows, loading };
 }
 
 export default useDriverVehicle;

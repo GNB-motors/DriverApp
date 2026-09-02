@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, SegmentedControl, colors, spacing, radius } from '../../components/ui';
 import OwnerShell from './OwnerShell';
-import { Monogram, Pill, SectionHeader, Loading, EmptyState } from '../../components/ui';
+import { Monogram, Pill, SectionHeader, Loading, EmptyState, BottomSheet, TextField } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
 import { useApi } from '../../hooks/useApi';
@@ -26,6 +26,8 @@ export default function OwnerMoneyScreen({ navigation }) {
   usePreventScreenCapture(); // block screenshots/recording of payables/receivables
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('pay');
+  const [driverSearchVisible, setDriverSearchVisible] = useState(false);
+  const [driverQuery, setDriverQuery] = useState('');
 
   const { token } = useAuth();
   const useReal = apiConfigured() && !!token;
@@ -106,6 +108,12 @@ export default function OwnerMoneyScreen({ navigation }) {
         : `across ${active.list.length} ${active.list.length === 1 ? 'bill' : 'bills'}`)
     : '';
 
+  const filteredDrivers = useMemo(() => {
+    if (!driverQuery.trim()) return pay.list;
+    const q = driverQuery.toLowerCase();
+    return pay.list.filter(d => d.name.toLowerCase().includes(q) || (d.meta && d.meta.toLowerCase().includes(q)));
+  }, [pay.list, driverQuery]);
+
   return (
     <OwnerShell title="Money" navigation={navigation} active="OwnerMoney">
       <View style={{ flex: 1 }}>
@@ -182,10 +190,44 @@ export default function OwnerMoneyScreen({ navigation }) {
 
         {tab === 'pay' ? (
           <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }]}>
-            <Button size="lg" label="Settle a driver" onPress={() => navigation.navigate('OwnerDriver')} />
+            <Button size="lg" label="Settle a driver" onPress={() => setDriverSearchVisible(true)} />
           </View>
         ) : null}
       </View>
+
+      <BottomSheet visible={driverSearchVisible} onClose={() => { setDriverSearchVisible(false); setDriverQuery(''); }} style={{ maxHeight: '80%' }}>
+        <AppText variant="h4" weight="bold">Search Drivers</AppText>
+        <TextField
+          placeholder="Driver name or mobile"
+          icon="search"
+          value={driverQuery}
+          onChangeText={setDriverQuery}
+        />
+        <ScrollView style={{ marginTop: 8 }} showsVerticalScrollIndicator={false}>
+          {filteredDrivers.length === 0 ? (
+            <EmptyState icon="search-outline" title="No drivers found" />
+          ) : filteredDrivers.map((d, i) => (
+            <Pressable
+              key={d._id || i}
+              onPress={() => {
+                setDriverSearchVisible(false);
+                setDriverQuery('');
+                navigation.navigate('OwnerDriver', { driverId: d._id, name: d.name, mobile: d.meta });
+              }}
+              style={[styles.driver, i > 0 && styles.divider]}
+            >
+              <Monogram initials={d.initials} size={40} />
+              <View style={{ flex: 1, gap: 3 }}>
+                <AppText variant="bodyStrong" weight="bold" numberOfLines={1}>{d.name}</AppText>
+                {d.meta ? <AppText variant="caption" mono muted numberOfLines={1}>{d.meta}</AppText> : null}
+              </View>
+              <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                <AppText mono variant="bodyStrong" weight="semibold">{d.amount}</AppText>
+              </View>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </BottomSheet>
     </OwnerShell>
   );
 }

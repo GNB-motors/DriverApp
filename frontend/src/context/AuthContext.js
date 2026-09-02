@@ -186,6 +186,17 @@ export function AuthProvider({ children }) {
     else await AsyncStorage.removeItem(STORAGE_KEY_BRANCH);
   };
 
+  /**
+   * Field agent picks an organization.
+   * We store the org object so the UI can show the company name,
+   * and we update the session (X-Org-Id) so API calls hit the right tenant.
+   */
+  const setActiveOrg = async (orgObj) => {
+    setOrg(orgObj || null);
+    setSession({ orgId: orgObj?.orgId || orgObj?._id || null });
+    // In a real app we might persist this choice to AsyncStorage across restarts.
+  };
+
   const logout = async () => {
     await Promise.all([
       AsyncStorage.removeItem(STORAGE_KEY_USER),
@@ -212,7 +223,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, organization, permissions, loading, login, demoLogin, logout, hasPerm, activeBranchId, setActiveBranch }}
+      value={{ user, token, organization, permissions, loading, login, demoLogin, logout, hasPerm, activeBranchId, setActiveBranch, setActiveOrg }}
     >
       {children}
     </AuthContext.Provider>

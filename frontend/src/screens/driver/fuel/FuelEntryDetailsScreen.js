@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,19 +32,22 @@ export default function FuelEntryDetailsScreen({ navigation, route }) {
   const pump = params.pump || '';
   const { submit, busy } = useSubmit();
   const { user } = useAuth();
-  const { vehicleId } = useDriverVehicle();
+  const { vehicleId: defaultVehicleId, vehicles } = useDriverVehicle();
+  const selectedVehicleId = params.selectedVehicleId; // Forwarded from capture step for FIELD_AGENT
+  
+  const activeVehicleId = user?.role === 'FIELD_AGENT' ? selectedVehicleId : defaultVehicleId;
 
   const totalNum = Number(String(total).replace(/[^0-9.]/g, ''));
   const totalFmt = totalNum > 0 ? `₹${totalNum.toLocaleString('en-IN')}` : 'the amount';
 
   const onSave = () => {
-    if (!vehicleId) {
+    if (!activeVehicleId) {
       Alert.alert('No vehicle assigned', 'You don’t have a vehicle assigned yet. Ask your manager to assign one before logging fuel.');
       return;
     }
     submit(
     () => fuelService.submitFuelLog({
-      vehicleId,
+      vehicleId: activeVehicleId,
       driverId: user?._id,
       fuelType: FUEL_TYPE[fuelType] || 'DIESEL',
       fillingType: FILLING[filling] || 'FULL_TANK',
@@ -92,6 +96,8 @@ export default function FuelEntryDetailsScreen({ navigation, route }) {
           <View style={styles.dot} />
           <AppText variant="small" weight="semibold" muted>3 photos attached</AppText>
         </View>
+
+
 
         <View style={styles.twoCol}>
           <View style={styles.col}><TextField label="Litres" value={litres} onChangeText={setLitres} mono keyboardType="numeric" /></View>

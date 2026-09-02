@@ -3,6 +3,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppText, colors } from '../components/ui';
+import { useDrawer } from '../context/DrawerContext';
 
 const INACTIVE = '#93939A';
 
@@ -14,7 +15,12 @@ const INACTIVE = '#93939A';
  */
 export default function FloatingTabBar({ state, descriptors, navigation, showFab = false }) {
   const insets = useSafeAreaInsets();
+  const { isOpen } = useDrawer();
   const fabIndex = showFab ? Math.floor(state.routes.length / 2) : -1;
+
+  // Hide the tab bar entirely while the side drawer is open so it doesn’t
+  // peek above the sidebar overlay.
+  if (isOpen) return null;
 
   const go = (route, focused) => () => {
     const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
@@ -23,6 +29,8 @@ export default function FloatingTabBar({ state, descriptors, navigation, showFab
 
   const renderTab = (route, index) => {
     const { options } = descriptors[route.key];
+    if (options.tabBarItemStyle?.display === 'none') return null;
+    
     const focused = state.index === index;
     const color = focused ? colors.primary : INACTIVE;
     const label = options.tabBarLabel ?? route.name;
