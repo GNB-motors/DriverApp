@@ -22,12 +22,7 @@ export default function ManagerSidebar() {
 
   const go = (key) => {
     closeDrawer();
-    const isTab = ['OpsHome', 'OpsTrips', 'OpsApprovals', 'OpsProfile'].includes(key);
-    if (isTab) {
-      navigation.navigate("ManagerMain", { screen: key });
-    } else {
-      navigation.navigate(key);
-    }
+    navigation.navigate(key);
   };
 
   const [renderState, setRenderState] = React.useState(isOpen);

@@ -9,7 +9,6 @@ import {
   WarningBanner, Loading, EmptyState, colors, spacing, radius,
 } from '../../../components/ui';
 import { useAuth } from '../../../context/AuthContext';
-import { useDrawer } from '../../../context/DrawerContext';
 import { apiConfigured } from '../../../services/client';
 import { useApi } from '../../../hooks/useApi';
 import walletService from '../../../services/walletService';
@@ -42,7 +41,6 @@ const QUICK_ACTIONS = [
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [onDuty, setOnDuty] = useState(true);
-  const { openDrawer } = useDrawer();
   // Real data only — identity from the signed-in user, balance from the khata
   // summary, and the active trip from the trips list.
   const { user, token } = useAuth();
@@ -156,15 +154,6 @@ export default function HomeScreen({ navigation }) {
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        {/* Hamburger — opens the side drawer via DrawerContext */}
-        <Pressable
-          onPress={openDrawer}
-          hitSlop={10}
-          style={styles.menuBtn}
-          accessibilityLabel="Open menu"
-        >
-          <Ionicons name="menu" size={22} color={colors.text} />
-        </Pressable>
         <View style={{ flex: 1 }}>
           <AppText variant="small" weight="medium" muted>Namaste</AppText>
           <AppText variant="h3" weight="extrabold" numberOfLines={1}>{driver.name}</AppText>

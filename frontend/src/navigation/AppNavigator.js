@@ -107,7 +107,7 @@ function DriverTabs() {
       <Tab.Screen name="Vehicles" component={VehiclesScreen} options={{ tabBarLabel: 'Vehicles' }} />
       <Tab.Screen name="Trips" component={TripsScreen} options={{ tabBarLabel: 'Trips' }} />
       <Tab.Screen name="Alerts" component={AlertsScreen} options={{ tabBarLabel: 'Alerts' }} />
-      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
+      <Tab.Screen name="More" component={MoreScreen} options={{ tabBarLabel: 'More' }} />
     </Tab.Navigator>
   );
 }
@@ -153,14 +153,11 @@ function DriverStackInner() {
   );
 }
 
-function DriverStack({ navigation }) {
+function DriverStack() {
   return (
-    <DrawerProvider>
-      <View style={styles.fill}>
-        <DriverStackInner />
-        <DriverSidebar navigation={navigation} />
-      </View>
-    </DrawerProvider>
+    <View style={styles.fill}>
+      <DriverStackInner />
+    </View>
   );
 }
 
@@ -179,44 +176,32 @@ function FieldAgentStackInner() {
   );
 }
 
-function FieldAgentStack({ navigation }) {
+function FieldAgentStack() {
   return (
-    <DrawerProvider>
-      <View style={styles.fill}>
-        <FieldAgentStackInner />
-        <FieldAgentSidebar navigation={navigation} />
-      </View>
-    </DrawerProvider>
+    <View style={styles.fill}>
+      <FieldAgentStackInner />
+    </View>
   );
 }
 
 // ─── OWNER STACK ────────────────────────────────────────────────────────────
-function OwnerTabs() {
-  return (
-    <Tab.Navigator
-      tabBar={(props) => <FloatingTabBar {...props} />}
-      screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: tabIcon(route.name) })}
-    >
-      <Tab.Screen name="OwnerDashboard" component={OwnerDashboardScreen} options={{ tabBarLabel: 'Home' }} />
-      <Tab.Screen name="OwnerDriversDashboard" component={OwnerDriversDashboardScreen} options={{ tabBarLabel: 'Drivers' }} />
-      <Tab.Screen name="OwnerApprovals" component={OwnerApprovalsScreen} options={{ tabBarLabel: 'Approvals' }} />
-      <Tab.Screen name="OwnerFleet" component={OwnerFleetScreen} options={{ tabBarLabel: 'Fleet' }} />
-      <Tab.Screen name="OwnerProfile" component={OwnerProfileScreen} options={{ tabBarLabel: 'Profile' }} />
-      <Tab.Screen name="OwnerBillDetail" component={OwnerBillDetailScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
-      <Tab.Screen name="OwnerReject" component={OwnerRejectScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
-      <Tab.Screen name="OwnerMoney" component={OwnerMoneyScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
-      <Tab.Screen name="OwnerDriver" component={OwnerDriverScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
-      <Tab.Screen name="OwnerSaleBills" component={OwnerSaleBillsScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
-      <Tab.Screen name="OwnerErp" component={OwnerErpScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
-      <Tab.Screen name="OwnerLedger" component={OwnerLedgerScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
-    </Tab.Navigator>
-  );
-}
+
 
 function OwnerStackInner() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="OwnerMain" component={OwnerTabs} />
+      <Stack.Screen name="OwnerDashboard" component={OwnerDashboardScreen} />
+      <Stack.Screen name="OwnerDriversDashboard" component={OwnerDriversDashboardScreen} />
+      <Stack.Screen name="OwnerApprovals" component={OwnerApprovalsScreen} />
+      <Stack.Screen name="OwnerFleet" component={OwnerFleetScreen} />
+      <Stack.Screen name="OwnerProfile" component={OwnerProfileScreen} />
+      <Stack.Screen name="OwnerBillDetail" component={OwnerBillDetailScreen} />
+      <Stack.Screen name="OwnerReject" component={OwnerRejectScreen} />
+      <Stack.Screen name="OwnerMoney" component={OwnerMoneyScreen} />
+      <Stack.Screen name="OwnerDriver" component={OwnerDriverScreen} />
+      <Stack.Screen name="OwnerSaleBills" component={OwnerSaleBillsScreen} />
+      <Stack.Screen name="OwnerErp" component={OwnerErpScreen} />
+      <Stack.Screen name="OwnerLedger" component={OwnerLedgerScreen} />
       <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} options={{ presentation: "transparentModal", animation: "fade" }} />
     </Stack.Navigator>
   );
@@ -234,24 +219,12 @@ function OwnerStack({ navigation }) {
 }
 
 // ─── MANAGER STACK ──────────────────────────────────────────────────────────
-function ManagerTabs() {
-  return (
-    <Tab.Navigator
-      tabBar={(props) => <FloatingTabBar {...props} />}
-      screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: tabIcon(route.name) })}
-    >
-      <Tab.Screen name="OpsHome" component={OpsHomeScreen} options={{ tabBarLabel: 'Home' }} />
-      <Tab.Screen name="OpsTrips" component={OpsTripsScreen} options={{ tabBarLabel: 'Trips' }} />
-      <Tab.Screen name="OpsApprovals" component={OpsApprovalsScreen} options={{ tabBarLabel: 'Approvals' }} />
-      <Tab.Screen name="OpsProfile" component={OwnerProfileScreen} options={{ tabBarLabel: 'Profile' }} />
-    </Tab.Navigator>
-  );
-}
+
 
 function ManagerStackInner() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="ManagerMain" component={ManagerTabs} />
+
       <Stack.Screen name="OpsHome" component={OpsHomeScreen} />
       <Stack.Screen name="OpsTrips" component={OpsTripsScreen} />
       <Stack.Screen name="OpsApprovals" component={OpsApprovalsScreen} />

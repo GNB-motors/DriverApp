@@ -8,7 +8,6 @@ import {
   AppText, Card, Button, Loading, EmptyState, colors, spacing, radius,
 } from "../../../components/ui";
 import { useAuth } from "../../../context/AuthContext";
-import { useDrawer } from "../../../context/DrawerContext";
 import { apiConfigured } from "../../../services/client";
 import { useApi } from "../../../hooks/useApi";
 import fuelService from "../../../services/fuelService";
@@ -35,7 +34,6 @@ dayjs.extend(relativeTime);
 export default function FieldAgentHomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, organization, token } = useAuth();
-  const { openDrawer } = useDrawer();
   const enabled = apiConfigured() && !!token;
 
   const fullName =
@@ -68,9 +66,6 @@ export default function FieldAgentHomeScreen({ navigation }) {
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable onPress={openDrawer} hitSlop={10} style={styles.menuBtn} accessibilityLabel="Open menu">
-          <Ionicons name="menu" size={22} color={colors.text} />
-        </Pressable>
         <View style={{ flex: 1 }}>
           <AppText variant="small" weight="medium" muted>Field Agent</AppText>
           <AppText variant="h3" weight="extrabold" numberOfLines={1}>{fullName}</AppText>
