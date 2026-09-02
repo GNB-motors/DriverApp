@@ -1,10 +1,11 @@
-﻿import React from "react";
+import React from "react";
 import {
   View, Pressable, ScrollView, StyleSheet, Alert, Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { AppText, colors, spacing, radius } from "../../../components/ui";
 import { useAuth } from "../../../context/AuthContext";
 import { useDrawer, DRAWER_WIDTH_EXPORT } from "../../../context/DrawerContext";
@@ -42,7 +43,8 @@ const DRIVER_SIDEBAR_ITEMS = [
  * Props:
  *   navigation — React-Navigation navigation prop.
  */
-export default function DriverSidebar({ navigation }) {
+export default function DriverSidebar() {
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { user, organization, logout } = useAuth();
   const { isOpen, translateX, scrimOpacity, closeDrawer } = useDrawer();

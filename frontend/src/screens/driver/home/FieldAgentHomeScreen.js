@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,13 +16,7 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
 
-// Quick action tiles for a field agent
-const QUICK_ACTIONS = [
-  { key: "fuel",    icon: "water",              label: "Upload fuel receipt",  primary: true },
-  { key: "docs",    icon: "document-text-outline", label: "My documents" },
-  { key: "profile", icon: "person-outline",     label: "Profile" },
-  { key: "sos",     icon: "alert",              label: "SOS",  danger: true },
-];
+// Removed QUICK_ACTIONS to avoid redundant button
 
 /**
  * FieldAgentHomeScreen — dedicated home for the Field Agent role.
@@ -96,26 +90,44 @@ export default function FieldAgentHomeScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}
       >
-        {/* Hero CTA */}
-        <Pressable onPress={() => navigation.navigate("FuelCapture")} style={styles.heroCta}>
-          <LinearGradient
-            colors={colors.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroGradient}
-          >
-            <View style={styles.heroLeft}>
-              <View style={styles.heroIconBg}>
-                <Ionicons name="water" size={26} color={colors.white} />
-              </View>
-              <View>
-                <AppText variant="h3" weight="extrabold" color={colors.white}>Upload receipt</AppText>
-                <AppText variant="small" color={colors.onPrimaryMuted}>Capture fuel bill photo</AppText>
-              </View>
+        {/* Hero CTA or Empty State */}
+        {!organization ? (
+          <Card variant="outline" elevated="none" padding={20} style={{ alignItems: "center", borderStyle: "dashed" }}>
+            <View style={[styles.heroIconBg, { backgroundColor: colors.surface }]}>
+              <Ionicons name="business-outline" size={26} color={colors.textMuted} />
             </View>
-            <Ionicons name="chevron-forward" size={22} color={colors.white} />
-          </LinearGradient>
-        </Pressable>
+            <AppText variant="bodyStrong" weight="bold" center style={{ marginTop: 12 }}>No organisation selected</AppText>
+            <AppText variant="small" muted center style={{ marginTop: 4, marginBottom: 16 }}>
+              Select an organisation from the Orgs tab to log fuel.
+            </AppText>
+            <Button
+              variant="primary"
+              size="sm"
+              label="Select Organisation"
+              onPress={() => navigation.navigate("Orgs")}
+            />
+          </Card>
+        ) : (
+          <Pressable onPress={() => navigation.navigate("FuelCapture")} style={styles.heroCta}>
+            <LinearGradient
+              colors={colors.gradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroGradient}
+            >
+              <View style={styles.heroLeft}>
+                <View style={styles.heroIconBg}>
+                  <Ionicons name="water" size={26} color={colors.white} />
+                </View>
+                <View>
+                  <AppText variant="h3" weight="extrabold" color={colors.white}>Upload receipt</AppText>
+                  <AppText variant="small" color={colors.onPrimaryMuted}>Capture fuel bill photo</AppText>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color={colors.white} />
+            </LinearGradient>
+          </Pressable>
+        )}
 
         {/* Organisation context badge */}
         {company ? (
@@ -128,30 +140,7 @@ export default function FieldAgentHomeScreen({ navigation }) {
           </View>
         ) : null}
 
-        {/* Quick actions */}
-        <View style={styles.grid}>
-          {QUICK_ACTIONS.map((a) => (
-            <Pressable
-              key={a.key}
-              style={[styles.gridItem, a.primary && styles.gridPrimary, a.danger && styles.gridDanger]}
-              onPress={() => onQuick(a.key)}
-            >
-              <Ionicons
-                name={a.icon}
-                size={22}
-                color={a.primary ? colors.white : a.danger ? colors.error : colors.primary}
-              />
-              <AppText
-                variant="small"
-                weight="bold"
-                center
-                color={a.primary ? colors.white : a.danger ? colors.error : colors.text}
-              >
-                {a.label}
-              </AppText>
-            </Pressable>
-          ))}
-        </View>
+        {/* Quick actions removed to avoid redundancy */}
 
         {/* Recent uploads */}
         <AppText variant="label" muted style={styles.sectionLabel}>Recent fuel uploads</AppText>
@@ -175,7 +164,8 @@ export default function FieldAgentHomeScreen({ navigation }) {
               const amount = log?.totalAmount != null
                 ? `₹${Number(log.totalAmount).toLocaleString("en-IN")}`
                 : "—";
-              const loc = log?.location || "—";
+              const loc = log?.location || "Unknown Location";
+              const vehicleNum = log?.vehicleId?.registrationNumber || log?.vehicleId?.vehicleNumber || "Unknown Vehicle";
               return (
                 <View key={log?._id || String(i)}>
                   {i > 0 ? <View style={styles.divider} /> : null}
@@ -184,9 +174,9 @@ export default function FieldAgentHomeScreen({ navigation }) {
                       <Ionicons name="water" size={18} color={colors.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <AppText variant="bodyStrong" weight="semibold" numberOfLines={1}>{loc}</AppText>
-                      <AppText variant="caption" mono muted>
-                        {litres} · {when ? dayjs(when).fromNow() : "—"}
+                      <AppText variant="bodyStrong" weight="semibold" numberOfLines={1}>{vehicleNum}</AppText>
+                      <AppText variant="caption" mono muted numberOfLines={1}>
+                        {loc} · {litres} · {when ? dayjs(when).fromNow() : "—"}
                       </AppText>
                     </View>
                     <AppText mono variant="body" weight="semibold">{amount}</AppText>

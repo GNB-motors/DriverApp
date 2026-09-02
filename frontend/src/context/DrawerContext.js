@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useRef, useState, useCallback } from "react";
+import React, { createContext, useContext, useRef, useState, useCallback } from "react";
 import { Animated } from "react-native";
 
 const DRAWER_WIDTH = 300;

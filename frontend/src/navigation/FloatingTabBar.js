@@ -29,6 +29,8 @@ export default function FloatingTabBar({ state, descriptors, navigation, showFab
 
   const renderTab = (route, index) => {
     const { options } = descriptors[route.key];
+    if (options.tabBarItemStyle?.display === 'none') return null;
+    
     const focused = state.index === index;
     const color = focused ? colors.primary : INACTIVE;
     const label = options.tabBarLabel ?? route.name;
