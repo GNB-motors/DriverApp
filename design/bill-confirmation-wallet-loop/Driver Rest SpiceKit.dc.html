@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/nova-spicekit-design-system-695efa83-4752-409d-977b-c3112fe9afc3/colors_and_type.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="_ds/nova-spicekit-design-system-695efa83-4752-409d-977b-c3112fe9afc3/_ds_bundle.js"></script>
+<style>
+  body { margin:0; background:#ECECEE; font-family:'Inter',system-ui,sans-serif; color:#121214; -webkit-font-smoothing:antialiased; }
+  a { color:#2646BE; text-decoration:none; }
+  a:hover { color:#213EA7; text-decoration:underline; }
+  @keyframes novaPulse { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+  @keyframes novaRing { 0% { transform:scale(1); opacity:.5; } 100% { transform:scale(1.9); opacity:0; } }
+</style>
+</helmet>
+
+<section style="padding:56px 64px 96px; display:flex; flex-direction:column; gap:44px">
+
+  <div style="display:flex; flex-direction:column; gap:12px; max-width:780px">
+    <div style="font-family:Helvetica,Arial,sans-serif; font-size:11px; font-weight:500; letter-spacing:.44em; text-transform:uppercase; color:#5D5D5E">DRIVER · REMAINING SCREENS</div>
+    <div style="font-family:'DM Sans',sans-serif; font-size:40px; font-weight:700; letter-spacing:-.02em; line-height:1.08">Alerts, Vehicles, More, and the capture flows</div>
+    <div style="font-size:15px; line-height:1.6; color:#5D5D5E; text-wrap:pretty">Fourteen screens finishing the driver app: the three sections the tab bar pointed at but had no destination, then fuel, repairs, documents, SOS, and the two proof-of-work uploads. Same SpiceKit tokens as the core set — Nova Rage actions, Morning Fog canvas, Inter and DM Mono, flat surfaces with navy-tinted shadows.</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px">
+      <span style="font-size:12px; font-weight:500; padding:6px 12px; border-radius:999px; background:rgba(47,88,238,.10); color:#2646BE">Nav sections · 3</span>
+      <span style="font-size:12px; font-weight:500; padding:6px 12px; border-radius:999px; background:rgba(47,88,238,.10); color:#2646BE">Fuel · 4</span>
+      <span style="font-size:12px; font-weight:500; padding:6px 12px; border-radius:999px; background:rgba(47,88,238,.10); color:#2646BE">Repairs · 2</span>
+      <span style="font-size:12px; font-weight:500; padding:6px 12px; border-radius:999px; background:rgba(47,88,238,.10); color:#2646BE">Docs · 1</span>
+      <span style="font-size:12px; font-weight:500; padding:6px 12px; border-radius:999px; background:rgba(47,88,238,.10); color:#2646BE">SOS · 2</span>
+      <span style="font-size:12px; font-weight:500; padding:6px 12px; border-radius:999px; background:rgba(47,88,238,.10); color:#2646BE">Proof uploads · 2</span>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-wrap:wrap; gap:52px 44px; align-items:flex-start">
+
+    <!-- 14 ALERTS -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="14 Alerts">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">14</span><span style="font-size:13px; font-weight:600">Alerts · what the badge counts</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; border-bottom:1px solid rgba(5,8,22,.10); padding:12px 16px 0; display:flex; flex-direction:column; gap:12px">
+            <div style="display:flex; align-items:center; gap:12px; min-height:44px">
+              <span style="font-size:20px; font-weight:600; letter-spacing:-.015em; flex:1">Alerts</span>
+              <span style="font-size:13px; font-weight:500; color:#2646BE">Mark all read</span>
+            </div>
+            <div style="display:flex; gap:22px">
+              <div style="display:flex; flex-direction:column; gap:8px"><span style="font-size:14px; font-weight:600; color:#4469F0">Needs action<span style="font-family:'DM Mono',monospace; font-size:11px; margin-left:6px; padding:2px 6px; border-radius:999px; background:#FBEAEA; color:#BB2626">3</span></span><span style="height:2px; background:#4469F0; border-radius:2px 2px 0 0"></span></div>
+              <div style="display:flex; flex-direction:column; gap:8px"><span style="font-size:14px; font-weight:500; color:#5D5D5E">All</span><span style="height:2px; background:transparent"></span></div>
+            </div>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:10px">
+            <div style="background:#FFFFFF; border:1px solid rgba(187,38,38,.16); border-radius:12px; padding:14px; display:flex; gap:12px; box-shadow:0 2px 4px 0 rgba(30,34,56,.08)">
+              <div style="width:38px; height:38px; border-radius:10px; background:#FBEAEA; display:grid; place-items:center; flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#BB2626" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7l10 10M17 7l-10 10"/></svg></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:7px">
+                <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px"><span style="font-size:14px; font-weight:600">Bill rejected</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">2 h</span></div>
+                <span style="font-size:13px; line-height:1.5; color:#5D5D5E; text-wrap:pretty">Food · ₹210. Photo is blurred, amount not readable.</span>
+                <span style="align-self:flex-start; height:34px; padding:0 13px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; font-size:13px; font-weight:600; display:flex; align-items:center">Re-submit bill</span>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(197,98,0,.16); border-radius:12px; padding:14px; display:flex; gap:12px">
+              <div style="width:38px; height:38px; border-radius:10px; background:#FDF3E0; display:grid; place-items:center; flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C56200" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/></svg></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:7px">
+                <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px"><span style="font-size:14px; font-weight:600">Licence expiring</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">1 d</span></div>
+                <span style="font-size:13px; line-height:1.5; color:#5D5D5E">Expires 12 Sep 2026 · 24 days left.</span>
+                <span style="align-self:flex-start; height:34px; padding:0 13px; border-radius:8px; background:rgba(47,88,238,.10); border:1px solid rgba(47,88,238,.20); color:#2646BE; font-size:13px; font-weight:600; display:flex; align-items:center">Upload renewal</span>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(197,98,0,.16); border-radius:12px; padding:14px; display:flex; gap:12px">
+              <div style="width:38px; height:38px; border-radius:10px; background:#FDF3E0; display:grid; place-items:center; flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C56200" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M8 8l4-4 4 4M5 20h14"/></svg></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:7px">
+                <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px"><span style="font-size:14px; font-weight:600">POD pending</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">3 d</span></div>
+                <span style="font-size:13px; line-height:1.5; color:#5D5D5E">TR-4802 Nashik → Indore was delivered 31 Jul.</span>
+                <span style="align-self:flex-start; height:34px; padding:0 13px; border-radius:8px; background:rgba(47,88,238,.10); border:1px solid rgba(47,88,238,.20); color:#2646BE; font-size:13px; font-weight:600; display:flex; align-items:center">Upload POD</span>
+              </div>
+            </div>
+
+            <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E; padding:6px 0 0">Earlier</span>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:13px 14px; display:flex; gap:12px; align-items:center">
+              <div style="width:34px; height:34px; border-radius:999px; background:#E7F4EA; display:grid; place-items:center; flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#187A32" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17 19 7.5"/></svg></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span style="font-size:14px; font-weight:500">Toll bill confirmed · +₹340</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">03 Aug · Suresh (Owner)</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:13px 14px; display:flex; gap:12px; align-items:center">
+              <div style="width:34px; height:34px; border-radius:999px; background:#E8F1FD; display:grid; place-items:center; flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2666B8" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2zM13 10h4l3 3.5V16h-7"/></svg></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span style="font-size:14px; font-weight:500">New trip assigned · TR-4821</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">03 Aug · Pune → Nagpur</span></div>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10); height:64px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 4px; box-shadow:0 -2px 8px rgba(30,34,56,.06)">
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Home</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2zM13 10h4l3 3.5V16h-7"/><circle cx="6.5" cy="18" r="1.7"/><circle cx="16.5" cy="18" r="1.7"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Vehicles</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center">
+                <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) translateY(-24px); width:56px; height:56px; border-radius:999px; background:#2F58EE; border:1px solid #213EA7; display:grid; place-items:center; box-shadow:0 0 0 4px #FFFFFF, 0 8px 18px rgba(47,88,238,.34), 0 2px 4px rgba(30,34,56,.10)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6h5.1a3 3 0 0 1 0 6h-3a3 3 0 0 0 0 6h5.1"/></svg></div>
+              </div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Trips</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5a6 6 0 0 1 12 0c0 3.5 1 4.5 1.5 5.5H4.5C5 14 6 13 6 9.5"/><path d="M10 19a2 2 0 0 0 4 0"/></svg><span style="position:absolute; top:-4px; right:calc(50% - 21px); min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:999px; background:#DD3030; color:#FFFFFF; font-family:'DM Mono',monospace; font-size:9px; display:grid; place-items:center">3</span></div>
+              <span style="font-size:10px; font-weight:600; color:#2646BE; letter-spacing:.01em; line-height:14px">Alerts</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">More</span>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 15 VEHICLES -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="15 Vehicles">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">15</span><span style="font-size:13px; font-weight:600">Vehicles · my assigned truck</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.10); min-height:60px; box-sizing:border-box">
+            <span style="font-size:20px; font-weight:600; letter-spacing:-.015em; flex:1">Vehicles</span>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:12px">
+            <div style="background:#FFFFFF; border:1px solid rgba(47,88,238,.20); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:14px; box-shadow:0 2px 4px 0 rgba(30,34,56,.08)">
+              <div style="display:flex; align-items:center; justify-content:space-between">
+                <div style="display:flex; flex-direction:column; gap:3px"><span style="font-family:'DM Mono',monospace; font-size:19px; font-weight:500; letter-spacing:.01em">MH 12 AB 3421</span><span style="font-size:12px; color:#5D5D5E">Tata Signa 4225 · 25 t · 2021</span></div>
+                <span style="font-size:11px; font-weight:600; padding:5px 10px; border-radius:999px; background:#E7F4EA; color:#187A32">Assigned to you</span>
+              </div>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px">
+                <div style="display:flex; flex-direction:column; gap:3px"><span style="font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Odometer</span><span style="font-family:'DM Mono',monospace; font-size:15px">482,610</span></div>
+                <div style="display:flex; flex-direction:column; gap:3px"><span style="font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Mileage</span><span style="font-family:'DM Mono',monospace; font-size:15px">3.8 km/L</span></div>
+                <div style="display:flex; flex-direction:column; gap:3px"><span style="font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Fastag</span><span style="font-family:'DM Mono',monospace; font-size:15px">₹2,140</span></div>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; overflow:hidden">
+              <div style="padding:12px 16px; display:flex; align-items:center; justify-content:space-between"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Vehicle papers</span><span style="font-size:11px; font-weight:600; padding:3px 8px; border-radius:999px; background:#FDF3E0; color:#C56200">1 due</span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="padding:13px 16px; display:flex; align-items:center; gap:12px"><span style="flex:1; font-size:14px">Insurance</span><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">14 Mar 2027</span><span style="width:8px; height:8px; border-radius:999px; background:#25BA4C"></span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="padding:13px 16px; display:flex; align-items:center; gap:12px"><span style="flex:1; font-size:14px">Fitness certificate</span><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">02 Nov 2026</span><span style="width:8px; height:8px; border-radius:999px; background:#25BA4C"></span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="padding:13px 16px; display:flex; align-items:center; gap:12px"><span style="flex:1; font-size:14px">PUC</span><span style="font-family:'DM Mono',monospace; font-size:12px; color:#C56200">31 Aug 2026</span><span style="width:8px; height:8px; border-radius:999px; background:#F0AA48"></span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="padding:13px 16px; display:flex; align-items:center; gap:12px"><span style="flex:1; font-size:14px">National permit</span><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">19 Jan 2027</span><span style="width:8px; height:8px; border-radius:999px; background:#25BA4C"></span></div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:10px">
+              <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:9px">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.75" stroke-linecap="round"><path d="M12 3s-6 7-6 10.5a6 6 0 0 0 12 0C18 10 12 3 12 3Z"/></svg>
+                <div style="display:flex; flex-direction:column"><span style="font-size:14px; font-weight:600">Fuel log</span></div>
+                <span style="font-family:'DM Mono',monospace; font-size:11px; color:#5D5D5E">Last 42.5 L · 2 Aug</span>
+              </div>
+              <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:9px">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.75" stroke-linecap="round"><circle cx="8" cy="8" r="4"/><path d="M11 11l8 8-2.5 2.5-8-8"/></svg>
+                <div style="display:flex; flex-direction:column"><span style="font-size:14px; font-weight:600">Repairs</span></div>
+                <span style="font-family:'DM Mono',monospace; font-size:11px; color:#5D5D5E">3 logs · ₹9,180</span>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Next service</span>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:14px">Due in</span><span style="font-family:'DM Mono',monospace; font-size:14px">2,390 km</span></div>
+              <span style="height:6px; border-radius:999px; background:#ECECEE; overflow:hidden"><span style="display:block; width:76%; height:6px; background:#4469F0"></span></span>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10); height:64px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 4px; box-shadow:0 -2px 8px rgba(30,34,56,.06)">
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Home</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2zM13 10h4l3 3.5V16h-7"/><circle cx="6.5" cy="18" r="1.7"/><circle cx="16.5" cy="18" r="1.7"/></svg></div>
+              <span style="font-size:10px; font-weight:600; color:#2646BE; letter-spacing:.01em; line-height:14px">Vehicles</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center">
+                <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) translateY(-24px); width:56px; height:56px; border-radius:999px; background:#2F58EE; border:1px solid #213EA7; display:grid; place-items:center; box-shadow:0 0 0 4px #FFFFFF, 0 8px 18px rgba(47,88,238,.34), 0 2px 4px rgba(30,34,56,.10)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6h5.1a3 3 0 0 1 0 6h-3a3 3 0 0 0 0 6h5.1"/></svg></div>
+              </div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Trips</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5a6 6 0 0 1 12 0c0 3.5 1 4.5 1.5 5.5H4.5C5 14 6 13 6 9.5"/><path d="M10 19a2 2 0 0 0 4 0"/></svg><span style="position:absolute; top:-4px; right:calc(50% - 21px); min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:999px; background:#DD3030; color:#FFFFFF; font-family:'DM Mono',monospace; font-size:9px; display:grid; place-items:center">3</span></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Alerts</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">More</span>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 16 MORE -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="16 More">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">16</span><span style="font-size:13px; font-weight:600">More · index for everything else</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; border-bottom:1px solid rgba(5,8,22,.10); min-height:60px; box-sizing:border-box">
+            <span style="font-size:20px; font-weight:600; letter-spacing:-.015em">More</span>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:12px">
+            <div style="background:linear-gradient(180deg,#213EA7 0%,#2F58EE 100%); border-radius:12px; padding:16px; color:#FFFFFF; display:flex; align-items:center; justify-content:space-between">
+              <div style="display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; opacity:.8">Wallet · owed to you</span><span style="font-family:'DM Mono',monospace; font-size:26px; font-weight:500; line-height:1.1">₹{{ walletFmt }}</span><span style="font-size:12px; opacity:.82">1 bill pending · 4 confirmed</span></div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; overflow:hidden">
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span style="flex:1; font-size:15px">Khata &amp; bills</span><span style="font-size:11px; font-weight:600; padding:3px 8px; border-radius:999px; background:#FDF3E0; color:#C56200">1 pending</span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin-left:49px"></div>
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M16 12.5h3"/></svg><span style="flex:1; font-size:15px">My advances</span><span style="font-family:'DM Mono',monospace; font-size:13px; color:#93939A">₹5,000</span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin-left:49px"></div>
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><path d="M12 3s-6 7-6 10.5a6 6 0 0 0 12 0C18 10 12 3 12 3Z"/></svg><span style="flex:1; font-size:15px">Fuel log</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin-left:49px"></div>
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><circle cx="8" cy="8" r="4"/><path d="M11 11l8 8-2.5 2.5-8-8"/></svg><span style="flex:1; font-size:15px">Repairs</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin-left:49px"></div>
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/></svg><span style="flex:1; font-size:15px">Documents</span><span style="font-size:11px; font-weight:600; padding:3px 8px; border-radius:999px; background:#FDF3E0; color:#C56200">1 expiring</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; overflow:hidden">
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c1.4-3.4 4-4.9 7-4.9s5.6 1.5 7 4.9"/></svg><span style="flex:1; font-size:15px">Profile</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin-left:49px"></div>
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3.5 12h17M12 3.2c2.5 2.6 2.5 15.6 0 17.6-2.5-2-2.5-15 0-17.6"/></svg><span style="flex:1; font-size:15px">Language</span><span style="font-size:13px; color:#5D5D5E">English</span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin-left:49px"></div>
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.2M12 11v5"/></svg><span style="flex:1; font-size:15px">Help &amp; support</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></div>
+            </div>
+
+            <div style="height:52px; border-radius:8px; background:#FBEAEA; border:1px solid rgba(187,38,38,.24); color:#BB2626; display:flex; align-items:center; justify-content:center; gap:9px; font-size:15px; font-weight:600"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#BB2626" stroke-width="1.9" stroke-linecap="round"><path d="M12 4 21 19H3z"/><path d="M12 10v4M12 16.6v.2"/></svg>Emergency SOS</div>
+            <div style="display:flex; justify-content:center"><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">Sahayak v4.2.0 · build 812</span></div>
+          </div>
+
+          <div style="margin-top:auto; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10); height:64px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 4px; box-shadow:0 -2px 8px rgba(30,34,56,.06)">
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Home</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2zM13 10h4l3 3.5V16h-7"/><circle cx="6.5" cy="18" r="1.7"/><circle cx="16.5" cy="18" r="1.7"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Vehicles</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center">
+                <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) translateY(-24px); width:56px; height:56px; border-radius:999px; background:#2F58EE; border:1px solid #213EA7; display:grid; place-items:center; box-shadow:0 0 0 4px #FFFFFF, 0 8px 18px rgba(47,88,238,.34), 0 2px 4px rgba(30,34,56,.10)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6h5.1a3 3 0 0 1 0 6h-3a3 3 0 0 0 0 6h5.1"/></svg></div>
+              </div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Trips</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5a6 6 0 0 1 12 0c0 3.5 1 4.5 1.5 5.5H4.5C5 14 6 13 6 9.5"/><path d="M10 19a2 2 0 0 0 4 0"/></svg><span style="position:absolute; top:-4px; right:calc(50% - 21px); min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:999px; background:#DD3030; color:#FFFFFF; font-family:'DM Mono',monospace; font-size:9px; display:grid; place-items:center">3</span></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Alerts</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.85" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></div>
+              <span style="font-size:10px; font-weight:600; color:#2646BE; letter-spacing:.01em; line-height:14px">More</span>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 17 FUEL CAPTURE -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="17 Fuel capture">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">17</span><span style="font-size:13px; font-weight:600">Fuel · capture the three photos</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.10); min-height:60px; box-sizing:border-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.9" stroke-linecap="round"><path d="M14 5l-7 7 7 7"/></svg>
+            <div style="flex:1; display:flex; flex-direction:column"><span style="font-size:17px; font-weight:600; letter-spacing:-.01em">Add fuel</span><span style="font-size:12px; color:#5D5D5E">Step 1 of 2 · photos</span></div>
+            <span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">2/3</span>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:14px">
+            <div style="display:flex; gap:6px">
+              <span style="flex:1; height:4px; border-radius:999px; background:#4469F0"></span>
+              <span style="flex:1; height:4px; border-radius:999px; background:#ECECEE"></span>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; gap:13px; align-items:center">
+              <div style="width:76px; height:76px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; flex-shrink:0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><rect x="2" y="8" width="20" height="8" rx="2"/><path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01"/></svg><span style="font-family:'DM Mono',monospace; font-size:9px; color:#93939A">482,610</span></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:5px">
+                <div style="display:flex; align-items:center; gap:8px"><span style="font-size:14px; font-weight:600">Odometer</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#E7F4EA; color:#187A32">Captured</span></div>
+                <span style="font-size:12px; color:#5D5D5E">Reading picked up automatically</span>
+                <span style="font-size:13px; font-weight:600; color:#2646BE">Retake</span>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; gap:13px; align-items:center">
+              <div style="width:76px; height:76px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; flex-shrink:0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M6 3h9v18H6zM15 8h3v9a1.5 1.5 0 0 1-3 0"/><path d="M9 7h3"/></svg><span style="font-family:'DM Mono',monospace; font-size:9px; color:#93939A">42.5 L</span></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:5px">
+                <div style="display:flex; align-items:center; gap:8px"><span style="font-size:14px; font-weight:600">Pump meter</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#E7F4EA; color:#187A32">Captured</span></div>
+                <span style="font-size:12px; color:#5D5D5E">Litres and rate read from meter</span>
+                <span style="font-size:13px; font-weight:600; color:#2646BE">Retake</span>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px dashed #2A4FD6; border-radius:12px; padding:20px 14px; display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center">
+              <div style="width:52px; height:52px; border-radius:999px; background:rgba(47,88,238,.10); display:grid; place-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="3"/><circle cx="12" cy="13.5" r="3.4"/><path d="M8.5 7 9.5 4.5h5L15.5 7"/></svg></div>
+              <div style="display:flex; flex-direction:column; gap:5px">
+                <span style="font-size:15px; font-weight:600">Photograph the fuel bill</span>
+                <span style="font-size:13px; line-height:1.5; color:#5D5D5E">Keep the amount and litres inside the frame.</span>
+              </div>
+              <div style="display:flex; gap:8px">
+                <span style="height:44px; padding:0 16px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="3"/><circle cx="12" cy="13.5" r="3.4"/></svg>Camera</span>
+                <span style="height:44px; padding:0 16px; border-radius:8px; background:rgba(47,88,238,.10); border:1px solid rgba(47,88,238,.20); color:#2646BE; font-size:14px; font-weight:600; display:flex; align-items:center">Gallery</span>
+              </div>
+            </div>
+
+            <div style="background:#FDF3E0; border:1px solid rgba(197,98,0,.16); border-radius:12px; padding:13px; display:flex; gap:10px; align-items:flex-start">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C56200" stroke-width="1.85" stroke-linecap="round" style="flex-shrink:0; margin-top:1px"><path d="M12 4 21 19H3z"/><path d="M12 10v4M12 16.6v.2"/></svg>
+              <span style="font-size:12px; line-height:1.5; color:#7A3E00">Fuel entries without a bill photo are held for owner review.</span>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; padding:12px 16px 16px; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10)">
+            <div style="height:52px; border-radius:8px; background:#ECECEE; border:1px solid rgba(5,8,22,.05); color:#93939A; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600">Continue</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 18 FUEL DETAILS -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="18 Fuel details">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">18</span><span style="font-size:13px; font-weight:600">Fuel · details, read from the photos</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.10); min-height:60px; box-sizing:border-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.9" stroke-linecap="round"><path d="M14 5l-7 7 7 7"/></svg>
+            <div style="flex:1; display:flex; flex-direction:column"><span style="font-size:17px; font-weight:600; letter-spacing:-.01em">Add fuel</span><span style="font-size:12px; color:#5D5D5E">Step 2 of 2 · details</span></div>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:14px">
+            <div style="display:flex; gap:6px">
+              <span style="flex:1; height:4px; border-radius:999px; background:#4469F0"></span>
+              <span style="flex:1; height:4px; border-radius:999px; background:#4469F0"></span>
+            </div>
+
+            <div style="display:flex; gap:8px">
+              <div style="width:64px; height:64px; border-radius:8px; background:#FFFFFF; border:1px solid rgba(5,8,22,.05); display:grid; place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><rect x="2" y="8" width="20" height="8" rx="2"/></svg></div>
+              <div style="width:64px; height:64px; border-radius:8px; background:#FFFFFF; border:1px solid rgba(5,8,22,.05); display:grid; place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M6 3h9v18H6z"/></svg></div>
+              <div style="width:64px; height:64px; border-radius:8px; background:#FFFFFF; border:1px solid rgba(5,8,22,.05); display:grid; place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/></svg></div>
+              <div style="flex:1; display:flex; align-items:center; gap:8px; padding-left:4px"><span style="width:7px; height:7px; border-radius:999px; background:#36D7A6"></span><span style="font-size:12px; color:#5D5D5E">3 photos attached</span></div>
+            </div>
+
+            <div style="display:flex; gap:10px">
+              <div style="flex:1; background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Litres</span><span style="font-family:'DM Mono',monospace; font-size:20px; font-weight:500">42.5</span></div>
+              <div style="flex:1; background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Rate / L</span><span style="font-family:'DM Mono',monospace; font-size:20px; font-weight:500">₹94.40</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid #2A4FD6; border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px; box-shadow:0 0 0 3px rgba(47,88,238,.20)">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Total amount</span>
+              <div style="display:flex; align-items:baseline; justify-content:space-between">
+                <div style="display:flex; align-items:baseline; gap:5px"><span style="font-family:'DM Mono',monospace; font-size:20px; color:#5D5D5E">₹</span><span style="font-family:'DM Mono',monospace; font-size:26px; font-weight:500">4,012</span></div>
+                <span style="font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; background:#E7F4EA; color:#187A32">Matches bill</span>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Odometer</span>
+              <span style="font-family:'DM Mono',monospace; font-size:16px">482,610 km</span>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:9px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Paid by</span>
+              <div style="display:flex; gap:8px">
+                <span style="font-size:13px; font-weight:600; padding:10px 15px; border-radius:999px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF">My pocket</span>
+                <span style="font-size:13px; font-weight:500; padding:10px 15px; border-radius:999px; background:#FFFFFF; border:1px solid rgba(5,8,22,.10)">Fuel card</span>
+                <span style="font-size:13px; font-weight:500; padding:10px 15px; border-radius:999px; background:#FFFFFF; border:1px solid rgba(5,8,22,.10)">Credit</span>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Pump</span>
+              <span style="font-size:15px">Bharat Petroleum, Karad bypass</span>
+            </div>
+
+            <div style="background:rgba(47,88,238,.10); border:1px solid rgba(47,88,238,.20); border-radius:12px; padding:13px; display:flex; gap:10px; align-items:flex-start">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2646BE" stroke-width="1.85" stroke-linecap="round" style="flex-shrink:0; margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v.2M12 11v5"/></svg>
+              <span style="font-size:12px; line-height:1.5; color:#213EA7">Paid from your pocket, so ₹4,012 goes to the owner for confirmation and then into your wallet.</span>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; padding:12px 16px 16px; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10)">
+            <div style="height:52px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; display:flex; align-items:center; justify-content:center; gap:9px; font-size:15px; font-weight:600">Save fuel entry<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"><path d="M5 12h13M13 7l5 5-5 5"/></svg></div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 19 FUEL SAVED -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="19 Fuel saved">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">19</span><span style="font-size:13px; font-weight:600">Fuel · saved, with mileage feedback</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#FFFFFF; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="flex:1; padding:32px 28px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px; text-align:center">
+            <div style="width:88px; height:88px; border-radius:999px; background:rgba(47,88,238,.10); display:grid; place-items:center">
+              <div style="width:60px; height:60px; border-radius:999px; background:#4469F0; display:grid; place-items:center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19.5 7.5"/></svg></div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px">
+              <span style="font-family:'DM Sans',sans-serif; font-size:26px; font-weight:700; letter-spacing:-.02em">Fuel entry saved</span>
+              <span style="font-size:14px; line-height:1.6; color:#5D5D5E; text-wrap:pretty">42.5 L for ₹4,012 recorded against TR-4821. Sent to the owner for confirmation.</span>
+            </div>
+            <div style="width:100%; background:#F8F8FB; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; color:#5D5D5E">Mileage this tank</span><span style="font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; background:#E7F4EA; color:#187A32">Up 0.2</span></div>
+              <div style="display:flex; align-items:baseline; gap:8px"><span style="font-family:'DM Mono',monospace; font-size:28px; font-weight:500">4.0</span><span style="font-family:'DM Mono',monospace; font-size:13px; color:#5D5D5E">km/L · fleet avg 3.8</span></div>
+              <span style="height:6px; border-radius:999px; background:#ECECEE; overflow:hidden"><span style="display:block; width:66%; height:6px; background:#187A32"></span></span>
+            </div>
+            <div style="width:100%; background:#F8F8FB; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:16px; display:flex; align-items:center; justify-content:space-between">
+              <div style="display:flex; flex-direction:column; gap:3px"><span style="font-size:13px; color:#5D5D5E">Wallet after confirmation</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">₹4,820 + ₹4,012</span></div>
+              <span style="font-family:'DM Mono',monospace; font-size:20px; font-weight:500; color:#187A32">₹8,832</span>
+            </div>
+          </div>
+          <div style="padding:12px 16px 20px; display:flex; flex-direction:column; gap:10px">
+            <div style="height:52px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600">Back to trip</div>
+            <div style="height:52px; border-radius:8px; background:rgba(47,88,238,.10); border:1px solid rgba(47,88,238,.20); color:#2646BE; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600">View fuel log</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 20 FUEL LOG -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="20 Fuel log">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">20</span><span style="font-size:13px; font-weight:600">Fuel log · history and mileage trend</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.10); min-height:60px; box-sizing:border-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.9" stroke-linecap="round"><path d="M14 5l-7 7 7 7"/></svg>
+            <div style="flex:1; display:flex; flex-direction:column"><span style="font-size:17px; font-weight:600; letter-spacing:-.01em">Fuel log</span><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">MH 12 AB 3421 · August</span></div>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:12px">
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:14px; box-shadow:0 2px 4px 0 rgba(30,34,56,.08)">
+              <div style="display:flex; align-items:flex-end; justify-content:space-between">
+                <div style="display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Mileage trend</span><div style="display:flex; align-items:baseline; gap:7px"><span style="font-family:'DM Mono',monospace; font-size:26px; font-weight:500">4.0</span><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">km/L</span></div></div>
+                <span style="font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; background:#E7F4EA; color:#187A32">Improving</span>
+              </div>
+              <div style="display:flex; align-items:flex-end; gap:7px; height:78px">
+                <span style="flex:1; height:52%; background:#829BF5; border-radius:4px 4px 0 0"></span>
+                <span style="flex:1; height:44%; background:#829BF5; border-radius:4px 4px 0 0"></span>
+                <span style="flex:1; height:66%; background:#829BF5; border-radius:4px 4px 0 0"></span>
+                <span style="flex:1; height:58%; background:#829BF5; border-radius:4px 4px 0 0"></span>
+                <span style="flex:1; height:74%; background:#6D8AF3; border-radius:4px 4px 0 0"></span>
+                <span style="flex:1; height:88%; background:#4469F0; border-radius:4px 4px 0 0"></span>
+              </div>
+              <div style="display:flex; justify-content:space-between"><span style="font-family:'DM Mono',monospace; font-size:10px; color:#93939A">Mar</span><span style="font-family:'DM Mono',monospace; font-size:10px; color:#93939A">Aug</span></div>
+            </div>
+
+            <div style="display:flex; gap:10px">
+              <div style="flex:1; background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:13px; display:flex; flex-direction:column; gap:4px"><span style="font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Litres</span><span style="font-family:'DM Mono',monospace; font-size:18px; font-weight:500">168</span></div>
+              <div style="flex:1; background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:13px; display:flex; flex-direction:column; gap:4px"><span style="font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Spend</span><span style="font-family:'DM Mono',monospace; font-size:18px; font-weight:500">₹15,860</span></div>
+              <div style="flex:1; background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:13px; display:flex; flex-direction:column; gap:4px"><span style="font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Fills</span><span style="font-family:'DM Mono',monospace; font-size:18px; font-weight:500">4</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; overflow:hidden">
+              <div style="padding:13px 14px; display:flex; gap:12px; align-items:center">
+                <div style="width:38px; height:38px; border-radius:10px; background:rgba(47,88,238,.10); display:grid; place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2646BE" stroke-width="1.75" stroke-linecap="round"><path d="M12 3s-6 7-6 10.5a6 6 0 0 0 12 0C18 10 12 3 12 3Z"/></svg></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:3px"><div style="display:flex; align-items:center; gap:7px"><span style="font-family:'DM Mono',monospace; font-size:14px; font-weight:500">42.5 L</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#FDF3E0; color:#C56200">Pending</span></div><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">04 Aug · Karad · 4.0 km/L</span></div>
+                <span style="font-family:'DM Mono',monospace; font-size:15px; font-weight:500">₹4,012</span>
+              </div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin:0 14px"></div>
+              <div style="padding:13px 14px; display:flex; gap:12px; align-items:center">
+                <div style="width:38px; height:38px; border-radius:10px; background:#F3F3F6; display:grid; place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><path d="M12 3s-6 7-6 10.5a6 6 0 0 0 12 0C18 10 12 3 12 3Z"/></svg></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:3px"><div style="display:flex; align-items:center; gap:7px"><span style="font-family:'DM Mono',monospace; font-size:14px; font-weight:500">38.0 L</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#E7F4EA; color:#187A32">Confirmed</span></div><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">31 Jul · Dhule · 3.8 km/L</span></div>
+                <span style="font-family:'DM Mono',monospace; font-size:15px; font-weight:500">₹3,586</span>
+              </div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin:0 14px"></div>
+              <div style="padding:13px 14px; display:flex; gap:12px; align-items:center">
+                <div style="width:38px; height:38px; border-radius:10px; background:#F3F3F6; display:grid; place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><path d="M12 3s-6 7-6 10.5a6 6 0 0 0 12 0C18 10 12 3 12 3Z"/></svg></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:3px"><div style="display:flex; align-items:center; gap:7px"><span style="font-family:'DM Mono',monospace; font-size:14px; font-weight:500">45.0 L</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#E7F4EA; color:#187A32">Confirmed</span></div><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">24 Jul · Surat · 3.7 km/L</span></div>
+                <span style="font-family:'DM Mono',monospace; font-size:15px; font-weight:500">₹4,230</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; padding:12px 16px 16px; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10)">
+            <div style="height:52px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; display:flex; align-items:center; justify-content:center; gap:9px; font-size:15px; font-weight:600"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.1" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add fuel</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 21 REPAIRS -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="21 Repairs">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">21</span><span style="font-size:13px; font-weight:600">Repairs · logs for this truck</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.10); min-height:60px; box-sizing:border-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.9" stroke-linecap="round"><path d="M14 5l-7 7 7 7"/></svg>
+            <div style="flex:1; display:flex; flex-direction:column"><span style="font-size:17px; font-weight:600; letter-spacing:-.01em">Repairs</span><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">MH 12 AB 3421 · 3 logs</span></div>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:12px">
+            <div style="display:flex; gap:10px">
+              <div style="flex:1; background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:5px"><span style="font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Spend this year</span><span style="font-family:'DM Mono',monospace; font-size:20px; font-weight:500">₹9,180</span></div>
+              <div style="flex:1; background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:5px"><span style="font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Downtime</span><span style="font-family:'DM Mono',monospace; font-size:20px; font-weight:500">2 days</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(197,98,0,.16); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:11px; box-shadow:0 2px 4px 0 rgba(30,34,56,.08)">
+              <div style="display:flex; align-items:center; justify-content:space-between"><div style="display:flex; align-items:center; gap:9px"><span style="font-size:15px; font-weight:600">Clutch plate</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#FDF3E0; color:#C56200">In workshop</span></div><span style="font-family:'DM Mono',monospace; font-size:15px; font-weight:500">₹8,400</span></div>
+              <span style="font-size:13px; line-height:1.5; color:#5D5D5E">Sai Auto Works, Surat · replacement plus labour</span>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">04 Aug · 482,540 km</span><span style="font-size:13px; font-weight:600; color:#2646BE">2 photos</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:11px">
+              <div style="display:flex; align-items:center; justify-content:space-between"><div style="display:flex; align-items:center; gap:9px"><span style="font-size:15px; font-weight:600">Tyre rotation</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#E7F4EA; color:#187A32">Done</span></div><span style="font-family:'DM Mono',monospace; font-size:15px; font-weight:500">₹640</span></div>
+              <span style="font-size:13px; line-height:1.5; color:#5D5D5E">Highway Tyres, Karad · all six wheels</span>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">18 Jul · 479,120 km</span><span style="font-size:13px; font-weight:600; color:#2646BE">1 photo</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:11px">
+              <div style="display:flex; align-items:center; justify-content:space-between"><div style="display:flex; align-items:center; gap:9px"><span style="font-size:15px; font-weight:600">Brake service</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#E7F4EA; color:#187A32">Done</span></div><span style="font-family:'DM Mono',monospace; font-size:15px; font-weight:500">₹140</span></div>
+              <span style="font-size:13px; line-height:1.5; color:#5D5D5E">Company workshop, Pune · brake fluid top-up</span>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">02 Jul · 475,880 km</span><span style="font-size:13px; font-weight:600; color:#2646BE">No photo</span></div>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; padding:12px 16px 16px; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10)">
+            <div style="height:52px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; display:flex; align-items:center; justify-content:center; gap:9px; font-size:15px; font-weight:600"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.1" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Log a repair</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 22 LOG REPAIR -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="22 Log repair">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">22</span><span style="font-size:13px; font-weight:600">Log a repair · parts and labour</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.10); min-height:60px; box-sizing:border-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            <div style="flex:1; display:flex; flex-direction:column"><span style="font-size:17px; font-weight:600; letter-spacing:-.01em">Log a repair</span><span style="font-size:12px; color:#5D5D5E">MH 12 AB 3421</span></div>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:14px">
+            <div style="display:flex; flex-direction:column; gap:9px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">What needed work?</span>
+              <div style="display:flex; flex-wrap:wrap; gap:8px">
+                <span style="font-size:13px; font-weight:600; padding:9px 14px; border-radius:999px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF">Clutch</span>
+                <span style="font-size:13px; font-weight:500; padding:9px 14px; border-radius:999px; background:#FFFFFF; border:1px solid rgba(5,8,22,.10)">Brakes</span>
+                <span style="font-size:13px; font-weight:500; padding:9px 14px; border-radius:999px; background:#FFFFFF; border:1px solid rgba(5,8,22,.10)">Tyres</span>
+                <span style="font-size:13px; font-weight:500; padding:9px 14px; border-radius:999px; background:#FFFFFF; border:1px solid rgba(5,8,22,.10)">Engine</span>
+                <span style="font-size:13px; font-weight:500; padding:9px 14px; border-radius:999px; background:#FFFFFF; border:1px solid rgba(5,8,22,.10)">Electrical</span>
+                <span style="font-size:13px; font-weight:500; padding:9px 14px; border-radius:999px; background:#FFFFFF; border:1px solid rgba(5,8,22,.10)">Body</span>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Work done</span>
+              <span style="font-size:15px">Clutch plate with pressure plate</span>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Cost split</span>
+              <div style="display:flex; gap:10px">
+                <div style="flex:1; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:11px 13px; display:flex; flex-direction:column; gap:3px"><span style="font-size:11px; color:#5D5D5E">Parts</span><span style="font-family:'DM Mono',monospace; font-size:17px; font-weight:500">₹6,900</span></div>
+                <div style="flex:1; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:11px 13px; display:flex; flex-direction:column; gap:3px"><span style="font-size:11px; color:#5D5D5E">Labour</span><span style="font-family:'DM Mono',monospace; font-size:17px; font-weight:500">₹1,500</span></div>
+              </div>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:14px; font-weight:600">Total</span><span style="font-family:'DM Mono',monospace; font-size:22px; font-weight:500">₹8,400</span></div>
+            </div>
+
+            <div style="display:flex; gap:10px">
+              <div style="flex:1; background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Date</span><span style="font-family:'DM Mono',monospace; font-size:14px">04 Aug 2026</span></div>
+              <div style="flex:1; background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Odometer</span><span style="font-family:'DM Mono',monospace; font-size:14px">482,540</span></div>
+              <div style="flex:1.5; background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Workshop</span><span style="font-size:14px">Sai Auto Works</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; font-weight:600">Photos</span><span style="font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; background:rgba(47,88,238,.10); color:#2646BE">2 added</span></div>
+              <div style="display:flex; gap:10px">
+                <div style="width:72px; height:72px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); display:grid; place-items:center; position:relative"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="4"/><path d="M11 11l8 8-2.5 2.5-8-8"/></svg><div style="position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:999px; background:#121214; display:grid; place-items:center"><svg width="9" height="9" viewBox="0 0 10 10" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"><path d="M2 2l6 6M8 2l-6 6"/></svg></div></div>
+                <div style="width:72px; height:72px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); display:grid; place-items:center; position:relative"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/></svg><div style="position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:999px; background:#121214; display:grid; place-items:center"><svg width="9" height="9" viewBox="0 0 10 10" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"><path d="M2 2l6 6M8 2l-6 6"/></svg></div></div>
+                <div style="width:72px; height:72px; border-radius:8px; border:1px dashed #C6C6C9; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; padding:12px 16px 16px; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10)">
+            <div style="height:52px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600">Save repair log</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 23 DOCUMENTS -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="23 Documents">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">23</span><span style="font-size:13px; font-weight:600">Documents · validity at a glance</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.10); min-height:60px; box-sizing:border-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.9" stroke-linecap="round"><path d="M14 5l-7 7 7 7"/></svg>
+            <div style="flex:1; display:flex; flex-direction:column"><span style="font-size:17px; font-weight:600; letter-spacing:-.01em">My documents</span><span style="font-size:12px; color:#5D5D5E">4 on file · 1 expiring</span></div>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:12px">
+            <div style="background:#FDF3E0; border:1px solid rgba(197,98,0,.16); border-radius:12px; padding:14px; display:flex; gap:11px; align-items:flex-start">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C56200" stroke-width="1.85" stroke-linecap="round" style="flex-shrink:0"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              <div style="display:flex; flex-direction:column; gap:8px">
+                <span style="font-size:13px; line-height:1.5; color:#7A3E00"><span style="font-weight:600">Driving licence expires in 24 days.</span> Upload the renewed copy to keep taking trips.</span>
+                <span style="align-self:flex-start; height:36px; padding:0 14px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; font-size:13px; font-weight:600; display:flex; align-items:center">Upload renewal</span>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(197,98,0,.16); border-radius:12px; padding:14px; display:flex; gap:13px; align-items:center">
+              <div style="width:46px; height:56px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); display:grid; place-items:center; flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/></svg></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:5px">
+                <div style="display:flex; align-items:center; gap:8px"><span style="font-size:15px; font-weight:600">Driving licence</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#FDF3E0; color:#C56200">24 days</span></div>
+                <span style="font-family:'DM Mono',monospace; font-size:11px; color:#5D5D5E">MH1420110045678 · valid to 12 Sep 2026</span>
+              </div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; gap:13px; align-items:center">
+              <div style="width:46px; height:56px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); display:grid; place-items:center; flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/></svg></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:5px">
+                <div style="display:flex; align-items:center; gap:8px"><span style="font-size:15px; font-weight:600">Aadhaar</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#E7F4EA; color:#187A32">Verified</span></div>
+                <span style="font-family:'DM Mono',monospace; font-size:11px; color:#5D5D5E">XXXX XXXX 4412 · no expiry</span>
+              </div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; gap:13px; align-items:center">
+              <div style="width:46px; height:56px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); display:grid; place-items:center; flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/></svg></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:5px">
+                <div style="display:flex; align-items:center; gap:8px"><span style="font-size:15px; font-weight:600">PAN card</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#E7F4EA; color:#187A32">Verified</span></div>
+                <span style="font-family:'DM Mono',monospace; font-size:11px; color:#5D5D5E">ABCPY1234K · no expiry</span>
+              </div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; gap:13px; align-items:center">
+              <div style="width:46px; height:56px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); display:grid; place-items:center; flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/></svg></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:5px">
+                <div style="display:flex; align-items:center; gap:8px"><span style="font-size:15px; font-weight:600">Police verification</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#E7F4EA; color:#187A32">Valid</span></div>
+                <span style="font-family:'DM Mono',monospace; font-size:11px; color:#5D5D5E">Issued 04 Feb 2026 · valid to 03 Feb 2028</span>
+              </div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px dashed #C6C6C9; border-radius:12px; padding:16px; display:flex; align-items:center; gap:12px">
+              <div style="width:40px; height:40px; border-radius:999px; background:#F3F3F6; display:grid; place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span style="font-size:14px; font-weight:600">Add a document</span><span style="font-size:12px; color:#5D5D5E">Photo or PDF, up to 5 MB</span></div>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 24 SOS OPTIONS -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="24 SOS options">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">24</span><span style="font-size:13px; font-weight:600">SOS · pick the kind of trouble</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#121214; display:flex; flex-direction:column; justify-content:flex-end; font-family:'Inter',system-ui,sans-serif; position:relative">
+          <div style="position:absolute; inset:0; display:flex; flex-direction:column">
+            <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; min-height:60px; box-sizing:border-box; border-bottom:1px solid rgba(5,8,22,.10)"><span style="font-size:20px; font-weight:600; letter-spacing:-.015em">More</span></div>
+            <div style="flex:1; background:#F3F3F6"></div>
+          </div>
+          <div style="position:absolute; inset:0; background:rgba(18,18,20,.48); backdrop-filter:blur(2px)"></div>
+          <div style="position:relative; background:#FFFFFF; border-radius:16px 16px 0 0; padding:10px 20px 24px; display:flex; flex-direction:column; gap:18px; box-shadow:0 12px 32px 0 rgba(30,34,56,.14)">
+            <span style="width:40px; height:4px; border-radius:999px; background:#DFDFE2; align-self:center"></span>
+            <div style="display:flex; align-items:center; gap:12px">
+              <div style="width:44px; height:44px; border-radius:12px; background:#FBEAEA; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#BB2626" stroke-width="1.9" stroke-linecap="round"><path d="M12 4 21 19H3z"/><path d="M12 10v4M12 16.6v.2"/></svg></div>
+              <div style="display:flex; flex-direction:column; gap:2px"><span style="font-size:19px; font-weight:600; letter-spacing:-.01em">Emergency SOS</span><span style="font-size:12px; color:#5D5D5E">Your location is shared the moment you send it</span></div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px">
+              <div style="border:1px solid rgba(187,38,38,.24); background:#FFFFFF; border-radius:12px; padding:15px; display:flex; align-items:center; gap:13px">
+                <div style="width:40px; height:40px; border-radius:10px; background:#FBEAEA; display:grid; place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#BB2626" stroke-width="1.75" stroke-linecap="round"><path d="M2 7h11v9H2zM13 10h4l3 3.5V16h-7"/><path d="M4 4l16 16"/></svg></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span style="font-size:15px; font-weight:600">Accident</span><span style="font-size:12px; color:#5D5D5E">Alerts owner, ops and the nearest workshop</span></div>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+              </div>
+              <div style="border:1px solid rgba(5,8,22,.10); background:#FFFFFF; border-radius:12px; padding:15px; display:flex; align-items:center; gap:13px">
+                <div style="width:40px; height:40px; border-radius:10px; background:#FDF3E0; display:grid; place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C56200" stroke-width="1.75" stroke-linecap="round"><circle cx="8" cy="8" r="4"/><path d="M11 11l8 8-2.5 2.5-8-8"/></svg></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span style="font-size:15px; font-weight:600">Breakdown</span><span style="font-size:12px; color:#5D5D5E">Truck cannot move · needs mechanic</span></div>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+              </div>
+              <div style="border:1px solid rgba(5,8,22,.10); background:#FFFFFF; border-radius:12px; padding:15px; display:flex; align-items:center; gap:13px">
+                <div style="width:40px; height:40px; border-radius:10px; background:#F0EEF6; display:grid; place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4A4266" stroke-width="1.75" stroke-linecap="round"><path d="M12 3l8 4v6c0 4-3.4 7-8 8-4.6-1-8-4-8-8V7z"/></svg></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span style="font-size:15px; font-weight:600">Theft or threat</span><span style="font-size:12px; color:#5D5D5E">Escalates to ops and police helpline</span></div>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+              </div>
+              <div style="border:1px solid rgba(5,8,22,.10); background:#FFFFFF; border-radius:12px; padding:15px; display:flex; align-items:center; gap:13px">
+                <div style="width:40px; height:40px; border-radius:10px; background:#E8F1FD; display:grid; place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2666B8" stroke-width="1.75" stroke-linecap="round"><path d="M12 21c-4.6-1-8-4-8-8V7l8-4 8 4v6c0 4-3.4 7-8 8"/><path d="M12 8v8M8 12h8"/></svg></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span style="font-size:15px; font-weight:600">Medical help</span><span style="font-size:12px; color:#5D5D5E">Ambulance and nearest hospital</span></div>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+              </div>
+            </div>
+
+            <div style="background:#F8F8FB; border-radius:8px; padding:12px 14px; display:flex; align-items:center; gap:10px">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.85" stroke-linecap="round"><path d="M12 21c-4.5-4-7-7-7-10a7 7 0 0 1 14 0c0 3-2.5 6-7 10"/><circle cx="12" cy="11" r="2.4"/></svg>
+              <span style="font-family:'DM Mono',monospace; font-size:11px; color:#5D5D5E">NH-48, 12 km before Karad · 17:42</span>
+            </div>
+
+            <div style="height:52px; border-radius:8px; border:1px solid rgba(5,8,22,.10); background:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:500">Cancel</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 25 SOS ACTIVE -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="25 SOS active">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">25</span><span style="font-size:13px; font-weight:600">SOS active · help on the way</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#BB2626; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif; color:#FFFFFF">
+          <div style="padding:20px 20px 0; display:flex; align-items:center; justify-content:space-between">
+            <span style="font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; opacity:.85">SOS active</span>
+            <span style="font-family:'DM Mono',monospace; font-size:12px; opacity:.85">Sent 17:42 · 4 m ago</span>
+          </div>
+
+          <div style="padding:28px 24px; display:flex; flex-direction:column; align-items:center; gap:20px; text-align:center">
+            <div style="width:104px; height:104px; display:grid; place-items:center; position:relative">
+              <span style="position:absolute; width:104px; height:104px; border-radius:999px; border:2px solid rgba(255,255,255,.5); animation:novaRing 2s ease-out infinite"></span>
+              <div style="width:72px; height:72px; border-radius:999px; background:#FFFFFF; display:grid; place-items:center"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#BB2626" stroke-width="2.1" stroke-linecap="round"><path d="M12 4 21 19H3z"/><path d="M12 10v4M12 16.6v.2"/></svg></div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:9px">
+              <span style="font-family:'DM Sans',sans-serif; font-size:26px; font-weight:700; letter-spacing:-.02em">Breakdown reported</span>
+              <span style="font-size:14px; line-height:1.6; opacity:.9; text-wrap:pretty">Your owner and the ops desk have your location. A mechanic is being arranged. Keep your phone reachable.</span>
+            </div>
+          </div>
+
+          <div style="padding:0 16px 16px; display:flex; flex-direction:column; gap:10px">
+            <div style="background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; gap:11px; align-items:center">
+                <div style="width:26px; height:26px; border-radius:999px; background:#FFFFFF; display:grid; place-items:center; flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#BB2626" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17 19 7.5"/></svg></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:1px"><span style="font-size:14px; font-weight:600">Owner notified</span><span style="font-family:'DM Mono',monospace; font-size:11px; opacity:.8">Suresh · 17:42</span></div>
+              </div>
+              <div style="display:flex; gap:11px; align-items:center">
+                <div style="width:26px; height:26px; border-radius:999px; background:#FFFFFF; display:grid; place-items:center; flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#BB2626" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17 19 7.5"/></svg></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:1px"><span style="font-size:14px; font-weight:600">Ops desk acknowledged</span><span style="font-family:'DM Mono',monospace; font-size:11px; opacity:.8">Priya · 17:44</span></div>
+              </div>
+              <div style="display:flex; gap:11px; align-items:center">
+                <div style="width:26px; height:26px; border-radius:999px; border:2px solid rgba(255,255,255,.6); box-sizing:border-box; flex-shrink:0; animation:novaPulse 1.6s ease-in-out infinite"></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:1px"><span style="font-size:14px; font-weight:600">Mechanic being assigned</span><span style="font-family:'DM Mono',monospace; font-size:11px; opacity:.8">ETA shared once confirmed</span></div>
+              </div>
+            </div>
+
+            <div style="background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22); border-radius:12px; padding:14px; display:flex; align-items:center; gap:11px">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.85" stroke-linecap="round"><path d="M12 21c-4.5-4-7-7-7-10a7 7 0 0 1 14 0c0 3-2.5 6-7 10"/><circle cx="12" cy="11" r="2.4"/></svg>
+              <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span style="font-size:13px; font-weight:600">Live location on</span><span style="font-family:'DM Mono',monospace; font-size:11px; opacity:.85">NH-48, 12 km before Karad</span></div>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; padding:12px 16px 20px; display:flex; flex-direction:column; gap:10px">
+            <div style="height:56px; border-radius:8px; background:#FFFFFF; color:#BB2626; display:flex; align-items:center; justify-content:center; gap:9px; font-size:16px; font-weight:700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#BB2626" stroke-width="1.9" stroke-linecap="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1"/></svg>Call ops desk</div>
+            <div style="height:52px; border-radius:8px; border:1px solid rgba(255,255,255,.4); display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600">I am safe · cancel SOS</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 26 CONSIGNMENT NOTE -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="26 Consignment note">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">26</span><span style="font-size:13px; font-weight:600">Consignment note · upload before gate out</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.10); min-height:60px; box-sizing:border-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.9" stroke-linecap="round"><path d="M14 5l-7 7 7 7"/></svg>
+            <div style="flex:1; display:flex; flex-direction:column"><span style="font-size:17px; font-weight:600; letter-spacing:-.01em">Consignment note</span><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">TR-4821 · stage 4 of 8</span></div>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:14px">
+            <div style="background:#FDF3E0; border:1px solid rgba(197,98,0,.16); border-radius:12px; padding:13px; display:flex; gap:10px; align-items:flex-start">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C56200" stroke-width="1.85" stroke-linecap="round" style="flex-shrink:0; margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v.2M12 11v5"/></svg>
+              <span style="font-size:12px; line-height:1.5; color:#7A3E00">Gate out stays locked until the note is uploaded.</span>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:11px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Load details</span>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; color:#5D5D5E">Consignor</span><span style="font-size:13px; font-weight:500">Tata Motors, Chakan</span></div>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; color:#5D5D5E">Material</span><span style="font-size:13px; font-weight:500">Auto components</span></div>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; color:#5D5D5E">Loaded weight</span><span style="font-family:'DM Mono',monospace; font-size:13px">24.2 t</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Note number</span>
+              <span style="font-family:'DM Mono',monospace; font-size:16px">CN-2026-08-4471</span>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; font-weight:600">Pages</span><span style="font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; background:rgba(47,88,238,.10); color:#2646BE">2 of 3</span></div>
+              <div style="display:flex; gap:10px">
+                <div style="width:82px; height:104px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; position:relative"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/></svg><span style="font-family:'DM Mono',monospace; font-size:9px; color:#93939A">Page 1</span><div style="position:absolute; bottom:0; left:0; right:0; height:20px; background:rgba(24,122,50,.9); color:#FFFFFF; font-size:9px; font-weight:600; display:grid; place-items:center">Clear</div></div>
+                <div style="width:82px; height:104px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; position:relative"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/></svg><span style="font-family:'DM Mono',monospace; font-size:9px; color:#93939A">Page 2</span><div style="position:absolute; bottom:0; left:0; right:0; height:20px; background:rgba(197,98,0,.92); color:#FFFFFF; font-size:9px; font-weight:600; display:grid; place-items:center">Check edges</div></div>
+                <div style="width:82px; height:104px; border-radius:8px; border:1px dashed #2A4FD6; background:rgba(47,88,238,.10); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2646BE" stroke-width="1.85" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="3"/><circle cx="12" cy="13.5" r="3.4"/></svg><span style="font-size:11px; font-weight:600; color:#2646BE">Add page</span></div>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; align-items:center; gap:12px">
+              <div style="width:22px; height:22px; border-radius:6px; background:#4469F0; border:1px solid #213EA7; display:grid; place-items:center; flex-shrink:0"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17 19 7.5"/></svg></div>
+              <span style="font-size:13px; line-height:1.5; color:#5D5D5E; text-wrap:pretty">Weight and material match what is written on the note.</span>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; padding:12px 16px 16px; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10)">
+            <div style="height:52px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; display:flex; align-items:center; justify-content:center; gap:9px; font-size:15px; font-weight:600"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.9" stroke-linecap="round"><path d="M12 16V4M8 8l4-4 4 4M5 20h14"/></svg>Upload and unlock gate out</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 27 POD -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="27 POD">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">27</span><span style="font-size:13px; font-weight:600">POD · proof of delivery at unload</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.10); min-height:60px; box-sizing:border-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.9" stroke-linecap="round"><path d="M14 5l-7 7 7 7"/></svg>
+            <div style="flex:1; display:flex; flex-direction:column"><span style="font-size:17px; font-weight:600; letter-spacing:-.01em">Proof of delivery</span><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">TR-4802 · Nashik → Indore</span></div>
+            <span style="font-size:11px; font-weight:600; padding:5px 10px; border-radius:999px; background:#FDF3E0; color:#C56200">3 days late</span>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:14px">
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:11px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Delivery</span>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; color:#5D5D5E">Consignee</span><span style="font-size:13px; font-weight:500">Reliance Depot, Indore</span></div>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; color:#5D5D5E">Unloaded</span><span style="font-family:'DM Mono',monospace; font-size:13px">31 Jul · 16:35</span></div>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; color:#5D5D5E">Weight received</span><span style="font-family:'DM Mono',monospace; font-size:13px">21.0 t</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; font-weight:600">Signed POD copy</span><span style="font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; background:rgba(47,88,238,.10); color:#2646BE">Required</span></div>
+              <div style="display:flex; gap:12px">
+                <div style="width:92px; height:112px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; position:relative; overflow:hidden">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/></svg>
+                  <span style="font-family:'DM Mono',monospace; font-size:9px; color:#93939A">POD_4802</span>
+                  <div style="position:absolute; bottom:0; left:0; right:0; height:20px; background:rgba(18,18,20,.72); color:#FFFFFF; font-size:9px; font-weight:500; display:grid; place-items:center">Attached</div>
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:8px; justify-content:center">
+                  <div style="height:44px; border-radius:8px; border:1px solid rgba(5,8,22,.10); display:flex; align-items:center; gap:9px; padding:0 12px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="3"/><circle cx="12" cy="13.5" r="3.4"/></svg><span style="font-size:13px; font-weight:500">Retake</span></div>
+                  <div style="height:44px; border-radius:8px; border:1px solid rgba(5,8,22,.10); display:flex; align-items:center; gap:9px; padding:0 12px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.75" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span style="font-size:13px; font-weight:500">Add page</span></div>
+                  <div style="display:flex; align-items:center; gap:7px"><span style="width:6px; height:6px; border-radius:999px; background:#36D7A6"></span><span style="font-size:11px; color:#5D5D5E">Stamp and signature visible</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:9px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Condition at delivery</span>
+              <div style="display:flex; gap:8px">
+                <span style="font-size:13px; font-weight:600; padding:10px 15px; border-radius:999px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF">No damage</span>
+                <span style="font-size:13px; font-weight:500; padding:10px 15px; border-radius:999px; background:#FFFFFF; border:1px solid rgba(5,8,22,.10)">Shortage</span>
+                <span style="font-size:13px; font-weight:500; padding:10px 15px; border-radius:999px; background:#FFFFFF; border:1px solid rgba(5,8,22,.10)">Damage</span>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Receiver name</span>
+              <span style="font-size:15px">A. Kulkarni · store in-charge</span>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Remarks</span>
+              <span style="font-size:14px; color:#93939A">Optional</span>
+            </div>
+
+            <div style="background:rgba(47,88,238,.10); border:1px solid rgba(47,88,238,.20); border-radius:12px; padding:13px; display:flex; gap:10px; align-items:flex-start">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2646BE" stroke-width="1.85" stroke-linecap="round" style="flex-shrink:0; margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v.2M12 11v5"/></svg>
+              <span style="font-size:12px; line-height:1.5; color:#213EA7">Submitting the POD closes the trip and releases your trip earning for settlement.</span>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; padding:12px 16px 16px; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10)">
+            <div style="height:52px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; display:flex; align-items:center; justify-content:center; gap:9px; font-size:15px; font-weight:600">Submit POD and close trip</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;walletBalance&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:4820,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:0,&quot;max&quot;:99999,&quot;section&quot;:&quot;Data&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const bal = this.props.walletBalance ?? 4820;
+    return { walletFmt: bal.toLocaleString('en-IN') };
+  }
+}
+</script>
+</body>
+</html>

@@ -23,6 +23,7 @@ export default function ListRow({
   onPress,
   showChevron,
   style,
+  accessibilityLabel,
 }) {
   const chevron = (showChevron ?? !!onPress) && right === undefined;
   const Container = onPress ? Pressable : View;
@@ -31,6 +32,8 @@ export default function ListRow({
     <Container
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
+      accessible={onPress ? undefined : true}
+      accessibilityLabel={accessibilityLabel ?? (onPress && typeof title === 'string' ? title : undefined)}
       style={({ pressed } = {}) => [styles.row, pressed && styles.pressed, style]}
     >
       {icon ? (
@@ -51,7 +54,7 @@ export default function ListRow({
       </View>
 
       {right !== undefined ? right : null}
-      {chevron ? <Ionicons name="chevron-forward" size={18} color="#B7C3BF" /> : null}
+      {chevron ? <Ionicons name="chevron-forward" size={18} color="#B4B4BC" /> : null}
     </Container>
   );
 }

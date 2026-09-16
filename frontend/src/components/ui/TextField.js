@@ -63,7 +63,7 @@ export default function TextField({
           placeholder={placeholder}
           placeholderTextColor={colors.textMuted}
           editable={editable}
-          style={[styles.input, { fontFamily, color: hasError ? '#B43029' : colors.text }, inputStyle]}
+          style={[styles.input, { fontFamily, color: hasError ? colors.error : colors.text }, inputStyle]}
           {...rest}
         />
 
@@ -101,8 +101,8 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   fieldError: {
-    backgroundColor: '#FBE9E7',
-    borderColor: '#F0B7B2',
+    backgroundColor: colors.expiredBg,
+    borderColor: '#E5A9A3',
   },
   fieldDisabled: { opacity: 0.6 },
   iconChip: {
