@@ -16,6 +16,7 @@ import tripService from '../../../services/tripService';
 import billService from '../../../services/billService';
 import fuelService from '../../../services/fuelService';
 import documentService from '../../../services/documentService';
+import useLocationTracker from '../../../hooks/useLocationTracker';
 
 /** ERP trip state → StatusBadge vocabulary. */
 const TRIP_BADGE = {
@@ -121,6 +122,9 @@ export default function HomeScreen({ navigation }) {
     started: activeRaw.tripDate ? dayjs(activeRaw.tripDate).format('DD MMM') : '',
     distance: Number(activeRaw.totalKm) || 0,
   };
+
+  // Background GPS reconciliation beacon (Feature #20)
+  useLocationTracker({ enabled: onDuty && !!user, tripId: activeTrip?._id || null });
 
   // Licence / document expiry — real expiryDate off the driver's own documents.
   const expiringDoc = rowsOf(docsApi)
