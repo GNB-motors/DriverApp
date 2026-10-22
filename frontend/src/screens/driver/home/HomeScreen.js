@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -17,6 +18,8 @@ import billService from '../../../services/billService';
 import fuelService from '../../../services/fuelService';
 import documentService from '../../../services/documentService';
 import useLocationTracker from '../../../hooks/useLocationTracker';
+import { startDuty, endDuty } from '../../../services/driverDutyService';
+import DutyStatusStrip from '../../../components/DutyStatusStrip';
 
 /** ERP trip state → StatusBadge vocabulary. */
 const TRIP_BADGE = {
@@ -41,7 +44,52 @@ const QUICK_ACTIONS = [
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  // A6: was a local useState(true) demo toggle that flipped a Switch and told the
+  // driver they were on duty without telling the server. It now calls the backend:
+  // pairing is the server's decision (it picks the truck of this driver's own org
+  // nearest the fix) and only C1's be#206 rework writes the DriverVehicleAssignment
+  // behind it. Until that lands these calls fail, and dutyError says so instead
+  // of the screen silently claiming a duty state the server never agreed to.
   const [onDuty, setOnDuty] = useState(true);
+  const [dutyBusy, setDutyBusy] = useState(false);
+  const [dutyError, setDutyError] = useState(null);
+  const toggleDuty = async () => {
+    setDutyBusy(true);
+    setDutyError(null);
+    try {
+      if (onDuty) {
+        await endDuty();
+      } else {
+        // The server pairs this driver to the truck of THEIR OWN org nearest this
+        // fix. No fix means we cannot pair honestly, so we say so — we do not send
+        // a zeroed coordinate and let the server guess a truck.
+        const perm = await Location.requestForegroundPermissionsAsync();
+        if (perm?.status !== 'granted') {
+          setDutyError('Location permission is needed to pair you with a truck.');
+          return;
+        }
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        const fix = pos?.coords;
+        if (!fix) {
+          setDutyError('Could not get a location fix. Try again outside.');
+          return;
+        }
+        await startDuty({
+          latitude: fix.latitude,
+          longitude: fix.longitude,
+          accuracy: fix.accuracy ?? null,
+          recordedAt: new Date(pos?.timestamp || Date.now()).toISOString(),
+        });
+      }
+      setOnDuty((v) => !v);
+    } catch (err) {
+      // Leave the switch where it was: showing "on duty" after a failed call is
+      // the exact lie this replacement exists to remove.
+      setDutyError(err?.response?.data?.message || 'Could not reach the server.');
+    } finally {
+      setDutyBusy(false);
+    }
+  };
   // Real data only — identity from the signed-in user, balance from the khata
   // summary, and the active trip from the trips list.
   const { user, token } = useAuth();
@@ -168,13 +216,18 @@ export default function HomeScreen({ navigation }) {
         </Pressable>
       </View>
 
+      {/* Hours-of-service strip: fixed ABOVE the scroll so it cannot scroll away
+          while the driver is driving. It hides itself when the backend cannot
+          answer rather than showing a fabricated duty state. */}
+      <DutyStatusStrip active={onDuty} />
+
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={tripsLoading} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         {/* Duty status */}
-        <Card onPress={() => setOnDuty((v) => !v)} elevated="sm" padding={15} style={styles.dutyCard}>
+        <Card onPress={toggleDuty} elevated="sm" padding={15} style={styles.dutyCard}>
           <View style={[styles.dutyIcon, { backgroundColor: onDuty ? colors.validBg : colors.background }]}>
             <Ionicons name="power" size={21} color={onDuty ? colors.success : colors.textMuted} />
           </View>
@@ -189,6 +242,13 @@ export default function HomeScreen({ navigation }) {
           </View>
           <View pointerEvents="none"><Switch value={onDuty} /></View>
         </Card>
+
+        {dutyError ? (
+          <View style={styles.dutyError}>
+            <Ionicons name="alert-circle-outline" size={15} color={colors.danger} />
+            <AppText variant="small" style={{ color: colors.danger }}>{dutyError}</AppText>
+          </View>
+        ) : null}
 
         {/* Wallet hero */}
         <WalletHeroCard
@@ -320,6 +380,7 @@ const styles = StyleSheet.create({
   dutyIcon: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   dutyTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dutyDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success },
+  dutyError: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 4, paddingBottom: 6 },
 
   tripTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   route: { flexDirection: 'row', alignItems: 'center', gap: 12 },

@@ -1,0 +1,50 @@
+name: DriverApp CI
+
+# Every PR runs this. The point is that `main` stays the line: app#18 was a
+# 28k-line merge that could only be reconciled by hand, and app#19 / app#20 were
+# both open for months against a main nobody was testing. A green main is the
+# only thing that stops that happening a third time.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: eslint + jest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # eslint first: it is fast and catches the mistakes that would otherwise
+      # fail the slower half of this job.
+      - name: eslint
+        run: npx eslint src App.js index.js --ext .js,.jsx
+
+      # The app had no test runner until A6. There are no test files yet, so
+      # this is allowed to pass on an empty suite — but it is NOT allowed to pass
+      # on a suite that fails, and the day the first test lands it starts
+      # meaning something without this file changing.
+      - name: jest
+        run: npx jest --ci --passWithNoTests
+
+      # The app's modules must at least PARSE. A syntax error in a screen is the
+      # failure mode that a testless project actually hits in the field.
+      - name: parse-check
+        run: node scripts/parse-check.js

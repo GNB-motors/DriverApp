@@ -8,6 +8,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { apiConfigured } from '../../../services/client';
 import { useApi } from '../../../hooks/useApi';
 import documentService from '../../../services/documentService';
+import DigiLockerVerifyCard from '../../../components/DigiLockerVerifyCard';
 import dayjs from 'dayjs';
 
 /**
@@ -73,6 +74,12 @@ export default function MyDocumentsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}
       >
+        {/* A6: DigiLocker verification, ported from app#20 onto the #18 line.
+            Only step 4 of the flow (handing the callback code back) sets
+            verifiedAt, and the backend's DIGILOCKER_ENABLED flag is off by
+            default — the card says which, instead of failing silently. */}
+        <DigiLockerVerifyCard />
+
         <WarningBanner
           tone="warning"
           message="Driving licence expires in 24 days. Upload the renewed copy to keep taking trips."
