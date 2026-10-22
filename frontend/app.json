@@ -16,7 +16,15 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "GNB Motors needs your location while you are on duty so managers can see your live driver position.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "GNB Motors needs Always location access only when you choose Always sharing for on-duty driver tracking."
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "GNB Motors needs Always location access only when you choose Always sharing for on-duty driver tracking.",
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "com.gnbedge.driverapp.digilocker",
+            "CFBundleURLSchemes": [
+              "digilockerapp"
+            ]
+          }
+        ]
       },
       "bundleIdentifier": "com.gnbedge.driverapp"
     },
@@ -56,6 +64,7 @@
       "eas": {
         "projectId": "52c37263-1c8b-4f7b-b086-e58d7d6648ef"
       }
-    }
+    },
+    "scheme": "gnbedge"
   }
 }

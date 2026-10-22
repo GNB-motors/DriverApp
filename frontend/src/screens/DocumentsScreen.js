@@ -12,6 +12,7 @@ import { SELECTED_VEHICLE_KEY } from './VehicleScreen';
 import { fetchDocuments, fetchVehicleDocuments } from '../services/api';
 import logger from '../utils/logger';
 import { AppText, Button, Badge, ScreenHeader, colors, spacing, radius } from '../components/ui';
+import DigiLockerVerifyCard from '../components/DigiLockerVerifyCard';
 
 export default function DocumentsScreen({ route, navigation }) {
   const { docType } = route.params || {}; // 'PERSONAL' or 'VEHICLE'
@@ -160,6 +161,9 @@ export default function DocumentsScreen({ route, navigation }) {
                 </AppText>
               </View>
             )}
+
+            {/* DigiLocker verification — DL + RC pulled straight from the citizen's locker */}
+            {showPersonal && <DigiLockerVerifyCard token={token} language={language} onVerified={loadDocs} />}
 
             {/* Personal */}
             {showPersonal && (

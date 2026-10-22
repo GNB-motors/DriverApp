@@ -218,6 +218,38 @@ export async function fetchVehicleDocuments(token, vehicleId) {
   return res.data?.data || res.data || [];
 }
 
+// ── DigiLocker verification ─────────────────────────────────────────────
+// Behind the backend's DIGILOCKER_ENABLED flag (default off). Every call here
+// returns the backend's stable envelope: `{ success, data }`.
+//
+// `startDigiLockerVerification` returns the authorizationUrl the driver opens
+// in the system browser plus the state token. The app stores `state` in
+// AsyncStorage, opens the URL, and DigiLocker bounces back to
+// `digilockerapp://callback?code=...&state=...`. `completeDigiLockerVerification`
+// then hands that code back to the backend — ONLY that call flips `verifiedAt`.
+
+export async function startDigiLockerVerification(token, docTypes = ['DL', 'RC']) {
+  const res = await apiClient.post('/digilocker/start', { docTypes }, { token });
+  return res.data?.data ?? res.data;
+}
+
+export async function completeDigiLockerVerification(token, { code, state, sandboxFixture }) {
+  const body = { code, state };
+  if (sandboxFixture) body.sandboxFixture = sandboxFixture;
+  const res = await apiClient.post('/digilocker/callback', body, { token });
+  return res.data?.data ?? res.data;
+}
+
+export async function fetchDigiLockerStatus(token) {
+  const res = await apiClient.get('/digilocker/status', { token });
+  return res.data?.data ?? res.data;
+}
+
+export async function fetchDigiLockerState(token, state) {
+  const res = await apiClient.get(`/digilocker/state/${encodeURIComponent(state)}`, { token });
+  return res.data?.data ?? res.data;
+}
+
 // ── Maintenance / Repairs ──────────────────────────────────────────────
 
 export async function submitRepair(token, payload, photos = []) {
