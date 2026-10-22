@@ -3,7 +3,7 @@
     "name": "driver-app",
     "slug": "driver-app",
     "version": "1.0.0",
-    "scheme": "gnbedge",
+    "scheme": ["gnbedge", "digilockerapp"],
     "runtimeVersion": {
       "policy": "appVersion"
     },
