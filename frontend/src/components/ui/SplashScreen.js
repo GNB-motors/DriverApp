@@ -33,7 +33,7 @@ export default function SplashScreen({
 
   return (
     <LinearGradient
-      colors={['#1AA28E', '#0C5A50', '#0A4F47']}
+      colors={colors.gradient}
       locations={[0, 0.7, 1]}
       start={{ x: 0.2, y: 0 }}
       end={{ x: 0.55, y: 1 }}

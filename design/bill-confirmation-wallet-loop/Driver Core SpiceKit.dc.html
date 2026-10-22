@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/nova-spicekit-design-system-695efa83-4752-409d-977b-c3112fe9afc3/colors_and_type.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="_ds/nova-spicekit-design-system-695efa83-4752-409d-977b-c3112fe9afc3/_ds_bundle.js"></script>
+<style>
+  body { margin:0; background:#ECECEE; font-family:'Inter',system-ui,sans-serif; color:#121214; -webkit-font-smoothing:antialiased; }
+  a { color:#2646BE; text-decoration:none; }
+  a:hover { color:#213EA7; text-decoration:underline; }
+  @keyframes novaPulse { 0%,100% { opacity:1; } 50% { opacity:.35; } }
+</style>
+</helmet>
+
+<section style="padding:56px 64px 96px; display:flex; flex-direction:column; gap:44px">
+
+  <div style="display:flex; flex-direction:column; gap:12px; max-width:780px">
+    <div style="font-family:Helvetica,Arial,sans-serif; font-size:11px; font-weight:500; letter-spacing:.44em; text-transform:uppercase; color:#5D5D5E">DRIVER CORE · SPICEKIT</div>
+    <div style="font-family:'DM Sans',sans-serif; font-size:40px; font-weight:700; letter-spacing:-.02em; line-height:1.08">Home, Trip, Wallet, Profile</div>
+    <div style="font-size:15px; line-height:1.6; color:#5D5D5E; text-wrap:pretty">Thirteen driver screens rebuilt on SpiceKit tokens: Nova Rage <span style="font-family:'DM Mono',monospace; font-size:13px">#4469F0</span> for action, Morning Fog canvas, flat surfaces with navy-tinted shadows, Inter for UI and DM Mono for every operational number. Gradients appear only on the two brand plaques. Android, 412 × 892.</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px">
+      <span style="font-size:12px; font-weight:500; padding:6px 12px; border-radius:999px; background:rgba(47,88,238,.10); color:#2646BE">Home · 2</span>
+      <span style="font-size:12px; font-weight:500; padding:6px 12px; border-radius:999px; background:rgba(47,88,238,.10); color:#2646BE">Trip · 3</span>
+      <span style="font-size:12px; font-weight:500; padding:6px 12px; border-radius:999px; background:rgba(47,88,238,.10); color:#2646BE">Wallet · 5</span>
+      <span style="font-size:12px; font-weight:500; padding:6px 12px; border-radius:999px; background:rgba(47,88,238,.10); color:#2646BE">Profile · 3</span>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-wrap:wrap; gap:52px 44px; align-items:flex-start">
+
+    <!-- 01 HOME · ON DUTY -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="01 Home on duty">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">01</span><span style="font-size:13px; font-weight:600">Home · on duty, trip running</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:14px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.05)">
+            <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg,#F9A061 0%,#E5686C 100%); display:grid; place-items:center; color:#FFFFFF; font-family:'DM Sans',sans-serif; font-size:17px; font-weight:700">R</div>
+            <div style="flex:1; display:flex; flex-direction:column; gap:2px">
+              <span style="font-size:16px; font-weight:600; letter-spacing:-.01em">Ramesh Yadav</span>
+              <span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">Driver · MH 12 AB 3421</span>
+            </div>
+            <div style="width:40px; height:40px; border-radius:999px; display:grid; place-items:center; position:relative"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.75" stroke-linecap="round"><path d="M6 9a6 6 0 0 1 12 0c0 3.5 1 4.5 1.5 5.5H4.5C5 13.5 6 12.5 6 9"/><path d="M10 19a2 2 0 0 0 4 0"/></svg><span style="position:absolute; top:8px; right:9px; width:8px; height:8px; border-radius:999px; background:#DD3030; border:2px solid #FFFFFF"></span></div>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:12px">
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 2px 4px 0 rgba(30,34,56,.08)">
+              <div style="display:flex; align-items:center; gap:10px">
+                <span style="width:8px; height:8px; border-radius:999px; background:#25BA4C; animation:novaPulse 1.6s ease-in-out infinite"></span>
+                <div style="display:flex; flex-direction:column"><span style="font-size:14px; font-weight:600">On duty</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#5D5D5E">Since 06:12 · 3 h 18 m</span></div>
+              </div>
+              <div style="width:52px; height:30px; border-radius:999px; background:#4469F0; padding:3px; box-sizing:border-box; display:flex; justify-content:flex-end"><span style="width:24px; height:24px; border-radius:999px; background:#FFFFFF"></span></div>
+            </div>
+
+            <div style="background:linear-gradient(180deg,#213EA7 0%,#2F58EE 100%); border-radius:16px; padding:16px; color:#FFFFFF; display:flex; align-items:center; justify-content:space-between; box-shadow:0 4px 12px 0 rgba(30,34,56,.10)">
+              <div style="display:flex; flex-direction:column; gap:4px">
+                <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; opacity:.8">Wallet · owed to you</span>
+                <span style="font-family:'DM Mono',monospace; font-size:30px; font-weight:500; letter-spacing:-.01em; line-height:1.1">₹{{ walletFmt }}</span>
+                <span style="font-size:12px; opacity:.82">1 bill awaiting confirmation</span>
+              </div>
+              <div style="width:40px; height:40px; border-radius:999px; background:rgba(255,255,255,.16); display:grid; place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:14px; box-shadow:0 2px 4px 0 rgba(30,34,56,.08)">
+              <div style="display:flex; align-items:center; justify-content:space-between">
+                <span style="font-family:'DM Mono',monospace; font-size:15px; font-weight:500">TR-4821</span>
+                <span style="font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; background:#E8F1FD; color:#2666B8">In transit</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:16px; font-weight:600">Pune<svg width="30" height="8" viewBox="0 0 30 8" fill="none" stroke="#93939A" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="3 4"><path d="M0 4h29"/></svg>Nagpur</div>
+              <div style="display:flex; align-items:center; gap:0">
+                <span style="width:10px; height:10px; border-radius:999px; background:#4469F0"></span><span style="flex:1; height:2px; background:#4469F0"></span>
+                <span style="width:10px; height:10px; border-radius:999px; background:#4469F0"></span><span style="flex:1; height:2px; background:#4469F0"></span>
+                <span style="width:10px; height:10px; border-radius:999px; background:#4469F0"></span><span style="flex:1; height:2px; background:#DFDFE2"></span>
+                <span style="width:10px; height:10px; border-radius:999px; background:#DFDFE2"></span><span style="flex:1; height:2px; background:#DFDFE2"></span>
+                <span style="width:10px; height:10px; border-radius:999px; background:#DFDFE2"></span><span style="flex:1; height:2px; background:#DFDFE2"></span>
+                <span style="width:10px; height:10px; border-radius:999px; background:#DFDFE2"></span><span style="flex:1; height:2px; background:#DFDFE2"></span>
+                <span style="width:10px; height:10px; border-radius:999px; background:#DFDFE2"></span><span style="flex:1; height:2px; background:#DFDFE2"></span>
+                <span style="width:10px; height:10px; border-radius:999px; background:#DFDFE2"></span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; font-size:12px; color:#5D5D5E"><span style="color:#121214; font-weight:500">Stage 3 of 8 · Loading done</span><span>Next: gate out</span></div>
+              <div style="height:44px; border-radius:8px; background:rgba(47,88,238,.10); border:1px solid rgba(47,88,238,.20); color:#2646BE; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600">Open trip</div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px">
+              <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; min-height:80px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:8px 4px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.75" stroke-linecap="round"><path d="M12 3s-6 7-6 10.5a6 6 0 0 0 12 0C18 10 12 3 12 3Z"/></svg><span style="font-size:11px; font-weight:500; text-align:center">Fuel</span></div>
+              <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; min-height:80px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:8px 4px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.75" stroke-linecap="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span style="font-size:11px; font-weight:500; text-align:center">Add bill</span></div>
+              <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; min-height:80px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:8px 4px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.75" stroke-linecap="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/></svg><span style="font-size:11px; font-weight:500; text-align:center">Docs</span></div>
+              <div style="background:#FBEAEA; border:1px solid rgba(187,38,38,.16); border-radius:12px; min-height:80px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:8px 4px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#BB2626" stroke-width="1.75" stroke-linecap="round"><path d="M12 4 21 19H3z"/><path d="M12 10v4M12 16.6v.2"/></svg><span style="font-size:11px; font-weight:600; color:#BB2626; text-align:center">SOS</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; align-items:center; justify-content:space-between">
+              <div style="display:flex; flex-direction:column; gap:3px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Last refuel</span><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">42.5 L · 2 Aug · Karad</span></div>
+              <span style="font-family:'DM Mono',monospace; font-size:17px; font-weight:500">₹4,012</span>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10); height:64px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 4px; box-shadow:0 -2px 8px rgba(30,34,56,.06)">
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg></div>
+              <span style="font-size:10px; font-weight:600; color:#2646BE; letter-spacing:.01em; line-height:14px">Home</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2zM13 10h4l3 3.5V16h-7"/><circle cx="6.5" cy="18" r="1.7"/><circle cx="16.5" cy="18" r="1.7"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Vehicles</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center">
+                <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) translateY(-24px); width:56px; height:56px; border-radius:999px; background:#2F58EE; border:1px solid #213EA7; display:grid; place-items:center; box-shadow:0 0 0 4px #FFFFFF, 0 8px 18px rgba(47,88,238,.34), 0 2px 4px rgba(30,34,56,.10)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6h5.1a3 3 0 0 1 0 6h-3a3 3 0 0 0 0 6h5.1"/></svg></div>
+              </div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Trips</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5a6 6 0 0 1 12 0c0 3.5 1 4.5 1.5 5.5H4.5C5 14 6 13 6 9.5"/><path d="M10 19a2 2 0 0 0 4 0"/></svg><span style="position:absolute; top:-4px; right:calc(50% - 21px); min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:999px; background:#DD3030; color:#FFFFFF; font-family:'DM Mono',monospace; font-size:9px; display:grid; place-items:center">3</span></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Alerts</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">More</span>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 02 HOME · OFF DUTY -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="02 Home off duty">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">02</span><span style="font-size:13px; font-weight:600">Home · off duty, no trip assigned</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:14px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.05)">
+            <div style="width:40px; height:40px; border-radius:12px; background:#ECECEE; display:grid; place-items:center; font-family:'DM Sans',sans-serif; font-size:17px; font-weight:700; color:#5D5D5E">R</div>
+            <div style="flex:1; display:flex; flex-direction:column; gap:2px">
+              <span style="font-size:16px; font-weight:600; letter-spacing:-.01em">Ramesh Yadav</span>
+              <span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">Driver · no vehicle assigned</span>
+            </div>
+            <div style="width:40px; height:40px; border-radius:999px; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.75" stroke-linecap="round"><path d="M6 9a6 6 0 0 1 12 0c0 3.5 1 4.5 1.5 5.5H4.5C5 13.5 6 12.5 6 9"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></div>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:12px">
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 2px 4px 0 rgba(30,34,56,.08)">
+              <div style="display:flex; align-items:center; gap:10px">
+                <span style="width:8px; height:8px; border-radius:999px; background:#C6C6C9"></span>
+                <div style="display:flex; flex-direction:column"><span style="font-size:14px; font-weight:600; color:#5D5D5E">Off duty</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">Last shift ended 21:40</span></div>
+              </div>
+              <div style="width:52px; height:30px; border-radius:999px; background:#DFDFE2; padding:3px; box-sizing:border-box; display:flex"><span style="width:24px; height:24px; border-radius:999px; background:#FFFFFF"></span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px dashed #C6C6C9; border-radius:16px; padding:28px 20px; display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center">
+              <div style="width:64px; height:64px; border-radius:16px; background:#F3F3F6; display:grid; place-items:center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M3 8h11v8H3zM14 11h4l3 3v2h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg></div>
+              <div style="display:flex; flex-direction:column; gap:6px">
+                <span style="font-size:17px; font-weight:600">No trip assigned</span>
+                <span style="font-size:13px; line-height:1.55; color:#5D5D5E; text-wrap:pretty">Go on duty and your dispatcher can assign the next load to you.</span>
+              </div>
+              <div style="height:44px; padding:0 20px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; display:flex; align-items:center; font-size:14px; font-weight:600">Go on duty</div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; align-items:center; justify-content:space-between">
+              <div style="display:flex; align-items:center; gap:12px">
+                <div style="width:38px; height:38px; border-radius:10px; background:rgba(47,88,238,.10); display:grid; place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2646BE" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M16 12.5h3"/></svg></div>
+                <div style="display:flex; flex-direction:column; gap:2px"><span style="font-size:14px; font-weight:600">Wallet</span><span style="font-size:12px; color:#5D5D5E">Company owes you</span></div>
+              </div>
+              <span style="font-family:'DM Mono',monospace; font-size:18px; font-weight:500">₹{{ walletFmt }}</span>
+            </div>
+
+            <div style="background:#FDF3E0; border:1px solid rgba(197,98,0,.16); border-radius:12px; padding:14px; display:flex; gap:11px; align-items:flex-start">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C56200" stroke-width="1.75" stroke-linecap="round" style="flex-shrink:0"><circle cx="12" cy="12" r="9"/><path d="M12 8v.2M12 11v5"/></svg>
+              <div style="display:flex; flex-direction:column; gap:8px">
+                <span style="font-size:13px; line-height:1.5; color:#7A3E00"><span style="font-weight:600">Licence expires in 24 days.</span> Renew it to keep taking trips.</span>
+                <span style="font-size:13px; font-weight:600; color:#C56200">Open documents →</span>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px">
+              <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:6px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Trips this month</span><span style="font-family:'DM Mono',monospace; font-size:22px; font-weight:500">6</span></div>
+              <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:6px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Distance</span><span style="font-family:'DM Mono',monospace; font-size:22px; font-weight:500">4,180 km</span></div>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10); height:64px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 4px; box-shadow:0 -2px 8px rgba(30,34,56,.06)">
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg></div>
+              <span style="font-size:10px; font-weight:600; color:#2646BE; letter-spacing:.01em; line-height:14px">Home</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2zM13 10h4l3 3.5V16h-7"/><circle cx="6.5" cy="18" r="1.7"/><circle cx="16.5" cy="18" r="1.7"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Vehicles</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center">
+                <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) translateY(-24px); width:56px; height:56px; border-radius:999px; background:#2F58EE; border:1px solid #213EA7; display:grid; place-items:center; box-shadow:0 0 0 4px #FFFFFF, 0 8px 18px rgba(47,88,238,.34), 0 2px 4px rgba(30,34,56,.10)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6h5.1a3 3 0 0 1 0 6h-3a3 3 0 0 0 0 6h5.1"/></svg></div>
+              </div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Trips</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5a6 6 0 0 1 12 0c0 3.5 1 4.5 1.5 5.5H4.5C5 14 6 13 6 9.5"/><path d="M10 19a2 2 0 0 0 4 0"/></svg><span style="position:absolute; top:-4px; right:calc(50% - 21px); min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:999px; background:#DD3030; color:#FFFFFF; font-family:'DM Mono',monospace; font-size:9px; display:grid; place-items:center">3</span></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Alerts</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">More</span>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 03 ACTIVE TRIP -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="03 Active trip">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">03</span><span style="font-size:13px; font-weight:600">Active trip · 8-stage pipeline</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.10); min-height:60px; box-sizing:border-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.9" stroke-linecap="round"><path d="M14 5l-7 7 7 7"/></svg>
+            <div style="flex:1; display:flex; flex-direction:column"><span style="font-size:17px; font-weight:600; letter-spacing:-.01em">Active trip</span><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">TR-4821 · MH 12 AB 3421</span></div>
+            <span style="font-size:11px; font-weight:600; padding:5px 10px; border-radius:999px; background:#E8F1FD; color:#2666B8">In transit</span>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:12px">
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:14px; box-shadow:0 2px 4px 0 rgba(30,34,56,.08)">
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Progress</span><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">3 / 8</span></div>
+              <div style="display:flex; flex-direction:column; gap:0">
+                <div style="display:flex; gap:12px; align-items:flex-start"><div style="display:flex; flex-direction:column; align-items:center"><span style="width:11px; height:11px; border-radius:999px; background:#4469F0"></span><span style="width:2px; height:26px; background:#4469F0"></span></div><div style="display:flex; flex-direction:column; gap:1px; padding-bottom:12px"><span style="font-size:14px; font-weight:500">Trip assigned</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">03 Aug · 18:40</span></div></div>
+                <div style="display:flex; gap:12px; align-items:flex-start"><div style="display:flex; flex-direction:column; align-items:center"><span style="width:11px; height:11px; border-radius:999px; background:#4469F0"></span><span style="width:2px; height:26px; background:#4469F0"></span></div><div style="display:flex; flex-direction:column; gap:1px; padding-bottom:12px"><span style="font-size:14px; font-weight:500">Reached loading point</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">04 Aug · 05:55</span></div></div>
+                <div style="display:flex; gap:12px; align-items:flex-start"><div style="display:flex; flex-direction:column; align-items:center"><span style="width:11px; height:11px; border-radius:999px; background:#4469F0; box-shadow:0 0 0 4px rgba(47,88,238,.20)"></span><span style="width:2px; height:26px; background:#DFDFE2"></span></div><div style="display:flex; flex-direction:column; gap:1px; padding-bottom:12px"><span style="font-size:14px; font-weight:600">Loading done</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">04 Aug · 09:20 · 24.2 t</span></div></div>
+                <div style="display:flex; gap:12px; align-items:flex-start"><div style="display:flex; flex-direction:column; align-items:center"><span style="width:11px; height:11px; border-radius:999px; border:2px solid #DFDFE2; box-sizing:border-box"></span><span style="width:2px; height:22px; background:#DFDFE2"></span></div><div style="display:flex; flex-direction:column; gap:1px; padding-bottom:10px"><span style="font-size:14px; color:#93939A">Gate out</span></div></div>
+                <div style="display:flex; gap:12px; align-items:flex-start"><div style="display:flex; flex-direction:column; align-items:center"><span style="width:11px; height:11px; border-radius:999px; border:2px solid #DFDFE2; box-sizing:border-box"></span></div><div style="display:flex; flex-direction:column; gap:1px"><span style="font-size:14px; color:#93939A">4 stages remaining</span></div></div>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:14px; font-weight:600">Trip advance</span><span style="font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; background:#E7F4EA; color:#187A32">Paid</span></div>
+              <div style="display:flex; align-items:flex-end; justify-content:space-between">
+                <div style="display:flex; flex-direction:column; gap:3px"><span style="font-family:'DM Mono',monospace; font-size:11px; color:#5D5D5E">UPI · 01 Aug · ADV-1192</span><span style="font-size:12px; color:#5D5D5E">Debited from your wallet</span></div>
+                <span style="font-family:'DM Mono',monospace; font-size:22px; font-weight:500">₹5,000</span>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <div style="height:52px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; display:flex; align-items:center; justify-content:center; gap:9px; font-size:15px; font-weight:600"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.9" stroke-linecap="round"><path d="M12 16V4M8 8l4-4 4 4M5 20h14"/></svg>Submit consignment note</div>
+              <div style="height:52px; border-radius:8px; background:rgba(47,88,238,.10); border:1px solid rgba(47,88,238,.20); color:#2646BE; display:flex; align-items:center; justify-content:center; gap:9px; font-size:15px; font-weight:600">Record POD at delivery</div>
+              <div style="height:52px; border-radius:8px; border:1px solid rgba(5,8,22,.10); background:#FFFFFF; display:flex; align-items:center; justify-content:center; gap:9px; font-size:15px; font-weight:500">Add a trip expense</div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:9px; padding:0 2px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.2M12 11v5"/></svg>
+              <span style="font-size:12px; color:#5D5D5E">Consignment note is needed before gate out.</span>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 04 MY TRIPS -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="04 My trips">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">04</span><span style="font-size:13px; font-weight:600">My trips · filtered list</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; border-bottom:1px solid rgba(5,8,22,.10); padding:12px 16px 0; display:flex; flex-direction:column; gap:12px">
+            <div style="display:flex; align-items:center; gap:12px; min-height:44px">
+              <span style="font-size:20px; font-weight:600; letter-spacing:-.015em; flex:1">My trips</span>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+            </div>
+            <div style="display:flex; gap:22px">
+              <div style="display:flex; flex-direction:column; gap:8px"><span style="font-size:14px; font-weight:600; color:#4469F0">Active</span><span style="height:2px; background:#4469F0; border-radius:2px 2px 0 0"></span></div>
+              <div style="display:flex; flex-direction:column; gap:8px"><span style="font-size:14px; font-weight:500; color:#5D5D5E">Completed</span><span style="height:2px; background:transparent"></span></div>
+              <div style="display:flex; flex-direction:column; gap:8px"><span style="font-size:14px; font-weight:500; color:#5D5D5E">Cancelled</span><span style="height:2px; background:transparent"></span></div>
+            </div>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:10px">
+            <div style="background:#FFFFFF; border:1px solid rgba(47,88,238,.20); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:10px; box-shadow:0 2px 4px 0 rgba(30,34,56,.08)">
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-family:'DM Mono',monospace; font-size:14px; font-weight:500">TR-4821</span><span style="font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; background:#E8F1FD; color:#2666B8">In transit</span></div>
+              <div style="display:flex; align-items:center; gap:9px; font-size:15px; font-weight:600">Pune<svg width="24" height="8" viewBox="0 0 24 8" fill="none" stroke="#93939A" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="3 4"><path d="M0 4h23"/></svg>Nagpur</div>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">04 Aug · 24.2 t · 3 / 8</span><span style="font-size:13px; font-weight:600; color:#2646BE">Open →</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:10px">
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-family:'DM Mono',monospace; font-size:14px; font-weight:500">TR-4802</span><span style="font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; background:#FDF3E0; color:#C56200">POD pending</span></div>
+              <div style="display:flex; align-items:center; gap:9px; font-size:15px; font-weight:600">Nashik<svg width="24" height="8" viewBox="0 0 24 8" fill="none" stroke="#93939A" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="3 4"><path d="M0 4h23"/></svg>Indore</div>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">31 Jul · 21.0 t · delivered</span><span style="font-size:13px; font-weight:600; color:#C56200">Upload POD →</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:10px">
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-family:'DM Mono',monospace; font-size:14px; font-weight:500">TR-4788</span><span style="font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; background:#E7F4EA; color:#187A32">Closed</span></div>
+              <div style="display:flex; align-items:center; gap:9px; font-size:15px; font-weight:600">Pune<svg width="24" height="8" viewBox="0 0 24 8" fill="none" stroke="#93939A" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="3 4"><path d="M0 4h23"/></svg>Surat</div>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">24 Jul · 18.4 t · settled</span><span style="font-family:'DM Mono',monospace; font-size:13px; color:#5D5D5E">₹2,400 earned</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:10px">
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-family:'DM Mono',monospace; font-size:14px; font-weight:500">TR-4771</span><span style="font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; background:#E7F4EA; color:#187A32">Closed</span></div>
+              <div style="display:flex; align-items:center; gap:9px; font-size:15px; font-weight:600">Bhiwandi<svg width="24" height="8" viewBox="0 0 24 8" fill="none" stroke="#93939A" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="3 4"><path d="M0 4h23"/></svg>Hyderabad</div>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">17 Jul · 25.0 t · settled</span><span style="font-family:'DM Mono',monospace; font-size:13px; color:#5D5D5E">₹3,100 earned</span></div>
+            </div>
+
+            <div style="display:flex; align-items:center; justify-content:center; padding:6px 0"><span style="font-size:12px; color:#93939A">Pull down to refresh</span></div>
+          </div>
+          <div style="margin-top:auto; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10); height:64px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 4px; box-shadow:0 -2px 8px rgba(30,34,56,.06)">
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Home</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2zM13 10h4l3 3.5V16h-7"/><circle cx="6.5" cy="18" r="1.7"/><circle cx="16.5" cy="18" r="1.7"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Vehicles</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center">
+                <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) translateY(-24px); width:56px; height:56px; border-radius:999px; background:#4469F0; border:1px solid #213EA7; display:grid; place-items:center; box-shadow:0 0 0 4px #FFFFFF, 0 8px 18px rgba(47,88,238,.34), 0 2px 4px rgba(30,34,56,.10)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6h5.1a3 3 0 0 1 0 6h-3a3 3 0 0 0 0 6h5.1"/></svg></div>
+              </div>
+              <span style="font-size:10px; font-weight:600; color:#2646BE; letter-spacing:.01em; line-height:14px">Trips</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5a6 6 0 0 1 12 0c0 3.5 1 4.5 1.5 5.5H4.5C5 14 6 13 6 9.5"/><path d="M10 19a2 2 0 0 0 4 0"/></svg><span style="position:absolute; top:-4px; right:calc(50% - 21px); min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:999px; background:#DD3030; color:#FFFFFF; font-family:'DM Mono',monospace; font-size:9px; display:grid; place-items:center">3</span></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Alerts</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">More</span>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 05 TRIP DETAIL -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="05 Trip detail">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">05</span><span style="font-size:13px; font-weight:600">Trip detail · closed &amp; settled</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.10); min-height:60px; box-sizing:border-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.9" stroke-linecap="round"><path d="M14 5l-7 7 7 7"/></svg>
+            <div style="flex:1; display:flex; flex-direction:column"><span style="font-family:'DM Mono',monospace; font-size:16px; font-weight:500">TR-4788</span><span style="font-size:12px; color:#5D5D5E">Pune → Surat · 24 Jul</span></div>
+            <span style="font-size:11px; font-weight:600; padding:5px 10px; border-radius:999px; background:#E7F4EA; color:#187A32">Closed</span>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:12px">
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:14px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Route</span>
+              <div style="display:flex; gap:12px">
+                <div style="display:flex; flex-direction:column; align-items:center; padding-top:5px"><span style="width:10px; height:10px; border-radius:999px; border:2px solid #4469F0; box-sizing:border-box"></span><span style="width:2px; flex:1; background:#DFDFE2; min-height:44px"></span><span style="width:10px; height:10px; border-radius:999px; background:#4469F0"></span></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:26px">
+                  <div style="display:flex; flex-direction:column; gap:2px"><span style="font-size:15px; font-weight:600">Chakan, Pune</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">24 Jul · 07:10 · loaded 18.4 t</span></div>
+                  <div style="display:flex; flex-direction:column; gap:2px"><span style="font-size:15px; font-weight:600">Hazira, Surat</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">25 Jul · 16:35 · POD recorded</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; overflow:hidden">
+              <div style="padding:13px 16px; display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; color:#5D5D5E">Distance</span><span style="font-family:'DM Mono',monospace; font-size:14px">612 km</span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="padding:13px 16px; display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; color:#5D5D5E">Diesel filled</span><span style="font-family:'DM Mono',monospace; font-size:14px">168 L</span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="padding:13px 16px; display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; color:#5D5D5E">Advance taken</span><span style="font-family:'DM Mono',monospace; font-size:14px">₹4,000</span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="padding:13px 16px; display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; color:#5D5D5E">Bills confirmed</span><span style="font-family:'DM Mono',monospace; font-size:14px; color:#187A32">₹1,880</span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="padding:15px 16px; background:#F8F8FB; display:flex; align-items:center; justify-content:space-between"><span style="font-size:14px; font-weight:600">Trip earning</span><span style="font-family:'DM Mono',monospace; font-size:22px; font-weight:500">₹2,400</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Documents</span>
+              <div style="display:flex; gap:10px">
+                <div style="flex:1; height:76px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M7 3h7l4 4v14H7z"/></svg><span style="font-family:'DM Mono',monospace; font-size:10px; color:#5D5D5E">CN · 2 files</span></div>
+                <div style="flex:1; height:76px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M7 3h7l4 4v14H7z"/></svg><span style="font-family:'DM Mono',monospace; font-size:10px; color:#5D5D5E">POD · 1 file</span></div>
+                <div style="flex:1; height:76px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/></svg><span style="font-family:'DM Mono',monospace; font-size:10px; color:#5D5D5E">Bills · 4</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 06 WALLET · BILLS -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="06 Wallet bills">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">06</span><span style="font-size:13px; font-weight:600">Wallet · bills and their status</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:linear-gradient(180deg,#213EA7 0%,#2F58EE 100%); padding:18px 16px 20px; color:#FFFFFF; display:flex; flex-direction:column; gap:16px">
+            <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:17px; font-weight:600">My wallet</span><span style="font-size:12px; font-weight:500; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,.16)">Statement</span></div>
+            <div style="display:flex; flex-direction:column">
+              <div style="display:flex; flex-direction:column; gap:5px">
+                <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; opacity:.8">Balance</span>
+                <span style="font-family:'DM Mono',monospace; font-size:40px; font-weight:500; line-height:1; letter-spacing:-.02em">₹{{ walletFmt }}</span>
+                <span style="font-size:13px; opacity:.85">Company owes you this much</span>
+              </div>
+            </div>
+            <div style="display:flex; gap:16px; font-family:'DM Mono',monospace; font-size:12px; opacity:.86"><span>+₹9,820 bills confirmed</span><span>−₹5,000 advances paid</span></div>
+          </div>
+
+          <div style="padding:14px 16px; display:flex; flex-direction:column; gap:12px">
+            <div style="background:#ECECEE; border-radius:999px; padding:3px; display:flex; gap:3px">
+              <div style="flex:1; height:36px; border-radius:999px; background:#FFFFFF; display:flex; align-items:center; justify-content:center; gap:7px; font-size:14px; font-weight:600; box-shadow:0 1px 2px 0 rgba(30,34,56,.06)">Bills<span style="font-family:'DM Mono',monospace; font-size:11px; padding:2px 7px; border-radius:999px; background:#FDF3E0; color:#C56200">1</span></div>
+              <div style="flex:1; height:36px; border-radius:999px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:500; color:#5D5D5E">Ledger</div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:12px 14px; display:flex; gap:12px; align-items:center">
+              <div style="width:44px; height:44px; border-radius:8px; background:#F3F3F6; display:grid; place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/></svg></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:4px"><div style="display:flex; align-items:center; gap:7px"><span style="font-size:14px; font-weight:600">Other</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#FDF3E0; color:#C56200">Pending</span></div><span style="font-family:'DM Mono',monospace; font-size:11px; color:#5D5D5E">04 Aug · TR-4821</span></div>
+              <span style="font-family:'DM Mono',monospace; font-size:16px; font-weight:500">₹1,250</span>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:12px 14px; display:flex; gap:12px; align-items:center">
+              <div style="width:44px; height:44px; border-radius:8px; background:#F3F3F6; display:grid; place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/></svg></div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:4px"><div style="display:flex; align-items:center; gap:7px"><span style="font-size:14px; font-weight:600">Toll</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#E7F4EA; color:#187A32">Confirmed</span></div><span style="font-family:'DM Mono',monospace; font-size:11px; color:#5D5D5E">03 Aug · by owner</span></div>
+              <span style="font-family:'DM Mono',monospace; font-size:16px; font-weight:500; color:#187A32">+₹340</span>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(187,38,38,.16); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:11px">
+              <div style="display:flex; gap:12px; align-items:center">
+                <div style="width:44px; height:44px; border-radius:8px; background:#FBEAEA; display:grid; place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#BB2626" stroke-width="1.9" stroke-linecap="round"><path d="M7 7l10 10M17 7l-10 10"/></svg></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:4px"><div style="display:flex; align-items:center; gap:7px"><span style="font-size:14px; font-weight:600">Food</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#FBEAEA; color:#BB2626">Rejected</span></div><span style="font-family:'DM Mono',monospace; font-size:11px; color:#5D5D5E">02 Aug · TR-4818</span></div>
+                <span style="font-family:'DM Mono',monospace; font-size:16px; color:#93939A; text-decoration:line-through">₹210</span>
+              </div>
+              <div style="background:#FBEAEA; border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:9px">
+                <span style="font-size:12px; line-height:1.5; color:#941E1E"><span style="font-weight:600">Reason: </span>Bill photo is blurred, amount not readable. Please re-upload a clear photo.</span>
+                <div style="align-self:flex-start; height:36px; padding:0 14px; border-radius:8px; background:#DD3030; color:#FFFFFF; font-size:13px; font-weight:600; display:flex; align-items:center">Re-submit</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; padding:12px 16px 38px; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10)">
+            <div style="height:52px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; display:flex; align-items:center; justify-content:center; gap:9px; font-size:15px; font-weight:600"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.1" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add a bill</div>
+          </div>
+          <div style="margin-top:auto; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10); height:64px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 4px; box-shadow:0 -2px 8px rgba(30,34,56,.06)">
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Home</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2zM13 10h4l3 3.5V16h-7"/><circle cx="6.5" cy="18" r="1.7"/><circle cx="16.5" cy="18" r="1.7"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Vehicles</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center">
+                <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) translateY(-24px); width:56px; height:56px; border-radius:999px; background:#2F58EE; border:1px solid #213EA7; display:grid; place-items:center; box-shadow:0 0 0 4px #FFFFFF, 0 8px 18px rgba(47,88,238,.34), 0 2px 4px rgba(30,34,56,.10)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6h5.1a3 3 0 0 1 0 6h-3a3 3 0 0 0 0 6h5.1"/></svg></div>
+              </div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Trips</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5a6 6 0 0 1 12 0c0 3.5 1 4.5 1.5 5.5H4.5C5 14 6 13 6 9.5"/><path d="M10 19a2 2 0 0 0 4 0"/></svg><span style="position:absolute; top:-4px; right:calc(50% - 21px); min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:999px; background:#DD3030; color:#FFFFFF; font-family:'DM Mono',monospace; font-size:9px; display:grid; place-items:center">3</span></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Alerts</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.85" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></div>
+              <span style="font-size:10px; font-weight:600; color:#2646BE; letter-spacing:.01em; line-height:14px">More</span>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 07 WALLET · LEDGER -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="07 Wallet ledger">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">07</span><span style="font-size:13px; font-weight:600">Wallet · ledger with running balance</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:linear-gradient(180deg,#213EA7 0%,#2F58EE 100%); padding:18px 16px; color:#FFFFFF; display:flex; align-items:flex-end; justify-content:space-between">
+            <div style="display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; opacity:.8">Balance</span><span style="font-family:'DM Mono',monospace; font-size:30px; font-weight:500; line-height:1">₹{{ walletFmt }}</span></div>
+            <span style="font-size:12px; opacity:.85; padding-bottom:3px">Settle-up figure</span>
+          </div>
+
+          <div style="padding:14px 16px; display:flex; flex-direction:column; gap:12px">
+            <div style="background:#ECECEE; border-radius:999px; padding:3px; display:flex; gap:3px">
+              <div style="flex:1; height:36px; border-radius:999px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:500; color:#5D5D5E">Bills</div>
+              <div style="flex:1; height:36px; border-radius:999px; background:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; box-shadow:0 1px 2px 0 rgba(30,34,56,.06)">Ledger</div>
+            </div>
+
+            <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">August 2026</span>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; overflow:hidden">
+              <div style="padding:13px 14px; display:flex; gap:12px; align-items:center">
+                <div style="width:34px; height:34px; border-radius:999px; background:#E7F4EA; display:grid; place-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#187A32" stroke-width="2.2" stroke-linecap="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span style="font-size:14px; font-weight:500">Toll bill confirmed</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">03 Aug · Suresh (Owner)</span></div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px"><span style="font-family:'DM Mono',monospace; font-size:15px; font-weight:500; color:#187A32">+₹340</span><span style="font-family:'DM Mono',monospace; font-size:10px; color:#93939A">₹4,820</span></div>
+              </div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin:0 14px"></div>
+              <div style="padding:13px 14px; display:flex; gap:12px; align-items:center">
+                <div style="width:34px; height:34px; border-radius:999px; background:#FBEAEA; display:grid; place-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#BB2626" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span style="font-size:14px; font-weight:500">Advance paid</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">01 Aug · UPI · ADV-1192</span></div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px"><span style="font-family:'DM Mono',monospace; font-size:15px; font-weight:500; color:#BB2626">−₹5,000</span><span style="font-family:'DM Mono',monospace; font-size:10px; color:#93939A">₹4,480</span></div>
+              </div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin:0 14px"></div>
+              <div style="padding:13px 14px; display:flex; gap:12px; align-items:center">
+                <div style="width:34px; height:34px; border-radius:999px; background:#E7F4EA; display:grid; place-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#187A32" stroke-width="2.2" stroke-linecap="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span style="font-size:14px; font-weight:500">Repair bill confirmed</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">31 Jul · Suresh (Owner)</span></div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px"><span style="font-family:'DM Mono',monospace; font-size:15px; font-weight:500; color:#187A32">+₹2,600</span><span style="font-family:'DM Mono',monospace; font-size:10px; color:#93939A">₹9,480</span></div>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:11px">
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Spend by category</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">This month</span></div>
+              <div style="display:flex; flex-direction:column; gap:9px">
+                <div style="display:flex; align-items:center; gap:10px"><span style="font-size:12px; width:52px">Toll</span><span style="flex:1; height:6px; border-radius:999px; background:#ECECEE; overflow:hidden"><span style="display:block; width:72%; height:6px; background:#4469F0"></span></span><span style="font-family:'DM Mono',monospace; font-size:12px; width:52px; text-align:right">₹4,220</span></div>
+                <div style="display:flex; align-items:center; gap:10px"><span style="font-size:12px; width:52px">Repair</span><span style="flex:1; height:6px; border-radius:999px; background:#ECECEE; overflow:hidden"><span style="display:block; width:44%; height:6px; background:#6D8AF3"></span></span><span style="font-family:'DM Mono',monospace; font-size:12px; width:52px; text-align:right">₹2,600</span></div>
+                <div style="display:flex; align-items:center; gap:10px"><span style="font-size:12px; width:52px">Other</span><span style="flex:1; height:6px; border-radius:999px; background:#ECECEE; overflow:hidden"><span style="display:block; width:26%; height:6px; background:#829BF5"></span></span><span style="font-family:'DM Mono',monospace; font-size:12px; width:52px; text-align:right">₹1,540</span></div>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:10px; align-items:flex-start; padding:0 2px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round" style="flex-shrink:0; margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v.2M12 11v5"/></svg>
+              <span style="font-size:12px; line-height:1.5; color:#5D5D5E; text-wrap:pretty">Bills add to the balance only after the owner confirms them. Advances paid to you are subtracted.</span>
+            </div>
+          </div>
+          <div style="margin-top:auto; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10); height:64px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 4px; box-shadow:0 -2px 8px rgba(30,34,56,.06)">
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Home</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2zM13 10h4l3 3.5V16h-7"/><circle cx="6.5" cy="18" r="1.7"/><circle cx="16.5" cy="18" r="1.7"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Vehicles</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center">
+                <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) translateY(-24px); width:56px; height:56px; border-radius:999px; background:#2F58EE; border:1px solid #213EA7; display:grid; place-items:center; box-shadow:0 0 0 4px #FFFFFF, 0 8px 18px rgba(47,88,238,.34), 0 2px 4px rgba(30,34,56,.10)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6h5.1a3 3 0 0 1 0 6h-3a3 3 0 0 0 0 6h5.1"/></svg></div>
+              </div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Trips</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5a6 6 0 0 1 12 0c0 3.5 1 4.5 1.5 5.5H4.5C5 14 6 13 6 9.5"/><path d="M10 19a2 2 0 0 0 4 0"/></svg><span style="position:absolute; top:-4px; right:calc(50% - 21px); min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:999px; background:#DD3030; color:#FFFFFF; font-family:'DM Mono',monospace; font-size:9px; display:grid; place-items:center">3</span></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Alerts</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.85" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></div>
+              <span style="font-size:10px; font-weight:600; color:#2646BE; letter-spacing:.01em; line-height:14px">More</span>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 08 WALLET EMPTY -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="08 Wallet empty">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">08</span><span style="font-size:13px; font-weight:600">Wallet · empty, first run</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:linear-gradient(180deg,#213EA7 0%,#2F58EE 100%); padding:18px 16px; color:#FFFFFF; display:flex; flex-direction:column; gap:5px">
+            <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; opacity:.8">Balance</span>
+            <span style="font-family:'DM Mono',monospace; font-size:34px; font-weight:500; line-height:1">₹0</span>
+            <span style="font-size:13px; opacity:.85">Nothing pending either way</span>
+          </div>
+
+          <div style="flex:1; padding:28px 24px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; text-align:center">
+            <div style="width:112px; height:112px; border-radius:24px; background:#FFFFFF; border:1px solid rgba(5,8,22,.05); display:grid; place-items:center; box-shadow:0 4px 12px 0 rgba(30,34,56,.10)">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#C6C6C9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px">
+              <span style="font-size:19px; font-weight:600; letter-spacing:-.01em">No bills yet</span>
+              <span style="font-size:14px; line-height:1.6; color:#5D5D5E; text-wrap:pretty">Paid for toll, food, parking or a repair out of your own pocket? Photograph the bill and send it. Once the owner confirms it, the amount lands here and is settled with your next payment.</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; width:100%">
+              <div style="display:flex; align-items:center; gap:11px; background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:8px; padding:11px 13px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">1</span><span style="font-size:13px; font-weight:500">Photograph the bill</span></div>
+              <div style="display:flex; align-items:center; gap:11px; background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:8px; padding:11px 13px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">2</span><span style="font-size:13px; font-weight:500">Owner confirms it</span></div>
+              <div style="display:flex; align-items:center; gap:11px; background:rgba(47,88,238,.10); border:1px solid rgba(47,88,238,.20); border-radius:8px; padding:11px 13px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#2646BE">3</span><span style="font-size:13px; font-weight:600; color:#2646BE">Added to your wallet</span></div>
+            </div>
+          </div>
+
+          <div style="padding:12px 16px 38px; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10)">
+            <div style="height:52px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; display:flex; align-items:center; justify-content:center; gap:9px; font-size:15px; font-weight:600"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.1" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add your first bill</div>
+          </div>
+          <div style="margin-top:auto; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10); height:64px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 4px; box-shadow:0 -2px 8px rgba(30,34,56,.06)">
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Home</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2zM13 10h4l3 3.5V16h-7"/><circle cx="6.5" cy="18" r="1.7"/><circle cx="16.5" cy="18" r="1.7"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Vehicles</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center">
+                <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) translateY(-24px); width:56px; height:56px; border-radius:999px; background:#2F58EE; border:1px solid #213EA7; display:grid; place-items:center; box-shadow:0 0 0 4px #FFFFFF, 0 8px 18px rgba(47,88,238,.34), 0 2px 4px rgba(30,34,56,.10)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6h5.1a3 3 0 0 1 0 6h-3a3 3 0 0 0 0 6h5.1"/></svg></div>
+              </div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Trips</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5a6 6 0 0 1 12 0c0 3.5 1 4.5 1.5 5.5H4.5C5 14 6 13 6 9.5"/><path d="M10 19a2 2 0 0 0 4 0"/></svg><span style="position:absolute; top:-4px; right:calc(50% - 21px); min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:999px; background:#DD3030; color:#FFFFFF; font-family:'DM Mono',monospace; font-size:9px; display:grid; place-items:center">3</span></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Alerts</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.85" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></div>
+              <span style="font-size:10px; font-weight:600; color:#2646BE; letter-spacing:.01em; line-height:14px">More</span>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 09 ADD BILL -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="09 Add bill">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">09</span><span style="font-size:13px; font-weight:600">Add bill · attach and submit</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.10); min-height:60px; box-sizing:border-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            <div style="flex:1; display:flex; flex-direction:column"><span style="font-size:17px; font-weight:600; letter-spacing:-.01em">New bill</span><span style="font-size:12px; color:#5D5D5E">Anything you paid from your pocket</span></div>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:14px">
+            <div style="display:flex; flex-direction:column; gap:9px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Category</span>
+              <div style="display:flex; flex-wrap:wrap; gap:8px">
+                <span style="font-size:13px; font-weight:500; padding:9px 14px; border-radius:999px; background:#FFFFFF; border:1px solid rgba(5,8,22,.10)">Toll</span>
+                <span style="font-size:13px; font-weight:500; padding:9px 14px; border-radius:999px; background:#FFFFFF; border:1px solid rgba(5,8,22,.10)">Food</span>
+                <span style="font-size:13px; font-weight:500; padding:9px 14px; border-radius:999px; background:#FFFFFF; border:1px solid rgba(5,8,22,.10)">Parking</span>
+                <span style="font-size:13px; font-weight:500; padding:9px 14px; border-radius:999px; background:#FFFFFF; border:1px solid rgba(5,8,22,.10)">Repair</span>
+                <span style="font-size:13px; font-weight:500; padding:9px 14px; border-radius:999px; background:#FFFFFF; border:1px solid rgba(5,8,22,.10)">Loading</span>
+                <span style="font-size:13px; font-weight:600; padding:9px 14px; border-radius:999px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF">Other</span>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid #2A4FD6; border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:5px; box-shadow:0 0 0 3px rgba(47,88,238,.20)">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Amount</span>
+              <div style="display:flex; align-items:baseline; gap:5px"><span style="font-family:'DM Mono',monospace; font-size:22px; color:#5D5D5E">₹</span><span style="font-family:'DM Mono',monospace; font-size:28px; font-weight:500">1,250</span><span style="width:2px; height:26px; background:#4469F0; animation:novaPulse 1.1s steps(1) infinite"></span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">What was it for?</span>
+              <span style="font-size:15px">Tyre air fill and wheel balance</span>
+            </div>
+
+            <div style="display:flex; gap:10px">
+              <div style="flex:1; background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Date</span><span style="font-family:'DM Mono',monospace; font-size:14px">04 Aug 2026</span></div>
+              <div style="flex:1; background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:#5D5D5E">Trip</span><span style="font-family:'DM Mono',monospace; font-size:14px">TR-4821</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.10); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; font-weight:600">Bill photo</span><span style="font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; background:rgba(47,88,238,.10); color:#2646BE">Required</span></div>
+              <div style="display:flex; gap:12px">
+                <div style="width:92px; height:112px; border-radius:8px; background:#F3F3F6; border:1px solid rgba(5,8,22,.05); position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; overflow:hidden">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.6" stroke-linecap="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>
+                  <span style="font-family:'DM Mono',monospace; font-size:9px; color:#93939A">IMG_2381</span>
+                  <div style="position:absolute; top:5px; right:5px; width:22px; height:22px; border-radius:999px; background:#121214; display:grid; place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"><path d="M2 2l6 6M8 2l-6 6"/></svg></div>
+                  <div style="position:absolute; bottom:0; left:0; right:0; height:20px; background:rgba(18,18,20,.72); color:#FFFFFF; font-size:9px; font-weight:500; display:grid; place-items:center">Attached</div>
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:8px; justify-content:center">
+                  <div style="height:44px; border-radius:8px; border:1px solid rgba(5,8,22,.10); display:flex; align-items:center; gap:9px; padding:0 12px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="3"/><circle cx="12" cy="13.5" r="3.4"/></svg><span style="font-size:13px; font-weight:500">Retake photo</span></div>
+                  <div style="height:44px; border-radius:8px; border:1px solid rgba(5,8,22,.10); display:flex; align-items:center; gap:9px; padding:0 12px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M4 16l4-4 4 4 3-3 4 4"/></svg><span style="font-size:13px; font-weight:500">From gallery</span></div>
+                  <div style="display:flex; align-items:center; gap:7px"><span style="width:6px; height:6px; border-radius:999px; background:#36D7A6"></span><span style="font-size:11px; color:#5D5D5E">Amount read from photo</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; padding:12px 16px 16px; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10); display:flex; flex-direction:column; gap:10px">
+            <div style="display:flex; align-items:center; gap:8px; justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.2M12 11v5"/></svg><span style="font-size:12px; color:#5D5D5E">The owner confirms it before it reaches your wallet</span></div>
+            <div style="height:52px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; display:flex; align-items:center; justify-content:center; gap:9px; font-size:15px; font-weight:600">Send for confirmation<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"><path d="M5 12h13M13 7l5 5-5 5"/></svg></div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 10 BILL SENT -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="10 Bill sent">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">10</span><span style="font-size:13px; font-weight:600">Bill sent · pending, not reimbursed</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#FFFFFF; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="flex:1; padding:32px 28px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px; text-align:center">
+            <div style="width:88px; height:88px; border-radius:999px; background:rgba(47,88,238,.10); display:grid; place-items:center">
+              <div style="width:60px; height:60px; border-radius:999px; background:#4469F0; display:grid; place-items:center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19.5 7.5"/></svg></div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px">
+              <span style="font-family:'DM Sans',sans-serif; font-size:26px; font-weight:700; letter-spacing:-.02em">Sent for confirmation</span>
+              <span style="font-size:14px; line-height:1.6; color:#5D5D5E; text-wrap:pretty">₹1,250 will be added to your wallet once the owner confirms this bill. Your balance has not changed yet.</span>
+            </div>
+            <div style="width:100%; background:#F8F8FB; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; color:#5D5D5E">Other · Tyre air fill</span><span style="font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; background:#FDF3E0; color:#C56200">Pending</span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">04 Aug · TR-4821</span><span style="font-family:'DM Mono',monospace; font-size:20px; font-weight:500">₹1,250</span></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:9px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span style="font-size:12px; color:#5D5D5E">Owners usually confirm within a day</span></div>
+          </div>
+          <div style="padding:12px 16px 20px; display:flex; flex-direction:column; gap:10px">
+            <div style="height:52px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600">View my wallet</div>
+            <div style="height:52px; border-radius:8px; background:rgba(47,88,238,.10); border:1px solid rgba(47,88,238,.20); color:#2646BE; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600">Add another bill</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 11 MY ADVANCES -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="11 My advances">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">11</span><span style="font-size:13px; font-weight:600">My advances · payout view</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(5,8,22,.10); min-height:60px; box-sizing:border-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#121214" stroke-width="1.9" stroke-linecap="round"><path d="M14 5l-7 7 7 7"/></svg>
+            <span style="font-size:17px; font-weight:600; letter-spacing:-.01em; flex:1">My advances</span>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:12px">
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px; box-shadow:0 2px 4px 0 rgba(30,34,56,.08)">
+              <div style="display:flex; align-items:center; justify-content:space-between"><div style="display:flex; flex-direction:column; gap:3px"><span style="font-family:'DM Mono',monospace; font-size:13px; font-weight:500">ADV-1192</span><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">01 Aug · TR-4821</span></div><span style="font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; background:#E7F4EA; color:#187A32">Paid</span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+              <div style="display:flex; flex-direction:column; gap:9px">
+                <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; color:#5D5D5E">Requested</span><span style="font-family:'DM Mono',monospace; font-size:14px">₹5,500</span></div>
+                <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:13px; color:#5D5D5E">Deductions</span><span style="font-family:'DM Mono',monospace; font-size:14px; color:#BB2626">−₹500</span></div>
+                <div style="display:flex; align-items:center; justify-content:space-between"><span style="font-size:14px; font-weight:600">Net paid</span><span style="font-family:'DM Mono',monospace; font-size:20px; font-weight:500">₹5,000</span></div>
+              </div>
+              <div style="background:#F8F8FB; border-radius:8px; padding:10px 12px; display:flex; align-items:center; gap:9px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="6" width="18" height="13" rx="3"/></svg><span style="font-family:'DM Mono',monospace; font-size:11px; color:#5D5D5E">UPI · ramesh@okbank · 01 Aug 14:22</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; align-items:center; gap:12px">
+              <div style="flex:1; display:flex; flex-direction:column; gap:4px"><div style="display:flex; align-items:center; gap:8px"><span style="font-family:'DM Mono',monospace; font-size:13px; font-weight:500">ADV-1174</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#FDF3E0; color:#C56200">Approved</span></div><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">28 Jul · payout scheduled</span></div>
+              <span style="font-family:'DM Mono',monospace; font-size:16px; font-weight:500">₹3,000</span>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; align-items:center; gap:12px">
+              <div style="flex:1; display:flex; flex-direction:column; gap:4px"><div style="display:flex; align-items:center; gap:8px"><span style="font-family:'DM Mono',monospace; font-size:13px; font-weight:500">ADV-1150</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#E7F4EA; color:#187A32">Paid</span></div><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">19 Jul · cash</span></div>
+              <span style="font-family:'DM Mono',monospace; font-size:16px; font-weight:500">₹2,000</span>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; padding:14px; display:flex; align-items:center; gap:12px">
+              <div style="flex:1; display:flex; flex-direction:column; gap:4px"><div style="display:flex; align-items:center; gap:8px"><span style="font-family:'DM Mono',monospace; font-size:13px; font-weight:500">ADV-1131</span><span style="font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; background:#FBEAEA; color:#BB2626">Rejected</span></div><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">11 Jul · limit exceeded</span></div>
+              <span style="font-family:'DM Mono',monospace; font-size:16px; color:#93939A; text-decoration:line-through">₹6,000</span>
+            </div>
+
+            <div style="display:flex; gap:10px; align-items:flex-start; padding:2px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round" style="flex-shrink:0; margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v.2M12 11v5"/></svg>
+              <span style="font-size:12px; line-height:1.5; color:#5D5D5E">Paid advances are debited from your wallet balance.</span>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; padding:12px 16px 16px; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10)">
+            <div style="height:52px; border-radius:8px; background:rgba(47,88,238,.10); border:1px solid rgba(47,88,238,.20); color:#2646BE; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600">Request an advance</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 12 PROFILE -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="12 Profile">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">12</span><span style="font-size:13px; font-weight:600">Profile · wallet card and row groups</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif">
+          <div style="background:#FFFFFF; padding:20px 16px; display:flex; align-items:center; gap:14px; border-bottom:1px solid rgba(5,8,22,.05)">
+            <div style="width:56px; height:56px; border-radius:16px; background:linear-gradient(135deg,#F9A061 0%,#E5686C 100%); display:grid; place-items:center; color:#FFFFFF; font-family:'DM Sans',sans-serif; font-size:22px; font-weight:700">R</div>
+            <div style="flex:1; display:flex; flex-direction:column; gap:3px">
+              <span style="font-size:19px; font-weight:600; letter-spacing:-.015em">Ramesh Yadav</span>
+              <span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">+91 98220 41188 · Driver</span>
+            </div>
+            <div style="height:36px; padding:0 14px; border-radius:8px; border:1px solid rgba(5,8,22,.10); display:flex; align-items:center; font-size:13px; font-weight:500">Edit</div>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:12px">
+            <div style="background:linear-gradient(180deg,#213EA7 0%,#2F58EE 100%); border-radius:12px; padding:16px; color:#FFFFFF; display:flex; align-items:center; justify-content:space-between">
+              <div style="display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; opacity:.8">Wallet · owed to you</span><span style="font-family:'DM Mono',monospace; font-size:26px; font-weight:500; line-height:1.1">₹{{ walletFmt }}</span><span style="font-size:12px; opacity:.82">1 bill pending · 4 confirmed</span></div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; overflow:hidden">
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><path d="M3 8h11v8H3zM14 11h4l3 3v2h-7z"/></svg><span style="flex:1; font-size:15px">My trips</span><span style="font-family:'DM Mono',monospace; font-size:13px; color:#93939A">6</span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin-left:49px"></div>
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M16 12.5h3"/></svg><span style="flex:1; font-size:15px">My advances</span><span style="font-family:'DM Mono',monospace; font-size:13px; color:#93939A">₹5,000</span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin-left:49px"></div>
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/></svg><span style="flex:1; font-size:15px">Khata &amp; bills</span><span style="font-size:11px; font-weight:600; padding:3px 8px; border-radius:999px; background:#FDF3E0; color:#C56200">1 pending</span></div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin-left:49px"></div>
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><path d="M7 3h7l4 4v14H7z"/></svg><span style="flex:1; font-size:15px">Documents</span><span style="font-size:11px; font-weight:600; padding:3px 8px; border-radius:999px; background:#FDF3E0; color:#C56200">1 expiring</span></div>
+            </div>
+
+            <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; overflow:hidden">
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3.5 12h17M12 3.2c2.5 2.6 2.5 15.6 0 17.6-2.5-2-2.5-15-0-17.6"/></svg><span style="flex:1; font-size:15px">Language</span><span style="font-size:13px; color:#5D5D5E">English</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin-left:49px"></div>
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><path d="M6 9a6 6 0 0 1 12 0c0 3.5 1 4.5 1.5 5.5H4.5C5 13.5 6 12.5 6 9"/></svg><span style="flex:1; font-size:15px">Notifications</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></div>
+              <div style="height:1px; background:rgba(5,8,22,.05); margin-left:49px"></div>
+              <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5D5D5E" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.2M12 11v5"/></svg><span style="flex:1; font-size:15px">Help &amp; support</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.9" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></div>
+            </div>
+
+            <div style="height:48px; border-radius:8px; border:1px solid rgba(187,38,38,.24); background:#FFFFFF; color:#BB2626; display:flex; align-items:center; justify-content:center; gap:9px; font-size:14px; font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#BB2626" stroke-width="1.9" stroke-linecap="round"><path d="M15 5H7v14h8M12 12h8M17 9l3 3-3 3"/></svg>Log out</div>
+            <div style="display:flex; justify-content:center"><span style="font-family:'DM Mono',monospace; font-size:11px; color:#93939A">Sahayak v4.2.0 · build 812</span></div>
+          </div>
+          <div style="margin-top:auto; background:#FFFFFF; border-top:1px solid rgba(5,8,22,.10); height:64px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 4px; box-shadow:0 -2px 8px rgba(30,34,56,.06)">
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Home</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2zM13 10h4l3 3.5V16h-7"/><circle cx="6.5" cy="18" r="1.7"/><circle cx="16.5" cy="18" r="1.7"/></svg></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Vehicles</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center">
+                <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) translateY(-24px); width:56px; height:56px; border-radius:999px; background:#2F58EE; border:1px solid #213EA7; display:grid; place-items:center; box-shadow:0 0 0 4px #FFFFFF, 0 8px 18px rgba(47,88,238,.34), 0 2px 4px rgba(30,34,56,.10)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6h5.1a3 3 0 0 1 0 6h-3a3 3 0 0 0 0 6h5.1"/></svg></div>
+              </div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Trips</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#93939A" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5a6 6 0 0 1 12 0c0 3.5 1 4.5 1.5 5.5H4.5C5 14 6 13 6 9.5"/><path d="M10 19a2 2 0 0 0 4 0"/></svg><span style="position:absolute; top:-4px; right:calc(50% - 21px); min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:999px; background:#DD3030; color:#FFFFFF; font-family:'DM Mono',monospace; font-size:9px; display:grid; place-items:center">3</span></div>
+              <span style="font-size:10px; font-weight:500; color:#5D5D5E; letter-spacing:.01em; line-height:14px">Alerts</span>
+            </div>
+            <div style="flex:1; height:64px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px; padding-bottom:9px">
+              <div style="height:24px; width:100%; position:relative; display:grid; place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4469F0" stroke-width="1.85" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></div>
+              <span style="font-size:10px; font-weight:600; color:#2646BE; letter-spacing:.01em; line-height:14px">More</span>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 13 LANGUAGE -->
+    <div style="display:flex; flex-direction:column; gap:14px" data-screen-label="13 Language">
+      <div style="display:flex; align-items:baseline; gap:10px"><span style="font-family:'DM Mono',monospace; font-size:12px; color:#4469F0">13</span><span style="font-size:13px; font-weight:600">Language · each script in its own script</span></div>
+      <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+        <div style="min-height:812px; background:#F3F3F6; display:flex; flex-direction:column; justify-content:flex-end; font-family:'Inter',system-ui,sans-serif; position:relative">
+          <div style="position:absolute; inset:0; display:flex; flex-direction:column">
+            <div style="background:#FFFFFF; padding:20px 16px; display:flex; align-items:center; gap:14px; border-bottom:1px solid rgba(5,8,22,.05)">
+              <div style="width:56px; height:56px; border-radius:16px; background:linear-gradient(135deg,#F9A061 0%,#E5686C 100%); display:grid; place-items:center; color:#FFFFFF; font-family:'DM Sans',sans-serif; font-size:22px; font-weight:700">R</div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:3px"><span style="font-size:19px; font-weight:600; letter-spacing:-.015em">Ramesh Yadav</span><span style="font-family:'DM Mono',monospace; font-size:12px; color:#5D5D5E">+91 98220 41188 · Driver</span></div>
+            </div>
+            <div style="padding:16px; display:flex; flex-direction:column; gap:12px">
+              <div style="background:linear-gradient(180deg,#213EA7 0%,#2F58EE 100%); border-radius:12px; padding:16px; color:#FFFFFF; display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; opacity:.8">Wallet · owed to you</span><span style="font-family:'DM Mono',monospace; font-size:26px; font-weight:500; line-height:1.1">₹4,820</span></div>
+              <div style="background:#FFFFFF; border:1px solid rgba(5,8,22,.05); border-radius:12px; overflow:hidden">
+                <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><span style="flex:1; font-size:15px">My trips</span><span style="font-family:'DM Mono',monospace; font-size:13px; color:#93939A">6</span></div>
+                <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+                <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><span style="flex:1; font-size:15px">My advances</span><span style="font-family:'DM Mono',monospace; font-size:13px; color:#93939A">₹5,000</span></div>
+                <div style="height:1px; background:rgba(5,8,22,.05)"></div>
+                <div style="padding:14px 16px; display:flex; align-items:center; gap:13px"><span style="flex:1; font-size:15px">Language</span><span style="font-size:13px; color:#5D5D5E">English</span></div>
+              </div>
+            </div>
+          </div>
+          <div style="position:absolute; inset:0; background:rgba(18,18,20,.48); backdrop-filter:blur(2px)"></div>
+          <div style="position:relative; background:#FFFFFF; border-radius:16px 16px 0 0; padding:10px 20px 24px; display:flex; flex-direction:column; gap:18px; box-shadow:0 12px 32px 0 rgba(30,34,56,.14)">
+            <span style="width:40px; height:4px; border-radius:999px; background:#DFDFE2; align-self:center"></span>
+            <div style="display:flex; flex-direction:column">
+              <div style="display:flex; flex-direction:column; gap:5px">
+                <span style="font-size:19px; font-weight:600; letter-spacing:-.01em">Choose your language</span>
+                <span style="font-size:13px; color:#5D5D5E">The whole app changes, including numbers and dates.</span>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px">
+              <div style="border:1px solid #2A4FD6; background:rgba(47,88,238,.10); border-radius:12px; padding:16px; display:flex; align-items:center; gap:14px">
+                <div style="width:44px; height:44px; border-radius:10px; background:#FFFFFF; display:grid; place-items:center; font-family:'DM Sans',sans-serif; font-size:17px; font-weight:700; color:#2646BE">A</div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span style="font-size:17px; font-weight:600">English</span><span style="font-size:12px; color:#5D5D5E">English</span></div>
+                <div style="width:24px; height:24px; border-radius:999px; background:#4469F0; display:grid; place-items:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17 19 7.5"/></svg></div>
+              </div>
+              <div style="border:1px solid rgba(5,8,22,.10); background:#FFFFFF; border-radius:12px; padding:16px; display:flex; align-items:center; gap:14px">
+                <div style="width:44px; height:44px; border-radius:10px; background:#F3F3F6; display:grid; place-items:center; font-size:19px; font-weight:600; color:#5D5D5E">अ</div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span style="font-size:17px; font-weight:600">हिन्दी</span><span style="font-size:12px; color:#5D5D5E">Hindi</span></div>
+                <span style="width:24px; height:24px; border-radius:999px; border:2px solid #DFDFE2; box-sizing:border-box"></span>
+              </div>
+              <div style="border:1px solid rgba(5,8,22,.10); background:#FFFFFF; border-radius:12px; padding:16px; display:flex; align-items:center; gap:14px">
+                <div style="width:44px; height:44px; border-radius:10px; background:#F3F3F6; display:grid; place-items:center; font-size:19px; font-weight:600; color:#5D5D5E">অ</div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span style="font-size:17px; font-weight:600">বাংলা</span><span style="font-size:12px; color:#5D5D5E">Bengali</span></div>
+                <span style="width:24px; height:24px; border-radius:999px; border:2px solid #DFDFE2; box-sizing:border-box"></span>
+              </div>
+            </div>
+            <div style="height:52px; border-radius:8px; background:#4469F0; border:1px solid #213EA7; color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600">Save language</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;walletBalance&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:4820,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:0,&quot;max&quot;:99999,&quot;section&quot;:&quot;Data&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const bal = this.props.walletBalance ?? 4820;
+    return { walletFmt: bal.toLocaleString('en-IN') };
+  }
+}
+</script>
+</body>
+</html>

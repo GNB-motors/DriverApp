@@ -10,6 +10,7 @@ export { default as AppText } from './AppText';
 export { default as Button } from './Button';
 export { default as TextField } from './TextField';
 export { default as Badge } from './Badge';
+export { default as StatusBadge } from './StatusBadge';
 export { default as Chip } from './Chip';
 export { default as SegmentedControl } from './SegmentedControl';
 export { default as Switch } from './Switch';
@@ -19,13 +20,26 @@ export { default as ListRow } from './ListRow';
 export { default as ScreenHeader } from './ScreenHeader';
 export { default as SosButton } from './SosButton';
 export { default as SplashScreen } from './SplashScreen';
-export { default as VehicleLoader } from './VehicleLoader';
-export { default as StatCard } from './StatCard';
-export { default as PipelineProgress } from './PipelineProgress';
-export { default as FilterBar } from './FilterBar';
+
+// Nova SpiceKit design-system components
+export { default as WalletHeroCard } from './WalletHeroCard';
+export { default as WarningBanner } from './WarningBanner';
+export { default as AlertCard } from './AlertCard';
+export { default as KeyValueTable, KeyValueRow } from './KeyValueTable';
+export { BarChart, ProgressBar } from './Charts';
+export { default as StepProgress } from './StepProgress';
+export { default as Stepper } from './Stepper';
+export { default as NumericKeypad } from './NumericKeypad';
+export { default as OtpInput } from './OtpInput';
+export { default as PinDots } from './PinDots';
+export { default as RadioCard } from './RadioCard';
+export { default as PhotoUploader } from './PhotoUploader';
+export { default as BottomSheet } from './BottomSheet';
+export { default as Loading } from './Loading';
 export { default as EmptyState } from './EmptyState';
-export { default as ActionSheet } from './ActionSheet';
-export { default as DocumentPicker } from './DocumentPicker';
+
+// Owner + Manager back-office primitives
+export { TONE, toneColor, Pill, Monogram, SectionHeader, StatTile, Eyebrow, KpiTile, RouteLine, LedgerRow, FilterChips, BackHeader } from './BackOfficeBits';
 
 // Tokens, re-exported for convenience.
-export { colors, spacing, radius, elevation, typography, fontFamily, bodyFont, monoFont } from '../../theme/tokens';
+export { colors, spacing, radius, elevation, typography, fontFamily, bodyFont, headingFont, monoFont } from '../../theme/tokens';

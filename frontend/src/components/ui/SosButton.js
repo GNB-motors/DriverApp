@@ -104,8 +104,8 @@ const styles = StyleSheet.create({
   core: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#C42820',
-    shadowColor: '#C42820',
+    backgroundColor: colors.error,
+    shadowColor: colors.error,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.5,
     shadowRadius: 18,
