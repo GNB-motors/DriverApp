@@ -14,4 +14,9 @@ export async function getDriverSummary(driverId, params = {}) {
   return res.data?.data ?? res.data;
 }
 
-export default { getDriverLedger, getDriverSummary };
+export async function settleDriver(driverId, payload) {
+  const res = await client.post(`/khata/drivers/${driverId}/settle`, payload);
+  return res.data?.data ?? res.data;
+}
+
+export default { getDriverLedger, getDriverSummary, settleDriver };

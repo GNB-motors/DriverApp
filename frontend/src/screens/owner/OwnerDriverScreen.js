@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { usePreventScreenCapture } from 'expo-screen-capture';
-import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl, Alert, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
-import { AppText, Card, Loading, EmptyState, colors } from '../../components/ui';
+import { AppText, Card, Loading, EmptyState, colors, BottomSheet, TextField, Button, Pill } from '../../components/ui';
 import { BackHeader, LedgerRow, SectionHeader } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { apiConfigured } from '../../services/client';
@@ -54,6 +54,41 @@ export default function OwnerDriverScreen({ navigation, route }) {
   const loading = useReal && (summaryLoading || ledgerLoading);
   const onRefresh = () => { refetchSummary(); refetchLedger(); };
 
+  const [settleVisible, setSettleVisible] = useState(false);
+  const [settleAmount, setSettleAmount] = useState('');
+  const [settleMode, setSettleMode] = useState('CASH');
+  const [settleRef, setSettleRef] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSettleSubmit = async () => {
+    const numAmount = Number(settleAmount);
+    if (!numAmount || numAmount <= 0) return Alert.alert('Invalid Amount', 'Please enter a valid amount.');
+    
+    try {
+      setSubmitting(true);
+      await walletService.settleDriver(driverId, {
+        amount: numAmount,
+        mode: settleMode,
+        narration: settleRef,
+      });
+      setSettleVisible(false);
+      setSettleAmount('');
+      setSettleRef('');
+      setSettleMode('CASH');
+      onRefresh();
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to settle balance.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openSettle = () => {
+    const rawTotal = summaryApi?.totalAmount || 0;
+    setSettleAmount(rawTotal > 0 ? String(rawTotal) : '');
+    setSettleVisible(true);
+  };
+
   // /khata/drivers/:id/summary → { totalAmount, byCategory, bySource, byVehicle,
   //                                unattributedAmount, count }
   // /khata/drivers/:id/ledger  → { results: [{ title, amount, category,
@@ -75,13 +110,14 @@ export default function OwnerDriverScreen({ navigation, route }) {
         e?.vehicle?.registrationNumber,
         e?.expenseDate ? dayjs(e.expenseDate).format('DD MMM') : null,
       ].filter(Boolean).join(' · '),
-      delta: `+${money(e?.amount)}`,
+      delta: e.category === 'SETTLEMENT' ? `-${money(Math.abs(e?.amount))}` : `+${money(e?.amount)}`,
       balance: '',
     }));
 
     const unattributed = Number(s.unattributedAmount) || 0;
 
     return {
+      rawTotal: Number(s.totalAmount) || 0,
       owe: money(s.totalAmount),
       count: Number(s.count) || 0,
       byCategory: breakdownRows(s.byCategory),
@@ -165,6 +201,57 @@ export default function OwnerDriverScreen({ navigation, route }) {
           </>
         )}
       </ScrollView>
+
+      {!loading && !showEmpty && d.rawTotal > 0 ? (
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+          <Button size="lg" label="Settle Balance" onPress={openSettle} />
+        </View>
+      ) : null}
+
+      <BottomSheet visible={settleVisible} onClose={() => setSettleVisible(false)}>
+        <AppText variant="h4" weight="bold">Settle Balance</AppText>
+        
+        <View style={styles.formGroup}>
+          <TextField
+            label="Amount (₹)"
+            placeholder="0"
+            keyboardType="numeric"
+            value={settleAmount}
+            onChangeText={setSettleAmount}
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <AppText variant="label" muted style={{ marginBottom: 8 }}>Payment Mode</AppText>
+          <View style={styles.modeRow}>
+            {['CASH', 'BANK', 'UPI'].map(mode => (
+              <TouchableOpacity key={mode} onPress={() => setSettleMode(mode)}>
+                <Pill
+                  label={mode}
+                  color={settleMode === mode ? 'primary' : 'neutral'}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.formGroup}>
+          <TextField
+            label="Reference / Notes"
+            placeholder="Txn ID or remarks (optional)"
+            value={settleRef}
+            onChangeText={setSettleRef}
+          />
+        </View>
+
+        <Button
+          size="lg"
+          label={submitting ? "Processing..." : `Settle ₹${settleAmount || 0}`}
+          onPress={handleSettleSubmit}
+          disabled={submitting}
+          style={{ marginTop: 12 }}
+        />
+      </BottomSheet>
     </View>
   );
 }
@@ -177,4 +264,12 @@ const styles = StyleSheet.create({
   kv: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 },
   rowDivider: { height: 1, backgroundColor: colors.border, marginHorizontal: 13 },
   note: { marginTop: 10 },
+  footer: {
+    padding: 20,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  formGroup: { marginTop: 16 },
+  modeRow: { flexDirection: 'row', gap: 8 },
 });

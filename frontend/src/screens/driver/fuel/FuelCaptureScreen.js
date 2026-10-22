@@ -5,6 +5,9 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Badge, StepProgress, WarningBanner, colors, spacing, radius } from '../../../components/ui';
 import { pickFromCamera, pickFromGallery } from '../../../utils/pickImage';
+import { Picker } from '@react-native-picker/picker';
+import { useAuth } from '../../../context/AuthContext';
+import { useDriverVehicle } from '../../../hooks/useDriverVehicle';
 
 /**
  * 17 · Fuel capture — the three photos. Captures the real bill photo.
@@ -12,14 +15,25 @@ import { pickFromCamera, pickFromGallery } from '../../../utils/pickImage';
 export default function FuelCaptureScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const [photo, setPhoto] = useState(null); // fuel bill photo { uri, name, type }
+  const [odometerPhoto, setOdometerPhoto] = useState(null); // optional odometer photo
   // Odometer + pump readings are confirmed on the next step; route params carry
   // any values forwarded from an earlier OCR pass — nothing is prefilled.
   const odometer = route.params?.odometer;
   const litres = route.params?.litres;
   const billCaptured = !!photo;
-  const captured = (billCaptured ? 1 : 0) + (odometer != null ? 1 : 0) + (litres != null ? 1 : 0);
+  const odoCaptured = !!odometerPhoto || odometer != null;
+  const captured = (billCaptured ? 1 : 0) + (odoCaptured ? 1 : 0) + (litres != null ? 1 : 0);
   const captureBill = async () => { const f = await pickFromCamera(); if (f) setPhoto(f); };
   const pickBill = async () => { const f = await pickFromGallery(); if (f) setPhoto(f); };
+  const captureOdo = async () => { const f = await pickFromCamera(); if (f) setOdometerPhoto(f); };
+  const pickOdo = async () => { const f = await pickFromGallery(); if (f) setOdometerPhoto(f); };
+
+  const { user } = useAuth();
+  const { vehicles } = useDriverVehicle();
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+  const isAgent = user?.role === 'FIELD_AGENT';
+
+  const canContinue = isAgent ? (billCaptured && selectedVehicleId) : billCaptured;
 
   return (
     <View style={styles.container}>
@@ -38,11 +52,35 @@ export default function FuelCaptureScreen({ navigation, route }) {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <StepProgress variant="segments" total={2} current={1} style={styles.step} />
 
-        <CaptureRow icon="speedometer-outline" title="Odometer" value={odometer != null ? String(odometer) : '—'} hint="Reading picked up automatically" captured={odometer != null} />
-        <CaptureRow icon="water-outline" title="Pump meter" value={litres != null ? `${litres} L` : '—'} hint="Litres and rate read from meter" captured={litres != null} />
+        {isAgent ? (
+          <View style={[styles.gap, { marginBottom: 12 }]}>
+            <AppText variant="label" muted>Select Vehicle</AppText>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={selectedVehicleId}
+                onValueChange={(itemValue) => setSelectedVehicleId(itemValue)}
+                style={styles.picker}
+              >
+                <Picker.Item label="-- Select Vehicle --" value={null} />
+                {vehicles.map(v => (
+                  <Picker.Item key={v._id || v.id} label={v.registrationNumber || v.vehicleNumber || 'Unknown'} value={v._id || v.id} />
+                ))}
+              </Picker>
+            </View>
+          </View>
+        ) : (
+          <>
+            {odometer != null ? (
+              <CaptureRow icon="speedometer-outline" title="Odometer" value={String(odometer)} hint="Reading picked up automatically" captured />
+            ) : null}
+            {litres != null ? (
+              <CaptureRow icon="water-outline" title="Pump meter" value={`${litres} L`} hint="Litres and rate read from meter" captured />
+            ) : null}
+          </>
+        )}
 
         {billCaptured ? (
-          <CaptureRow icon="receipt-outline" title="Fuel bill" value={photo.name} hint="Amount and litres read from bill" captured />
+          <CaptureRow icon="receipt-outline" title="Fuel bill" value={photo.name} hint="Amount and litres read from bill" captured onRetake={() => setPhoto(null)} />
         ) : (
           <View style={styles.dropzone}>
             <View style={styles.dropIcon}><Ionicons name="camera" size={22} color={colors.primary} /></View>
@@ -55,17 +93,33 @@ export default function FuelCaptureScreen({ navigation, route }) {
           </View>
         )}
 
+        {odometer == null ? (
+          odometerPhoto ? (
+            <CaptureRow icon="speedometer-outline" title="Odometer" value={odometerPhoto.name} hint="Optional odometer reading" captured onRetake={() => setOdometerPhoto(null)} />
+          ) : (
+            <View style={[styles.dropzone, styles.gap]}>
+              <View style={styles.dropIcon}><Ionicons name="speedometer-outline" size={22} color={colors.primary} /></View>
+              <AppText variant="bodyStrong" weight="bold" center>Photograph the odometer (Optional)</AppText>
+              <AppText variant="small" muted center style={styles.dropSub}>Capture the vehicle dashboard reading.</AppText>
+              <View style={styles.dropBtns}>
+                <Button size="md" icon="camera" label="Camera" fullWidth={false} style={styles.dropBtn} onPress={captureOdo} />
+                <Button variant="secondary" size="md" icon="image" label="Gallery" fullWidth={false} style={styles.dropBtn} onPress={pickOdo} />
+              </View>
+            </View>
+          )
+        ) : null}
+
         <WarningBanner tone="warning" message="Fuel entries without a bill photo are held for owner review." style={styles.gap} />
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Button size="lg" label="Continue" iconRight="arrow-forward" disabled={!billCaptured} onPress={() => navigation.navigate('FuelEntryDetails', { photo, odometer, litres })} />
+        <Button size="lg" label="Continue" iconRight="arrow-forward" disabled={!canContinue} onPress={() => navigation.navigate('FuelEntryDetails', { photo, odometerPhoto, odometer, litres, selectedVehicleId })} />
       </View>
     </View>
   );
 }
 
-function CaptureRow({ icon, title, value, hint, captured }) {
+function CaptureRow({ icon, title, value, hint, captured, onRetake }) {
   return (
     <View style={styles.captureRow}>
       <View style={styles.thumb}>
@@ -78,7 +132,11 @@ function CaptureRow({ icon, title, value, hint, captured }) {
           {captured ? <Badge tone="valid" label="Captured" /> : null}
         </View>
         <AppText variant="caption" muted>{hint}</AppText>
-        <AppText variant="caption" weight="bold" color={colors.primary}>Retake</AppText>
+        {onRetake ? (
+          <Pressable onPress={onRetake} hitSlop={10}>
+            <AppText variant="caption" weight="bold" color={colors.primary}>Retake</AppText>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -106,4 +164,14 @@ const styles = StyleSheet.create({
   dropBtns: { flexDirection: 'row', gap: 10, marginTop: 10 },
   dropBtn: { paddingHorizontal: 20 },
   footer: { paddingHorizontal: 20, paddingTop: 12, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    marginTop: 8,
+    backgroundColor: colors.surface,
+  },
+  picker: {
+    height: 50,
+  },
 });

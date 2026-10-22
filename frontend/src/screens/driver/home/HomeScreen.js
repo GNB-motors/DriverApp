@@ -154,9 +154,6 @@ export default function HomeScreen({ navigation }) {
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <LinearGradient colors={colors.avatarGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatar}>
-          <AppText weight="extrabold" color={colors.white} style={styles.avatarText}>{driver.initials}</AppText>
-        </LinearGradient>
         <View style={{ flex: 1 }}>
           <AppText variant="small" weight="medium" muted>Namaste</AppText>
           <AppText variant="h3" weight="extrabold" numberOfLines={1}>{driver.name}</AppText>
@@ -297,7 +294,9 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   routeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 22, paddingBottom: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 22, paddingBottom: 12,
+    backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+  menuBtn: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   avatar: { width: 48, height: 48, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 18 },
   bell: {

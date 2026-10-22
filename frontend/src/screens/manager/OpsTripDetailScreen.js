@@ -80,6 +80,7 @@ export default function OpsTripDetailScreen({ navigation, route }) {
       pending: paperwork.filter((p) => !p.ok).length,
       moneyRows,
       canClose: d.state === 'DISPATCHED',
+      canUnload: d.state === 'CLOSED' && !un,
     };
   }, [tripApi]);
 
@@ -146,12 +147,25 @@ export default function OpsTripDetailScreen({ navigation, route }) {
 
       {t ? (
         <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-          <Button
-            size="lg"
-            label={t.canClose ? 'Close trip' : `Cannot close — ${t.stateLabel}`}
-            disabled={!t.canClose}
-            onPress={() => navigation.navigate('OpsCloseTrip', { id })}
-          />
+          {t.canClose ? (
+            <Button
+              size="lg"
+              label="Close trip"
+              onPress={() => navigation.navigate('OpsCloseTrip', { id })}
+            />
+          ) : t.canUnload ? (
+            <Button
+              size="lg"
+              label="Record unloading"
+              onPress={() => navigation.navigate('OpsUnloading', { tripId: id })}
+            />
+          ) : (
+            <Button
+              size="lg"
+              label={`Cannot action — ${t.stateLabel}`}
+              disabled={true}
+            />
+          )}
         </View>
       ) : null}
     </View>

@@ -115,7 +115,12 @@ export default function OwnerDashboardScreen({ navigation }) {
 
   return (
     <OwnerShell title="Dashboard" subtitle={organization?.companyName || ''} navigation={navigation} active="OwnerDashboard"
-      right={<View style={styles.bell}><Ionicons name="notifications-outline" size={20} color={colors.text} />{d.pendingApprovals > 0 ? <View style={styles.bellDot} /> : null}</View>}>
+      right={
+        <Pressable style={styles.bell} onPress={() => navigation.navigate('OwnerApprovals')}>
+          <Ionicons name="notifications-outline" size={20} color={colors.text} />
+          {d.pendingApprovals > 0 ? <View style={styles.bellDot} /> : null}
+        </Pressable>
+      }>
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {loading ? (
