@@ -13,7 +13,8 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { SELECTED_VEHICLE_KEY } from './VehicleScreen';
 import { startLocationTracking, stopLocationTracking, isTracking } from '../services/locationTracker';
-import { fetchMyFuelLogs, fetchFieldAgentFuelLogs } from '../services/api';
+import { fetchMyFuelLogs, fetchFieldAgentFuelLogs, startDriverTrip, endDriverTrip } from '../services/api';
+import DutyStatusStrip from '../components/DutyStatusStrip';
 import { AppText, Badge, Switch, Card, colors, spacing, radius } from '../components/ui';
 import logger from '../utils/logger';
 
@@ -28,6 +29,7 @@ export default function HomeScreen({ navigation }) {
   const [savedVehicle, setSavedVehicle] = useState(null); // { _id, registrationNumber }
   const [onDuty, setOnDuty] = useState(isTracking());
   const [lastLog, setLastLog] = useState(null);
+  const [tripBusy, setTripBusy] = useState(false);
 
   const isFieldAgent = user?.role === 'FIELD_AGENT';
 
@@ -132,22 +134,64 @@ export default function HomeScreen({ navigation }) {
   };
 
   const toggleDuty = async () => {
-    if (onDuty) {
-      stopLocationTracking();
-      setOnDuty(false);
-      return;
+    if (tripBusy) return;
+    setTripBusy(true);
+    try {
+      if (onDuty) {
+        // End the trip first: the server needs it to close the driving stint and
+        // start the driver's rest period. Best effort — the driver must always be
+        // able to go off duty, even if the network is down.
+        try {
+          await endDriverTrip(token);
+        } catch (err) {
+          logger.warn('Home', `ending trip failed: ${err.message}`);
+          Alert.alert(
+            t('duty', 'tripOffFailedTitle') || 'Could not end the trip',
+            err.message,
+          );
+        }
+        stopLocationTracking();
+        setOnDuty(false);
+        return;
+      }
+
+      const choice = await getLocationSharingChoice();
+      if (choice === 'none') return;
+
+      const hasPermission = choice === 'always'
+        ? await requestAlwaysLocationPermission()
+        : await requestForegroundLocationPermission();
+      if (!hasPermission) return;
+
+      // Pair first. The server answers 422 with a reason when no truck of this
+      // org is close enough — going on duty without a vehicle would start a duty
+      // day the driver cannot account for.
+      const fix = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const trip = await startDriverTrip(token, {
+        latitude: fix.coords.latitude,
+        longitude: fix.coords.longitude,
+        accuracy: fix.coords.accuracy ?? null,
+        recordedAt: new Date(fix.timestamp || Date.now()).toISOString(),
+      });
+
+      startLocationTracking(token);
+      setOnDuty(true);
+
+      Alert.alert(
+        t('duty', 'pairedTitle') || 'Trip ON',
+        `${trip.registrationNumber} · ${Math.round(trip.pairingDistanceMeters)} m away`,
+      );
+    } catch (err) {
+      logger.warn('Home', `starting trip failed: ${err.message}`);
+      Alert.alert(
+        t('duty', 'tripOnFailedTitle') || 'Could not start the trip',
+        err.message,
+      );
+    } finally {
+      setTripBusy(false);
     }
-
-    const choice = await getLocationSharingChoice();
-    if (choice === 'none') return;
-
-    const hasPermission = choice === 'always'
-      ? await requestAlwaysLocationPermission()
-      : await requestForegroundLocationPermission();
-    if (!hasPermission) return;
-
-    startLocationTracking(token);
-    setOnDuty(true);
   };
 
   const startRefuel = () => {
@@ -202,6 +246,12 @@ export default function HomeScreen({ navigation }) {
         </Pressable>
       </View>
 
+      {/* Hours-of-service strip — pinned above the scroll area so it stays visible
+          for the whole trip, and only polled while a trip is actually on. */}
+      {!isFieldAgent ? (
+        <DutyStatusStrip token={token} active={onDuty} />
+      ) : null}
+
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -220,7 +270,11 @@ export default function HomeScreen({ navigation }) {
                 {onDuty ? <View style={styles.dutyDot} /> : null}
               </View>
               <AppText variant="small" muted numberOfLines={1}>
-                {onDuty ? (t('home', 'dutyActiveSub') || 'Location sharing active') : (t('home', 'dutyInactiveSub') || 'Tap to go on duty')}
+                {tripBusy
+                  ? t('duty', 'pairedTitle') || 'Trip ON'
+                  : onDuty
+                    ? (t('home', 'dutyActiveSub') || 'Location sharing active')
+                    : (t('home', 'dutyInactiveSub') || 'Tap to go on duty')}
               </AppText>
             </View>
             <View pointerEvents="none">
