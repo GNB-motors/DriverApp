@@ -59,12 +59,32 @@ export function AuthProvider({ children }) {
     const normalised = mobileNumber.startsWith('+')
       ? mobileNumber
       : `+91${mobileNumber.replace(/\s/g, '')}`;
+      
+    // MOCK ACCOUNTS bypass API
+    if (['+919999999990', '+919999999991', '+919999999992', '+919999999993'].includes(normalised)) {
+      return normalised;
+    }
+
     await requestDriverOtp(normalised);
     return normalised;
   };
 
   const verifyOtp = async (mobileNumber, otp) => {
-    const result = await verifyDriverOtp(mobileNumber, otp);
+    let result;
+
+    // MOCK ACCOUNTS for UI Testing
+    if (mobileNumber === '+919999999990' && otp === '123456') {
+      result = { user: { _id: 'mock_owner1', name: 'Test Owner', role: 'OWNER', orgId: 'org1', phone: '+919999999990' }, token: 'mock-jwt-owner', organization: { name: 'GNB Motors', _id: 'org1' } };
+    } else if (mobileNumber === '+919999999991' && otp === '123456') {
+      result = { user: { _id: 'mock_manager1', name: 'Test Manager', role: 'MANAGER', orgId: 'org1', phone: '+919999999991' }, token: 'mock-jwt-mgr', organization: { name: 'GNB Motors', _id: 'org1' } };
+    } else if (mobileNumber === '+919999999992' && otp === '123456') {
+      result = { user: { _id: 'mock_ops1', name: 'Test Ops', role: 'OPS_EXECUTIVE', orgId: 'org1', phone: '+919999999992' }, token: 'mock-jwt-ops', organization: { name: 'GNB Motors', _id: 'org1' } };
+    } else if (mobileNumber === '+919999999993' && otp === '123456') {
+      result = { user: { _id: 'mock_driver1', name: 'Test Driver', role: 'DRIVER', orgId: 'org1', phone: '+919999999993' }, token: 'mock-jwt-driver', organization: { name: 'GNB Motors', _id: 'org1' } };
+    } else {
+      result = await verifyDriverOtp(mobileNumber, otp);
+    }
+
     const { user: loggedInUser, token: jwt, organization: org } = result;
     const newIdentity = `${loggedInUser._id}:${loggedInUser.orgId}`;
 

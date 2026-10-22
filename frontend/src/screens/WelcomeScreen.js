@@ -44,12 +44,31 @@ export default function WelcomeScreen() {
     setIsNewLogin(false);
   };
 
-  const driverName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Driver' : 'Driver';
+  const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User' : 'User';
   const phoneDisplay = user?.phoneNumber ? `+91 ${user.phoneNumber}` : '—';
-  const isFieldAgent = user?.role === 'FIELD_AGENT';
-  const roleLabel = isFieldAgent ? 'Field Agent' : 'Driver';
-  const showVehicle = !isFieldAgent && !!savedVehicle?.registrationNumber;
+  
+  const getRoleLabel = () => {
+    switch (user?.role) {
+      case 'OWNER': return 'Fleet Owner';
+      case 'MANAGER': return 'Manager';
+      case 'OPS_EXECUTIVE': return 'Ops Executive';
+      case 'FIELD_AGENT': return 'Field Agent';
+      default: return 'Driver';
+    }
+  };
+  const roleLabel = getRoleLabel();
 
+  const getWelcomeMessage = () => {
+    switch (user?.role) {
+      case 'OWNER': return 'Welcome to your fleet dashboard. Monitor operations and financials in real time.';
+      case 'MANAGER':
+      case 'OPS_EXECUTIVE': return 'Ready to manage trips, oversee placements, and approve operations today.';
+      case 'FIELD_AGENT': return 'Ready for a productive day in the field.';
+      default: return 'Great to see you again. Ready for a smooth, efficient day on the road.';
+    }
+  };
+
+  const showVehicle = user?.role === 'DRIVER' && !!savedVehicle?.registrationNumber;
   const ringScale = ringAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] });
   const ringOpacity = ringAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] });
 
@@ -83,7 +102,7 @@ export default function WelcomeScreen() {
 
           <Text style={styles.title}>Welcome back!</Text>
           <AppText variant="h3" weight="medium" color={colors.onPrimaryMuted} style={styles.username}>
-            {driverName}
+            {userName}
           </AppText>
         </Animated.View>
       </LinearGradient>
@@ -91,7 +110,7 @@ export default function WelcomeScreen() {
       {/* ── White card ── */}
       <View style={[styles.card, { paddingBottom: insets.bottom + spacing.xl }]}>
         <AppText variant="body" muted center style={styles.message}>
-          Great to see you again. Ready for a smooth, efficient day on the road.
+          {getWelcomeMessage()}
         </AppText>
 
         {/* Role + Phone */}

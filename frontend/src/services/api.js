@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/react-native';
 import axios from 'axios';
 import logger from '../utils/logger';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export class ApiError extends Error {
   constructor(message, statusCode) {
@@ -33,6 +33,14 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     if (config.token) {
+      if (String(config.token).startsWith('mock-jwt-')) {
+        config.adapter = () => {
+          return new Promise((resolve) => resolve({
+            data: { data: [] }, // mock empty arrays to prevent crashes
+            status: 200, statusText: 'OK', headers: {}, config, request: {}
+          }));
+        };
+      }
       config.headers['Authorization'] = `Bearer ${config.token}`;
     }
     logger.api(

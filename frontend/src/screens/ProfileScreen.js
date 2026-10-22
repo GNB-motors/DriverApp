@@ -15,17 +15,24 @@ export default function ProfileScreen({ navigation }) {
   const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
 
-  const isFieldAgent = user?.role === 'FIELD_AGENT';
-  const driverName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Driver' : 'Driver';
-  const initials = (`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`).toUpperCase() || 'D';
-  const rawPhone = user?.mobileNumber || user?.phoneNumber || '';
+  const isDriver = user?.role === 'DRIVER';
+  
+  // Try user.name (from mock or new API), fallback to firstName/lastName, fallback to capitalized role name
+  const rawName = user?.name || `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
+  const fallbackRoleName = user?.role ? user.role.replace('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) : 'Driver';
+  const displayName = rawName || fallbackRoleName;
+  
+  // Use first letters for initials
+  const initials = displayName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'D';
+  
+  const rawPhone = user?.mobileNumber || user?.phoneNumber || user?.phone || '';
   const phoneDisplay = rawPhone ? (rawPhone.startsWith('+') ? rawPhone : `+91 ${rawPhone}`) : '';
 
-  const accountRows = isFieldAgent ? [] : [
+  const accountRows = isDriver ? [
     { icon: 'car-sport', label: t('home', 'myVehicle') || 'My Vehicle', onPress: () => navigation.navigate('Vehicle') },
     { icon: 'person', label: t('docs', 'personalTitle') || 'Personal Documents', onPress: () => navigation.navigate('DocsScreen', { docType: 'PERSONAL' }) },
     { icon: 'document-text', label: t('docs', 'vehicleTitle') || 'Vehicle Documents', onPress: () => navigation.navigate('DocsScreen', { docType: 'VEHICLE' }) },
-  ];
+  ] : [];
 
   const prefRows = [
     { icon: 'language', label: t('profile', 'changeLanguage') || 'Language', value: LANG_LABEL[language] || 'English', onPress: () => navigation.navigate('LanguageScreen') },
@@ -46,7 +53,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.avatar}>
           <AppText weight="extrabold" color={colors.white} style={styles.avatarText}>{initials}</AppText>
         </View>
-        <AppText variant="h2" weight="extrabold" color={colors.white} style={{ marginTop: 14 }}>{driverName}</AppText>
+        <AppText variant="h2" weight="extrabold" color={colors.white} style={{ marginTop: 14 }}>{displayName}</AppText>
         {phoneDisplay ? (
           <AppText mono weight="medium" color={colors.onPrimaryMuted} style={{ marginTop: 2 }}>{phoneDisplay}</AppText>
         ) : null}
