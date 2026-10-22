@@ -194,6 +194,33 @@ export async function sendDriverLocation(token, { locationPermission, latitude, 
   return res.data?.data;
 }
 
+// ── Trip ON + hours of service ──────────────────────────────────────────
+
+/**
+ * Open a trip. The server pairs this driver to the vehicle of THEIR OWN org
+ * whose live position is nearest to the fix below, and answers 422 with a
+ * readable reason when no truck qualifies.
+ */
+export async function startDriverTrip(token, { latitude, longitude, accuracy, recordedAt }) {
+  const body = { lat: latitude, lng: longitude };
+  if (accuracy != null) body.accuracy = accuracy;
+  if (recordedAt) body.recordedAt = recordedAt;
+  const res = await apiClient.post('/driver/trips/start', body, { token });
+  return res.data?.data;
+}
+
+/** Close the open trip and start the driver's rest period. */
+export async function endDriverTrip(token) {
+  const res = await apiClient.post('/driver/trips/end', {}, { token });
+  return res.data?.data;
+}
+
+/** Current duty state, continuous driving minutes and the remaining legal window. */
+export async function fetchDutyStatus(token) {
+  const res = await apiClient.get('/driver/duty-status', { token });
+  return res.data?.data;
+}
+
 // ── OCR / Documents ────────────────────────────────────────────────────
 
 export async function scanDocument(token, file, docType, orgId = null) {
