@@ -15,6 +15,7 @@ import { SELECTED_VEHICLE_KEY } from './VehicleScreen';
 import { startLocationTracking, stopLocationTracking, isTracking } from '../services/locationTracker';
 import { fetchMyFuelLogs, fetchFieldAgentFuelLogs } from '../services/api';
 import { AppText, Badge, Switch, Card, colors, spacing, radius } from '../components/ui';
+import LiveDieselMarquee from '../components/LiveDieselMarquee';
 import logger from '../utils/logger';
 
 dayjs.extend(relativeTime);
@@ -206,6 +207,8 @@ export default function HomeScreen({ navigation }) {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
+        <LiveDieselMarquee />
+
         {/* ── Duty status (drivers only) ── */}
         {!isFieldAgent && (
           <Card onPress={toggleDuty} elevated="sm" padding={15} style={styles.dutyCard}>
