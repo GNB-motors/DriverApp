@@ -4,9 +4,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, colors, spacing, radius } from '../../../components/ui';
+import useSosLocation from '../../../hooks/useSosLocation';
 
 /**
- * 24 · SOS options — pick the kind of trouble. UI-only demo.
+ * 24 · SOS options — pick the kind of trouble. The next screen calls a
+ * helpline and lets the driver send their location; nothing is sent
+ * automatically yet.
  * Rendered inside a transparentModal route, so the scrim + sheet are inline.
  */
 const TONES = {
@@ -16,17 +19,16 @@ const TONES = {
   info: { fg: colors.infoText, bg: colors.infoBg },
 };
 
-const LOCATION = 'NH-48, 12 km before Karad';
-const TIME = '17:42';
 const OPTIONS = [
-  { key: 'accident', title: 'Accident', desc: 'Alerts owner, ops and the nearest workshop', icon: 'car-sport', tone: 'error' },
-  { key: 'breakdown', title: 'Breakdown', desc: 'Truck cannot move · needs mechanic', icon: 'construct', tone: 'warning' },
-  { key: 'theft', title: 'Theft or threat', desc: 'Escalates to ops and police helpline', icon: 'shield-half', tone: 'purple' },
-  { key: 'medical', title: 'Medical help', desc: 'Ambulance and nearest hospital', icon: 'medkit', tone: 'info' },
+  { key: 'accident', title: 'Accident', desc: 'Call 112 or the highway helpline', icon: 'car-sport', tone: 'error' },
+  { key: 'breakdown', title: 'Breakdown', desc: 'Truck cannot move · call 1033', icon: 'construct', tone: 'warning' },
+  { key: 'theft', title: 'Theft or threat', desc: 'Call 112 · police', icon: 'shield-half', tone: 'purple' },
+  { key: 'medical', title: 'Medical help', desc: 'Call 108 · ambulance', icon: 'medkit', tone: 'info' },
 ];
 
 export default function SOSOptionsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { label: locationLabel } = useSosLocation();
 
   const pick = (opt) => navigation.navigate('SOSEmergencyActive', { title: opt.title, key: opt.key });
 
@@ -43,7 +45,7 @@ export default function SOSOptionsScreen({ navigation }) {
           </View>
           <View style={{ flex: 1 }}>
             <AppText variant="h3" weight="extrabold">Emergency SOS</AppText>
-            <AppText variant="small" muted>Your location is shared the moment you send it</AppText>
+            <AppText variant="small" muted>Call for help and send your location</AppText>
           </View>
         </View>
 
@@ -71,7 +73,7 @@ export default function SOSOptionsScreen({ navigation }) {
 
         <View style={styles.locationChip}>
           <Ionicons name="location" size={15} color={colors.textMuted} />
-          <AppText variant="caption" mono muted>{LOCATION} · {TIME}</AppText>
+          <AppText variant="caption" mono muted>{locationLabel}</AppText>
         </View>
 
         <Pressable style={styles.cancel} onPress={() => navigation.goBack()}>
