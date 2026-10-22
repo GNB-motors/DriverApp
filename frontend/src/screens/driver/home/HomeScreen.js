@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -17,6 +18,8 @@ import billService from '../../../services/billService';
 import fuelService from '../../../services/fuelService';
 import documentService from '../../../services/documentService';
 import useLocationTracker from '../../../hooks/useLocationTracker';
+import { startDuty, endDuty, fetchDutyStatus } from '../../../services/driverDutyService';
+import DutyStatusStrip from '../../../components/DutyStatusStrip';
 
 /** ERP trip state → StatusBadge vocabulary. */
 const TRIP_BADGE = {
@@ -41,7 +44,87 @@ const QUICK_ACTIONS = [
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  // A6: was a local useState(true) demo toggle that flipped a Switch and told the
+  // driver they were on duty without telling the server. It now calls the backend:
+  // pairing is the server's decision (it picks the truck of this driver's own org
+  // nearest the fix) and only C1's be#206 rework writes the DriverVehicleAssignment
+  // behind it.
+  //
+  // The switch also drives location sharing (useLocationTracker below). Until C1
+  // deploys, the duty endpoints answer 404, so:
+  //   - going OFF duty always works on the phone — a driver must always be able
+  //     to stop sharing location, whatever the server says; the server is told
+  //     best-effort and dutyError says when it was not;
+  //   - going ON duty falls back to today's local behaviour on a 404 only; any
+  //     other failure leaves the switch off and says why.
+  // The starting value is the server's answer when it has one (`trip` set = on
+  // duty), and today's default until then.
   const [onDuty, setOnDuty] = useState(true);
+  const [dutyBusy, setDutyBusy] = useState(false);
+  const [dutyError, setDutyError] = useState(null);
+  useEffect(() => {
+    let live = true;
+    fetchDutyStatus()
+      .then((s) => {
+        if (live && s && 'trip' in s) setOnDuty(!!s.trip);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+  const notDeployed = (err) => err?.response?.status === 404;
+  const toggleDuty = async () => {
+    if (dutyBusy) return;
+    setDutyBusy(true);
+    setDutyError(null);
+    try {
+      if (onDuty) {
+        setOnDuty(false);
+        try {
+          await endDuty();
+        } catch (err) {
+          if (!notDeployed(err)) {
+            setDutyError('You are off duty on this phone, but the server could not be told. It will catch up.');
+          }
+        }
+        return;
+      } else {
+        // The server pairs this driver to the truck of THEIR OWN org nearest this
+        // fix. No fix means we cannot pair honestly, so we say so — we do not send
+        // a zeroed coordinate and let the server guess a truck.
+        const perm = await Location.requestForegroundPermissionsAsync();
+        if (perm?.status !== 'granted') {
+          setDutyError('Location permission is needed to pair you with a truck.');
+          return;
+        }
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        const fix = pos?.coords;
+        if (!fix) {
+          setDutyError('Could not get a location fix. Try again outside.');
+          return;
+        }
+        try {
+          await startDuty({
+            latitude: fix.latitude,
+            longitude: fix.longitude,
+            accuracy: fix.accuracy ?? null,
+            recordedAt: new Date(pos?.timestamp || Date.now()).toISOString(),
+          });
+        } catch (err) {
+          // 404: pairing is not deployed yet (be#206 / C1) — duty works as before.
+          if (!notDeployed(err)) throw err;
+        }
+      }
+      setOnDuty(true);
+    } catch (err) {
+      // Leave the switch where it was: showing "on duty" after a failed call is
+      // the exact lie this replacement exists to remove.
+      setDutyError(err?.response?.data?.message || 'Could not reach the server.');
+    } finally {
+      setDutyBusy(false);
+    }
+  };
   // Real data only — identity from the signed-in user, balance from the khata
   // summary, and the active trip from the trips list.
   const { user, token } = useAuth();
@@ -168,13 +251,18 @@ export default function HomeScreen({ navigation }) {
         </Pressable>
       </View>
 
+      {/* Hours-of-service strip: fixed ABOVE the scroll so it cannot scroll away
+          while the driver is driving. It hides itself when the backend cannot
+          answer rather than showing a fabricated duty state. */}
+      <DutyStatusStrip active={onDuty} />
+
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={tripsLoading} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         {/* Duty status */}
-        <Card onPress={() => setOnDuty((v) => !v)} elevated="sm" padding={15} style={styles.dutyCard}>
+        <Card onPress={toggleDuty} elevated="sm" padding={15} style={styles.dutyCard}>
           <View style={[styles.dutyIcon, { backgroundColor: onDuty ? colors.validBg : colors.background }]}>
             <Ionicons name="power" size={21} color={onDuty ? colors.success : colors.textMuted} />
           </View>
@@ -189,6 +277,13 @@ export default function HomeScreen({ navigation }) {
           </View>
           <View pointerEvents="none"><Switch value={onDuty} /></View>
         </Card>
+
+        {dutyError ? (
+          <View style={styles.dutyError}>
+            <Ionicons name="alert-circle-outline" size={15} color={colors.danger} />
+            <AppText variant="small" style={{ color: colors.danger }}>{dutyError}</AppText>
+          </View>
+        ) : null}
 
         {/* Wallet hero */}
         <WalletHeroCard
@@ -320,6 +415,7 @@ const styles = StyleSheet.create({
   dutyIcon: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   dutyTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dutyDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success },
+  dutyError: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 4, paddingBottom: 6 },
 
   tripTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   route: { flexDirection: 'row', alignItems: 'center', gap: 12 },

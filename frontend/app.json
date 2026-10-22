@@ -3,8 +3,10 @@
     "name": "driver-app",
     "slug": "driver-app",
     "version": "1.0.0",
-    "scheme": "gnbedge",
-    "runtimeVersion": { "policy": "appVersion" },
+    "scheme": ["gnbedge", "digilockerapp"],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -19,7 +21,15 @@
         "NSLocationWhenInUseUsageDescription": "GNBEdge needs your location while you are on duty so managers can see your live driver position.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "GNBEdge needs Always location access only when you choose Always sharing for on-duty driver tracking.",
         "NSCameraUsageDescription": "GNBEdge needs the camera to photograph bills, fuel receipts, consignment notes and proof-of-delivery.",
-        "NSPhotoLibraryUsageDescription": "GNBEdge needs photo access so you can attach existing bill, receipt and delivery photos."
+        "NSPhotoLibraryUsageDescription": "GNBEdge needs photo access so you can attach existing bill, receipt and delivery photos.",
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "com.gnbedge.driverapp.digilocker",
+            "CFBundleURLSchemes": [
+              "digilockerapp"
+            ]
+          }
+        ]
       },
       "bundleIdentifier": "com.gnbedge.driverapp"
     },
