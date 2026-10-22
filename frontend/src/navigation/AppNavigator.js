@@ -22,6 +22,7 @@ import SOSEmergencyActiveScreen from '../screens/SOSEmergencyActiveScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ChooseLanguageScreen from '../screens/ChooseLanguageScreen';
 import FuelHistoryScreen from '../screens/FuelHistoryScreen';
+import FuelPricesScreen from '../screens/FuelPricesScreen';
 import RepairsMenuScreen from '../screens/RepairsMenuScreen';
 import AddRepairScreen from '../screens/AddRepairScreen';
 import RepairLogsScreen from '../screens/RepairLogsScreen';
@@ -233,25 +234,30 @@ export default function AppNavigator() {
       ) : (
         <>
           {isNewLogin && <Stack.Screen name="Welcome" component={WelcomeScreen} />}
-
-          {/* ── Main tab navigator (role-resolved) ── */}
-          <Stack.Screen name="Main" component={MainTabs} />
-
-          {/* ── Shared stack screens ── */}
-          <Stack.Screen name="LanguageScreen"    component={ChooseLanguageScreen} />
-          <Stack.Screen name="Notifications"     component={NotificationsScreen || PlaceholderScreen} />
-
-          {/* ── Driver screens ── */}
-          <Stack.Screen name="DocsScreen"        component={DocumentsScreen} />
-          <Stack.Screen name="Vehicle"           component={VehicleScreen}           options={{ presentation: 'transparentModal', animation: 'slide_from_bottom' }} />
-          <Stack.Screen name="RefuelDetails"     component={RefuelDetailsScreen} />
-          <Stack.Screen name="UploadPhotos"      component={UploadPhotosScreen} />
-          <Stack.Screen name="PhotoPreview"      component={PhotoPreviewScreen} />
-          <Stack.Screen name="RefuelSuccess"     component={RefuelSuccessScreen}     options={{ gestureEnabled: false, animation: 'fade' }} />
-          <Stack.Screen name="FuelHistory"       component={FuelHistoryScreen} />
-          <Stack.Screen name="AddRepair"         component={AddRepairScreen} />
-          <Stack.Screen name="RepairLogs"        component={RepairLogsScreen} />
-          <Stack.Screen name="SOSOptions"        component={SOSOptionsScreen}        options={{ presentation: 'transparentModal' }} />
+          <Stack.Screen
+            name="Main"
+            component={user?.role === 'FIELD_AGENT' ? FieldAgentTabs : BottomTabs}
+          />
+          <Stack.Screen name="DocsScreen" component={DocumentsScreen} />
+          <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} />
+          <Stack.Screen
+            name="Vehicle"
+            component={VehicleScreen}
+            options={{ presentation: 'transparentModal', animation: 'slide_from_bottom' }}
+          />
+          <Stack.Screen name="RefuelDetails" component={RefuelDetailsScreen} />
+          <Stack.Screen name="UploadPhotos" component={UploadPhotosScreen} />
+          <Stack.Screen name="PhotoPreview" component={PhotoPreviewScreen} />
+          <Stack.Screen
+            name="RefuelSuccess"
+            component={RefuelSuccessScreen}
+            options={{ gestureEnabled: false, animation: 'fade' }}
+          />
+          <Stack.Screen name="FuelHistory" component={FuelHistoryScreen} />
+          <Stack.Screen name="FuelPrices" component={FuelPricesScreen} />
+          <Stack.Screen name="AddRepair" component={AddRepairScreen} />
+          <Stack.Screen name="RepairLogs" component={RepairLogsScreen} />
+          <Stack.Screen name="SOSOptions" component={SOSOptionsScreen} options={{ presentation: 'transparentModal' }} />
           <Stack.Screen name="SOSEmergencyActive" component={SOSEmergencyActiveScreen} options={{ presentation: 'fullScreenModal' }} />
 
           {/* ── Driver ERP screens (Phase 2) ── */}
