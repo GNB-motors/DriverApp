@@ -8,7 +8,7 @@ import useSosLocation from '../../../hooks/useSosLocation';
 
 /**
  * 24 · SOS options — pick the kind of trouble. The next screen calls a
- * helpline and lets the driver send their location; nothing is sent
+ * helpline and lets the driver share their location; nothing is sent
  * automatically yet.
  * Rendered inside a transparentModal route, so the scrim + sheet are inline.
  */
@@ -45,7 +45,7 @@ export default function SOSOptionsScreen({ navigation }) {
           </View>
           <View style={{ flex: 1 }}>
             <AppText variant="h3" weight="extrabold">Emergency SOS</AppText>
-            <AppText variant="small" muted>Call for help and send your location</AppText>
+            <AppText variant="small" muted>Call for help, then share your location</AppText>
           </View>
         </View>
 
