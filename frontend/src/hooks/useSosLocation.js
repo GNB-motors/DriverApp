@@ -1,18 +1,27 @@
 import { useEffect, useState } from 'react';
 import * as Location from 'expo-location';
-import { updateLiveLocation } from '../services/driverLocationService';
 import logger from '../utils/logger';
 
+// A cached fix older or looser than this is not shown at all: in an emergency a
+// confidently wrong place is worse than "getting your location".
+const LAST_KNOWN = { maxAge: 60000, requiredAccuracy: 100 };
+
+const hhmm = (ts) => {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
 /**
- * useSosLocation — the phone's real position for the SOS screens.
+ * useSosLocation — the phone's position for the SOS screens. Display only:
+ * nothing is uploaded or sent from here; the driver shares it themselves.
  *
- * Shows the last known fix at once (no wait in an emergency), then refines it
- * with a fresh high-accuracy fix. The fresh fix is also pushed to the driver's
- * live location so the web app shows where the driver is; it does NOT notify
- * anyone by itself.
+ * Shows a recent cached fix at once (no wait in an emergency), then refines it
+ * with a fresh high-accuracy fix. Until the fresh fix lands the position is
+ * marked approximate, with its age and accuracy, both on screen and in the
+ * shared message.
  */
 export default function useSosLocation() {
-  const [coords, setCoords] = useState(null);
+  const [fix, setFix] = useState(null); // { coords, timestamp, fresh }
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -25,19 +34,13 @@ export default function useSosLocation() {
           if (alive) setError('Location permission is off');
           return;
         }
-        const last = await Location.getLastKnownPositionAsync().catch(() => null);
-        if (alive && last?.coords) setCoords(last.coords);
-        const fresh = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-        if (!alive || !fresh?.coords) return;
-        setCoords(fresh.coords);
-        updateLiveLocation({
-          locationPermission: true,
-          latitude: fresh.coords.latitude,
-          longitude: fresh.coords.longitude,
-        }).catch(() => {});
+        const last = await Location.getLastKnownPositionAsync(LAST_KNOWN).catch(() => null);
+        if (alive && last?.coords) setFix({ coords: last.coords, timestamp: last.timestamp, fresh: false });
+        const now = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        if (alive && now?.coords) setFix({ coords: now.coords, timestamp: now.timestamp, fresh: true });
       } catch (err) {
         logger.warn('useSosLocation error:', err.message || err);
-        if (alive) setError('Could not get your location');
+        if (alive) setError('Could not get your current location');
       }
     })();
     return () => {
@@ -45,12 +48,25 @@ export default function useSosLocation() {
     };
   }, []);
 
-  const label = coords
-    ? `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`
-    : error || 'Getting your location…';
-  const mapsUrl = coords
-    ? `https://maps.google.com/?q=${coords.latitude},${coords.longitude}`
-    : null;
+  const coords = fix?.coords || null;
+  const accuracy = Number.isFinite(coords?.accuracy) ? `±${Math.round(coords.accuracy)} m` : null;
+  const asOf = fix ? hhmm(fix.timestamp || Date.now()) : null;
+  const approximate = !!fix && !fix.fresh;
 
-  return { coords, label, mapsUrl, error };
+  let label = error || 'Getting your location…';
+  if (coords) {
+    const where = `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`;
+    const meta = [accuracy, approximate ? `approx. as of ${asOf}` : null].filter(Boolean).join(' · ');
+    label = meta ? `${where} · ${meta}` : where;
+    if (error) label = `${label} · ${error}`;
+  }
+
+  const mapsUrl = coords ? `https://maps.google.com/?q=${coords.latitude},${coords.longitude}` : null;
+  const shareText = mapsUrl
+    ? approximate
+      ? `Approximate location as of ${asOf}${accuracy ? ` (${accuracy})` : ''}: ${mapsUrl}`
+      : `My location: ${mapsUrl}`
+    : 'I could not get my location yet.';
+
+  return { coords, label, mapsUrl, shareText, approximate, error };
 }

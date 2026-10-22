@@ -27,15 +27,20 @@ const HELPLINES = {
  */
 export default function SOSEmergencyActiveScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const title = route.params?.title || 'Emergency';
-  const lines = HELPLINES[route.params?.key] || HELPLINES.accident;
-  const { label: locationLabel, mapsUrl } = useSosLocation();
+  // Route params can arrive from a deep link: only known keys pick helplines,
+  // and the title is a short plain string before it goes into a shared message.
+  const key = route.params?.key;
+  const lines = typeof key === 'string' && Object.prototype.hasOwnProperty.call(HELPLINES, key)
+    ? HELPLINES[key]
+    : HELPLINES.accident;
+  const rawTitle = route.params?.title;
+  const title = typeof rawTitle === 'string' && rawTitle.trim() ? rawTitle.trim().slice(0, 40) : 'Emergency';
+  const { label: locationLabel, shareText } = useSosLocation();
   const ping = useRef(new Animated.Value(0)).current;
 
   const call = (number) => Linking.openURL(`tel:${number}`).catch(() => {});
   const shareLocation = () => {
-    const where = mapsUrl ? `My location: ${mapsUrl}` : 'I could not get my location yet.';
-    Share.share({ message: `${title} — I need help. ${where}` }).catch(() => {});
+    Share.share({ message: `${title} — I need help. ${shareText}` }).catch(() => {});
   };
 
   useEffect(() => {
@@ -67,7 +72,7 @@ export default function SOSEmergencyActiveScreen({ navigation, route }) {
         </View>
         <AppText variant="h1" weight="extrabold" color={WHITE} center style={styles.headline}>{title}</AppText>
         <AppText variant="body" color={MUTED} center style={styles.body}>
-          Call for help, then send your location to your owner. Keep your phone reachable.
+          Call for help, then share your location with your owner yourself. Keep your phone reachable.
         </AppText>
       </View>
 
@@ -85,7 +90,7 @@ export default function SOSEmergencyActiveScreen({ navigation, route }) {
           </Pressable>
         ))}
         <Pressable style={styles.safeBtn} onPress={shareLocation}>
-          <AppText variant="bodyStrong" weight="bold" color={WHITE}>Send my location to owner</AppText>
+          <AppText variant="bodyStrong" weight="bold" color={WHITE}>Share my location</AppText>
         </Pressable>
         <Pressable style={styles.safeBtn} onPress={() => navigation.popToTop()}>
           <AppText variant="bodyStrong" weight="bold" color={WHITE}>I am safe · close</AppText>
