@@ -6,6 +6,11 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import SplashScreen from '../components/ui/SplashScreen';
 import FloatingTabBar from './FloatingTabBar';
+import DriverNavigator from '../telematics/DriverNavigator';
+import ManagerNavigator from '../telematics/ManagerNavigator';
+import OwnerNavigator from '../telematics/OwnerNavigator';
+import { selectAppShell } from '../telematics/services/appShell';
+import UnsupportedRoleScreen from '../telematics/screens/UnsupportedRoleScreen';
 
 import LanguageSelectionScreen from '../screens/LanguageSelectionScreen';
 import LoginScreen from '../screens/LoginScreen';
@@ -70,11 +75,26 @@ function FieldAgentTabs() {
 }
 
 export default function AppNavigator() {
-  const { language, isLoaded } = useLanguage();
+  const { isLoaded } = useLanguage();
   const { user, loading: authLoading, isNewLogin } = useAuth();
 
   if (!isLoaded || authLoading) {
     return <SplashScreen />;
+  }
+
+  const shell = selectAppShell(user, process.env.EXPO_PUBLIC_TELEMATICS_DEMO !== 'false');
+  if (shell === 'unsupported') return <UnsupportedRoleScreen />;
+
+  // Preserve the legacy ERP path behind an explicit switch. Fleet roles use
+  // their demo shells; Field Agent retains its existing path.
+  if (shell === 'owner') {
+    return <OwnerNavigator />;
+  }
+  if (shell === 'manager') {
+    return <ManagerNavigator />;
+  }
+  if (shell === 'driver') {
+    return <DriverNavigator />;
   }
 
   return (

@@ -8,6 +8,8 @@ import { LanguageProvider } from './src/context/LanguageContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { useAppFonts } from './src/theme/fonts';
 import SplashScreen from './src/components/ui/SplashScreen';
+import { TelematicsDemoProvider } from './src/telematics/context/TelematicsDemoContext';
+import FoundationPreviewScreen from './src/telematics/screens/FoundationPreviewScreen';
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -24,6 +26,20 @@ function App() {
   // fontsReady={false} → splash uses system type (custom families aren't loaded yet).
   if (!fontsLoaded && !fontError) {
     return <SplashScreen fontsReady={false} />;
+  }
+
+  // Explicit development-only gallery. Never substitutes an authenticated role.
+  if (__DEV__ && process.env.EXPO_PUBLIC_TELEMATICS_PREVIEW === 'true') {
+    return (
+      <SafeAreaProvider>
+        <LanguageProvider>
+          <TelematicsDemoProvider identity="foundation-preview:synthetic">
+            <StatusBar style="dark" />
+            <FoundationPreviewScreen />
+          </TelematicsDemoProvider>
+        </LanguageProvider>
+      </SafeAreaProvider>
+    );
   }
 
   return (

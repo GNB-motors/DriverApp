@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/react-native';
 import axios from 'axios';
 import logger from '../utils/logger';
+import { appLoginUrl } from '../telematics/services/authEndpoint';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -124,10 +125,10 @@ export async function verifyDriverOtp(mobileNumber, otp) {
   return res.data?.data;
 }
 
-// Phone/email + password login (all roles). Backend: POST /auth/login
+// Dedicated mobile password login. Preserve the base URL for all other resources.
 // → { status, data: { user, token, organization } }
 export async function loginWithPassword(emailOrMobile, password) {
-  const res = await apiClient.post('/auth/login', { emailOrMobile, password });
+  const res = await apiClient.post(appLoginUrl(API_BASE_URL), { emailOrMobile, password });
   return res.data?.data ?? res.data;
 }
 

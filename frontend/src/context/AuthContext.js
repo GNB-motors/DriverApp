@@ -89,7 +89,7 @@ export function AuthProvider({ children }) {
     return true;
   };
 
-  // Phone/email + password login (all roles) against POST /auth/login.
+  // Phone/email + password login through the dedicated mobile auth endpoint.
   const login = async (emailOrMobile, password) => {
     const result = await loginWithPassword(emailOrMobile, password);
     const { user: loggedInUser, token: jwt, organization: org } = result;
