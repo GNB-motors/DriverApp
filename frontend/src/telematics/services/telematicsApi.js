@@ -128,6 +128,11 @@ export function describeApiError(error) {
     return "You do not have access to this data in the selected branch.";
   if (status === 404)
     return "This feature is not available on the connected server.";
+  if (status === 409 || status === 422)
+    return (
+      error.response?.data?.message ||
+      "The current location or assignment no longer qualifies. Try again."
+    );
   if (status === 400)
     return "The request could not be processed. Refresh and try again.";
   if (status >= 500)
@@ -254,8 +259,6 @@ export function createTelematicsApi({
       "Personal documents",
       "Workshop bills",
       "Stop notes",
-      "Phone tracking",
-      "Change truck",
     ];
     return data;
   }
@@ -387,6 +390,54 @@ export function createTelematicsApi({
     listOwnerAlerts,
     listPositions,
     mergePositions,
+    async pairingCandidates(fix) {
+      const result = (await post("/driver/me/change-truck", fix)).data;
+      if (!Array.isArray(result?.candidates))
+        throw new Error("Invalid truck candidates response.");
+      return result;
+    },
+    async confirmPairing(vehicleId, fix) {
+      return (
+        await post("/driver/me/change-truck/confirm", { ...fix, vehicleId })
+      ).data;
+    },
+    async sendLocationBatch(fixes) {
+      return (await post("/driver/location/batch", { fixes })).data;
+    },
+    async getMyTrail(before) {
+      return (await get("/driver/me/trail", { params: { before, limit: 100 } }))
+        .data;
+    },
+    async getTrip(id) {
+      return tripView(
+        (await get(`/auto-trips/${encodeURIComponent(id)}`)).data,
+      );
+    },
+    async getTripTrack(id) {
+      const track = (
+        await get(`/auto-trips/${encodeURIComponent(id)}/track`, {
+          params: { limit: 2000 },
+        })
+      ).data;
+      if (!Array.isArray(track?.points))
+        throw new Error("Invalid trip track response.");
+      return {
+        ...track,
+        points: track.points.map((point) => ({
+          ...point,
+          latitude: point.latitude ?? point.lat,
+          longitude: point.longitude ?? point.lng,
+        })),
+      };
+    },
+    async listTrips(page = 1) {
+      const payload = (
+        await get("/auto-trips", { params: { page, limit: 30 } })
+      ).data;
+      if (!Array.isArray(payload?.items) || !Number.isFinite(payload.total))
+        throw new Error("Invalid trips response.");
+      return { ...payload, items: payload.items.map(tripView) };
+    },
     async getTrail(registration, { branchId, from, to } = {}) {
       const payload = (
         await get(

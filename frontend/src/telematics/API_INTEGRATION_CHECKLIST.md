@@ -1,4 +1,11 @@
-# Future API integration checklist
+# API integration checklist
+
+Current Phase 3 status: see HANDOFF.md. Driver self-assignment reads, explicit
+location-verified pairing, paginated GPS trips/details/tracks/stops and persistent
+batch phone tracking are connected. Background mode requires a native build.
+The table below is the original audit; entries marked missing/unverified are
+historical and must be read alongside the phase updates. Release/device checks
+and remaining Phase 1 security work are still outstanding.
 
 Read-only local route review, 23 October 2026. **Existing** below means a route declaration and mount were found in the current local backend; it does not mean deployed, reachable, authorized for every role, contract-compatible or tested with an account. No operational endpoint is wired by this checklist. API prefixes come from `main-backend/app/app.js` and `app/routes.js`.
 

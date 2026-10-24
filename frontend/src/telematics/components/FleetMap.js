@@ -8,6 +8,7 @@ export default function FleetMap({
   vehicles,
   trailPoints = EMPTY_TRAIL,
   onSelectVehicle,
+  caption,
 }) {
   const map = useRef(null);
   const points = mapPoints(vehicles);
@@ -66,8 +67,8 @@ export default function FleetMap({
         ))}
       </MapView>
       <AppText variant="caption" muted style={styles.caption}>
-        {points.length} trucks with reported coordinates · Tap a marker, then
-        its label for details
+        {caption ||
+          `${points.length} trucks with reported coordinates · Tap a marker for details`}
       </AppText>
     </View>
   );

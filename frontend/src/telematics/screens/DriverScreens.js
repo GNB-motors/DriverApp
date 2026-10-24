@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ScrollView, Pressable, StyleSheet, RefreshControl, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,10 @@ import { AppText, Card, Button, TextField, colors, radius, spacing } from '../..
 import { useAuth } from '../../context/AuthContext';
 import { useDriverData } from '../context/DriverDataContext';
 import { DutyCard, KpiCard, SectionHeading, VehicleRow, AlertRow, DataState } from '../components';
+
+import FleetMap from '../components/FleetMap';
+import { validCoordinate } from '../components/mapGeometry';
+import { capturePairingFix } from '../tracking/useDriverLocationSharing';
 
 const money = (value) => `₹${Number(value).toLocaleString('en-IN')}`;
 const date = (value) => new Date(value).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -52,23 +56,189 @@ function TripCard({ trip, onPress }) {
   return <Card onPress={onPress} accessibilityRole="button" accessibilityLabel={`${trip.from} to ${trip.to}`} style={s.trip}>
     <View style={s.between}><AppText variant="caption" color={colors.primary} weight="semibold">{trip.status.toUpperCase()}</AppText><AppText variant="caption" muted>{date(trip.startedAt)}</AppText></View>
     <View style={s.route}><View style={s.routeLine}><View style={s.routeDot} /><View style={s.routeStem} /><View style={[s.routeDot, { backgroundColor: colors.primary }]} /></View><View style={s.flex}><AppText variant="h3">{trip.from}</AppText><AppText variant="h3" style={s.destination}>{trip.to}</AppText></View><Ionicons name="arrow-forward" size={22} color={colors.primary} /></View>
-    <AppText mono muted>{trip.distanceKm} km · GPS-detected</AppText>
+    <AppText mono muted>{trip.distanceKm == null ? 'Distance unavailable' : `${trip.distanceKm} km`} · GPS-detected</AppText>
   </Card>;
 }
 export function DriverTrips({ navigation }) {
-  const { data } = useDriverData();
-  return <Page navigation={navigation} title="Your journeys" subtitle="Every route has a story." action={<SosAction navigation={navigation} />}>{data?.trips.length ? data.trips.map((trip) => <TripCard key={trip.id} trip={trip} onPress={() => navigation.navigate('Trip detail', { id: trip.id })} />) : <Empty title="No trips to show" description="GPS-detected trips appear here. ERP trips are separate." />}</Page>;
+  const { service } = useDriverData();
+  const [revision, setRevision] = useState(0);
+  const [rows, setRows] = useState([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(true);
+  useEffect(() => {
+    let active = true;
+    setBusy(true);
+    setError("");
+    service
+      .listTrips(page)
+      .then((result) => {
+        if (active) {
+          setRows((old) =>
+            page === 1
+              ? result.items
+              : [
+                  ...new Map(
+                    [...old, ...result.items].map((item) => [item.id, item]),
+                  ).values(),
+                ],
+          );
+          setTotal(result.total);
+        }
+      })
+      .catch((failure) => {
+        if (active) setError(failure.message);
+      })
+      .finally(() => {
+        if (active) setBusy(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [service, page, revision]);
+  return (
+    <Page
+      navigation={navigation}
+      title="Your journeys"
+      subtitle="GPS-detected trips"
+      action={<SosAction navigation={navigation} />}
+    >
+      {rows.map((trip) => (
+        <TripCard
+          key={trip.id}
+          trip={trip}
+          onPress={() => navigation.navigate("Trip detail", { id: trip.id })}
+        />
+      ))}
+      {error && <AppText color={colors.error}>{error}</AppText>}
+      {busy && <DataState state="loading" />}
+      {!busy && !error && total === 0 && (
+        <Empty
+          title="No trips to show"
+          description="Your GPS-detected journeys will appear here."
+        />
+      )}
+      {!busy && rows.length < total && !error && (
+        <Button
+          label="Load more trips"
+          onPress={() => setPage((old) => old + 1)}
+        />
+      )}
+      {error && (
+        <Button label="Retry" onPress={() => setRevision((old) => old + 1)} />
+      )}
+    </Page>
+  );
 }
 export function TripDetail({ navigation, route }) {
-  const { data } = useDriverData();
-  const trip = data?.trips.find((item) => item.id === route.params?.id);
-  return <Page navigation={navigation} title="Trip details" subtitle="A journey, from start to finish.">{trip ? <>
-    <TripCard trip={trip} />
-    <Button label="Add fuel" icon="water-outline" onPress={() => navigation.navigate('Add fuel', { tripId: trip.id })} />
-    {data.fuel.some((entry) => entry.tripId === trip.id) && <SectionHeading title="Fuel for this trip" />}
-    {data.fuel.filter((entry) => entry.tripId === trip.id).map((entry) => <MenuRow key={entry.id} title={entry.station || entry.title} detail={`${entry.litres} L · ${money(entry.amountInr)} · ${entry.status}`} icon="water-outline" />)}
-    <Card><AppText muted>Route map and stop notes are not connected yet.</AppText></Card>
-  </> : <Empty title="Trip unavailable" description="Return to Trips and choose a journey." />}</Page>;
+  const { data, service } = useDriverData();
+  const [trip, setTrip] = useState(null);
+  const [track, setTrack] = useState(null);
+  const [error, setError] = useState("");
+  const [trackError, setTrackError] = useState("");
+  const [revision, setRevision] = useState(0);
+  const [busy, setBusy] = useState(true);
+  useEffect(() => {
+    let active = true;
+    setBusy(true);
+    setTrip(null);
+    setTrack(null);
+    setError("");
+    setTrackError("");
+    Promise.allSettled([
+      service.getTrip(route.params?.id),
+      service.getTripTrack(route.params?.id),
+    ]).then(([detail, path]) => {
+      if (!active) return;
+      if (detail.status === "fulfilled") setTrip(detail.value);
+      else setError(detail.reason.message);
+      if (path.status === "fulfilled") setTrack(path.value);
+      else setTrackError(path.reason.message);
+      setBusy(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [service, route.params?.id, revision]);
+  const points = track?.points.filter(validCoordinate) || [];
+  const markers = points.length
+    ? [
+        { id: "trip-start", plate: "Trip start", coordinates: points[0] },
+        {
+          id: "trip-end",
+          plate: "Latest recorded point",
+          coordinates: points[points.length - 1],
+        },
+      ]
+    : [];
+  return (
+    <Page navigation={navigation} title="Trip details">
+      {busy && <DataState state="loading" />}
+      {error && <AppText color={colors.error}>{error}</AppText>}
+      {trip && (
+        <>
+          <TripCard trip={trip} />
+          <Button
+            label="Add fuel"
+            icon="water-outline"
+            onPress={() =>
+              navigation.navigate("Add fuel", { tripId: trip.id, trip })
+            }
+          />
+          {data?.fuel
+            .filter((entry) => entry.tripId === trip.id)
+            .map((entry) => (
+              <MenuRow
+                key={entry.id}
+                title={entry.station || entry.title}
+                detail={`${entry.litres} L · ${money(entry.amountInr)} · ${entry.status}`}
+                icon="water-outline"
+              />
+            ))}
+          {points.length ? (
+            <FleetMap
+              vehicles={markers}
+              trailPoints={track.points}
+              caption="Recorded trip route"
+            />
+          ) : (
+            !busy &&
+            !trackError && (
+              <Card>
+                <AppText muted>
+                  No recorded route coordinates are available.
+                </AppText>
+              </Card>
+            )
+          )}
+          {track?.sampled && (
+            <AppText muted>Route points were sampled by the server.</AppText>
+          )}
+          {[
+            ...new Map(
+              [...(trip.stops || []), ...(trip.routeStops || [])].map(
+                (stop) => [stop._id, stop],
+              ),
+            ).values(),
+          ].map((stop) => (
+            <MenuRow
+              key={stop._id}
+              title={stop.place?.name || "Recorded stop"}
+              detail={`${stop.dwellMinutes ?? "Unknown"} min · ${stop.startAt ? new Date(stop.startAt).toLocaleString() : "Time unavailable"}${stop.humanReason?.note || stop.humanReason?.purpose ? ` · ${stop.humanReason.note || stop.humanReason.purpose}` : ""}`}
+              icon="pause-circle-outline"
+            />
+          ))}
+        </>
+      )}
+      {trackError && (
+        <AppText color={colors.error}>Route: {trackError}</AppText>
+      )}
+      {(error || trackError) && (
+        <Button label="Retry" onPress={() => setRevision((old) => old + 1)} />
+      )}
+    </Page>
+  );
 }
 export function DriverInbox({ navigation }) {
   const { data } = useDriverData();
@@ -88,7 +258,95 @@ export function MyTruck({ navigation }) {
   return <Page navigation={navigation} title="My truck" subtitle="Your vehicle. Your working day.">{data?.vehicle ? <><VehicleRow vehicle={data.vehicle} /><MenuRow title="Odometer" detail={`${data.vehicle.odometerKm == null ? "Unavailable" : `${data.vehicle.odometerKm.toLocaleString('en-IN')} km`}`} icon="speedometer-outline" /><MenuRow title="Location sharing" detail="Understand where this position comes from" icon="location-outline" onPress={() => navigation.navigate('Location sharing')} /></> : <Empty title="No truck linked" description="Ask your manager to update your truck assignment." />}<Button label="Change truck" icon="swap-horizontal" onPress={() => navigation.navigate('Change truck')} /></Page>;
 }
 export function ChangeTruck({ navigation }) {
-  return <Page navigation={navigation} title="Change truck"><Empty title="Truck pairing is not connected yet" description="Ask your manager to update your assignment. Trucks cannot be linked without verified location evidence." /></Page>;
+  const { service, refresh } = useDriverData();
+  const [candidates, setCandidates] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+  async function search() {
+    setBusy(true);
+    setError("");
+    setSelected(null);
+    setCandidates(null);
+    try {
+      const result = await service.pairingCandidates(await capturePairingFix());
+      setCandidates(result.candidates);
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function confirm() {
+    setBusy(true);
+    setError("");
+    try {
+      await service.confirmPairing(selected, await capturePairingFix());
+      setDone(true);
+      await refresh();
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Page navigation={navigation} title="Change truck">
+      {done ? (
+        <Success
+          title="Truck linked"
+          description="Your assignment was confirmed by the server."
+          onDone={() => navigation.goBack()}
+        />
+      ) : (
+        <>
+          <AppText muted>
+            Search while parked near your truck. Confirmation checks a fresh
+            phone location and truck telemetry. A truck assigned to another
+            driver needs your manager.
+          </AppText>
+          <Button
+            label="Find nearby trucks"
+            icon="location-outline"
+            loading={busy}
+            onPress={search}
+          />
+          {candidates?.map((item) => (
+            <MenuRow
+              key={item.vehicleId}
+              title={item.registrationNumber}
+              detail={`${item.distanceMeters} m away${item.assignedToAnotherDriver ? " · Assigned to another driver" : selected === item.vehicleId ? " · Selected" : ""}`}
+              icon={
+                selected === item.vehicleId
+                  ? "radio-button-on"
+                  : "radio-button-off"
+              }
+              onPress={
+                busy || item.assignedToAnotherDriver
+                  ? undefined
+                  : () => setSelected(item.vehicleId)
+              }
+            />
+          ))}
+          {candidates?.length === 0 && (
+            <Empty
+              title="No nearby truck found"
+              description="Truck telemetry must be fresh and within pairing range. Try again near your vehicle or contact your manager."
+            />
+          )}
+          {selected && (
+            <Button
+              label="Confirm this truck"
+              loading={busy}
+              onPress={confirm}
+            />
+          )}
+        </>
+      )}
+      {error && <AppText color={colors.error}>{error}</AppText>}
+    </Page>
+  );
 }
 const actions = [['Add fuel', 'water-outline', 'Record litres and a receipt'], ['Report issue', 'construct-outline', 'Tell your manager what needs attention'], ['Workshop bill', 'receipt-outline', 'Simulate a workshop bill scan'], ['Explain a stop', 'pause-circle-outline', 'Add context to a stop'], ['SOS', 'shield-outline', 'Emergency flow simulation only']];
 export function QuickAdd({ navigation }) {
@@ -109,7 +367,7 @@ export function CaptureForm({ navigation, route }) {
   const stops = data?.stops.filter((stop) => data.trips.some((trip) => trip.id === stop.tripId)) || [];
   const [chosenStop, setChosenStop] = useState(route.params?.stopId || null);
   const stop = stops.find((item) => item.id === chosenStop);
-  const trip = isFuel ? data?.trips.find((item) => item.id === route.params?.tripId) : null;
+  const trip = isFuel ? (data?.trips.find((item) => item.id === route.params?.tripId) || (route.params?.trip?.id === route.params?.tripId ? route.params.trip : null)) : null;
   const invalidTrip = isFuel && !!route.params?.tripId && !trip;
   const fuelVehicle = trip ? data?.vehicles.find((item) => item.id === trip.vehicleId) : data?.vehicle;
   const vehicleId = isStop ? stop?.vehicleId : isFuel ? fuelVehicle?.id : data?.vehicle?.id;
@@ -163,7 +421,54 @@ export function DocumentDetail({ navigation, route }) {
   return <Page navigation={navigation} title="Document details">{doc ? <><Card style={s.empty}><Ionicons name="document-text-outline" size={56} color={colors.primary} /><AppText variant="h2" center>{doc.title}</AppText><AppText color={colors.success}>{doc.status}</AppText><AppText muted>Expires {date(doc.expiresAt)}</AppText></Card><Card><AppText muted>This is a document record. No real file is attached or downloaded.</AppText></Card></> : <DataState state="empty" />}</Page>;
 }
 export function LocationSharing({ navigation }) {
-  return <Page navigation={navigation} title="Location sharing"><MenuRow title="Phone tracking is not enabled yet" detail="Truck location, when available, is read from your assigned truck. This build does not send phone location updates." icon="location-outline" /></Page>;
+  const { tracking } = useDriverData();
+  return (
+    <Page navigation={navigation} title="Location sharing">
+      <MenuRow
+        title={`Sharing: ${tracking.mode}`}
+        detail={
+          tracking.lastSent
+            ? `Last successful send: ${new Date(tracking.lastSent).toLocaleString()}`
+            : "No successful send recorded in this session"
+        }
+        icon="location-outline"
+      />
+      <AppText muted>
+        {tracking.pending == null
+          ? "Queue status unavailable."
+          : `${tracking.pending} recorded fixes waiting to send.`}{" "}
+        Failed sends stay on this device for retry under your account.
+      </AppText>
+      <AppText muted>
+        Foreground sharing works while this app is open. Background sharing
+        requires a native development build and Always location permission; Expo
+        Go and browsers cannot provide this mode.
+      </AppText>
+      {tracking.error && (
+        <AppText accessibilityRole="alert" color={colors.error}>
+          {tracking.error}
+        </AppText>
+      )}
+      <Button
+        label="Share while app is open"
+        loading={tracking.busy}
+        onPress={() => tracking.start("foreground")}
+      />
+      {tracking.canBackground && (
+        <Button
+          label="Enable background sharing"
+          loading={tracking.busy}
+          onPress={() => tracking.start("background")}
+        />
+      )}
+      <Button
+        label="Stop sharing"
+        variant="secondary"
+        disabled={tracking.busy}
+        onPress={() => tracking.stop()}
+      />
+    </Page>
+  );
 }
 export function Profile({ navigation }) {
   const { user, organization, logout } = useAuth();

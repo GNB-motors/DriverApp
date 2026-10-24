@@ -311,6 +311,58 @@ assert.deepEqual(
     .map((segment) => segment.length),
   [2, 2],
 );
+// Phase 3 request contracts use the same authenticated API root.
+axios.defaults.adapter = async (config) => {
+  requests.push(config);
+  const payload =
+    config.url === "/driver/me/change-truck"
+      ? { candidates: [], requireConfirm: true }
+      : config.url === "/auto-trips"
+        ? { items: [], total: 0 }
+        : config.url.endsWith("/track")
+          ? { points: [{ lat: 22, lng: 88 }] }
+          : config.url === "/driver/location/batch"
+            ? { requested: 1, written: 1 }
+            : { assignmentId: "assignment", vehicleId: "truck" };
+  return { data: { data: payload }, status: 200, config };
+};
+const phase3 = createTelematicsApi({
+  baseURL: "https://example.invalid/v1",
+  token: "test-token",
+  user: { _id: "signed-in-user" },
+  audience: "driver",
+});
+const pairingFix = {
+  latitude: 22,
+  longitude: 88,
+  accuracy: 10,
+  recordedAt: new Date().toISOString(),
+  mocked: false,
+};
+assert.deepEqual((await phase3.pairingCandidates(pairingFix)).candidates, []);
+await phase3.confirmPairing("truck", pairingFix);
+assert.equal(requests.at(-1).url, "/driver/me/change-truck/confirm");
+assert.deepEqual(JSON.parse(requests.at(-1).data), {
+  ...pairingFix,
+  vehicleId: "truck",
+});
+assert.equal(
+  (
+    await phase3.sendLocationBatch([
+      {
+        latitude: 22,
+        longitude: 88,
+        recordedAt: pairingFix.recordedAt,
+        source: "FOREGROUND",
+      },
+    ])
+  ).written,
+  1,
+);
+assert.equal(requests.at(-1).url, "/driver/location/batch");
+assert.equal((await phase3.listTrips(2)).total, 0);
+assert.equal(requests.at(-1).params.page, 2);
+assert.equal((await phase3.getTripTrack("trip")).points[0].longitude, 88);
 let expired = 0;
 axios.defaults.adapter = async () => {
   const error = new Error("Unauthorized");
@@ -341,3 +393,99 @@ await assert.rejects(offline.loadDriver(), /Server unavailable/);
 console.log(
   "Passed: authenticated API requests, no fleet guess, explicit request failures, GPS fuel trip contract, and no runtime mock dependencies.",
 );
+
+{
+  const { createLocationQueue, locationFix, queueKey, recordAndFlush } =
+    await import(
+      toModule(
+        await readFile(
+          new URL(
+            "../src/telematics/tracking/locationQueue.js",
+            import.meta.url,
+          ),
+          "utf8",
+        ),
+      )
+    );
+  const disk = new Map();
+  const storage = {
+    getItem: async (key) => disk.get(key) || null,
+    setItem: async (key, value) => disk.set(key, value),
+    removeItem: async (key) => disk.delete(key),
+  };
+  const fixes = Array.from({ length: 120 }, (_, index) => ({
+    latitude: 20,
+    longitude: 73,
+    recordedAt: new Date(1700000000000 + index * 1000).toISOString(),
+    source: "FOREGROUND",
+  }));
+  let connected = false;
+  let active = true;
+  const sent = [];
+  const key = queueKey({ orgId: "one", _id: "driver" });
+  const queue = createLocationQueue({
+    storage,
+    key,
+    isActive: () => active,
+    send: async (batch) => {
+      if (!connected) throw new Error("offline");
+      sent.push(batch.length);
+      return { requested: batch.length, written: batch.length };
+    },
+  });
+  await assert.rejects(recordAndFlush(queue, fixes), /offline/);
+  assert.equal(await queue.count(), 120);
+  await queue.enqueue([fixes[0]]);
+  assert.equal(await queue.count(), 120);
+  connected = true;
+  assert.equal(await queue.flush(), 0);
+  assert.deepEqual(sent, [100, 20]);
+  await queue.enqueue([fixes[0]]);
+  active = false;
+  await queue.flush();
+  assert.equal(await queue.count(), 1);
+  const second = createLocationQueue({
+    storage,
+    key: queueKey({ orgId: "two", _id: "driver" }),
+    send: async () => {
+      throw new Error("unexpected");
+    },
+  });
+  assert.equal(await second.count(), 0);
+  const partial = createLocationQueue({
+    storage,
+    key,
+    send: async (batch) => ({ requested: batch.length, written: 0 }),
+  });
+  await assert.rejects(partial.flush(), /not confirm/);
+  assert.equal(await partial.count(), 1);
+  assert.throws(
+    () =>
+      locationFix(
+        {
+          mocked: true,
+          coords: { latitude: 20, longitude: 73 },
+          timestamp: Date.now(),
+        },
+        "FOREGROUND",
+      ),
+    /valid device/,
+  );
+  const full = Array.from({ length: 5000 }, (_, index) => ({
+    ...fixes[0],
+    recordedAt: new Date(1700000000000 + index).toISOString(),
+  }));
+  await storage.setItem("full", JSON.stringify(full));
+  const capped = createLocationQueue({
+    storage,
+    key: "full",
+    send: async (batch) => ({ requested: batch.length, written: batch.length }),
+  });
+  await recordAndFlush(capped, [
+    { ...fixes[0], recordedAt: "2026-10-24T00:00:00Z" },
+  ]);
+  assert.equal(await capped.count(), 4401);
+  console.log(
+    "Passed: offline queue persistence, acknowledgement, account isolation, cancellation, deduplication and full queue recovery.",
+  );
+}

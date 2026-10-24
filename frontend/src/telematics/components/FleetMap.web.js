@@ -9,7 +9,7 @@ import {
 import { AppText, Card, colors } from "../../components/ui";
 import { mapPoints, trailCoordinates, trailSegments } from "./mapGeometry";
 const mapStyle = { width: "100%", height: 340 };
-function MapCanvas({ points, trailPoints, onSelectVehicle }) {
+function MapCanvas({ points, trailPoints, onSelectVehicle, caption }) {
   const key = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
   const { isLoaded, loadError } = useJsApiLoader({
     id: "driver-app-google-maps",
@@ -81,7 +81,7 @@ function MapCanvas({ points, trailPoints, onSelectVehicle }) {
               lat: vehicle.coordinates.latitude,
               lng: vehicle.coordinates.longitude,
             }}
-            title={`${vehicle.plate} · ${vehicle.status}`}
+            title={`${vehicle.plate}${vehicle.status ? ` · ${vehicle.status}` : ""}`}
             label={{
               text: vehicle.plate,
               color: "#25314C",
@@ -109,8 +109,8 @@ function MapCanvas({ points, trailPoints, onSelectVehicle }) {
         ))}
       </GoogleMap>
       <AppText variant="caption" muted style={styles.caption}>
-        {points.length} trucks with reported coordinates · Tap a marker for
-        details
+        {caption ||
+          `${points.length} trucks with reported coordinates · Tap a marker for details`}
       </AppText>
     </View>
   );
@@ -120,6 +120,7 @@ export default function FleetMap({
   vehicles,
   trailPoints = EMPTY_TRAIL,
   onSelectVehicle,
+  caption,
 }) {
   const points = mapPoints(vehicles);
   return points.length ? (
@@ -127,6 +128,7 @@ export default function FleetMap({
       points={points}
       trailPoints={trailPoints}
       onSelectVehicle={onSelectVehicle}
+      caption={caption}
     />
   ) : (
     <Card>

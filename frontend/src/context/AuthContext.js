@@ -1,3 +1,4 @@
+import { stopBackground } from '../telematics/tracking/driverBackground';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestDriverOtp, verifyDriverOtp, loginWithPassword, fetchAppSession, revokeAppSession } from '../services/api';
@@ -24,7 +25,7 @@ export function AuthProvider({ children }) {
     activeToken.current = null;
     ++generation.current;
     setUser(null); setToken(null); setOrg(null); setIsNewLogin(false); setSessionError('');
-    await AsyncStorage.multiRemove([USER, TOKEN, IDENTITY, ...PER_ACCOUNT]);
+    await Promise.all([AsyncStorage.multiRemove([USER, TOKEN, IDENTITY, ...PER_ACCOUNT]), stopBackground()]);
   }, []);
   useEffect(() => subscribeSessionExpiry((expiredToken) => {
     invalidateSession(expiredToken).catch((error) => logger.error('Auth', error.message));
@@ -35,9 +36,10 @@ export function AuthProvider({ children }) {
     setLoading(true); setSessionError('');
     try {
       const storedToken = await AsyncStorage.getItem(TOKEN);
-      if (!storedToken) return;
+      if (!storedToken) { await stopBackground(); return; }
       const session = await fetchAppSession(storedToken);
       if (generation.current !== current) return;
+      if (session.user.role !== 'DRIVER') await stopBackground();
       const identity = identityOf(session.user);
       const previous = await AsyncStorage.getItem(IDENTITY);
       if (previous !== identity) await AsyncStorage.multiRemove(PER_ACCOUNT);
@@ -57,6 +59,7 @@ export function AuthProvider({ children }) {
   const acceptSession = async (result, current) => {
     if (generation.current !== current) return false;
     if (!result?.user?._id || !result.token) throw new Error('Invalid login response.');
+    await stopBackground();
     const identity = identityOf(result.user);
     const previous = await AsyncStorage.getItem(IDENTITY);
     if (generation.current !== current) return false;
