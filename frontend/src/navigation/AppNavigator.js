@@ -82,11 +82,11 @@ export default function AppNavigator() {
     return <SplashScreen />;
   }
 
-  const shell = selectAppShell(user, process.env.EXPO_PUBLIC_TELEMATICS_DEMO !== 'false');
+  const shell = selectAppShell(user);
   if (shell === 'unsupported') return <UnsupportedRoleScreen />;
 
   // Preserve the legacy ERP path behind an explicit switch. Fleet roles use
-  // their demo shells; Field Agent retains its existing path.
+  // their API-backed shells; Field Agent retains its existing path.
   if (shell === 'owner') {
     return <OwnerNavigator />;
   }

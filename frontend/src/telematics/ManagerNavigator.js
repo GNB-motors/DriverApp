@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../components/ui';
 import CurvedTabBar from '../navigation/CurvedTabBar';
 import { useAuth } from '../context/AuthContext';
-import { TelematicsDemoProvider } from './context/TelematicsDemoContext';
+import { TelematicsApiProvider } from './context/TelematicsApiContext';
 import { ManagerDataProvider, useManagerData } from './context/ManagerDataContext';
 import * as Screens from './screens/ManagerScreens';
 const Tab = createBottomTabNavigator(); const Stack = createNativeStackNavigator();
@@ -25,7 +25,7 @@ export default function ManagerNavigator() {
   const { user } = useAuth();
   const orgId = typeof user.orgId === 'object' ? user.orgId?._id : user.orgId;
   const identity = `${user._id}:${orgId}:manager`;
-  return <TelematicsDemoProvider key={identity} identity={identity} audience="manager"><ManagerDataProvider><Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+  return <TelematicsApiProvider key={identity} identity={identity} audience="manager"><ManagerDataProvider><Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
     <Stack.Screen name="Manager tabs" component={ManagerTabs} />
     <Stack.Screen name="Fleet" component={Screens.Fleet} />
     <Stack.Screen name="Vehicle detail" component={Screens.VehicleDetail} />
@@ -41,5 +41,5 @@ export default function ManagerNavigator() {
     <Stack.Screen name="Fleet trips" component={Screens.Trips} />
     <Stack.Screen name="Manager trip" component={Screens.Trips} />
     <Stack.Screen name="Manager settings" component={Screens.Settings} />
-  </Stack.Navigator></ManagerDataProvider></TelematicsDemoProvider>;
+  </Stack.Navigator></ManagerDataProvider></TelematicsApiProvider>;
 }

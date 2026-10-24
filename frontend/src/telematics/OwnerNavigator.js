@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../components/ui';
 import CurvedTabBar from '../navigation/CurvedTabBar';
 import { useAuth } from '../context/AuthContext';
-import { TelematicsDemoProvider } from './context/TelematicsDemoContext';
+import { TelematicsApiProvider } from './context/TelematicsApiContext';
 import { ManagerDataProvider, useManagerData } from './context/ManagerDataContext';
 import * as Screens from './screens/ManagerScreens';
 import * as Owner from './screens/OwnerScreens';
@@ -26,7 +26,7 @@ export default function OwnerNavigator() {
   const { user } = useAuth();
   const orgId = typeof user.orgId === 'object' ? user.orgId?._id : user.orgId;
   const identity = `${user._id}:${orgId}:owner`;
-  return <TelematicsDemoProvider key={identity} identity={identity} audience="owner"><ManagerDataProvider audience="owner"><Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+  return <TelematicsApiProvider key={identity} identity={identity} audience="owner"><ManagerDataProvider audience="owner"><Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
     <Stack.Screen name="Owner tabs" component={OwnerTabs} />
     <Stack.Screen name="Fleet" component={Screens.Fleet} />
     <Stack.Screen name="Vehicle detail" component={Screens.VehicleDetail} />
@@ -47,5 +47,5 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Branch overview" component={Owner.BranchOverview} />
     <Stack.Screen name="Team & access" component={Owner.DeferredTeam} />
     <Stack.Screen name="Owner settings" component={Screens.Settings} />
-  </Stack.Navigator></ManagerDataProvider></TelematicsDemoProvider>;
+  </Stack.Navigator></ManagerDataProvider></TelematicsApiProvider>;
 }

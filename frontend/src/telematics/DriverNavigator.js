@@ -6,7 +6,7 @@ import { colors } from '../components/ui';
 import CurvedTabBar from '../navigation/CurvedTabBar';
 import { QuickAddIcon } from '../navigation/NavIcons';
 import { useAuth } from '../context/AuthContext';
-import { TelematicsDemoProvider } from './context/TelematicsDemoContext';
+import { TelematicsApiProvider } from './context/TelematicsApiContext';
 import { DriverDataProvider, useDriverData } from './context/DriverDataContext';
 import * as Screens from './screens/DriverScreens';
 
@@ -30,7 +30,7 @@ export default function DriverNavigator() {
   const { user } = useAuth();
   const orgId = typeof user.orgId === 'object' ? user.orgId?._id : user.orgId;
   const identity = `${user._id}:${orgId}`;
-  return <TelematicsDemoProvider key={identity} identity={identity}><DriverDataProvider><Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+  return <TelematicsApiProvider key={identity} identity={identity}><DriverDataProvider><Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
     <Stack.Screen name="Driver tabs" component={DriverTabs} />
     <Stack.Screen name="Quick add" component={Screens.QuickAdd} options={{ presentation: 'modal' }} />
     <Stack.Screen name="My truck" component={Screens.MyTruck} />
@@ -43,7 +43,6 @@ export default function DriverNavigator() {
     <Stack.Screen name="Document detail" component={Screens.DocumentDetail} />
     <Stack.Screen name="Location sharing" component={Screens.LocationSharing} />
     <Stack.Screen name="Profile" component={Screens.Profile} />
-    {__DEV__ && <Stack.Screen name="Demo scenarios" component={Screens.DemoScenarios} />}
-    <Stack.Screen name="SOS" component={Screens.SosSimulation} options={{ presentation: 'modal' }} />
-  </Stack.Navigator></DriverDataProvider></TelematicsDemoProvider>;
+    <Stack.Screen name="SOS" component={Screens.SosUnavailable} options={{ presentation: 'modal' }} />
+  </Stack.Navigator></DriverDataProvider></TelematicsApiProvider>;
 }

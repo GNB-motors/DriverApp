@@ -1,9 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { useTelematicsDemo } from './TelematicsDemoContext';
-import { DRIVER_RESOURCES, selectDriverView } from '../services/driverView';
+import { useTelematicsApi } from './TelematicsApiContext';
 const Context = createContext(null);
 export function DriverDataProvider({ children }) {
-  const service = useTelematicsDemo();
+  const service = useTelematicsApi();
   const sequence = useRef(0);
   const mounted = useRef(true);
   const [preferences, setPreferences] = useState({ nickname: '' });
@@ -12,10 +11,10 @@ export function DriverDataProvider({ children }) {
     const current = ++sequence.current;
     setState((old) => ({ ...old, loading: true, error: null }));
     try {
-      const results = await Promise.all(DRIVER_RESOURCES.map((resource) => service.list(resource)));
-      if (mounted.current && current === sequence.current) setState({ data: selectDriverView(Object.fromEntries(DRIVER_RESOURCES.map((resource, i) => [resource, results[i]]))), loading: false, error: null });
+      const data = await service.loadDriver();
+      if (mounted.current && current === sequence.current) setState({ data, loading: false, error: null });
     } catch (error) {
-      if (mounted.current && current === sequence.current) setState((old) => ({ ...old, loading: false, error: error.message }));
+      if (mounted.current && current === sequence.current) setState((old) => ({ ...old, data: null, loading: false, error: error.message }));
     }
   }, [service]);
   useEffect(() => { mounted.current = true; refresh(); return () => { mounted.current = false; sequence.current += 1; }; }, [refresh]);
