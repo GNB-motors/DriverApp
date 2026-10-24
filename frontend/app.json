@@ -10,11 +10,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -50,27 +45,32 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.gnbedge.driverapp"
     },
     "plugins": [
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "GNBEdge needs your location while you are on duty so managers can see your live driver position.",
-          "locationAlwaysAndWhenInUsePermission": "GNBEdge needs Always location access only when you choose Always sharing for on-duty driver tracking.",
-          "isAndroidBackgroundLocationEnabled": true
+          "locationWhenInUsePermission": "GNB Motors needs your location while you are on duty so managers can see your live driver position.",
+          "locationAlwaysAndWhenInUsePermission": "GNB Motors needs Always location access only when you choose Always sharing for on-duty driver tracking.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       "expo-font",
-      "expo-secure-store",
+      "@sentry/react-native",
+      "expo-status-bar",
+      "@react-native-community/datetimepicker",
       [
-        "expo-image-picker",
+        "expo-splash-screen",
         {
-          "photosPermission": "GNBEdge needs photo access so you can attach existing bill, receipt and delivery photos.",
-          "cameraPermission": "GNBEdge needs the camera to photograph bills, fuel receipts, consignment notes and proof-of-delivery."
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

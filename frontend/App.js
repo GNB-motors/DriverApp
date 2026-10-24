@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
-import { View } from 'react-native';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import * as Sentry from '@sentry/react-native';
 import * as Updates from 'expo-updates';
@@ -10,11 +9,11 @@ import { LanguageProvider } from './src/context/LanguageContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { useAppFonts } from './src/theme/fonts';
 import SplashScreen from './src/components/ui/SplashScreen';
-import ErrorBoundary from './src/components/ErrorBoundary';
-import OfflineBanner from './src/components/OfflineBanner';
+import NotificationRouter from './src/services/NotificationRouter';
+import { setupAndroidChannel } from './src/services/pushNotifications';
 
-// Deep-link scheme (reserved) — full path→screen mapping can be added later.
-const linking = { prefixes: ['gnbedge://'] };
+export const navigationRef = createNavigationContainerRef();
+
 
 // Crash reporting — only initialise when a DSN is configured (per-env via eas.json),
 // and tag the environment/release so events are attributable. Without a DSN this is
@@ -32,6 +31,8 @@ if (SENTRY_DSN) {
 
 function App() {
   const [fontsLoaded, fontError] = useAppFonts();
+  const [navigationReady, setNavigationReady] = useState(false);
+  useEffect(() => { setupAndroidChannel(); }, []);
 
   // OTA: pull + apply a published update on launch (no-op in dev or until EAS
   // Update is configured — Updates.isEnabled is false then).
@@ -60,19 +61,15 @@ function App() {
 
   return (
     <SafeAreaProvider>
-      <ErrorBoundary>
-        <LanguageProvider>
-          <AuthProvider>
-            <NavigationContainer linking={linking}>
-              <StatusBar style="dark" />
-              <View style={{ flex: 1 }}>
-                <AppNavigator />
-                <OfflineBanner />
-              </View>
-            </NavigationContainer>
-          </AuthProvider>
-        </LanguageProvider>
-      </ErrorBoundary>
+      <LanguageProvider>
+        <AuthProvider>
+          <NotificationRouter navigationRef={navigationRef} ready={navigationReady} />
+          <NavigationContainer ref={navigationRef} onReady={() => setNavigationReady(true)}>
+            <StatusBar style="dark" />
+            <AppNavigator />
+          </NavigationContainer>
+        </AuthProvider>
+      </LanguageProvider>
     </SafeAreaProvider>
   );
 }

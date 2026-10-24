@@ -3,8 +3,8 @@ export const translations = {
     login: {
       brandName: 'HIGHWAY SAHAYAK',
       subtitle: 'Driver Portal Login',
-      phoneLabel: 'ENTER PHONE NUMBER',
-      phonePlaceholder: '00000 00000',
+      phoneLabel: 'PHONE NUMBER OR EMAIL',
+      phonePlaceholder: 'Phone number or email address',
       passwordLabel: 'ENTER PASSWORD',
       passwordPlaceholder: 'Enter your password',
       loginButton: 'Login (लॉगिन करें)',
@@ -173,8 +173,8 @@ export const translations = {
     login: {
       brandName: 'हाईवे सहायक',
       subtitle: 'ड्राइवर पोर्टल लॉगिन',
-      phoneLabel: 'फ़ोन नंबर दर्ज करें',
-      phonePlaceholder: '00000 00000',
+      phoneLabel: 'फ़ोन नंबर या ईमेल',
+      phonePlaceholder: 'फ़ोन नंबर या ईमेल दर्ज करें',
       passwordLabel: 'पासवर्ड दर्ज करें',
       passwordPlaceholder: 'अपना पासवर्ड दर्ज करें',
       loginButton: 'लॉगिन करें (Login)',
@@ -342,8 +342,8 @@ export const translations = {
     login: {
       brandName: 'হাইওয়ে সহায়ক',
       subtitle: 'ড্রাইভার পোর্টাল লগইন',
-      phoneLabel: 'ফোন নম্বর লিখুন',
-      phonePlaceholder: '00000 00000',
+      phoneLabel: 'ফোন নম্বর বা ইমেইল',
+      phonePlaceholder: 'ফোন নম্বর বা ইমেইল লিখুন',
       passwordLabel: 'পাসওয়ার্ড লিখুন',
       passwordPlaceholder: 'আপনার পাসওয়ার্ড লিখুন',
       loginButton: 'লগইন করুন',

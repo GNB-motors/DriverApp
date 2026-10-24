@@ -1,0 +1,32 @@
+# API integration checklist
+
+Current Phase 4 status: see HANDOFF.md. Scoped fuel capture/uploads, documents,
+workshop OCR, support replies, incident lifecycle, driver roster/handover and
+maintenance field review are connected through the workflow APIs. Fuel APP
+approval, full line-item review and live deployment/device exit checks remain
+pending. The table below is the original historical audit; read it alongside the
+phase updates. Remaining Phase 1 release/security work is still outstanding.
+
+Read-only local route review, 23 October 2026. **Existing** below means a route declaration and mount were found in the current local backend; it does not mean deployed, reachable, authorized for every role, contract-compatible or tested with an account. No operational endpoint is wired by this checklist. API prefixes come from `main-backend/app/app.js` and `app/routes.js`.
+
+| Current mock boundary | Local route evidence / status | Work before replacing mocks |
+|---|---|---|
+| Password login (already real) | **Existing:** `POST /api/app/v1/auth/login`, `GET /api/app/v1/auth/me`; `appV1/appV1.routes.js` | Verify account login, identity/org/permissions envelope, expiry, secure storage and restoration. `/me` is not yet wired by this demo. |
+| `list('vehicles')`, sample positions/trail | **Existing:** `GET /api/vehicles`, `GET /api/livetracking/positions`, `GET /api/livetracking/positions/:reg/trail`; `vehicle` and `liveTracking` routes | Join vehicle and position identities; preserve units/source/update age, pagination and role/branch scope; replace illustrative maps. |
+| `list('drivers')`, duty board | **Existing:** `GET /api/employees` (`user/user.routes.js`, mounted as employees); **unverified:** equivalent always-on fleet duty-board contract | Map real driver IDs, branch membership and DVA links; do not reuse ERP trip or old duty sessions as the new duty model. |
+| Driver home / linked truck / source | **Missing in inspected route files:** proposed `/api/app/v1/driver/home`, `/api/driver/me/vehicle`, `/api/driver/location-status` | Re-audit production-plan contracts or compose safe existing reads after backend scope fixes; never infer the first vehicle is the driver’s own. |
+| `list('trips')`, trip details/trail | **Existing:** `GET /api/auto-trips`, `GET /api/auto-trips/:id`, `GET /api/auto-trips/:id/track`; `autoTrip.routes.js` | Normalize states, dates and pagination; verify DRIVER access and `autoTrips` gating. Do not connect `/api/app/v1/trips`, which is ERP. |
+| `list('stops')`, `submit('stopNotes')` | **Unverified:** stop feed and driver explanation contract not checked in this pass | Confirm a trip/stop identity and authorized explanation endpoint; no speculative write URL is selected. |
+| `list('alerts')`, `acknowledgeAlert` | **Existing:** `GET /api/owner-alerts`, `PUT /api/owner-alerts/:id/ack`, `PUT /api/owner-alerts/ack-all`; **not found mounted:** proposed alert-inbox in inspected local app | Select inbox/source contract, severity/read semantics, flags, branch checks and driver-specific access; mock acknowledgement must not imply universal access. |
+| `assignTruck` / `handoverTruck` | **Existing:** `/api/driver-vehicle-assignments` GET/POST, `PUT /:id`, `POST /:id/end`; **unverified:** atomic handover/self-pairing contract | Verify assignment intervals, concurrent conflicts, authorization and audit trail. Never map a local handover to several unprotected independent writes. |
+| `list('fuel')`, `submit('fuel')`, sample slip | **Existing:** `GET /api/fuel-logs/unified`, mileage `POST /api/mileage/fuel-log` and `/fuel-log/from-photo`; fuelLog/mileage routes | Choose unified fuel contract; map fuel type, filling type, litres, rate, odometer and document evidence. Existing generic fuel-log creation has trip-related semantics; do not assume compatibility. |
+| `review('fuel')` | **Unverified/missing equivalent:** no matching approve/reject route found in inspected fuelLog/mileage route files | Agree review state machine, evidence contract and reviewer permissions. Do not substitute an ERP bill approval. |
+| `list('bills')`, `submit('bills')`, `review('bills')` | **Existing:** `GET /api/maintenance/bills`, `POST /api/maintenance/bills/scan`, `POST /api/maintenance/bills/:id/review`; billExtraction routes | Map OCR/extraction and review payloads; driver scan exists but org bill reads are Owner/Manager only. Resolve driver’s own bill-history contract. Do not use the separate Khata app-bills API. |
+| `list('issues')`, `submit('issues')`, `review('issues')` | **Existing:** general `/api/maintenance` routes; **missing/unverified:** the proposed dedicated vehicle-issue lifecycle | Confirm report, repair and resolution state contracts before integration. A maintenance record is not automatically the same as a driver issue. |
+| `list('documents')` | **Existing:** GET/POST `/api/documents`, GET `/api/documents/:id`; document routes also have PATCH/DELETE | Scope personal/vehicle records, expiry dates and file access; do not add DigiLocker. |
+| `submit('support')`, support list | **Existing:** GET/POST `/api/support-tickets`, `POST /api/support-tickets/:id/messages` | Map attachments, messages, pagination and per-user visibility; replace the explicit no-delivery explanation only when real submission works. |
+| `list('adblue')`, Owner cost/digest | **Existing:** `GET /api/def-ledger` (Owner/Manager); **unverified:** equivalent receipt-cost summary/digest | Distinguish telemetry DEF from claimed quantities, proven units and captured costs; current fixture sums are not a server analytics contract. |
+| SOS, push, tracking | **Missing/unverified:** proposed SOS/device endpoints not found in inspected routes; legacy driver-location routes exist | Schedule separate backend and native work from the production plan. Keep simulations and real delivery visually distinct. |
+| `setScenario`, `reset`, `dispose` | **Frontend-only** | Never send these mock lifecycle controls to production. `dispose` clears session fixtures; real logout/revocation requires its own verified auth contract. |
+
+Before switching any resource: capture an authorized response example, verify schema/nullability, feature flags and role/branch scope, preserve loading/empty/error states, map real identities, test failed/retried writes and concurrency, and remove the demo indicator only for data that actually comes from the server. Do not silently fall back to mock data after a live request fails.

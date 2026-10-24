@@ -2,100 +2,88 @@ import React from 'react';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 /**
- * Bottom-tab icons drawn as the exact SVGs from the Nova design
- * (Driver Core SpiceKit.dc.html bottom nav) — viewBox 24, stroke 1.85, round caps.
+ * Bottom-tab icons drawn as clean line SVGs in the Nova design style
+ * (viewBox 24, stroke 1.85, round caps/joins) — matching the Nova SpiceKit
+ * bottom nav. Used across the driver tab bar + center FAB.
  */
 function Base({ size = 22, color = '#93939A', children }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.85} strokeLinecap="round" strokeLinejoin="round">
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth={1.85}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       {children}
     </Svg>
   );
 }
 
 export function HomeIcon(props) {
-  return <Base {...props}><Path d="M4 11l8-7 8 7v9H4z" /><Path d="M10 20v-5h4v5" /></Base>;
-}
-
-export function VehiclesIcon(props) {
   return (
     <Base {...props}>
-      <Path d="M2 7h11v9H2zM13 10h4l3 3.5V16h-7" />
-      <Circle cx="6.5" cy="18" r="1.7" />
-      <Circle cx="16.5" cy="18" r="1.7" />
+      <Path d="M4 11l8-7 8 7v9H4z" />
+      <Path d="M10 20v-5h4v5" />
     </Base>
   );
 }
 
-export function TripsIcon(props) {
+// Compact plus with soft, rounded strokes for the raised quick-entry action.
+export function QuickAddIcon({ size = 28, color = '#FFFFFF' }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <Path d="M14 6v16M6 14h16" stroke={color} strokeWidth={3.4} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// Wrench / tool — Repairs
+export function RepairsIcon(props) {
   return (
     <Base {...props}>
-      <Circle cx="6" cy="6" r="2.4" />
-      <Circle cx="18" cy="18" r="2.4" />
-      <Path d="M8.4 6h5.1a3 3 0 0 1 0 6h-3a3 3 0 0 0 0 6h5.1" />
+      <Path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
     </Base>
   );
 }
 
-export function AlertsIcon(props) {
+// File with text lines — Documents
+export function DocumentsIcon(props) {
   return (
     <Base {...props}>
-      <Path d="M6 9.5a6 6 0 0 1 12 0c0 3.5 1 4.5 1.5 5.5H4.5C5 14 6 13 6 9.5" />
-      <Path d="M10 19a2 2 0 0 0 4 0" />
+      <Path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <Path d="M14 3v5h5" />
+      <Path d="M9 13h6" />
+      <Path d="M9 17h6" />
     </Base>
   );
 }
 
-export function FuelIcon(props) {
-  return (
-    <Base {...props}>
-      <Path d="M12 3C9 8 6 10.5 6 14a6 6 0 0 0 12 0c0-3.5-3-6-6-11z" />
-    </Base>
-  );
-}
-
-export function MenuIcon(props) {
-  return <Base {...props}><Path d="M4 8h16M4 16h16" /></Base>;
-}
-
-export function OrgsIcon(props) {
-  return (
-    <Base {...props}>
-      <Path d="M4 21V5a2 2 0 012-2h4a2 2 0 012 2v16" />
-      <Path d="M12 9h8a2 2 0 012 2v10" />
-      <Path d="M2 21h20M8 7v.01M8 11v.01M8 15v.01M16 13v.01M16 17v.01" />
-    </Base>
-  );
-}
-
-// Kept for backward compat — points at MenuIcon.
-export const MoreIcon = MenuIcon;
-
+// Person — Profile
 export function ProfileIcon(props) {
   return (
     <Base {...props}>
-      <Circle cx="12" cy="8" r="3.5" />
-      <Path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+      <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <Circle cx="12" cy="7" r="4" />
+    </Base>
+  );
+}
+
+// Droplet — Refuel (center FAB)
+export function FuelIcon(props) {
+  return (
+    <Base {...props}>
+      <Path d="M12 2.7l5.66 5.66a8 8 0 1 1-11.31 0z" />
     </Base>
   );
 }
 
 export const NAV_ICONS = {
   Home: HomeIcon,
-  OwnerDashboard: HomeIcon,
-  Vehicles: VehiclesIcon,
-  OwnerFleet: VehiclesIcon,
-  Trips: TripsIcon,
-  Alerts: AlertsIcon,
-  OwnerApprovals: AlertsIcon,
-  OpsHome: HomeIcon,
-  OpsTrips: TripsIcon,
-  OpsApprovals: AlertsIcon,
-  OpsProfile: ProfileIcon,
-  Fuel: FuelIcon,
-  More: MenuIcon,
+  Repairs: RepairsIcon,
+  Documents: DocumentsIcon,
   Profile: ProfileIcon,
-  OwnerProfile: ProfileIcon,
-  OwnerDriversDashboard: ProfileIcon,
-  Orgs: OrgsIcon,
 };
