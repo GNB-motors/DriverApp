@@ -1,10 +1,10 @@
 import PushSettings from '../../components/PushSettings';
 import React, { useEffect, useRef, useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet, RefreshControl, KeyboardAvoidingView, Platform, Alert, Animated } from 'react-native';
+import { View, Pressable, StyleSheet, Alert, Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as Crypto from 'expo-crypto';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import WorkspacePage, { AvailabilityNotice } from '../components/WorkspacePage';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { AppText, Card, Button, TextField, colors, radius, spacing } from '../../components/ui';
@@ -22,14 +22,12 @@ const date = (value) => new Date(value).toLocaleDateString('en-IN', { day: 'nume
 export function Page({ navigation, title, subtitle, children, action, allowEmpty = false }) {
   const { data, loading, error, refresh } = useDriverData();
   const { logout } = useAuth();
-  return <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}><KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.page} refreshControl={<RefreshControl refreshing={loading && !!data} onRefresh={refresh} tintColor={colors.primary} />}>
-    <View style={s.header}>{navigation.getState().type === 'stack' && navigation.canGoBack() && <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" style={s.back}><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable>}<View style={s.flex}><AppText variant="label" color={colors.primary}>HIGHWAY SAHAYAK</AppText><AppText variant="h1" style={s.title}>{title}</AppText>{subtitle && <AppText variant="small" muted>{subtitle}</AppText>}</View>{action}</View>
-
+  return <WorkspacePage navigation={navigation} title={title} subtitle={subtitle} label="HIGHWAY SAHAYAK" action={action} refreshing={loading && !!data} onRefresh={refresh}>
     {error && !allowEmpty ? <><AppText color={colors.error}>{error}</AppText><DataState state="error" onRetry={refresh} /><Button label="Sign out" variant="secondary" onPress={logout} /></> : !data && !allowEmpty ? <DataState state="loading" /> : !allowEmpty && !data.driver ? <DataState state="empty" /> : <View style={s.content}>
       {data?.errors && Object.entries(data.errors).map(([key, message]) => <Card key={key}><AppText color={colors.error}>{key}: {message}</AppText></Card>)}
-      {!!data?.unavailable?.length && <AppText variant="caption" muted>Not connected yet: {data.unavailable.join(', ')}.</AppText>}
+      <AvailabilityNotice items={data?.unavailable} />
       {children}</View>}
-  </ScrollView></KeyboardAvoidingView></SafeAreaView>;
+  </WorkspacePage>;
 }
 export function MenuRow({ title, detail, icon = 'chevron-forward', onPress, danger = false }) {
   return <Card onPress={onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={title} style={s.menu}><View style={[s.menuIcon, danger && { backgroundColor: colors.expiredBg }]}><Ionicons name={icon} size={21} color={danger ? colors.error : colors.primary} /></View><View style={s.flex}><AppText weight="semibold" color={danger ? colors.error : colors.text}>{title}</AppText>{detail && <AppText variant="small" muted style={s.detail}>{detail}</AppText>}</View>{onPress && <Ionicons name="chevron-forward" size={17} color={colors.textMuted} />}</Card>;
@@ -618,7 +616,7 @@ export function SosUnavailable({ navigation }) {
   );
 }
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background }, flex: { flex: 1 }, page: { padding: 24, paddingBottom: 32, maxWidth: 640, width: '100%', alignSelf: 'center' }, content: { gap: 14 }, header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, paddingBottom: 8 }, title: { marginTop: 8, marginBottom: 4 }, back: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderRadius: radius.full },
+  flex: { flex: 1 }, content: { gap: 14 },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, sos: { minHeight: 48, paddingHorizontal: 12, borderRadius: radius.full, backgroundColor: colors.expiredBg, flexDirection: 'row', alignItems: 'center', gap: 6 }, menu: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 76, borderColor: colors.border }, menuIcon: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' }, detail: { marginTop: 4 }, empty: { alignItems: 'center', padding: 24, gap: 16 }, selected: { borderColor: colors.primary, backgroundColor: colors.blueTint },
   quickGrid: { flexDirection: 'row', gap: 10 }, quick: { flex: 1, minHeight: 100, alignItems: 'center', gap: 10, paddingVertical: 14, paddingHorizontal: 4, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }, quickIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   trip: { gap: 18, padding: 24, borderColor: colors.border }, between: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }, route: { flexDirection: 'row', alignItems: 'center', gap: 14 }, routeLine: { alignItems: 'center' }, routeDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: colors.primary }, routeStem: { height: 28, width: 2, backgroundColor: colors.border }, destination: { marginTop: 16 }, map: { overflow: 'hidden', borderRadius: radius.lg }, mapCaption: { padding: 16 },

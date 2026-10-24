@@ -5,12 +5,9 @@ import {
   ScrollView,
   Pressable,
   StyleSheet,
-  RefreshControl,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import WorkspacePage, { AvailabilityNotice } from "../components/WorkspacePage";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -34,7 +31,7 @@ import {
 } from "../components";
 import FleetMap from "../components/FleetMap";
 import VehicleTrailMap from "../components/VehicleTrailMap";
-import { Picker } from "@react-native-picker/picker";
+import Picker from "../../components/ui/SelectField";
 import { ALERT_TITLES } from "../services/alertMetadata";
 import { useFocusEffect } from "@react-navigation/native";
 import { MenuRow } from "./DriverScreens";
@@ -51,113 +48,60 @@ export function ManagerPage({ navigation, title, subtitle, children, allowEmpty 
     loading,
     error,
     refresh,
-    service,
     branchId,
     branches,
     roleLabel,
     selectBranch,
   } = useManagerData();
   return (
-    <SafeAreaView edges={["top", "left", "right"]} style={s.safe}>
-      <KeyboardAvoidingView
-        style={s.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={s.page}
-          refreshControl={
-            <RefreshControl
-              refreshing={loading && !!data}
-              onRefresh={refresh}
-              tintColor={colors.primary}
-            />
-          }
-        >
-          <View style={s.header}>
-            {navigation.getState().type === "stack" &&
-              navigation.canGoBack() && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Go back"
-                  onPress={() => navigation.goBack()}
-                  style={s.back}
-                >
-                  <Ionicons name="arrow-back" size={22} color={colors.text} />
-                </Pressable>
-              )}
-            <View style={s.flex}>
-              <AppText variant="label" color={colors.primary}>
-                {roleLabel}
+    <WorkspacePage
+      navigation={navigation}
+      title={title}
+      subtitle={subtitle}
+      label={roleLabel}
+      refreshing={loading && !!data}
+      onRefresh={refresh}
+      filters={branches.length > 1 ? (
+        <ScrollView horizontal style={s.branchScroller} showsHorizontalScrollIndicator={false} contentContainerStyle={s.branchRow}>
+          {branches.map((branch) => (
+            <Pressable
+              key={branch.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Branch: ${branch.id === "all" ? "All branches" : branch.name}`}
+              accessibilityState={{ selected: branchId === branch.id }}
+              style={[s.branchFilter, branchId === branch.id && s.branchFilterSelected]}
+              onPress={() => selectBranch(branch.id)}
+            >
+              <Ionicons name="business-outline" size={14} color={branchId === branch.id ? colors.white : colors.textMuted} />
+              <AppText variant="caption" weight="semibold" color={branchId === branch.id ? colors.white : colors.textMuted}>
+                {branch.id === "all" ? "All branches" : branch.name}
               </AppText>
-              <AppText variant="h1" style={s.title}>
-                {title}
-              </AppText>
-              {subtitle && (
-                <AppText variant="small" muted>
-                  {subtitle}
-                </AppText>
-              )}
-            </View>
-          </View>
-          <View style={s.branchRow}>
-            <Ionicons
-              name="business-outline"
-              size={17}
-              color={colors.textMuted}
-            />
-            {branches.map((branch) => (
-              <Pressable
-                key={branch.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected: branchId === branch.id }}
-                style={[s.branch, branchId === branch.id && s.branchSelected]}
-                onPress={() => selectBranch(branch.id)}
-              >
-                <AppText
-                  variant="small"
-                  weight="semibold"
-                  color={
-                    branchId === branch.id ? colors.white : colors.textMuted
-                  }
-                >
-                  {branch.name}
-                </AppText>
-              </Pressable>
-            ))}
-          </View>
-          <AppText variant="caption" muted style={s.branchNote}>
-            Branch access is enforced by the server
-          </AppText>
-          <View style={s.content}>
-            {error && !allowEmpty ? (
-              <DataState state="error" onRetry={refresh} />
-            ) : !data && !allowEmpty ? (
-              <DataState state="loading" />
-            ) : (
-              <>
-                {Object.entries(data?.errors || {}).map(([key, message]) => (
-                  <Card key={key}>
-                    <AppText color={colors.error}>
-                      {key}: {message}
-                    </AppText>
-                  </Card>
-                ))}
-                {!!data?.unavailable?.length && (
-                  <AppText muted>
-                    Not connected yet: {data.unavailable.join(", ")}. Totals
-                    cover connected resources only.
-                  </AppText>
-                )}
-                {children}
-              </>
-            )}
-          </View>
+            </Pressable>
+          ))}
         </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      ) : null}
+    >
+      <View style={s.content}>
+        {error && !allowEmpty ? (
+          <DataState state="error" onRetry={refresh} />
+        ) : !data && !allowEmpty ? (
+          <DataState state="loading" />
+        ) : (
+          <>
+            {Object.entries(data?.errors || {}).map(([key, message]) => (
+              <Card key={key}>
+                <AppText color={colors.error}>{key}: {message}</AppText>
+              </Card>
+            ))}
+            <AvailabilityNotice items={data?.unavailable} />
+            {children}
+          </>
+        )}
+      </View>
+    </WorkspacePage>
   );
 }
+
 export function ManagerHome({ navigation }) {
   const { data, branchId } = useManagerData();
   const pending = data
@@ -586,7 +530,7 @@ export function Alerts({ navigation }) {
           setPage(1);
         }}
       />
-      <View>
+      <View style={{ gap: 8 }}>
         <AppText variant="label" muted>
           Alert type
         </AppText>
@@ -1005,37 +949,11 @@ function Filters({ values, selected, onSelect }) {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
-  page: {
-    padding: 24,
-    paddingBottom: 36,
-    width: "100%",
-    maxWidth: 680,
-    alignSelf: "center",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  title: { marginTop: 8, marginBottom: 4 },
-  back: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.full,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  branchRow: {
-    flexWrap: "wrap",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
+  branchScroller: { flexGrow: 0 },
+  branchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  branchFilter: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: radius.full, backgroundColor: colors.surface },
+  branchFilterSelected: { backgroundColor: colors.primary },
   branch: {
     minHeight: 48,
     paddingHorizontal: 20,
@@ -1045,7 +963,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   branchSelected: { backgroundColor: colors.primary },
-  branchNote: { marginTop: 8, marginBottom: 20 },
   content: { gap: 14 },
   hero: { borderRadius: radius.xl, padding: 24, gap: 12 },
   heroButton: { marginTop: 10 },

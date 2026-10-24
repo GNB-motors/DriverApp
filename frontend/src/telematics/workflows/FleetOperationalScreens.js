@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
-import { Picker } from "@react-native-picker/picker";
+import Picker from "../../components/ui/SelectField";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Crypto from "expo-crypto";
@@ -241,6 +241,7 @@ export function Handover({ navigation, route }) {
           </AppText>
           <AppText variant="label">Driver</AppText>
           <Picker
+            accessibilityLabel="Driver"
             enabled={!frozen && !busy}
             selectedValue={driverId}
             onValueChange={setDriverId}
@@ -268,6 +269,7 @@ export function Handover({ navigation, route }) {
           )}
           <AppText variant="label">Truck</AppText>
           <Picker
+            accessibilityLabel="Truck"
             enabled={!frozen && !busy}
             selectedValue={vehicleId}
             onValueChange={setVehicleId}
@@ -360,6 +362,7 @@ export function FleetRecords({ navigation, route }) {
     >
       {defaultKind === "bills" && (
         <Picker
+          accessibilityLabel="Record category"
           selectedValue={kind}
           onValueChange={(value) => {
             setKind(value);
@@ -645,6 +648,7 @@ export function FleetRecordDetail({ navigation, route }) {
                 Maintenance record for this truck
               </AppText>
               <Picker
+                accessibilityLabel="Maintenance record"
                 enabled={!busy && !frozen}
                 selectedValue={maintenanceRecordId}
                 onValueChange={setRecordId}
@@ -701,6 +705,7 @@ export function FleetRecordDetail({ navigation, route }) {
                       : ""}
                   </AppText>
                   <Picker
+                    accessibilityLabel={`Decision for ${field.label}`}
                     enabled={!busy && !frozen}
                     selectedValue={decisions[field.field]?.action || ""}
                     onValueChange={(action) =>
@@ -901,6 +906,7 @@ export function NewMaintenance({ navigation, route }) {
       ) : (
         <>
           <Picker
+            accessibilityLabel="Maintenance type"
             enabled={!frozen && !busy}
             selectedValue={recordType}
             onValueChange={setRecordType}

@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Badge, StepProgress, WarningBanner, colors, spacing, radius } from '../../../components/ui';
 import { pickFromCamera, pickFromGallery } from '../../../utils/pickImage';
-import { Picker } from '@react-native-picker/picker';
+import Picker from '../../../components/ui/SelectField';
 import { useAuth } from '../../../context/AuthContext';
 import { useDriverVehicle } from '../../../hooks/useDriverVehicle';
 
@@ -55,18 +55,16 @@ export default function FuelCaptureScreen({ navigation, route }) {
         {isAgent ? (
           <View style={[styles.gap, { marginBottom: 12 }]}>
             <AppText variant="label" muted>Select Vehicle</AppText>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={selectedVehicleId}
-                onValueChange={(itemValue) => setSelectedVehicleId(itemValue)}
-                style={styles.picker}
-              >
-                <Picker.Item label="-- Select Vehicle --" value={null} />
-                {vehicles.map(v => (
-                  <Picker.Item key={v._id || v.id} label={v.registrationNumber || v.vehicleNumber || 'Unknown'} value={v._id || v.id} />
-                ))}
-              </Picker>
-            </View>
+            <Picker
+              accessibilityLabel="Select vehicle"
+              selectedValue={selectedVehicleId}
+              onValueChange={(itemValue) => setSelectedVehicleId(itemValue)}
+            >
+              <Picker.Item label="-- Select Vehicle --" value={null} />
+              {vehicles.map(v => (
+                <Picker.Item key={v._id || v.id} label={v.registrationNumber || v.vehicleNumber || 'Unknown'} value={v._id || v.id} />
+              ))}
+            </Picker>
           </View>
         ) : (
           <>
@@ -164,14 +162,4 @@ const styles = StyleSheet.create({
   dropBtns: { flexDirection: 'row', gap: 10, marginTop: 10 },
   dropBtn: { paddingHorizontal: 20 },
   footer: { paddingHorizontal: 20, paddingTop: 12, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    marginTop: 8,
-    backgroundColor: colors.surface,
-  },
-  picker: {
-    height: 50,
-  },
 });

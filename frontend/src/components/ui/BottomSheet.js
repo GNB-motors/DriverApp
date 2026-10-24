@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, View, Pressable, StyleSheet } from 'react-native';
+import { Modal, View, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing } from '../../theme/tokens';
 
@@ -16,26 +16,26 @@ import { colors, radius, spacing } from '../../theme/tokens';
  * Props: visible, onClose, scrim ('light' | 'dark'), showHandle (default true),
  *        children, style (applied to the sheet surface).
  */
-export default function BottomSheet({ visible, onClose, scrim = 'light', showHandle = true, children, style }) {
+export default function BottomSheet({ visible, onClose, scrim = 'light', showHandle = true, avoidKeyboard = false, children, style }) {
   const insets = useSafeAreaInsets();
   const scrimColor = scrim === 'dark' ? 'rgba(18,18,20,0.66)' : 'rgba(18,18,20,0.48)';
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.fill}>
-        <Pressable style={[styles.scrim, { backgroundColor: scrimColor }]} onPress={onClose} accessibilityLabel="Close" />
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.md }, style]}>
+      <KeyboardAvoidingView style={styles.fill} enabled={avoidKeyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Pressable style={[styles.scrim, { backgroundColor: scrimColor }]} onPress={onClose} accessibilityLabel="Close" accessibilityRole="button" />
+        <View accessibilityViewIsModal style={[styles.sheet, { paddingBottom: insets.bottom + spacing.md }, style]}>
           {showHandle ? <View style={styles.handle} /> : null}
           {children}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   fill: { flex: 1, justifyContent: 'flex-end' },
-  scrim: { ...StyleSheet.absoluteFillObject },
+  scrim: { ...StyleSheet.absoluteFill },
   sheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 26,

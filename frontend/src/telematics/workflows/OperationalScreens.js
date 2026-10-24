@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Linking, View, Platform } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { Picker } from "@react-native-picker/picker";
+import Picker from "../../components/ui/SelectField";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import * as Crypto from "expo-crypto";
@@ -66,7 +66,7 @@ export function FileLink({ url, label = "Open attached file" }) {
 }
 function Select({ label, value, onChange, values, disabled }) {
   return (
-    <View>
+    <View style={{ gap: 8 }}>
       <AppText variant="label" muted>
         {label}
       </AppText>
