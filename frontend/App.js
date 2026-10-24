@@ -1,8 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import * as Notifications from 'expo-notifications';
 import * as Sentry from '@sentry/react-native';
 import * as Updates from 'expo-updates';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -10,12 +9,11 @@ import { LanguageProvider } from './src/context/LanguageContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { useAppFonts } from './src/theme/fonts';
 import SplashScreen from './src/components/ui/SplashScreen';
+import NotificationRouter from './src/services/NotificationRouter';
 import { setupAndroidChannel } from './src/services/pushNotifications';
 
 export const navigationRef = createNavigationContainerRef();
 
-// Deep-link scheme (reserved) — full path→screen mapping can be added later.
-const linking = { prefixes: ['gnbedge://'] };
 
 // Crash reporting — only initialise when a DSN is configured (per-env via eas.json),
 // and tag the environment/release so events are attributable. Without a DSN this is
@@ -33,30 +31,8 @@ if (SENTRY_DSN) {
 
 function App() {
   const [fontsLoaded, fontError] = useAppFonts();
-  const notificationListener = useRef();
-  const responseListener = useRef();
-
-  useEffect(() => {
-    setupAndroidChannel();
-
-    // Navigate to the right screen when the user taps a push notification.
-    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data;
-      if (!navigationRef.isReady()) return;
-      if (data?.kind === 'DRIVER_ALERT' && data.alertId) {
-        navigationRef.navigate('Alert detail', { id: data.alertId });
-      }
-    });
-
-    return () => {
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
-    };
-  }, []);
+  const [navigationReady, setNavigationReady] = useState(false);
+  useEffect(() => { setupAndroidChannel(); }, []);
 
   // OTA: pull + apply a published update on launch (no-op in dev or until EAS
   // Update is configured — Updates.isEnabled is false then).
@@ -87,7 +63,8 @@ function App() {
     <SafeAreaProvider>
       <LanguageProvider>
         <AuthProvider>
-          <NavigationContainer ref={navigationRef}>
+          <NotificationRouter navigationRef={navigationRef} ready={navigationReady} />
+          <NavigationContainer ref={navigationRef} onReady={() => setNavigationReady(true)}>
             <StatusBar style="dark" />
             <AppNavigator />
           </NavigationContainer>

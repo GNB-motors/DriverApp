@@ -16,7 +16,7 @@ const Stack = createNativeStackNavigator();
 const icons = { Home: 'home-outline', Trips: 'navigate-outline', Inbox: 'notifications-outline', More: 'grid-outline' };
 function DriverTabBar(props) {
   const { data } = useDriverData();
-  const unread = data?.alerts.filter((alert) => !alert.acknowledged).length || 0;
+  const unread = data?.unreadCount || 0;
   return <CurvedTabBar {...props} badges={{ Inbox: unread }} centerAction={{ label: 'Add', onPress: () => props.navigation.getParent().navigate('Quick add'), icon: <QuickAddIcon /> }} />;
 }
 function DriverTabs() {

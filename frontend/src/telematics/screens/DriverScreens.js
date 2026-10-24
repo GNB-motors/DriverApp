@@ -1,5 +1,7 @@
+import PushSettings from '../../components/PushSettings';
 import React, { useEffect, useRef, useState } from 'react';
 import { View, ScrollView, Pressable, StyleSheet, RefreshControl, KeyboardAvoidingView, Platform, Alert, Animated } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as Crypto from 'expo-crypto';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -242,17 +244,39 @@ export function TripDetail({ navigation, route }) {
   );
 }
 export function DriverInbox({ navigation }) {
-  const { data } = useDriverData();
+  const { service, data } = useDriverData();
   const [filter, setFilter] = useState('All');
-  const alerts = data?.alerts.filter((item) => filter === 'All' || !item.acknowledged) || [];
-  return <Page navigation={navigation} title="Your inbox" subtitle="Only the updates that matter."><View style={s.filters}>{['All', 'Unread'].map((item) => <Pressable key={item} style={[s.filter, filter === item && s.activeFilter]} accessibilityRole="button" accessibilityState={{ selected: filter === item }} onPress={() => setFilter(item)}><AppText weight="semibold" color={filter === item ? colors.white : colors.textMuted}>{item}</AppText></Pressable>)}</View>{alerts.map((alert) => <AlertRow key={alert.id} alert={alert} onPress={() => navigation.navigate('Alert detail', { id: alert.id })} />)}{!alerts.length && <Empty title="All caught up" description="There are no alerts in this view." />}</Page>;
+  const [page, setPage] = useState(1);
+  const [feed, setFeed] = useState(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let active = true;
+    setFeed(null); setError('');
+    service.listDriverAlerts({ page, unread: filter === 'Unread' }).then((value) => { if (active) setFeed(value); }).catch((e) => { if (active) setError(e.message); });
+    return () => { active = false; };
+  }, [service, filter, page, data?.unreadCount]);
+  return <Page navigation={navigation} title="Your inbox" subtitle="Your duty, assignment, support and incident updates." allowEmpty>
+    <View style={s.filters}>{['All', 'Unread'].map((item) => <Pressable key={item} style={[s.filter, filter === item && s.activeFilter]} accessibilityRole="button" accessibilityState={{ selected: filter === item }} onPress={() => { setFilter(item); setPage(1); }}><AppText weight="semibold" color={filter === item ? colors.white : colors.textMuted}>{item}</AppText></Pressable>)}</View>
+    {error ? <AppText color={colors.error}>{error}</AppText> : !feed ? <DataState state="loading" /> : <>
+      <AppText muted>{feed.unreadCount} unread · {feed.total} matching alerts</AppText>
+      {feed.items.map((alert) => <AlertRow key={alert.id} alert={alert} onPress={() => navigation.navigate('Alert detail', { id: alert.id })} />)}
+      {!feed.items.length && <Empty title="No matching alerts" description="New updates will appear here." />}
+      <View style={s.filters}><Button label="Previous" variant="secondary" disabled={page === 1} onPress={() => setPage(page - 1)} /><AppText>Page {page}</AppText><Button label="Next" variant="secondary" disabled={page * feed.limit >= feed.total} onPress={() => setPage(page + 1)} /></View>
+    </>}
+  </Page>;
 }
 export function AlertDetail({ navigation, route }) {
-  const { data, mutate } = useDriverData();
-  const alert = data?.alerts.find((item) => item.id === route.params?.id);
+  const { service, mutate } = useDriverData();
+  const [alert, setAlert] = useState(null);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
-  async function acknowledge() { setBusy(true); setError(''); try { await mutate((service) => service.acknowledgeAlert(alert.id)); } catch (err) { setError(err.message); } finally { setBusy(false); } }
-  return <Page navigation={navigation} title="Alert details">{alert ? <><AlertRow alert={alert} />{alert.description ? <Card><AppText>{alert.description}</AppText></Card> : null}{error ? <AppText accessibilityRole="alert" color={colors.error}>{error}</AppText> : null}<Button label={alert.acknowledged ? 'Acknowledged' : 'Mark as read'} disabled={alert.acknowledged} loading={busy} onPress={acknowledge} /></> : <Empty title="Alert unavailable" description="Return to your inbox." />}</Page>;
+  useEffect(() => {
+    let active = true;
+    setAlert(null); setError('');
+    service.driverAlert(route.params?.id).then((value) => { if (active) setAlert(value); }).catch((e) => { if (active) setError(e.message); });
+    return () => { active = false; };
+  }, [service, route.params?.id]);
+  async function acknowledge() { setBusy(true); setError(''); try { await service.acknowledgeAlert(alert.id); setAlert(await service.driverAlert(alert.id)); mutate(() => Promise.resolve()).catch(() => {}); } catch (err) { setError(err.message); } finally { setBusy(false); } }
+  return <Page navigation={navigation} title="Alert details" allowEmpty>{error ? <AppText color={colors.error}>{error}</AppText> : null}{alert ? <><AlertRow alert={alert} />{alert.description ? <Card><AppText>{alert.description}</AppText></Card> : null}<Button label={alert.acknowledged ? 'Acknowledged' : 'Mark as read'} disabled={alert.acknowledged} loading={busy} onPress={acknowledge} /></> : !error ? <DataState state="loading" /> : <Empty title="Alert unavailable" description="Return to your inbox." />}</Page>;
 }
 export function MyTruck({ navigation }) {
   const { data } = useDriverData();
@@ -418,7 +442,7 @@ export function Profile({ navigation }) {
   const { preferences, setPreferences } = useDriverData();
   const [name, setName] = useState(preferences.nickname); const [saved, setSaved] = useState(false); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   async function signOut() { setBusy(true); try { await logout(); } catch (err) { setError(err.message); setBusy(false); } }
-  return <Page navigation={navigation} title="Your profile" subtitle="Your account and local preferences." allowEmpty><MenuRow title={user?.name || user?.firstName || 'Driver'} detail={`${user?.role || 'DRIVER'} · Signed-in account`} icon="person-outline" /><MenuRow title="Organization" detail={organization?.name || 'Your signed-in organization'} icon="business-outline" /><Card style={s.form}><TextField label="display preference" accessibilityLabel="display preference" placeholder="Optional nickname for this session" value={name} onChangeText={(value) => { setName(value); setSaved(false); }} maxLength={50} /><Button label={saved ? 'Preference saved locally' : 'Save preference'} variant="secondary" onPress={() => { setPreferences({ nickname: name.trim() }); setSaved(true); }} /><AppText variant="caption" muted>This preference stays for this session and updates your Home greeting. Your account name is unchanged.</AppText></Card><MenuRow title="Language" detail="English" icon="language-outline" /><MenuRow title="Appearance" detail="Nova light · Current theme" icon="sunny-outline" />{error ? <AppText color={colors.error}>{error}</AppText> : null}<Button label="Log out" variant="secondary" loading={busy} onPress={() => Alert.alert('Log out?', 'Sign out of your account on this device?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Log out', onPress: signOut }])} /></Page>;
+  return <Page navigation={navigation} title="Your profile" subtitle="Your account and local preferences." allowEmpty><MenuRow title={user?.name || user?.firstName || 'Driver'} detail={`${user?.role || 'DRIVER'} · Signed-in account`} icon="person-outline" /><MenuRow title="Organization" detail={organization?.name || 'Your signed-in organization'} icon="business-outline" /><Card style={s.form}><TextField label="display preference" accessibilityLabel="display preference" placeholder="Optional nickname for this session" value={name} onChangeText={(value) => { setName(value); setSaved(false); }} maxLength={50} /><Button label={saved ? 'Preference saved locally' : 'Save preference'} variant="secondary" onPress={() => { setPreferences({ nickname: name.trim() }); setSaved(true); }} /><AppText variant="caption" muted>This preference stays for this session and updates your Home greeting. Your account name is unchanged.</AppText></Card><PushSettings /><MenuRow title="Language" detail="English" icon="language-outline" /><MenuRow title="Appearance" detail="Nova light · Current theme" icon="sunny-outline" />{error ? <AppText color={colors.error}>{error}</AppText> : null}<Button label="Log out" variant="secondary" loading={busy} onPress={() => Alert.alert('Log out?', 'Sign out of your account on this device?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Log out', onPress: signOut }])} /></Page>;
 }
 const SOS_TYPES = [
   { key: 'BREAKDOWN', label: 'Breakdown', icon: 'build-outline', color: colors.warning },
@@ -434,7 +458,37 @@ export function SosUnavailable({ navigation }) {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(null);
   const [error, setError] = useState('');
-  const clientId = useRef(Crypto.randomUUID());
+  const { user } = useAuth();
+  const orgId = typeof user.orgId === 'object' ? user.orgId?._id : user.orgId;
+  const draftKey = `sos:${orgId}:${user._id}`;
+  const draft = useRef(null);
+  const inFlight = useRef(false);
+  const [ready, setReady] = useState(false);
+  const [delivery, setDelivery] = useState(null);
+  const [deliveryError, setDeliveryError] = useState('');
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(draftKey).then((stored) => {
+      if (!active) return;
+      if (!stored) { setReady(true); return; }
+      const saved = JSON.parse(stored);
+      draft.current = saved;
+      setType(saved.payload.type); setNote(saved.payload.note || '');
+      if (saved.result) setSent(saved.result);
+      setReady(true);
+    }).catch(() => setError('Could not restore your previous report. Retry opening this screen.'));
+    return () => { active = false; };
+  }, [draftKey]);
+  useEffect(() => {
+    if (!sent) return undefined;
+    let active = true;
+    const refresh = () => service.sosStatus(sent.id || sent._id).then((value) => {
+      if (active) { setDelivery(value); setDeliveryError(''); }
+    }).catch(() => { if (active) setDeliveryError('Report saved. Delivery status is temporarily unavailable.'); });
+    refresh();
+    const timer = setInterval(refresh, 15000);
+    return () => { active = false; clearInterval(timer); };
+  }, [sent, service]);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -450,40 +504,46 @@ export function SosUnavailable({ navigation }) {
   }, [sent, pulseAnim]);
 
   async function submit() {
+    if (!ready || inFlight.current) return;
     if (!type) { setError('Select the type of emergency first.'); return; }
+    inFlight.current = true;
     setBusy(true); setError('');
     try {
-      let latitude, longitude, accuracy;
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
+      if (!draft.current) {
+        // Permission prompts and a slow GPS fix must never block an emergency report.
+        let coords;
         try {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced, timeInterval: 5000 });
-          latitude = loc.coords.latitude;
-          longitude = loc.coords.longitude;
-          accuracy = loc.coords.accuracy;
-        } catch { /* no GPS — file without position */ }
+          const permission = await Location.getForegroundPermissionsAsync();
+          if (permission.status === 'granted') {
+            const loc = await Location.getLastKnownPositionAsync({ maxAge: 120000, requiredAccuracy: 100 });
+            if (loc && Date.now() - loc.timestamp <= 120000) coords = loc.coords;
+          }
+        } catch { /* Report without a phone fix. */ }
+        draft.current = { payload: {
+          clientIncidentId: Crypto.randomUUID(), type, note: note.trim() || undefined,
+          reportedAt: new Date().toISOString(),
+          ...(coords && { latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy }),
+        } };
+        await AsyncStorage.setItem(draftKey, JSON.stringify(draft.current));
       }
-      const result = await service.reportSos({
-        clientIncidentId: clientId.current,
-        type,
-        note: note.trim() || undefined,
-        reportedAt: new Date().toISOString(),
-        latitude,
-        longitude,
-        accuracy,
-      });
+      await AsyncStorage.setItem(draftKey, JSON.stringify(draft.current));
+      const result = await service.reportSos(draft.current.payload);
       setSent(result);
+      draft.current.result = result;
+      await AsyncStorage.setItem(draftKey, JSON.stringify(draft.current)).catch(() => {});
       mutate(() => Promise.resolve()).catch(() => {});
     } catch (err) {
-      setError(err.message || 'Could not send SOS. Try again or call emergency services directly.');
-    } finally {
-      setBusy(false);
-    }
+      setError(`${err.message || 'Could not confirm the report.'} Retry sends the same report. For urgent help, call emergency services directly.`);
+    } finally { inFlight.current = false; setBusy(false); }
+  }
+  async function startNewReport() {
+    await AsyncStorage.removeItem(draftKey);
+    draft.current = null; setSent(null); setType(null); setNote(''); setDelivery(null); setError('');
   }
 
   if (sent) {
     return (
-      <Page navigation={navigation} title="SOS sent" allowEmpty>
+      <Page navigation={navigation} title="SOS report saved" allowEmpty>
         <View style={{ alignItems: 'center', gap: 20, paddingVertical: 16 }}>
           <Animated.View style={[s.sosSymbol, { transform: [{ scale: pulseAnim }], backgroundColor: colors.expiredBg }]}>
             <Ionicons name="shield-checkmark" size={40} color={colors.error} />
@@ -494,21 +554,27 @@ export function SosUnavailable({ navigation }) {
           <AppText muted style={{ textAlign: 'center' }}>
             {sent.pairing?.resolved
               ? `Linked to truck ${sent.truck?.registrationNumber || 'on file'}.`
-              : 'Your fleet has been alerted. They may call to confirm your truck.'}
+              : 'Truck not confirmed. The report is saved for your fleet to review.'}
           </AppText>
           <AppText variant="caption" muted style={{ textAlign: 'center' }}>
             {sent.location?.source === 'UNKNOWN'
-              ? 'No GPS fix — your fleet will call for your location.'
-              : 'Your location has been shared with your fleet.'}
+              ? 'No GPS fix was available. Contact your fleet to share your location.'
+              : 'The report includes a location. This does not confirm someone has seen it.'}
           </AppText>
         </View>
+        <Card>
+          <AppText weight="semibold">Fleet status: {delivery?.incidentStatus || sent.status || 'Saved'}</AppText>
+          <AppText muted>{deliveryError || (!delivery ? 'Checking notification status…' : !delivery.pushEnabled ? 'Push notifications are disabled. Contact your fleet directly.' : !Object.keys(delivery.states || {}).length ? 'No recipient devices queued. Contact your fleet directly.' : `Notifications: ${Object.entries(delivery.states).map(([state, count]) => `${state}: ${count}`).join(' · ')}`)}</AppText>
+          <AppText variant="caption" muted>Notification acceptance or provider handoff does not confirm display or help dispatched.</AppText>
+        </Card>
         <Button label="Back to home" onPress={() => navigation.navigate('Driver tabs')} />
+        <Button label="Report a new emergency" variant="secondary" onPress={() => startNewReport().catch((e) => setError(e.message))} />
       </Page>
     );
   }
 
   return (
-    <Page navigation={navigation} title="Emergency help" subtitle="Your report goes directly to your fleet manager.">
+    <Page navigation={navigation} title="Emergency help" subtitle="Save an emergency report for your fleet. Call emergency services directly when needed.">
       <AppText weight="semibold" style={{ marginBottom: 4 }}>What is the emergency?</AppText>
       {SOS_TYPES.map((item) => (
         <Pressable
@@ -533,7 +599,7 @@ export function SosUnavailable({ navigation }) {
         maxLength={500}
       />
       {error ? <AppText color={colors.error} accessibilityRole="alert">{error}</AppText> : null}
-      <Button label="Send SOS alert" loading={busy} onPress={submit} />
+      <Button label="Send SOS alert" loading={busy || !ready} onPress={submit} />
       <AppText variant="caption" muted style={{ textAlign: 'center' }}>
         Contact emergency services directly if life is at risk.
       </AppText>

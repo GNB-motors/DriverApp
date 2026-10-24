@@ -1,3 +1,4 @@
+import PushSettings from '../../components/PushSettings';
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
@@ -942,6 +943,7 @@ export function Settings({ navigation }) {
   const [error, setError] = useState("");
   return (
     <ManagerPage navigation={navigation} title="Settings & support">
+      <PushSettings />
       <MenuRow
         title={user?.name || user?.firstName || "Account"}
         detail={user?.role}

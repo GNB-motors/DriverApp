@@ -226,15 +226,9 @@ export function createTelematicsApi({
       documents: async () =>
         (await workflowList("documents", 1, "personal")).items.map(normalize),
       alerts: async () => {
-        const payload = (await get("/driver/alerts", { params: { limit: 50 } })).data;
-        return (payload?.items || []).map((row) => ({
-          ...normalize(row),
-          title: row.title || row.kind || "Alert",
-          description: row.message,
-          acknowledged: !!row.acknowledgedAt,
-          severity: row.severity || "info",
-          createdAt: row.createdAt,
-        }));
+        const payload = await listDriverAlerts();
+        data.unreadCount = payload.unreadCount;
+        return payload.items;
       },
     };
     await Promise.all(
@@ -269,6 +263,11 @@ export function createTelematicsApi({
     data.errors = errors;
     data.unavailable = ["Stop notes"];
     return data;
+  }
+  async function listDriverAlerts({ page = 1, unread = false } = {}) {
+    const payload = (await get('/driver/alerts', { params: { page, limit: 30, ...(unread && { unread: true }) } })).data;
+    if (!Array.isArray(payload?.items) || !Number.isFinite(payload.total) || !Number.isFinite(payload.unreadCount)) throw new Error('Invalid driver inbox response.');
+    return { ...payload, items: payload.items.map((row) => ({ ...normalize(row), description: row.message, acknowledged: !!row.acknowledgedAt })) };
   }
   const headersFor = (branchId) =>
     branchId ? { "X-Branch-Id": branchId } : {};
@@ -361,6 +360,7 @@ export function createTelematicsApi({
     const data = Object.fromEntries(resources.map((key) => [key, []]));
     const errors = {};
     const jobs = {
+      summary: async () => (await get("/fleet/workflows/summary", { headers: headersFor(branchId) })).data,
       vehicles: () => mapList("/vehicles", normalize, branchId),
       trips: () => mapList("/auto-trips", tripView, branchId),
       fuel: () => mapList("/fuel-logs", fuelView, branchId),
@@ -391,11 +391,13 @@ export function createTelematicsApi({
       }),
     );
     data.vehicles = mergePositions(data.vehicles, data.positions || []);
+    data.adblue = data.fuel.filter((row) => row.fuelType === "ADBLUE");
+    data.fuel = data.fuel.filter((row) => row.fuelType !== "ADBLUE");
     data.alerts = data.alertFeed?.records || [];
     if (errors.alertFeed) errors.alerts = errors.alertFeed;
     delete errors.alertFeed;
     data.errors = errors;
-    data.unavailable = ["Documents", "Reviews", "AdBlue"];
+    data.unavailable = ["Document and review overview", "AdBlue entry list"];
     return data;
   }
   async function workflowList(kind, page = 1, scope) {
@@ -600,6 +602,12 @@ export function createTelematicsApi({
         )
       ).data;
     },
+    listDriverAlerts,
+    async driverAlert(id) {
+      const row = (await get(`/driver/alerts/${encodeURIComponent(id)}`)).data;
+      return { ...normalize(row), description: row.message, acknowledged: !!row.acknowledgedAt };
+    },
+    async sosStatus(id) { return (await get(`/driver/incidents/${encodeURIComponent(id)}/push-status`)).data; },
     async reportSos({ clientIncidentId, type, note, reportedAt, latitude, longitude, accuracy }) {
       const body = { clientIncidentId, type, reportedAt };
       if (note) body.note = note;

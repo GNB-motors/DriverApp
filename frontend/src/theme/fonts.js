@@ -29,10 +29,8 @@ import {
   DMMono_400Regular,
   DMMono_500Medium,
 } from '@expo-google-fonts/dm-mono';
-import {
-  DMMono_400Regular,
-  DMMono_500Medium,
-} from '@expo-google-fonts/dm-mono';
+import { Hind_400Regular, Hind_500Medium, Hind_600SemiBold, Hind_700Bold } from '@expo-google-fonts/hind';
+import { HindSiliguri_400Regular, HindSiliguri_500Medium, HindSiliguri_600SemiBold, HindSiliguri_700Bold } from '@expo-google-fonts/hind-siliguri';
 
 export const FONT_MAP = {
   // Inter — UI / body

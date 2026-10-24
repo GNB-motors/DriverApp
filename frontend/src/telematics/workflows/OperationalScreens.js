@@ -584,6 +584,7 @@ export function OperationalForm({ navigation, route }) {
     const message =
       "Check history first. A timed-out submission may already have been saved.";
     if (Platform.OS === "web") {
+      // eslint-disable-next-line no-undef
       if (window.confirm(message))
         reset().catch((failure) => setError(failure.message));
     } else

@@ -1,3 +1,4 @@
+import { AppState } from 'react-native';
 import { stopBackground } from '../telematics/tracking/driverBackground';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,7 +24,9 @@ export function AuthProvider({ children }) {
   const activeToken = useRef(null);
   const invalidateSession = useCallback(async (expectedToken) => {
     if (typeof expectedToken === 'string' && activeToken.current !== expectedToken) return;
+    const previousToken = activeToken.current;
     activeToken.current = null;
+    if (previousToken) unregisterFromPush(previousToken, { unregisterDevice: unregisterPushDevice }).catch(() => {});
     ++generation.current;
     setUser(null); setToken(null); setOrg(null); setIsNewLogin(false); setSessionError('');
     await Promise.all([AsyncStorage.multiRemove([USER, TOKEN, IDENTITY, ...PER_ACCOUNT]), stopBackground()]);
@@ -70,10 +73,7 @@ export function AuthProvider({ children }) {
     activeToken.current = result.token;
     setUser(result.user); setToken(result.token); setOrg(result.organization || null);
     setSessionError(''); setIsNewLogin(true);
-    // Register push token after login — fire-and-forget, never blocks auth.
-    if (result.user?.role === 'DRIVER') {
-      registerForPush(result.token, { registerDevice: registerPushDevice }).catch(() => {});
-    }
+
     return true;
   };
   const login = async (identifier, password) => {
@@ -88,6 +88,24 @@ export function AuthProvider({ children }) {
     const current = ++generation.current;
     return acceptSession(await verifyDriverOtp(number, otp), current);
   };
+  useEffect(() => {
+    if (!token || !['DRIVER', 'OWNER', 'MANAGER'].includes(user?.role)) return undefined;
+    let current = true;
+    const options = {
+      registerDevice: registerPushDevice,
+      unregisterDevice: unregisterPushDevice,
+      isCurrent: () => current && activeToken.current === token,
+    };
+    const register = () => registerForPush(token, options).catch((error) => logger.warn('Push', error.message));
+    register();
+    const listener = AppState.addEventListener('change', (state) => { if (state === 'active') register(); });
+    return () => {
+      current = false;
+      listener.remove();
+      unregisterFromPush(token, { unregisterDevice: unregisterPushDevice }).catch(() => {});
+    };
+  }, [token, user?.role]);
+  const enableNotifications = () => registerForPush(token, { registerDevice: registerPushDevice, unregisterDevice: unregisterPushDevice, requestPermission: true, isCurrent: () => activeToken.current === token });
   const logout = async () => {
     const currentToken = token;
     // Remove push token before clearing session so the request can still authenticate.
@@ -99,6 +117,6 @@ export function AuthProvider({ children }) {
       catch (error) { logger.warn('Auth', `Local sign-out complete; server revocation failed: ${error.message}`); }
     }
   };
-  return <AuthContext.Provider value={{ user, token, organization, loading, sessionError, retrySession: restoreSession, invalidateSession, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, login, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, token, organization, loading, sessionError, retrySession: restoreSession, invalidateSession, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, login, logout, enableNotifications }}>{children}</AuthContext.Provider>;
 }
 export const useAuth = () => useContext(AuthContext);

@@ -12,6 +12,7 @@ export function locationFix(location, source) {
   return {
     latitude: coords.latitude,
     longitude: coords.longitude,
+    mocked: false,
     accuracyMeters: coords.accuracy >= 0 ? coords.accuracy : null,
     speedMps: coords.speed >= 0 ? coords.speed : null,
     headingDegrees:
