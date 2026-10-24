@@ -281,3 +281,22 @@ export async function fetchRepairLogs(token, search = '') {
     throw error;
   }
 }
+
+// ── Push notifications ─────────────────────────────────────────────────
+
+export async function registerPushDevice(expoPushToken, platform, authToken) {
+  const res = await apiClient.post(
+    '/driver/push/device',
+    { token: expoPushToken, platform },
+    { token: authToken },
+  );
+  return res.data?.data;
+}
+
+export async function unregisterPushDevice(expoPushToken, authToken) {
+  const res = await apiClient.delete('/driver/push/device', {
+    data: { token: expoPushToken },
+    token: authToken,
+  });
+  return res.data?.data;
+}

@@ -1,7 +1,8 @@
 import { stopBackground } from '../telematics/tracking/driverBackground';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { requestDriverOtp, verifyDriverOtp, loginWithPassword, fetchAppSession, revokeAppSession } from '../services/api';
+import { requestDriverOtp, verifyDriverOtp, loginWithPassword, fetchAppSession, revokeAppSession, registerPushDevice, unregisterPushDevice } from '../services/api';
+import { registerForPush, unregisterFromPush } from '../services/pushNotifications';
 import { subscribeSessionExpiry } from '../services/sessionEvents';
 import logger from '../utils/logger';
 const AuthContext = createContext();
@@ -69,6 +70,10 @@ export function AuthProvider({ children }) {
     activeToken.current = result.token;
     setUser(result.user); setToken(result.token); setOrg(result.organization || null);
     setSessionError(''); setIsNewLogin(true);
+    // Register push token after login — fire-and-forget, never blocks auth.
+    if (result.user?.role === 'DRIVER') {
+      registerForPush(result.token, { registerDevice: registerPushDevice }).catch(() => {});
+    }
     return true;
   };
   const login = async (identifier, password) => {
@@ -85,6 +90,8 @@ export function AuthProvider({ children }) {
   };
   const logout = async () => {
     const currentToken = token;
+    // Remove push token before clearing session so the request can still authenticate.
+    unregisterFromPush(currentToken, { unregisterDevice: unregisterPushDevice }).catch(() => {});
     // Remove local identity immediately, even if revocation cannot reach the server.
     await invalidateSession();
     if (currentToken) {

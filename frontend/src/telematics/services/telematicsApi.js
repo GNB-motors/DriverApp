@@ -225,6 +225,17 @@ export function createTelematicsApi({
         })),
       documents: async () =>
         (await workflowList("documents", 1, "personal")).items.map(normalize),
+      alerts: async () => {
+        const payload = (await get("/driver/alerts", { params: { limit: 50 } })).data;
+        return (payload?.items || []).map((row) => ({
+          ...normalize(row),
+          title: row.title || row.kind || "Alert",
+          description: row.message,
+          acknowledged: !!row.acknowledgedAt,
+          severity: row.severity || "info",
+          createdAt: row.createdAt,
+        }));
+      },
     };
     await Promise.all(
       Object.entries(jobs).map(async ([key, request]) => {
@@ -256,7 +267,7 @@ export function createTelematicsApi({
     data.drivers = [data.driver];
     data.duty = duty;
     data.errors = errors;
-    data.unavailable = ["Driver alerts", "Stop notes"];
+    data.unavailable = ["Stop notes"];
     return data;
   }
   const headersFor = (branchId) =>
@@ -578,8 +589,9 @@ export function createTelematicsApi({
       return mapList("/branches");
     },
     async acknowledgeAlert(id, { branchId } = {}) {
-      if (audience === "driver")
-        return unavailable("Driver alert acknowledgement");
+      if (audience === "driver") {
+        return (await client.put(`/driver/alerts/${encodeURIComponent(id)}/acknowledgement`, {})).data;
+      }
       return (
         await client.put(
           `/owner-alerts/${encodeURIComponent(id)}/ack`,
@@ -587,6 +599,18 @@ export function createTelematicsApi({
           { headers: headersFor(branchId) },
         )
       ).data;
+    },
+    async reportSos({ clientIncidentId, type, note, reportedAt, latitude, longitude, accuracy }) {
+      const body = { clientIncidentId, type, reportedAt };
+      if (note) body.note = note;
+      if (latitude != null && longitude != null) {
+        body.latitude = latitude;
+        body.longitude = longitude;
+        if (accuracy != null) body.accuracy = accuracy;
+        body.locationCapturedAt = reportedAt;
+      }
+      const result = (await post("/driver/incidents", body)).data;
+      return result;
     },
     assignTruck() {
       return unavailable("Location-verified truck pairing");

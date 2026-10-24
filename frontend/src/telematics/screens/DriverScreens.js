@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet, RefreshControl, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, ScrollView, Pressable, StyleSheet, RefreshControl, KeyboardAvoidingView, Platform, Alert, Animated } from 'react-native';
+import * as Location from 'expo-location';
+import * as Crypto from 'expo-crypto';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
@@ -49,7 +51,6 @@ export function DriverHome({ navigation }) {
     {data?.trips[0] ? <TripCard trip={data.trips[0]} onPress={() => navigation.navigate('Trip detail', { id: data.trips[0].id })} /> : <Empty title="No trips yet" description="Your journeys will appear here." />}
     <SectionHeading title="Needs attention" />
     {data?.alerts.filter((item) => !item.acknowledged).map((alert) => <AlertRow key={alert.id} alert={alert} onPress={() => navigation.navigate('Alert detail', { id: alert.id })} />)}
-<AppText muted>Driver alerts are not connected yet.</AppText>
   </Page>;
 }
 function TripCard({ trip, onPress }) {
@@ -251,7 +252,7 @@ export function AlertDetail({ navigation, route }) {
   const alert = data?.alerts.find((item) => item.id === route.params?.id);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   async function acknowledge() { setBusy(true); setError(''); try { await mutate((service) => service.acknowledgeAlert(alert.id)); } catch (err) { setError(err.message); } finally { setBusy(false); } }
-  return <Page navigation={navigation} title="Alert details">{alert ? <><AlertRow alert={alert} /><Card><AppText muted>Driver alerts are not connected yet.</AppText></Card>{error ? <AppText accessibilityRole="alert" color={colors.error}>{error}</AppText> : null}<Button label={alert.acknowledged ? 'Acknowledged' : 'Acknowledge'} disabled={alert.acknowledged} loading={busy} onPress={acknowledge} /></> : <Empty title="Alert unavailable" description="Return to your inbox." />}</Page>;
+  return <Page navigation={navigation} title="Alert details">{alert ? <><AlertRow alert={alert} />{alert.description ? <Card><AppText>{alert.description}</AppText></Card> : null}{error ? <AppText accessibilityRole="alert" color={colors.error}>{error}</AppText> : null}<Button label={alert.acknowledged ? 'Acknowledged' : 'Mark as read'} disabled={alert.acknowledged} loading={busy} onPress={acknowledge} /></> : <Empty title="Alert unavailable" description="Return to your inbox." />}</Page>;
 }
 export function MyTruck({ navigation }) {
   const { data } = useDriverData();
@@ -419,8 +420,125 @@ export function Profile({ navigation }) {
   async function signOut() { setBusy(true); try { await logout(); } catch (err) { setError(err.message); setBusy(false); } }
   return <Page navigation={navigation} title="Your profile" subtitle="Your account and local preferences." allowEmpty><MenuRow title={user?.name || user?.firstName || 'Driver'} detail={`${user?.role || 'DRIVER'} · Signed-in account`} icon="person-outline" /><MenuRow title="Organization" detail={organization?.name || 'Your signed-in organization'} icon="business-outline" /><Card style={s.form}><TextField label="display preference" accessibilityLabel="display preference" placeholder="Optional nickname for this session" value={name} onChangeText={(value) => { setName(value); setSaved(false); }} maxLength={50} /><Button label={saved ? 'Preference saved locally' : 'Save preference'} variant="secondary" onPress={() => { setPreferences({ nickname: name.trim() }); setSaved(true); }} /><AppText variant="caption" muted>This preference stays for this session and updates your Home greeting. Your account name is unchanged.</AppText></Card><MenuRow title="Language" detail="English" icon="language-outline" /><MenuRow title="Appearance" detail="Nova light · Current theme" icon="sunny-outline" />{error ? <AppText color={colors.error}>{error}</AppText> : null}<Button label="Log out" variant="secondary" loading={busy} onPress={() => Alert.alert('Log out?', 'Sign out of your account on this device?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Log out', onPress: signOut }])} /></Page>;
 }
+const SOS_TYPES = [
+  { key: 'BREAKDOWN', label: 'Breakdown', icon: 'build-outline', color: colors.warning },
+  { key: 'ACCIDENT', label: 'Accident', icon: 'warning-outline', color: colors.error },
+  { key: 'MEDICAL', label: 'Medical emergency', icon: 'medkit-outline', color: '#7c3aed' },
+  { key: 'THEFT', label: 'Theft', icon: 'shield-outline', color: colors.textMuted },
+];
+
 export function SosUnavailable({ navigation }) {
-  return <Page navigation={navigation} title="Emergency help" allowEmpty><Empty title="SOS escalation is not connected yet" description="This app cannot notify your fleet or emergency services yet. Contact emergency services directly if you need immediate help." /><Button label="Go back" variant="secondary" onPress={() => navigation.goBack()} /></Page>;
+  const { service, mutate } = useDriverData();
+  const [type, setType] = useState(null);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(null);
+  const [error, setError] = useState('');
+  const clientId = useRef(Crypto.randomUUID());
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!sent) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.15, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [sent, pulseAnim]);
+
+  async function submit() {
+    if (!type) { setError('Select the type of emergency first.'); return; }
+    setBusy(true); setError('');
+    try {
+      let latitude, longitude, accuracy;
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        try {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced, timeInterval: 5000 });
+          latitude = loc.coords.latitude;
+          longitude = loc.coords.longitude;
+          accuracy = loc.coords.accuracy;
+        } catch { /* no GPS — file without position */ }
+      }
+      const result = await service.reportSos({
+        clientIncidentId: clientId.current,
+        type,
+        note: note.trim() || undefined,
+        reportedAt: new Date().toISOString(),
+        latitude,
+        longitude,
+        accuracy,
+      });
+      setSent(result);
+      mutate(() => Promise.resolve()).catch(() => {});
+    } catch (err) {
+      setError(err.message || 'Could not send SOS. Try again or call emergency services directly.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (sent) {
+    return (
+      <Page navigation={navigation} title="SOS sent" allowEmpty>
+        <View style={{ alignItems: 'center', gap: 20, paddingVertical: 16 }}>
+          <Animated.View style={[s.sosSymbol, { transform: [{ scale: pulseAnim }], backgroundColor: colors.expiredBg }]}>
+            <Ionicons name="shield-checkmark" size={40} color={colors.error} />
+          </Animated.View>
+          <AppText variant="large" weight="bold" style={{ textAlign: 'center' }}>
+            {sent.incidentNumber} — {SOS_TYPES.find((t) => t.key === sent.type)?.label || sent.type}
+          </AppText>
+          <AppText muted style={{ textAlign: 'center' }}>
+            {sent.pairing?.resolved
+              ? `Linked to truck ${sent.truck?.registrationNumber || 'on file'}.`
+              : 'Your fleet has been alerted. They may call to confirm your truck.'}
+          </AppText>
+          <AppText variant="caption" muted style={{ textAlign: 'center' }}>
+            {sent.location?.source === 'UNKNOWN'
+              ? 'No GPS fix — your fleet will call for your location.'
+              : 'Your location has been shared with your fleet.'}
+          </AppText>
+        </View>
+        <Button label="Back to home" onPress={() => navigation.navigate('Driver tabs')} />
+      </Page>
+    );
+  }
+
+  return (
+    <Page navigation={navigation} title="Emergency help" subtitle="Your report goes directly to your fleet manager.">
+      <AppText weight="semibold" style={{ marginBottom: 4 }}>What is the emergency?</AppText>
+      {SOS_TYPES.map((item) => (
+        <Pressable
+          key={item.key}
+          style={[s.menu, { borderWidth: 1, borderRadius: radius.md, padding: 16 }, type === item.key && s.selected]}
+          accessibilityRole="radio"
+          accessibilityState={{ selected: type === item.key }}
+          onPress={() => setType(item.key)}
+        >
+          <View style={[s.menuIcon, { backgroundColor: `${item.color}22` }]}>
+            <Ionicons name={item.icon} size={22} color={item.color} />
+          </View>
+          <AppText weight={type === item.key ? 'semibold' : 'regular'}>{item.label}</AppText>
+        </Pressable>
+      ))}
+      <TextField
+        label="Details (optional)"
+        placeholder="Describe what happened..."
+        value={note}
+        onChangeText={setNote}
+        multiline
+        maxLength={500}
+      />
+      {error ? <AppText color={colors.error} accessibilityRole="alert">{error}</AppText> : null}
+      <Button label="Send SOS alert" loading={busy} onPress={submit} />
+      <AppText variant="caption" muted style={{ textAlign: 'center' }}>
+        Contact emergency services directly if life is at risk.
+      </AppText>
+    </Page>
+  );
 }
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background }, flex: { flex: 1 }, page: { padding: 24, paddingBottom: 32, maxWidth: 640, width: '100%', alignSelf: 'center' }, content: { gap: 14 }, header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, paddingBottom: 8 }, title: { marginTop: 8, marginBottom: 4 }, back: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderRadius: radius.full },
