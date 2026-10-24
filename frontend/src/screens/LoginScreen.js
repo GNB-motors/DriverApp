@@ -20,14 +20,14 @@ import { AppText, Button, colors, spacing, radius, fontFamily } from '../compone
 
 // ── Main screen ─────────────────────────────────────────────────────────
 export default function LoginScreen() {
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const insets = useSafeAreaInsets();
-  const { login } = useAuth();
+  const { login, sessionError, retrySession } = useAuth();
   const { language, setLanguage, t } = useLanguage();
 
   const lt = (key) => {
@@ -36,8 +36,8 @@ export default function LoginScreen() {
     const fallback = {
       brandName: 'HIGHWAY SAHAYAK',
       subtitle: 'Driver Portal Login',
-      phoneLabel: 'ENTER PHONE NUMBER',
-      phonePlaceholder: '00000 00000',
+      phoneLabel: 'PHONE NUMBER OR EMAIL',
+      phonePlaceholder: 'Phone number or email address',
       passwordLabel: 'ENTER PASSWORD',
       passwordPlaceholder: 'Your password',
       loginButton: 'Login',
@@ -50,30 +50,21 @@ export default function LoginScreen() {
     return fallback[key] || '';
   };
 
-  const formatPhone = (text) => {
-    const cleaned = text.replace(/[^0-9]/g, '');
-    if (cleaned.length <= 5) return cleaned;
-    return cleaned.slice(0, 5) + ' ' + cleaned.slice(5, 10);
-  };
-
-  const handlePhoneChange = (text) => {
-    const cleaned = text.replace(/[^0-9]/g, '');
-    if (cleaned.length <= 10) setPhoneNumber(cleaned);
-  };
-
-  const canSubmit = phoneNumber.length === 10 && password.length >= 1;
+  const trimmedIdentifier = identifier.trim();
+  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedIdentifier);
+  const phoneDigits = trimmedIdentifier.replace(/[\s()-]/g, '');
+  const isPhone = /^(?:\+91|91)?[6-9]\d{9}$/.test(phoneDigits);
+  const canSubmit = (isEmail || isPhone) && password.length >= 1;
 
   const handleLogin = async () => {
     if (!canSubmit) return;
     setError('');
     setLoading(true);
     try {
-      // Backend matches on email OR mobileNumber; the OTP flow stores numbers as
-      // +91XXXXXXXXXX, so normalise the same way for password login.
-      const emailOrMobile = `+91${phoneNumber}`;
+      const emailOrMobile = isEmail ? trimmedIdentifier : `+91${phoneDigits.slice(-10)}`;
       await login(emailOrMobile, password);
     } catch (err) {
-      setError(err.message || 'Incorrect phone or password. Please try again.');
+      setError(err.message || 'Incorrect phone/email or password. Please try again.');
       setPassword('');
     } finally {
       setLoading(false);
@@ -122,16 +113,18 @@ export default function LoginScreen() {
           {/* Phone number */}
           <AppText variant="label" muted style={styles.label}>{lt('phoneLabel')}</AppText>
           <View style={styles.phoneField}>
-            <AppText mono weight="bold" color={colors.primary} style={styles.countryCode}>+91</AppText>
-            <View style={styles.fieldDivider} />
             <TextInput
               style={styles.phoneInput}
               placeholder={lt('phonePlaceholder')}
               placeholderTextColor={colors.textMuted}
-              value={formatPhone(phoneNumber)}
-              onChangeText={handlePhoneChange}
-              keyboardType="phone-pad"
-              maxLength={11}
+              value={identifier}
+              onChangeText={setIdentifier}
+              keyboardType="email-address"
+              accessibilityLabel={lt('phoneLabel')}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="username"
+              maxLength={254}
               editable={!loading}
               returnKeyType="next"
             />
@@ -158,9 +151,10 @@ export default function LoginScreen() {
             </Pressable>
           </View>
 
-          {error ? (
+          {sessionError && <Pressable accessibilityRole="button" accessibilityLabel="Retry saved session" onPress={retrySession}><AppText color={colors.primary} center>Retry saved session</AppText></Pressable>}
+          {error || sessionError ? (
             <AppText variant="small" weight="semibold" color={colors.error} center style={styles.error}>
-              {error}
+              {error || sessionError}
             </AppText>
           ) : null}
 

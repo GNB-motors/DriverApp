@@ -1,3 +1,4 @@
+import { notifySessionExpired } from './sessionEvents';
 import * as Sentry from '@sentry/react-native';
 import axios from 'axios';
 import logger from '../utils/logger';
@@ -59,6 +60,7 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     if (error.response) {
+      if (error.response.status === 401 && error.config?.token) notifySessionExpired(error.config.token);
       const message = error.response.data?.message || 'Something went wrong';
       const apiErr = new ApiError(message, error.response.status);
       logger.error('API', `${error.config?.method?.toUpperCase()} ${error.config?.url} → ${error.response.status}: ${message}`);
@@ -130,6 +132,19 @@ export async function verifyDriverOtp(mobileNumber, otp) {
 export async function loginWithPassword(emailOrMobile, password) {
   const res = await apiClient.post(appLoginUrl(API_BASE_URL), { emailOrMobile, password });
   return res.data?.data ?? res.data;
+}
+
+export async function fetchAppSession(token) {
+  const url = appLoginUrl(API_BASE_URL).replace(/\/login$/, '/me');
+  const result = await apiClient.get(url, { token, timeout: 20000 });
+  const session = result.data?.data;
+  if (!session?.user?._id) throw new Error('Invalid account response from server.');
+  return session;
+}
+
+export async function revokeAppSession(token) {
+  const url = appLoginUrl(API_BASE_URL).replace(/\/login$/, '/logout');
+  await apiClient.post(url, {}, { token, timeout: 20000 });
 }
 
 // ── Vehicles ───────────────────────────────────────────────────────────

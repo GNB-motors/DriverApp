@@ -100,7 +100,18 @@ const unavailable = (name) => {
   throw new Error(`${name} is not connected yet.`);
 };
 
-export function createTelematicsApi({ baseURL, token, user, audience }) {
+export function describeApiError(error) {
+  const status = error.response?.status;
+  if (status === 401) return 'Your session has expired. Please sign in again.';
+  if (status === 403) return 'You do not have access to this data in the selected branch.';
+  if (status === 404) return 'This feature is not available on the connected server.';
+  if (status === 400) return 'The request could not be processed. Refresh and try again.';
+  if (status >= 500) return 'The server is temporarily unavailable. Please retry.';
+  if (error.code === 'ECONNABORTED') return 'The request timed out. Please retry.';
+  return error.message || 'Could not connect to the server. Please retry.';
+}
+
+export function createTelematicsApi({ baseURL, token, user, audience, onUnauthorized }) {
   if (!baseURL || !token || !user?._id)
     throw new Error("Sign in again to connect to the server.");
   // Preserve a reverse-proxy prefix such as /v1, matching the existing login helper.
@@ -110,12 +121,29 @@ export function createTelematicsApi({ baseURL, token, user, audience }) {
     timeout: 20000,
     headers: { Authorization: `Bearer ${token}` },
   });
+  client.interceptors.response.use((response) => response, (error) => {
+    if (error.response?.status === 401) Promise.resolve(onUnauthorized?.()).catch(() => {});
+    if (error.response) {
+      console.warn('API request failed', { path: error.config?.url, status: error.response.status, message: error.response.data?.message });
+      error.message = describeApiError(error);
+    }
+    return Promise.reject(error);
+  });
+  const queries = {
+    '/vehicles': { limit: 100 },
+    '/auto-trips': { limit: 100 },
+    '/fuel-logs': { limit: 100 },
+    '/driver/incidents': { limit: 100 },
+    '/support-tickets': { limit: 100 },
+    '/branches': { limit: 100 },
+    '/alert-inbox': { status: 'ALL' },
+  };
   const get = async (path, config) => (await client.get(path, config)).data;
   const post = async (path, body) => (await client.post(path, body)).data;
   const mapList = async (path, convert = normalize, branchId) =>
     rows(
       await get(path, {
-        params: { limit: 100 },
+        params: queries[path],
         headers: branchId ? { "X-Branch-Id": branchId } : {},
       }),
     ).map(convert);
@@ -156,7 +184,8 @@ export function createTelematicsApi({ baseURL, token, user, audience }) {
         try {
           data[key] = await request();
         } catch (error) {
-          errors[key] = error.response?.data?.message || error.message;
+          if (error.response?.status === 401) throw error;
+          errors[key] = describeApiError(error);
         }
       }),
     );
@@ -164,7 +193,7 @@ export function createTelematicsApi({ baseURL, token, user, audience }) {
     try {
       duty = (await get("/driver/duty-status")).data;
     } catch (error) {
-      errors.duty = error.response?.data?.message || error.message;
+      errors.duty = describeApiError(error);
     }
     data.driver = {
       ...normalize(user),
@@ -199,11 +228,11 @@ export function createTelematicsApi({ baseURL, token, user, audience }) {
       fuel: () => mapList("/fuel-logs", fuelView, branchId),
       alerts: () =>
         mapList(
-          "/alert-inbox?status=ALL",
+          "/alert-inbox",
           (row) => ({
             ...normalize(row),
-            title: row.title || row.type,
-            description: row.message || row.description,
+            title: row.title || row.label || row.condition || row.type,
+            description: row.message || row.description || row.wants,
             acknowledged: !!row.acknowledgedAt,
             severity: row.severity?.toLowerCase(),
           }),
@@ -215,7 +244,8 @@ export function createTelematicsApi({ baseURL, token, user, audience }) {
         try {
           data[key] = await request();
         } catch (error) {
-          errors[key] = error.response?.data?.message || error.message;
+          if (error.response?.status === 401) throw error;
+          errors[key] = describeApiError(error);
         }
       }),
     );
@@ -237,10 +267,10 @@ export function createTelematicsApi({ baseURL, token, user, audience }) {
     async branches() {
       return mapList("/branches");
     },
-    async acknowledgeAlert(id) {
+    async acknowledgeAlert(id, { branchId } = {}) {
       if (audience === "driver")
         return unavailable("Driver alert acknowledgement");
-      return (await client.put(`/alert-inbox/${encodeURIComponent(id)}/ack`))
+      return (await client.put(`/alert-inbox/${encodeURIComponent(id)}/ack`, {}, { headers: branchId ? { "X-Branch-Id": branchId } : {} }))
         .data;
     },
     assignTruck() {

@@ -4,13 +4,23 @@ import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 const require = createRequire(import.meta.url);
 const { parse } = require("@babel/parser");
+const traverse = require("@babel/traverse").default;
 async function audit(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const file = new URL(entry.name, dir);
     if (entry.isDirectory()) await audit(new URL(`${entry.name}/`, dir));
     else if (entry.name.endsWith(".js")) {
       const source = await readFile(file, "utf8");
-      parse(source, { sourceType: "module", plugins: ["jsx"] });
+      const ast = parse(source, { sourceType: "module", plugins: ["jsx"] });
+      traverse(ast, {
+        JSXOpeningElement(path) {
+          let name = path.node.name;
+          while (name.type === 'JSXMemberExpression') name = name.object;
+          if (name.type === 'JSXIdentifier' && /^[A-Z]/.test(name.name)) {
+            assert.ok(path.scope.hasBinding(name.name), `${file}: undefined JSX component ${name.name}`);
+          }
+        },
+      });
       assert.ok(
         !/createMockTelematicsService|createFixtures|DEMO_DRIVER_ID|DEMO_BRANCHES|setScenario|sample-image-only/.test(
           source,
@@ -104,6 +114,11 @@ const submitted = JSON.parse(requests.at(-1).data);
 assert.equal(submitted.autoTripId, "gps-trip");
 assert.equal(submitted.driverId, undefined);
 assert.equal(submitted.tripId, undefined);
+await service.loadFleet('branch-1');
+const inboxRequest = requests.find((request) => request.url === '/alert-inbox');
+assert.deepEqual(inboxRequest.params, { status: 'ALL' });
+assert.equal(inboxRequest.headers['X-Branch-Id'], 'branch-1');
+await service.acknowledgeAlert('alert-1', { branchId: 'branch-1' }).catch(() => {});
 axios.defaults.adapter = async (config) => {
   const payload =
     config.url === "/driver/me/vehicle"
@@ -158,6 +173,11 @@ assert.equal(connectedData.trips[0].to, "Destination");
 assert.equal(connectedData.trips[0].distanceKm, 25);
 assert.equal(connectedData.fuel[0].tripId, "gps-trip");
 assert.equal(connectedData.fuel[0].amountInr, 1000);
+let expired = 0;
+axios.defaults.adapter = async () => { const error = new Error('Unauthorized'); error.response = { status: 401 }; throw error; };
+const expiredSession = createTelematicsApi({ baseURL: 'https://example.invalid/v1', token: 'expired', user: { _id: 'signed-in-user' }, audience: 'driver', onUnauthorized: () => { expired += 1; } });
+await assert.rejects(expiredSession.loadDriver(), /session has expired/);
+assert.equal(expired, 1);
 axios.defaults.adapter = async () => {
   throw new Error("Server unavailable");
 };

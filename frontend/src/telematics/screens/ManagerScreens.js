@@ -103,4 +103,29 @@ export function Settings({ navigation }) {
   return <ManagerPage navigation={navigation} title="Settings & support"><MenuRow title={user?.name || user?.firstName || 'Account'} detail={user?.role} icon="person-outline" />{error ? <AppText color={colors.error}>{error}</AppText> : null}<Button label="Log out" variant="secondary" onPress={async () => { try { await logout(); } catch (err) { setError(err.message); } }} /></ManagerPage>;
 }
 
+function Unavailable() {
+  return <Empty title="Record unavailable" detail="Refresh this view or choose another record in the selected branch." />;
+}
+
+function Filters({ values, selected, onSelect }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filters}>
+      {values.map((value) => (
+        <Pressable
+          key={value}
+          accessibilityRole="button"
+          accessibilityLabel={`Filter: ${value}`}
+          accessibilityState={{ selected: selected === value }}
+          style={[s.branch, selected === value && s.branchSelected]}
+          onPress={() => onSelect(value)}
+        >
+          <AppText variant="small" weight="semibold" color={selected === value ? colors.white : colors.textMuted} style={{ textTransform: 'capitalize' }}>
+            {value}
+          </AppText>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+}
+
 const s = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.background }, flex: { flex: 1 }, page: { padding: 24, paddingBottom: 36, width: '100%', maxWidth: 680, alignSelf: 'center' }, header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12, marginBottom: 8 }, title: { marginTop: 8, marginBottom: 4 }, back: { width: 48, height: 48, borderRadius: radius.full, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }, branchRow: { flexWrap: 'wrap', flexDirection: 'row', alignItems: 'center', gap: 8 }, branch: { minHeight: 48, paddingHorizontal: 20, borderRadius: radius.full, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }, branchSelected: { backgroundColor: colors.primary }, branchNote: { marginTop: 8, marginBottom: 20 }, content: { gap: 14 }, hero: { borderRadius: radius.xl, padding: 24, gap: 12 }, heroButton: { marginTop: 10 }, metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, empty: { padding: 24, alignItems: 'center', gap: 14 }, filters: { flexDirection: 'row', gap: 8, paddingBottom: 4 }, dutyCaption: { marginTop: 6, marginLeft: 16 } });

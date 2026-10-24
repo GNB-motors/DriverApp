@@ -1,138 +1,94 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { requestDriverOtp, verifyDriverOtp, loginWithPassword } from '../services/api';
+import { requestDriverOtp, verifyDriverOtp, loginWithPassword, fetchAppSession, revokeAppSession } from '../services/api';
+import { subscribeSessionExpiry } from '../services/sessionEvents';
 import logger from '../utils/logger';
-
 const AuthContext = createContext();
-
-const STORAGE_KEY_USER     = 'fleetedge_user';
-const STORAGE_KEY_TOKEN    = 'fleetedge_token';
-const STORAGE_KEY_IDENTITY = 'fleetedge_last_identity'; // "<userId>:<orgId>"
-
-// Keys that hold per-account state. Wipe these whenever the logged-in
-// identity changes or the user logs out. Add new keys here as they appear.
-const PER_ACCOUNT_KEYS = [
-  'fleetedge_selected_vehicle',
-  // future: 'fleetedge_draft_refuel', 'fleetedge_recent_locations', etc.
-];
-
-const wipePerAccountState = () =>
-  Promise.all(PER_ACCOUNT_KEYS.map((k) => AsyncStorage.removeItem(k)));
+const USER = 'fleetedge_user';
+const TOKEN = 'fleetedge_token';
+const IDENTITY = 'fleetedge_last_identity';
+const PER_ACCOUNT = ['fleetedge_selected_vehicle'];
+const identityOf = (user) => `${user._id}:${typeof user.orgId === 'object' ? user.orgId?._id : user.orgId}`;
 
 export function AuthProvider({ children }) {
-  const [user, setUser]           = useState(null);
-  const [token, setToken]         = useState(null);
-  const [organization, setOrg]    = useState(null);
-  const [loading, setLoading]     = useState(true);
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [organization, setOrg] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [sessionError, setSessionError] = useState('');
   const [isNewLogin, setIsNewLogin] = useState(false);
-
-  useEffect(() => {
-    const loadSession = async () => {
-      try {
-        const [storedUser, storedToken, storedIdentity] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEY_USER),
-          AsyncStorage.getItem(STORAGE_KEY_TOKEN),
-          AsyncStorage.getItem(STORAGE_KEY_IDENTITY),
-        ]);
-        if (storedUser && storedToken) {
-          const parsed = JSON.parse(storedUser);
-          const currentIdentity = `${parsed._id}:${parsed.orgId}`;
-          if (storedIdentity && storedIdentity !== currentIdentity) {
-            await wipePerAccountState();
-            await AsyncStorage.setItem(STORAGE_KEY_IDENTITY, currentIdentity);
-            logger.warn('Auth', 'Identity drift detected — per-account state wiped', { prev: storedIdentity, curr: currentIdentity });
-          }
-          setUser(parsed);
-          setToken(storedToken);
-          logger.info('Auth', `Session restored — role=${parsed.role} id=${parsed._id}`);
-        }
-      } catch (err) {
-        logger.error('Auth', `Failed to restore session: ${err?.message}`);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadSession();
+  const generation = useRef(0);
+  const activeToken = useRef(null);
+  const invalidateSession = useCallback(async (expectedToken) => {
+    if (typeof expectedToken === 'string' && activeToken.current !== expectedToken) return;
+    activeToken.current = null;
+    ++generation.current;
+    setUser(null); setToken(null); setOrg(null); setIsNewLogin(false); setSessionError('');
+    await AsyncStorage.multiRemove([USER, TOKEN, IDENTITY, ...PER_ACCOUNT]);
   }, []);
+  useEffect(() => subscribeSessionExpiry((expiredToken) => {
+    invalidateSession(expiredToken).catch((error) => logger.error('Auth', error.message));
+  }), [invalidateSession]);
 
-  const sendOtp = async (mobileNumber) => {
-    const normalised = mobileNumber.startsWith('+')
-      ? mobileNumber
-      : `+91${mobileNumber.replace(/\s/g, '')}`;
-    await requestDriverOtp(normalised);
-    return normalised;
-  };
+  const restoreSession = useCallback(async () => {
+    const current = ++generation.current;
+    setLoading(true); setSessionError('');
+    try {
+      const storedToken = await AsyncStorage.getItem(TOKEN);
+      if (!storedToken) return;
+      const session = await fetchAppSession(storedToken);
+      if (generation.current !== current) return;
+      const identity = identityOf(session.user);
+      const previous = await AsyncStorage.getItem(IDENTITY);
+      if (previous !== identity) await AsyncStorage.multiRemove(PER_ACCOUNT);
+      if (generation.current !== current) return;
+      await AsyncStorage.multiSet([[USER, JSON.stringify(session.user)], [IDENTITY, identity]]);
+      if (generation.current !== current) return;
+      activeToken.current = storedToken;
+      setUser(session.user); setToken(storedToken); setOrg(session.organization || null);
+    } catch (error) {
+      if (generation.current !== current) return;
+      if (error.statusCode === 401 || error.statusCode === 403) await invalidateSession();
+      else setSessionError('Could not verify your saved session. Check your connection and retry, or sign in again.');
+    } finally { setLoading(false); }
+  }, [invalidateSession]);
+  useEffect(() => { restoreSession(); return () => { ++generation.current; }; }, [restoreSession]);
 
-  const verifyOtp = async (mobileNumber, otp) => {
-    const result = await verifyDriverOtp(mobileNumber, otp);
-    const { user: loggedInUser, token: jwt, organization: org } = result;
-    const newIdentity = `${loggedInUser._id}:${loggedInUser.orgId}`;
-
-    // If the device previously belonged to a different identity, wipe its
-    // per-account state before persisting the new session.
-    const prevIdentity = await AsyncStorage.getItem(STORAGE_KEY_IDENTITY);
-    if (prevIdentity && prevIdentity !== newIdentity) {
-      await wipePerAccountState();
-    }
-
-    await Promise.all([
-      AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(loggedInUser)),
-      AsyncStorage.setItem(STORAGE_KEY_TOKEN, jwt),
-      AsyncStorage.setItem(STORAGE_KEY_IDENTITY, newIdentity),
-    ]);
-
-    setUser(loggedInUser);
-    setToken(jwt);
-    setOrg(org);
-    setIsNewLogin(true);
-    logger.info('Auth', `Login success — role=${loggedInUser.role} id=${loggedInUser._id}`);
+  const acceptSession = async (result, current) => {
+    if (generation.current !== current) return false;
+    if (!result?.user?._id || !result.token) throw new Error('Invalid login response.');
+    const identity = identityOf(result.user);
+    const previous = await AsyncStorage.getItem(IDENTITY);
+    if (generation.current !== current) return false;
+    if (previous !== identity) await AsyncStorage.multiRemove(PER_ACCOUNT);
+    await AsyncStorage.multiSet([[USER, JSON.stringify(result.user)], [TOKEN, result.token], [IDENTITY, identity]]);
+    if (generation.current !== current) return false;
+    activeToken.current = result.token;
+    setUser(result.user); setToken(result.token); setOrg(result.organization || null);
+    setSessionError(''); setIsNewLogin(true);
     return true;
   };
-
-  // Phone/email + password login through the dedicated mobile auth endpoint.
-  const login = async (emailOrMobile, password) => {
-    const result = await loginWithPassword(emailOrMobile, password);
-    const { user: loggedInUser, token: jwt, organization: org } = result;
-    const newIdentity = `${loggedInUser._id}:${loggedInUser.orgId}`;
-
-    const prevIdentity = await AsyncStorage.getItem(STORAGE_KEY_IDENTITY);
-    if (prevIdentity && prevIdentity !== newIdentity) {
-      await wipePerAccountState();
-    }
-
-    await Promise.all([
-      AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(loggedInUser)),
-      AsyncStorage.setItem(STORAGE_KEY_TOKEN, jwt),
-      AsyncStorage.setItem(STORAGE_KEY_IDENTITY, newIdentity),
-    ]);
-
-    setUser(loggedInUser);
-    setToken(jwt);
-    setOrg(org);
-    setIsNewLogin(true);
-    logger.info('Auth', `Password login success — role=${loggedInUser.role} id=${loggedInUser._id}`);
-    return true;
+  const login = async (identifier, password) => {
+    const current = ++generation.current;
+    return acceptSession(await loginWithPassword(identifier, password), current);
   };
-
+  const sendOtp = async (number) => {
+    const normalized = number.startsWith('+') ? number : `+91${number.replace(/\s/g, '')}`;
+    await requestDriverOtp(normalized); return normalized;
+  };
+  const verifyOtp = async (number, otp) => {
+    const current = ++generation.current;
+    return acceptSession(await verifyDriverOtp(number, otp), current);
+  };
   const logout = async () => {
-    await Promise.all([
-      AsyncStorage.removeItem(STORAGE_KEY_USER),
-      AsyncStorage.removeItem(STORAGE_KEY_TOKEN),
-      AsyncStorage.removeItem(STORAGE_KEY_IDENTITY),
-      wipePerAccountState(),
-    ]);
-    setUser(null);
-    setToken(null);
-    setOrg(null);
-    setIsNewLogin(false);
-    logger.info('Auth', 'User logged out — session cleared');
+    const currentToken = token;
+    // Remove local identity immediately, even if revocation cannot reach the server.
+    await invalidateSession();
+    if (currentToken) {
+      try { await revokeAppSession(currentToken); }
+      catch (error) { logger.warn('Auth', `Local sign-out complete; server revocation failed: ${error.message}`); }
+    }
   };
-
-  return (
-    <AuthContext.Provider value={{ user, token, organization, loading, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ user, token, organization, loading, sessionError, retrySession: restoreSession, invalidateSession, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, login, logout }}>{children}</AuthContext.Provider>;
 }
-
 export const useAuth = () => useContext(AuthContext);

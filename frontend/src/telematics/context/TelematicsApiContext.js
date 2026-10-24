@@ -3,7 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import { createTelematicsApi } from "../services/telematicsApi";
 const Context = createContext(null);
 export function TelematicsApiProvider({ audience = "driver", children }) {
-  const { user, token } = useAuth();
+  const { user, token, invalidateSession } = useAuth();
   const service = useMemo(
     () =>
       createTelematicsApi({
@@ -11,8 +11,9 @@ export function TelematicsApiProvider({ audience = "driver", children }) {
         token,
         user,
         audience,
+        onUnauthorized: () => invalidateSession(token),
       }),
-    [token, user, audience],
+    [token, user, audience, invalidateSession],
   );
   return <Context.Provider value={service}>{children}</Context.Provider>;
 }
