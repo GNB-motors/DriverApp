@@ -98,3 +98,42 @@ Checks: API/JSX/no-runtime-mock and queue failure/replay checks pass; Expo Docto
 21/21; exports for web/iOS/Android pass. Physical-device GPS/background/logout
 verification and test backend deployment remain required. Phase 1 release blockers
 remain open. This implementation does not deploy the backend or push to main.
+
+## Phase 4 operational workflows
+
+New screens in `workflows/` connect real driver fuel capture/receipts, personal
+and assigned-truck documents, workshop OCR evidence, own incidents and support
+conversations/replies. Camera/photo/PDF selection uses Expo packages; uploads show
+progress and server errors. Detail views request fresh signed links. No sample
+receipt, fabricated OCR or simulated save is used.
+
+Driver APIs live under `/driver/workflows`; incident reporting retains the
+existing `/driver/incidents` API. Fuel preserves GPS autoTripId separately from
+ERP tripId, validates the current/refuel-time assignment and requires odometer
+for full-tank fills. Workshop scans are maintenance-domain extractions, not ERP
+bills. FAILED/PARTIAL OCR remains visible and requires human review.
+
+Owner/manager routes under `/fleet/workflows` enforce branch scope for roster,
+DVA handover, documents, fuel, bills, maintenance and incidents. App screens can
+choose/create a maintenance record and review individual bill fields. Review is
+transactional and rejects stale edits. Incident acknowledgement/resolution uses
+the existing lifecycle. APP fuel approval/rejection and full bill line-item review
+remain pending; no field-agent or ERP approval API is substituted.
+
+Submission UUIDs and payloads are saved per account before sending. Same-ID
+retries do not repeat writes; changed payloads are rejected. A failed/indeterminate
+attempt is not automatically executed again. Check history before intentionally
+starting a separate entry. Missing browser/native cached files require reselecting
+the same evidence. A saved response followed by refresh failure must stay saved.
+
+Backend deployment needs the DriverOperation unique index, DVA indexes, MongoDB
+replica-set transactions, real S3/signing and OCR. Verify the index before enabling
+workflows. A process lost before creating its record can leave a reserved operation
+requiring operator reconciliation; S3 and database writes are not one transaction.
+No production deployment/index command is included in this implementation.
+
+Checks: 134 backend tests passed across two focused runs; app contract checks cover
+multipart bytes/authentication, UUIDs and scoped pagination, plus JSX/no-runtime-mock
+and offline queue behavior. Expo Doctor 21/21 and web/iOS/Android exports pass.
+Actual upload/OCR/device/relogin testing against a test deployment remains required.
+Phase 1 security blockers and remaining Phase 4 exit checks still apply.

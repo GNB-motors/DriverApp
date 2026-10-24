@@ -1,3 +1,4 @@
+import * as Operations from './workflows/FleetOperationalScreens';
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -16,7 +17,7 @@ function ManagerTabs() {
   return <Tab.Navigator tabBar={(props) => <CurvedTabBar {...props} />} screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name={icons[route.name]} size={size} color={color} /> })}>
     <Tab.Screen name="Home" component={Screens.ManagerHome} />
     <Tab.Screen name="Live" component={Screens.ManagerLive} />
-    <Tab.Screen name="Drivers" component={Screens.Drivers} />
+    <Tab.Screen name="Drivers" component={Operations.DriverRoster} />
     <Tab.Screen name="Alerts" component={Screens.Alerts} options={{ tabBarBadge: unread || undefined }} />
     <Tab.Screen name="More" component={Screens.More} />
   </Tab.Navigator>;
@@ -30,14 +31,15 @@ export default function ManagerNavigator() {
     <Stack.Screen name="Fleet" component={Screens.Fleet} />
     <Stack.Screen name="Vehicle detail" component={Screens.VehicleDetail} />
     <Stack.Screen name="Driver detail" component={Screens.DriverDetail} />
-    <Stack.Screen name="Duty board" component={Screens.Drivers} />
-    <Stack.Screen name="Truck handover" component={Screens.Handover} />
+    <Stack.Screen name="Duty board" component={Operations.DriverRoster} />
+    <Stack.Screen name="Truck handover" component={Operations.Handover} />
     <Stack.Screen name="Manager alert" component={Screens.AlertDetail} />
-    <Stack.Screen name="Fuel review" component={Screens.Reviews} />
-    <Stack.Screen name="Maintenance" component={Screens.Reviews} />
-    <Stack.Screen name="Review detail" component={Screens.ReviewDetail} />
-    <Stack.Screen name="Fleet documents" component={Screens.Documents} />
-    <Stack.Screen name="Manager document" component={Screens.DocumentDetail} />
+    <Stack.Screen name="Fuel review" component={Operations.FleetRecords} />
+    <Stack.Screen name="Maintenance" component={Operations.FleetRecords} />
+    <Stack.Screen name="New maintenance record" component={Operations.NewMaintenance} />
+    <Stack.Screen name="Review detail" component={Operations.FleetRecordDetail} />
+    <Stack.Screen name="Fleet documents" component={Operations.FleetRecords} />
+    <Stack.Screen name="Manager document" component={Operations.FleetRecordDetail} />
     <Stack.Screen name="Fleet trips" component={Screens.Trips} />
     <Stack.Screen name="Manager trip" component={Screens.Trips} />
     <Stack.Screen name="Manager settings" component={Screens.Settings} />

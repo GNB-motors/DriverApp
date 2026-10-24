@@ -1,3 +1,4 @@
+import * as Operations from './workflows/FleetOperationalScreens';
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -31,17 +32,18 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Fleet" component={Screens.Fleet} />
     <Stack.Screen name="Vehicle detail" component={Screens.VehicleDetail} />
     <Stack.Screen name="Driver detail" component={Screens.DriverDetail} />
-    <Stack.Screen name="Duty board" component={Screens.Drivers} />
-    <Stack.Screen name="Truck handover" component={Screens.Handover} />
+    <Stack.Screen name="Duty board" component={Operations.DriverRoster} />
+    <Stack.Screen name="Truck handover" component={Operations.Handover} />
     <Stack.Screen name="Manager alert" component={Screens.AlertDetail} />
-    <Stack.Screen name="Fuel review" component={Screens.Reviews} />
-    <Stack.Screen name="Maintenance" component={Screens.Reviews} />
-    <Stack.Screen name="Review detail" component={Screens.ReviewDetail} />
-    <Stack.Screen name="Fleet documents" component={Screens.Documents} />
-    <Stack.Screen name="Manager document" component={Screens.DocumentDetail} />
+    <Stack.Screen name="Fuel review" component={Operations.FleetRecords} />
+    <Stack.Screen name="Maintenance" component={Operations.FleetRecords} />
+    <Stack.Screen name="New maintenance record" component={Operations.NewMaintenance} />
+    <Stack.Screen name="Review detail" component={Operations.FleetRecordDetail} />
+    <Stack.Screen name="Fleet documents" component={Operations.FleetRecords} />
+    <Stack.Screen name="Manager document" component={Operations.FleetRecordDetail} />
     <Stack.Screen name="Fleet trips" component={Screens.Trips} />
     <Stack.Screen name="Manager trip" component={Screens.Trips} />
-    <Stack.Screen name="Drivers" component={Screens.Drivers} />
+    <Stack.Screen name="Drivers" component={Operations.DriverRoster} />
     <Stack.Screen name="Digest" component={Owner.Digest} />
     <Stack.Screen name="Fuel & AdBlue" component={Owner.FuelAdblue} />
     <Stack.Screen name="Branch overview" component={Owner.BranchOverview} />

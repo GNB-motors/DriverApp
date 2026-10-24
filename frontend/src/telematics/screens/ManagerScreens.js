@@ -44,7 +44,7 @@ const date = (value) =>
     day: "numeric",
     month: "short",
   });
-export function ManagerPage({ navigation, title, subtitle, children }) {
+export function ManagerPage({ navigation, title, subtitle, children, allowEmpty = false }) {
   const {
     data,
     loading,
@@ -129,20 +129,20 @@ export function ManagerPage({ navigation, title, subtitle, children }) {
             Branch access is enforced by the server
           </AppText>
           <View style={s.content}>
-            {error ? (
+            {error && !allowEmpty ? (
               <DataState state="error" onRetry={refresh} />
-            ) : !data ? (
+            ) : !data && !allowEmpty ? (
               <DataState state="loading" />
             ) : (
               <>
-                {Object.entries(data.errors || {}).map(([key, message]) => (
+                {Object.entries(data?.errors || {}).map(([key, message]) => (
                   <Card key={key}>
                     <AppText color={colors.error}>
                       {key}: {message}
                     </AppText>
                   </Card>
                 ))}
-                {!!data.unavailable?.length && (
+                {!!data?.unavailable?.length && (
                   <AppText muted>
                     Not connected yet: {data.unavailable.join(", ")}. Totals
                     cover connected resources only.
@@ -473,7 +473,7 @@ export function DriverDetail({ navigation, route }) {
       {driver ? (
         <>
           <DriverRow driver={driver} />
-          <DutyCard driver={driver} />
+          {Number.isFinite(driver.limitMinutes) ? <DutyCard driver={driver} /> : <AppText muted>Fleet duty summary is not connected.</AppText>}
           {vehicle ? (
             <VehicleRow
               vehicle={vehicle}

@@ -135,6 +135,9 @@ export function describeApiError(error) {
     );
   if (status === 400)
     return "The request could not be processed. Refresh and try again.";
+  if (status === 413) return "Choose a file smaller than 10 MB.";
+  if (status === 415)
+    return "Choose a JPEG, PNG, WebP, HEIC image or PDF file.";
   if (status >= 500)
     return "The server is temporarily unavailable. Please retry.";
   if (error.code === "ECONNABORTED")
@@ -203,26 +206,25 @@ export function createTelematicsApi({
     const errors = {};
     const jobs = {
       trips: () => mapList("/auto-trips", tripView),
-      fuel: () => mapList("/fuel-logs", fuelView),
+      fuel: async () => (await workflowList("fuel")).items.map(fuelView),
       issues: () =>
         mapList("/driver/incidents", (row) => ({
           ...normalize(row),
-          title: row.note || row.type,
+          title: row.report?.note || row.type,
         })),
-      support: () =>
-        mapList("/support-tickets", (row) => ({
+      support: async () =>
+        (await workflowList("support")).items.map((row) => ({
           ...normalize(row),
           title: row.subject,
         })),
-      documents: () =>
-        vehicle
-          ? mapList(`/vehicles/${vehicle.id}/documents`, (row) => ({
-              ...normalize(row),
-              vehicleId: vehicle.id,
-              title: row.documentType || row.type || row.name || "Document",
-              expiresAt: row.expiryDate,
-            }))
-          : Promise.resolve([]),
+      bills: async () =>
+        (await workflowList("bills")).items.map((row) => ({
+          ...normalize(row),
+          title: "Workshop bill",
+          status: row.scanStatus,
+        })),
+      documents: async () =>
+        (await workflowList("documents", 1, "personal")).items.map(normalize),
     };
     await Promise.all(
       Object.entries(jobs).map(async ([key, request]) => {
@@ -254,12 +256,7 @@ export function createTelematicsApi({
     data.drivers = [data.driver];
     data.duty = duty;
     data.errors = errors;
-    data.unavailable = [
-      "Driver alerts",
-      "Personal documents",
-      "Workshop bills",
-      "Stop notes",
-    ];
+    data.unavailable = ["Driver alerts", "Stop notes"];
     return data;
   }
   const headersFor = (branchId) =>
@@ -356,6 +353,19 @@ export function createTelematicsApi({
       vehicles: () => mapList("/vehicles", normalize, branchId),
       trips: () => mapList("/auto-trips", tripView, branchId),
       fuel: () => mapList("/fuel-logs", fuelView, branchId),
+      drivers: async () =>
+        (
+          await get("/fleet/workflows/drivers", {
+            params: { page: 1, limit: 100 },
+            headers: headersFor(branchId),
+          })
+        ).data.items.map((row) => ({
+          ...normalize(row),
+          name: [row.firstName, row.lastName].filter(Boolean).join(" "),
+          vehicleId: recordId(row.assignment?.vehicleId),
+          state: "Unavailable",
+          drivingMinutes: null,
+        })),
       positions: () => listPositions(branchId),
       alertFeed: () => listOwnerAlerts({ branchId }),
     };
@@ -374,18 +384,133 @@ export function createTelematicsApi({
     if (errors.alertFeed) errors.alerts = errors.alertFeed;
     delete errors.alertFeed;
     data.errors = errors;
-    data.unavailable = [
-      "Driver roster",
-      "Assignments",
-      "Documents",
-      "Workshop bills",
-      "Reviews",
-      "AdBlue",
-    ];
+    data.unavailable = ["Documents", "Reviews", "AdBlue"];
     return data;
+  }
+  async function workflowList(kind, page = 1, scope) {
+    const payload = (
+      await get(`/driver/workflows/${kind}`, {
+        params: { page, limit: 30, ...(scope && { scope }) },
+      })
+    ).data;
+    if (!Array.isArray(payload?.items) || !Number.isFinite(payload.total))
+      throw new Error("Invalid workflow list response.");
+    return { ...payload, items: payload.items.map(normalize) };
+  }
+  async function uploadWorkflow(kind, payload, asset, onUploadProgress) {
+    const body = new FormData();
+    for (const [key, value] of Object.entries(payload))
+      if (value !== undefined && value !== null && value !== "")
+        body.append(key, String(value));
+    if (asset) {
+      const field = kind === "incident" ? "files" : "file";
+      if (typeof document !== "undefined") {
+        const blob = asset.file || (await (await fetch(asset.uri)).blob());
+        body.append(
+          field,
+          blob,
+          asset.name || asset.fileName || "attachment.jpg",
+        );
+      } else
+        body.append(field, {
+          uri: asset.uri,
+          name: asset.name || asset.fileName || "attachment.jpg",
+          type: asset.mimeType || "image/jpeg",
+        });
+    }
+    return (
+      await client.post(
+        kind === "incident" ? "/driver/incidents" : `/driver/workflows/${kind}`,
+        body,
+        { timeout: 120000, onUploadProgress },
+      )
+    ).data.data;
   }
   return {
     loadDriver,
+    workflowList,
+    uploadWorkflow,
+    async workflowDetail(kind, id) {
+      return (await get(`/driver/workflows/${kind}/${encodeURIComponent(id)}`))
+        .data;
+    },
+    async ownIssue(id) {
+      return (await get(`/driver/incidents/${encodeURIComponent(id)}`)).data;
+    },
+    async ownIssues(page = 1) {
+      const payload = (
+        await get("/driver/incidents", { params: { page, limit: 30 } })
+      ).data;
+      return {
+        ...payload,
+        total: payload.pagination?.total,
+        items: payload.items?.map(normalize),
+      };
+    },
+    async fleetWorkflow(kind, page = 1, branchId, filters = {}) {
+      const value = (
+        await get(`/fleet/workflows/${kind}`, {
+          params: { page, limit: 30, ...filters },
+          headers: headersFor(branchId),
+        })
+      ).data;
+      if (!Array.isArray(value?.items) || !Number.isFinite(value.total))
+        throw new Error("Invalid fleet workflow response.");
+      return value;
+    },
+    async createMaintenance(payload, branchId) {
+      return (
+        await client.post("/fleet/workflows/maintenance", payload, {
+          headers: headersFor(branchId),
+        })
+      ).data.data;
+    },
+    async fleetRecord(kind, id, branchId) {
+      return (
+        await get(`/fleet/workflows/${kind}/${encodeURIComponent(id)}`, {
+          headers: headersFor(branchId),
+        })
+      ).data;
+    },
+    async issueAction(id, action, body, branchId) {
+      return (
+        await client.post(
+          `/fleet/workflows/issues/${encodeURIComponent(id)}/${action}`,
+          body || {},
+          { headers: headersFor(branchId) },
+        )
+      ).data.data;
+    },
+    async vehicleOptions(page = 1, branchId) {
+      const result = await get("/vehicles", {
+        params: { page, limit: 30 },
+        headers: headersFor(branchId),
+      });
+      return { items: rows(result).map(normalize), total: result.meta?.total };
+    },
+    async fleetBill(id, branchId) {
+      return (
+        await get(`/fleet/workflows/bills/${encodeURIComponent(id)}`, {
+          headers: headersFor(branchId),
+        })
+      ).data;
+    },
+    async reviewBill(id, payload, branchId) {
+      return (
+        await client.post(
+          `/fleet/workflows/bills/${encodeURIComponent(id)}/review`,
+          payload,
+          { headers: headersFor(branchId) },
+        )
+      ).data.data;
+    },
+    async confirmHandover(payload, branchId) {
+      return (
+        await client.post("/fleet/workflows/handover", payload, {
+          headers: headersFor(branchId),
+        })
+      ).data.data;
+    },
     loadFleet,
     listOwnerAlerts,
     listPositions,

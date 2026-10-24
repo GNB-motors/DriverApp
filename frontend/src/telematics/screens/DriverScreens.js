@@ -348,7 +348,7 @@ export function ChangeTruck({ navigation }) {
     </Page>
   );
 }
-const actions = [['Add fuel', 'water-outline', 'Record litres and a receipt'], ['Report issue', 'construct-outline', 'Tell your manager what needs attention'], ['Workshop bill', 'receipt-outline', 'Simulate a workshop bill scan'], ['Explain a stop', 'pause-circle-outline', 'Add context to a stop'], ['SOS', 'shield-outline', 'Emergency flow simulation only']];
+const actions = [['Add fuel', 'water-outline', 'Record litres and a receipt'], ['Report issue', 'construct-outline', 'Tell your manager what needs attention'], ['Workshop bill', 'receipt-outline', 'Upload a workshop bill for OCR'], ['Explain a stop', 'pause-circle-outline', 'Add context to a stop'], ['SOS', 'shield-outline', 'Emergency contacts']];
 export function QuickAdd({ navigation }) {
   return <Page navigation={navigation} title="What would you like to add?" subtitle="Simple steps. Back to the road.">{actions.map(([title, icon, detail]) => <MenuRow key={title} title={title} icon={icon} detail={detail} danger={title === 'SOS'} onPress={() => navigation.replace(title)} />)}</Page>;
 }
@@ -360,65 +360,7 @@ function Success({ title, description, onDone }) {
   return <Card style={s.empty}><View style={s.successIcon}><Ionicons name="checkmark" size={32} color={colors.success} /></View><AppText variant="h2" center>{title}</AppText><AppText muted center>{description}</AppText><Button label="Done" onPress={onDone} /></Card>;
 }
 export function CaptureForm({ navigation, route }) {
-  const { data, mutate } = useDriverData();
-  const kind = route.name;
-  const isFuel = kind === 'Add fuel'; const isBill = kind === 'Workshop bill'; const isSupport = kind === 'Support'; const isStop = kind === 'Explain a stop';
-  const [title, setTitle] = useState(''); const [amount, setAmount] = useState(''); const [litres, setLitres] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [done, setDone] = useState(false);
-  const stops = data?.stops.filter((stop) => data.trips.some((trip) => trip.id === stop.tripId)) || [];
-  const [chosenStop, setChosenStop] = useState(route.params?.stopId || null);
-  const stop = stops.find((item) => item.id === chosenStop);
-  const trip = isFuel ? (data?.trips.find((item) => item.id === route.params?.tripId) || (route.params?.trip?.id === route.params?.tripId ? route.params.trip : null)) : null;
-  const invalidTrip = isFuel && !!route.params?.tripId && !trip;
-  const fuelVehicle = trip ? data?.vehicles.find((item) => item.id === trip.vehicleId) : data?.vehicle;
-  const vehicleId = isStop ? stop?.vehicleId : isFuel ? fuelVehicle?.id : data?.vehicle?.id;
-  const linked = !invalidTrip && (isSupport || kind === 'Report issue' || !!vehicleId);
-  async function submit() {
-    setError('');
-    if (invalidTrip) { setError('This trip is unavailable. Return to Trips and choose it again.'); return; }
-    if (!linked) { setError(isStop ? 'Choose a stop.' : 'Link a truck first.'); return; }
-    const quantity = Number(litres); const cost = Number(amount);
-    if (isSupport && title.trim().length < 10) { setError('Describe the request in at least 10 characters.'); return; }
-    if (!title.trim()) { setError(isFuel ? 'Enter the fuel station.' : 'Add a short description.'); return; }
-    if ((isFuel || isBill) && (!Number.isFinite(cost) || cost <= 0)) { setError('Enter a valid positive amount.'); return; }
-    if (isFuel && (!Number.isFinite(quantity) || quantity <= 0)) { setError('Enter a valid positive fuel quantity.'); return; }
-    setBusy(true);
-    try {
-      await mutate((service) => service.submit(isFuel ? 'fuel' : isBill ? 'bills' : isSupport ? 'support' : isStop ? 'stopNotes' : 'issues', { vehicleId, tripId: isFuel ? trip?.id : undefined, driverId: data?.driver?.id, title: title.trim(), station: isFuel ? title.trim() : undefined, litres: isFuel ? quantity : undefined, amountInr: isFuel || isBill ? cost : undefined, stopId: isStop ? stop.id : undefined }));
-      setDone(true);
-    } catch (err) { setError(err.message); } finally { setBusy(false); }
-  }
-  if (isBill || isStop) return <Page navigation={navigation} title={kind}><Empty title="Submission is not connected yet" description="This action will be enabled after assignment validation and upload integration are complete. Nothing has been saved." />{trip && <MenuRow title={`${trip.from} → ${trip.to}`} detail="Selected trip" icon="navigate-outline" />}</Page>;
-  return <Page navigation={navigation} title={kind} subtitle="Record an update. Your entry is sent to your organization.">{done ? <Success title="Saved" description={isBill ? 'OCR completed. The bill is pending review in Workshop bills.' : isSupport ? 'Your support ticket was submitted to the server.' : 'Your entry was saved to the server.'} onDone={() => navigation.goBack()} /> : <>
-    {invalidTrip && <Empty title="Trip unavailable" description="Return to Trips and choose the trip again." />}
-    {trip && <MenuRow title={`${trip.from} → ${trip.to}`} detail="Fuel will be recorded for this trip" icon="navigate-outline" />}
-    {!linked && !invalidTrip && !isStop && <Empty title="Link a truck first" description="A fuel, issue or bill entry needs a vehicle." action={<Button label="Choose truck" onPress={() => navigation.navigate('Change truck')} />} />}
-    {(isFuel ? fuelVehicle : data?.vehicle) && !isSupport && !isStop && <MenuRow title={(isFuel ? fuelVehicle : data.vehicle).plate} detail="vehicle" icon="bus-outline" />}
-    {isStop && <><AppText variant="label" muted>CHOOSE A STOP</AppText>{stops.map((item) => <MenuRow key={item.id} title={item.location} detail={`${item.durationMinutes} minutes${chosenStop === item.id ? ' · Selected' : ''}`} icon={chosenStop === item.id ? 'radio-button-on' : 'radio-button-off'} onPress={() => setChosenStop(item.id)} />)}{!stops.length && <DataState state="empty" />}</>}
-    <Card style={s.form} padding={spacing.lg}>
-      <TextField label={isFuel ? 'Fuel station' : isBill ? 'Workshop / description' : 'What happened?'} accessibilityLabel={isFuel ? 'Fuel station' : 'Description'} placeholder={isFuel ? 'e.g. Highway fuel station' : 'Add a short description'} value={title} onChangeText={setTitle} multiline={!isFuel} maxLength={500} />
-      {isFuel && <TextField label="Fuel quantity" accessibilityLabel="Fuel quantity in litres" value={litres} onChangeText={setLitres} placeholder="0.00" keyboardType="decimal-pad" unit="L" mono />}
-      {(isFuel || isBill) && <TextField label="Total amount" accessibilityLabel="Amount in rupees" value={amount} onChangeText={setAmount} placeholder="0.00" keyboardType="decimal-pad" unit="₹" mono />}
-
-    </Card>
-    {error ? <AppText accessibilityRole="alert" color={colors.error}>{error}</AppText> : null}
-    <Button label={isBill ? 'Save bill' : 'Save entry'} loading={busy} disabled={!linked} onPress={submit} />
-    {isSupport && <><SectionHeading title="support tickets" />{data?.support.map((ticket) => <MenuRow key={ticket.id} title={ticket.title} detail={`${ticket.status} · ${date(ticket.createdAt)}`} icon="chatbubble-outline" />)}{!data?.support.length && <AppText muted>No tickets yet.</AppText>}</>}
-  </>}</Page>;
-}
-export function RecordsScreen({ navigation, route }) {
-  const { data } = useDriverData(); const kind = route.name;
-  const resource = kind === 'Fuel history' ? 'fuel' : kind === 'My issues' ? 'issues' : 'bills';
-  const rows = data?.[resource] || [];
-  return <Page navigation={navigation} title={kind} subtitle="entries from this session."><Button label={resource === 'fuel' ? 'Add fuel' : resource === 'issues' ? 'Report issue' : 'Add workshop bill'} variant="secondary" icon="add" onPress={() => navigation.navigate(resource === 'fuel' ? 'Add fuel' : resource === 'issues' ? 'Report issue' : 'Workshop bill')} />{rows.map((item) => <MenuRow key={item.id} title={item.station || item.title} detail={`${item.litres ? `${item.litres} L · ` : ''}${item.amountInr ? `${money(item.amountInr)} · ` : ''}${item.status} · ${date(item.createdAt)}`} icon={resource === 'fuel' ? 'water-outline' : resource === 'issues' ? 'construct-outline' : 'receipt-outline'} />)}{!rows.length && <Empty title="No entries yet" description="Add a entry to see it here." />}</Page>;
-}
-export function Documents({ navigation }) {
-  const { data } = useDriverData(); const [scope, setScope] = useState('Personal');
-  const documents = data?.documents.filter((item) => scope === 'Personal' ? !!item.driverId : !!item.vehicleId) || [];
-  return <Page navigation={navigation} title="Your documents" subtitle="Personal and vehicle essentials."><View style={s.filters}>{['Personal', 'Vehicle'].map((item) => <Pressable key={item} accessibilityRole="button" accessibilityState={{ selected: item === scope }} style={[s.filter, scope === item && s.activeFilter]} onPress={() => setScope(item)}><AppText color={scope === item ? colors.white : colors.textMuted}>{item}</AppText></Pressable>)}</View>{documents.map((item) => <MenuRow key={item.id} title={item.title} detail={`${item.status} · Expires ${date(item.expiresAt)}`} icon="document-text-outline" onPress={() => navigation.navigate('Document detail', { id: item.id })} />)}{!documents.length && <DataState state="empty" />}</Page>;
-}
-export function DocumentDetail({ navigation, route }) {
-  const { data } = useDriverData(); const doc = data?.documents.find((item) => item.id === route.params?.id);
-  return <Page navigation={navigation} title="Document details">{doc ? <><Card style={s.empty}><Ionicons name="document-text-outline" size={56} color={colors.primary} /><AppText variant="h2" center>{doc.title}</AppText><AppText color={colors.success}>{doc.status}</AppText><AppText muted>Expires {date(doc.expiresAt)}</AppText></Card><Card><AppText muted>This is a document record. No real file is attached or downloaded.</AppText></Card></> : <DataState state="empty" />}</Page>;
+  return <Page navigation={navigation} title={route.name}><Empty title="Stop notes are not connected yet" description="No stop explanation has been saved." /></Page>;
 }
 export function LocationSharing({ navigation }) {
   const { tracking } = useDriverData();

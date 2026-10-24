@@ -224,16 +224,19 @@ axios.defaults.adapter = async (config) => {
               },
             ],
           }
-        : config.url === "/fuel-logs"
-          ? [
-              {
-                _id: "fuel",
-                autoTripId: "gps-trip",
-                tripId: "erp-trip",
-                litres: 10,
-                rate: 100,
-              },
-            ]
+        : config.url === "/driver/workflows/fuel"
+          ? {
+              items: [
+                {
+                  _id: "fuel",
+                  autoTripId: "gps-trip",
+                  tripId: "erp-trip",
+                  litres: 10,
+                  rate: 100,
+                },
+              ],
+              total: 1,
+            }
           : config.url === "/driver/duty-status"
             ? { state: "DRIVING" }
             : [];
@@ -314,8 +317,11 @@ assert.deepEqual(
 // Phase 3 request contracts use the same authenticated API root.
 axios.defaults.adapter = async (config) => {
   requests.push(config);
-  const payload =
-    config.url === "/driver/me/change-truck"
+  const payload = config.url.startsWith("/driver/workflows/")
+    ? config.method === "post"
+      ? { record: { _id: "stored-document" }, replayed: false }
+      : { items: [], total: 0 }
+    : config.url === "/driver/me/change-truck"
       ? { candidates: [], requireConfirm: true }
       : config.url === "/auto-trips"
         ? { items: [], total: 0 }
@@ -363,6 +369,44 @@ assert.equal(requests.at(-1).url, "/driver/location/batch");
 assert.equal((await phase3.listTrips(2)).total, 0);
 assert.equal(requests.at(-1).params.page, 2);
 assert.equal((await phase3.getTripTrack("trip")).points[0].longitude, 88);
+
+// Operational uploads retain real file bytes, the persisted request ID and bearer authentication.
+globalThis.document = {};
+try {
+  const result = await phase3.uploadWorkflow(
+    "documents",
+    {
+      clientRequestId: "123e4567-e89b-42d3-a456-426614174000",
+      scope: "personal",
+      docType: "PAN",
+    },
+    {
+      file: new Blob(["actual test evidence"], { type: "application/pdf" }),
+      name: "document.pdf",
+      mimeType: "application/pdf",
+      uri: "unused",
+    },
+  );
+  assert.equal(result.record._id, "stored-document");
+  const upload = requests.at(-1);
+  assert.equal(upload.url, "/driver/workflows/documents");
+  assert.equal(upload.headers.Authorization, "Bearer test-token");
+  assert.equal(upload.data.get("scope"), "personal");
+  assert.equal(
+    upload.data.get("clientRequestId"),
+    "123e4567-e89b-42d3-a456-426614174000",
+  );
+  assert.equal(await upload.data.get("file").text(), "actual test evidence");
+  assert.equal(upload.data.has("driverId"), false);
+  await phase3.workflowList("documents", 2, "personal");
+  assert.deepEqual(requests.at(-1).params, {
+    page: 2,
+    limit: 30,
+    scope: "personal",
+  });
+} finally {
+  delete globalThis.document;
+}
 let expired = 0;
 axios.defaults.adapter = async () => {
   const error = new Error("Unauthorized");

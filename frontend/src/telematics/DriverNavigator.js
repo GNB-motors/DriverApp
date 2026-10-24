@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { TelematicsApiProvider } from './context/TelematicsApiContext';
 import { DriverDataProvider, useDriverData } from './context/DriverDataContext';
 import * as Screens from './screens/DriverScreens';
+import * as Operations from './workflows/OperationalScreens';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -37,10 +38,13 @@ export default function DriverNavigator() {
     <Stack.Screen name="Change truck" component={Screens.ChangeTruck} />
     <Stack.Screen name="Trip detail" component={Screens.TripDetail} />
     <Stack.Screen name="Alert detail" component={Screens.AlertDetail} />
-    {['Add fuel', 'Report issue', 'Workshop bill', 'Explain a stop', 'Support'].map((name) => <Stack.Screen key={name} name={name} component={Screens.CaptureForm} />)}
-    {['Fuel history', 'My issues', 'Workshop bills'].map((name) => <Stack.Screen key={name} name={name} component={Screens.RecordsScreen} />)}
-    <Stack.Screen name="Documents" component={Screens.Documents} />
-    <Stack.Screen name="Document detail" component={Screens.DocumentDetail} />
+    {['Add fuel', 'Report issue', 'Workshop bill', 'Upload document', 'New support ticket', 'Reply to support'].map((name) => <Stack.Screen key={name} name={name} component={Operations.OperationalForm} />)}
+    <Stack.Screen name="Explain a stop" component={Screens.CaptureForm} />
+    <Stack.Screen name="Operation detail" component={Operations.RecordDetail} />
+    <Stack.Screen name="Support" component={Operations.RecordList} />
+    {['Fuel history', 'My issues', 'Workshop bills'].map((name) => <Stack.Screen key={name} name={name} component={Operations.RecordList} />)}
+    <Stack.Screen name="Documents" component={Operations.RecordList} />
+    <Stack.Screen name="Document detail" component={Operations.RecordDetail} />
     <Stack.Screen name="Location sharing" component={Screens.LocationSharing} />
     <Stack.Screen name="Profile" component={Screens.Profile} />
     <Stack.Screen name="SOS" component={Screens.SosUnavailable} options={{ presentation: 'modal' }} />
