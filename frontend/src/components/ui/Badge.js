@@ -17,6 +17,7 @@ const TONES = {
   expired: { bg: colors.expiredBg, fg: colors.expiredText },
   pending: { bg: colors.pendingBg, fg: colors.pendingText },
   info: { bg: colors.infoBg, fg: colors.infoText },
+  inTransit: { bg: colors.infoBg, fg: colors.infoText, dotColor: colors.infoBlue },
   neutral: { bg: colors.background, fg: colors.textMuted },
   onDuty: { bg: colors.tealTint, fg: colors.primary, dotColor: colors.success },
 };
@@ -29,7 +30,7 @@ export default function Badge({ tone = 'info', label, dot = false, bg, fg, style
   return (
     <View style={[styles.pill, { backgroundColor: background }, style]}>
       {dot ? <View style={[styles.dot, { backgroundColor: t.dotColor || foreground }]} /> : null}
-      <AppText variant="caption" weight="bold" color={foreground} style={styles.text}>
+      <AppText variant="caption" weight="bold" color={foreground} numberOfLines={1} style={styles.text}>
         {label}
       </AppText>
     </View>

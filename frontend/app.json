@@ -3,14 +3,28 @@
     "name": "driver-app",
     "slug": "driver-app",
     "version": "1.0.0",
+    "scheme": ["gnbedge", "digilockerapp"],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "GNB Motors needs your location while you are on duty so managers can see your live driver position.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "GNB Motors needs Always location access only when you choose Always sharing for on-duty driver tracking."
+        "NSLocationWhenInUseUsageDescription": "GNBEdge needs your location while you are on duty so managers can see your live driver position.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "GNBEdge needs Always location access only when you choose Always sharing for on-duty driver tracking.",
+        "NSCameraUsageDescription": "GNBEdge needs the camera to photograph bills, fuel receipts, consignment notes and proof-of-delivery.",
+        "NSPhotoLibraryUsageDescription": "GNBEdge needs photo access so you can attach existing bill, receipt and delivery photos.",
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "com.gnbedge.driverapp.digilocker",
+            "CFBundleURLSchemes": [
+              "digilockerapp"
+            ]
+          }
+        ]
       },
       "bundleIdentifier": "com.gnbedge.driverapp"
     },
@@ -23,8 +37,10 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_LOCATION"
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.CAMERA"
       ],
+      "allowBackup": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -56,9 +72,6 @@
       ],
       "expo-secure-store"
     ],
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
     "extra": {
       "eas": {
         "projectId": "52c37263-1c8b-4f7b-b086-e58d7d6648ef"
