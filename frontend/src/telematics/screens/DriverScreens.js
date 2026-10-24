@@ -62,6 +62,9 @@ export function TripDetail({ navigation, route }) {
   const trip = data?.trips.find((item) => item.id === route.params?.id);
   return <Page navigation={navigation} title="Trip details" subtitle="A sample journey, from start to finish.">{trip ? <>
     <TripCard trip={trip} />
+    <Button label="Add fuel" icon="water-outline" onPress={() => navigation.navigate('Add fuel', { tripId: trip.id })} />
+    {data.fuel.some((entry) => entry.tripId === trip.id) && <SectionHeading title="Fuel for this trip" />}
+    {data.fuel.filter((entry) => entry.tripId === trip.id).map((entry) => <MenuRow key={entry.id} title={entry.station || entry.title} detail={`${entry.litres} L · ${money(entry.amountInr)} · ${entry.status}`} icon="water-outline" />)}
     <Card padding={0}><View style={s.map}><Svg width="100%" height={190} viewBox="0 0 320 190" accessibilityLabel="Illustrative sample route, not a geographic map"><Rect width="320" height="190" fill={colors.blueTint} />{[35, 85, 135].map((y) => <Path key={y} d={`M0 ${y} L320 ${y + 25}`} stroke={colors.surface} strokeWidth="12" />)}<Path d="M55 145 C95 160 110 48 160 72 S228 147 265 40" stroke={colors.primary} strokeWidth="5" fill="none" strokeLinecap="round" /><Circle cx="55" cy="145" r="7" fill={colors.surface} stroke={colors.primary} strokeWidth="3" /><Circle cx="265" cy="40" r="8" fill={colors.primary} /></Svg></View><View style={s.mapCaption}><AppText variant="caption" muted>Illustrative route · Not a geographic map</AppText></View></Card>
     <SectionHeading title="Stops on this journey" />
     {data.stops.filter((stop) => stop.tripId === trip.id).map((stop) => <MenuRow key={stop.id} title={stop.location} detail={`${stop.durationMinutes} min · ${stop.reason}`} icon="pause-circle-outline" onPress={() => navigation.navigate('Explain a stop', { stopId: stop.id })} />)}
@@ -111,10 +114,14 @@ export function CaptureForm({ navigation, route }) {
   const stops = data?.stops.filter((stop) => data.trips.some((trip) => trip.id === stop.tripId)) || [];
   const [chosenStop, setChosenStop] = useState(route.params?.stopId || null);
   const stop = stops.find((item) => item.id === chosenStop);
-  const vehicleId = isStop ? stop?.vehicleId : data?.vehicle?.id;
-  const linked = isSupport || !!vehicleId;
+  const trip = isFuel ? data?.trips.find((item) => item.id === route.params?.tripId) : null;
+  const invalidTrip = isFuel && !!route.params?.tripId && !trip;
+  const fuelVehicle = trip ? data?.vehicles.find((item) => item.id === trip.vehicleId) : data?.vehicle;
+  const vehicleId = isStop ? stop?.vehicleId : isFuel ? fuelVehicle?.id : data?.vehicle?.id;
+  const linked = !invalidTrip && (isSupport || !!vehicleId);
   async function submit() {
     setError('');
+    if (invalidTrip) { setError('This trip is unavailable. Return to Trips and choose it again.'); return; }
     if (!linked) { setError(isStop ? 'Choose a sample stop.' : 'Link a sample truck first.'); return; }
     const quantity = Number(litres); const cost = Number(amount);
     if (!title.trim()) { setError(isFuel ? 'Enter the fuel station.' : 'Add a short description.'); return; }
@@ -123,13 +130,15 @@ export function CaptureForm({ navigation, route }) {
     if (isBill && !evidence) { setError('Attach the sample bill before submitting.'); return; }
     setBusy(true);
     try {
-      await mutate((service) => service.submit(isFuel ? 'fuel' : isBill ? 'bills' : isSupport ? 'support' : isStop ? 'stopNotes' : 'issues', { vehicleId, driverId: DEMO_DRIVER_ID, title: title.trim(), station: isFuel ? title.trim() : undefined, litres: isFuel ? quantity : undefined, amountInr: isFuel || isBill ? cost : undefined, evidence: evidence ? 'sample-image-only' : null, stopId: isStop ? stop.id : undefined }));
+      await mutate((service) => service.submit(isFuel ? 'fuel' : isBill ? 'bills' : isSupport ? 'support' : isStop ? 'stopNotes' : 'issues', { vehicleId, tripId: isFuel ? trip?.id : undefined, driverId: DEMO_DRIVER_ID, title: title.trim(), station: isFuel ? title.trim() : undefined, litres: isFuel ? quantity : undefined, amountInr: isFuel || isBill ? cost : undefined, evidence: evidence ? 'sample-image-only' : null, stopId: isStop ? stop.id : undefined }));
       setDone(true);
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   }
   return <Page navigation={navigation} title={kind} subtitle="Save a sample record. Nothing is uploaded.">{done ? <Success title="Saved to your demo" description={isBill ? 'Sample OCR completed. The bill is pending review in Workshop bills.' : isSupport ? 'Your sample ticket is saved below. No support team was contacted.' : 'Your sample entry is saved for this session only.'} onDone={() => navigation.goBack()} /> : <>
-    {!linked && !isStop && <Empty title="Link a truck first" description="A fuel, issue or bill entry needs a sample vehicle." action={<Button label="Choose truck" onPress={() => navigation.navigate('Change truck')} />} />}
-    {data?.vehicle && !isSupport && !isStop && <MenuRow title={data.vehicle.plate} detail="Sample vehicle" icon="bus-outline" />}
+    {invalidTrip && <Empty title="Trip unavailable" description="Return to Trips and choose the trip again." />}
+    {trip && <MenuRow title={`${trip.from} → ${trip.to}`} detail="Fuel will be recorded for this trip" icon="navigate-outline" />}
+    {!linked && !invalidTrip && !isStop && <Empty title="Link a truck first" description="A fuel, issue or bill entry needs a sample vehicle." action={<Button label="Choose truck" onPress={() => navigation.navigate('Change truck')} />} />}
+    {(isFuel ? fuelVehicle : data?.vehicle) && !isSupport && !isStop && <MenuRow title={(isFuel ? fuelVehicle : data.vehicle).plate} detail="Sample vehicle" icon="bus-outline" />}
     {isStop && <><AppText variant="label" muted>CHOOSE A SAMPLE STOP</AppText>{stops.map((item) => <MenuRow key={item.id} title={item.location} detail={`${item.durationMinutes} minutes${chosenStop === item.id ? ' · Selected' : ''}`} icon={chosenStop === item.id ? 'radio-button-on' : 'radio-button-off'} onPress={() => setChosenStop(item.id)} />)}{!stops.length && <DataState state="empty" />}</>}
     <Card style={s.form} padding={spacing.lg}>
       <TextField label={isFuel ? 'Fuel station' : isBill ? 'Workshop / description' : 'What happened?'} accessibilityLabel={isFuel ? 'Fuel station' : 'Description'} placeholder={isFuel ? 'e.g. Highway fuel station' : 'Add a short description'} value={title} onChangeText={setTitle} multiline={!isFuel} maxLength={500} />

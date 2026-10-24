@@ -32,6 +32,15 @@ export function HomeIcon(props) {
   );
 }
 
+// Compact plus with soft, rounded strokes for the raised quick-entry action.
+export function QuickAddIcon({ size = 28, color = '#FFFFFF' }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <Path d="M14 6v16M6 14h16" stroke={color} strokeWidth={3.4} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 // Wrench / tool — Repairs
 export function RepairsIcon(props) {
   return (

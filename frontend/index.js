@@ -1,3 +1,4 @@
+import './src/styles/browserFocus';
 import { registerRootComponent } from 'expo';
 
 import App from './App';

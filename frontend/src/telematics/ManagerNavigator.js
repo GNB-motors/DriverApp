@@ -2,7 +2,8 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontFamily } from '../components/ui';
+import { colors } from '../components/ui';
+import CurvedTabBar from '../navigation/CurvedTabBar';
 import { useAuth } from '../context/AuthContext';
 import { TelematicsDemoProvider } from './context/TelematicsDemoContext';
 import { ManagerDataProvider, useManagerData } from './context/ManagerDataContext';
@@ -12,7 +13,7 @@ const icons = { Home: 'home-outline', Live: 'map-outline', Drivers: 'people-outl
 function ManagerTabs() {
   const { data } = useManagerData();
   const unread = data?.alerts.filter((a) => !a.acknowledged).length || 0;
-  return <Tab.Navigator screenOptions={({ route }) => ({ headerShown: false, tabBarActiveTintColor: colors.primary, tabBarInactiveTintColor: colors.textMuted, tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border, paddingTop: 8 }, tabBarLabelStyle: { fontFamily: fontFamily.display.medium, fontSize: 11 }, tabBarIcon: ({ color }) => <Ionicons name={icons[route.name]} size={23} color={color} /> })}>
+  return <Tab.Navigator tabBar={(props) => <CurvedTabBar {...props} />} screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name={icons[route.name]} size={size} color={color} /> })}>
     <Tab.Screen name="Home" component={Screens.ManagerHome} />
     <Tab.Screen name="Live" component={Screens.ManagerLive} />
     <Tab.Screen name="Drivers" component={Screens.Drivers} />

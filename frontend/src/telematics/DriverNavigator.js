@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { AppText, colors, radius } from '../components/ui';
+import { colors } from '../components/ui';
+import CurvedTabBar from '../navigation/CurvedTabBar';
+import { QuickAddIcon } from '../navigation/NavIcons';
 import { useAuth } from '../context/AuthContext';
 import { TelematicsDemoProvider } from './context/TelematicsDemoContext';
 import { DriverDataProvider, useDriverData } from './context/DriverDataContext';
@@ -13,25 +13,13 @@ import * as Screens from './screens/DriverScreens';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 const icons = { Home: 'home-outline', Trips: 'navigate-outline', Inbox: 'notifications-outline', More: 'grid-outline' };
-function DriverTabBar({ state, navigation }) {
-  const insets = useSafeAreaInsets();
+function DriverTabBar(props) {
   const { data } = useDriverData();
   const unread = data?.alerts.filter((alert) => !alert.acknowledged).length || 0;
-  const tabs = [...state.routes.slice(0, 2), { name: 'Quick add', key: 'quick-add' }, ...state.routes.slice(2)];
-  return <View style={[s.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>{tabs.map((route) => {
-    const isQuick = route.name === 'Quick add';
-    const focused = !isQuick && state.routes[state.index].key === route.key;
-    return <Pressable key={route.key} accessibilityRole="button" accessibilityLabel={route.name === 'Inbox' && unread ? `Inbox, ${unread} unread` : route.name} accessibilityState={{ selected: focused }} onPress={() => {
-      if (isQuick) { navigation.getParent().navigate('Quick add'); return; }
-      const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-      if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
-    }} style={s.tab}>
-      <View style={[s.icon, focused && s.active, isQuick && s.add]}><Ionicons name={isQuick ? 'add' : icons[route.name]} size={isQuick ? 27 : 22} color={isQuick ? colors.white : focused ? colors.primary : colors.textMuted} />{route.name === 'Inbox' && unread > 0 && <View style={s.dot} />}</View><AppText variant="caption" weight={focused ? 'semibold' : 'regular'} color={focused ? colors.primary : colors.textMuted}>{isQuick ? 'Add' : route.name}</AppText>
-    </Pressable>;
-  })}</View>;
+  return <CurvedTabBar {...props} badges={{ Inbox: unread }} centerAction={{ label: 'Add', onPress: () => props.navigation.getParent().navigate('Quick add'), icon: <QuickAddIcon /> }} />;
 }
 function DriverTabs() {
-  return <Tab.Navigator tabBar={(props) => <DriverTabBar {...props} />} screenOptions={{ headerShown: false }}>
+  return <Tab.Navigator tabBar={(props) => <DriverTabBar {...props} />} screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name={icons[route.name]} size={size} color={color} /> })}>
     <Tab.Screen name="Home" component={Screens.DriverHome} />
     <Tab.Screen name="Trips" component={Screens.DriverTrips} />
     <Tab.Screen name="Inbox" component={Screens.DriverInbox} />
@@ -59,6 +47,3 @@ export default function DriverNavigator() {
     <Stack.Screen name="SOS" component={Screens.SosSimulation} options={{ presentation: 'modal' }} />
   </Stack.Navigator></DriverDataProvider></TelematicsDemoProvider>;
 }
-const s = StyleSheet.create({
-  bar: { flexDirection: 'row', paddingTop: 10, paddingHorizontal: 12, borderTopWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }, tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 60 }, icon: { minWidth: 48, height: 34, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' }, active: { backgroundColor: colors.blueTint }, add: { width: 52, height: 48, backgroundColor: colors.primary, marginTop: -18, borderRadius: radius.lg, shadowColor: colors.primaryDeep, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 }, dot: { position: 'absolute', right: 9, top: 3, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.error, borderWidth: 1, borderColor: colors.surface },
-});
