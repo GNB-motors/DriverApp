@@ -464,6 +464,7 @@ export function SosUnavailable({ navigation }) {
   const draft = useRef(null);
   const inFlight = useRef(false);
   const [ready, setReady] = useState(false);
+  const [locked, setLocked] = useState(false);
   const [delivery, setDelivery] = useState(null);
   const [deliveryError, setDeliveryError] = useState('');
   useEffect(() => {
@@ -472,7 +473,7 @@ export function SosUnavailable({ navigation }) {
       if (!active) return;
       if (!stored) { setReady(true); return; }
       const saved = JSON.parse(stored);
-      draft.current = saved;
+      draft.current = saved; setLocked(true);
       setType(saved.payload.type); setNote(saved.payload.note || '');
       if (saved.result) setSent(saved.result);
       setReady(true);
@@ -513,12 +514,20 @@ export function SosUnavailable({ navigation }) {
         // Permission prompts and a slow GPS fix must never block an emergency report.
         let coords;
         try {
-          const permission = await Location.getForegroundPermissionsAsync();
-          if (permission.status === 'granted') {
-            const loc = await Location.getLastKnownPositionAsync({ maxAge: 120000, requiredAccuracy: 100 });
-            if (loc && Date.now() - loc.timestamp <= 120000) coords = loc.coords;
-          }
+          let timer;
+          try {
+            coords = await Promise.race([
+              (async () => {
+                const permission = await Location.getForegroundPermissionsAsync();
+                if (permission.status !== 'granted') return undefined;
+                const loc = await Location.getLastKnownPositionAsync({ maxAge: 120000, requiredAccuracy: 100 });
+                return loc && !loc.mocked && Date.now() - loc.timestamp >= 0 && Date.now() - loc.timestamp <= 120000 ? loc.coords : undefined;
+              })(),
+              new Promise((resolve) => { timer = setTimeout(() => resolve(undefined), 1000); }),
+            ]);
+          } finally { clearTimeout(timer); }
         } catch { /* Report without a phone fix. */ }
+        setLocked(true);
         draft.current = { payload: {
           clientIncidentId: Crypto.randomUUID(), type, note: note.trim() || undefined,
           reportedAt: new Date().toISOString(),
@@ -538,7 +547,7 @@ export function SosUnavailable({ navigation }) {
   }
   async function startNewReport() {
     await AsyncStorage.removeItem(draftKey);
-    draft.current = null; setSent(null); setType(null); setNote(''); setDelivery(null); setError('');
+    draft.current = null; setLocked(false); setSent(null); setType(null); setNote(''); setDelivery(null); setError('');
   }
 
   if (sent) {
@@ -582,6 +591,7 @@ export function SosUnavailable({ navigation }) {
           style={[s.menu, { borderWidth: 1, borderRadius: radius.md, padding: 16 }, type === item.key && s.selected]}
           accessibilityRole="radio"
           accessibilityState={{ selected: type === item.key }}
+          disabled={locked || busy}
           onPress={() => setType(item.key)}
         >
           <View style={[s.menuIcon, { backgroundColor: `${item.color}22` }]}>
@@ -594,12 +604,13 @@ export function SosUnavailable({ navigation }) {
         label="Details (optional)"
         placeholder="Describe what happened..."
         value={note}
+        editable={!locked && !busy}
         onChangeText={setNote}
         multiline
         maxLength={500}
       />
       {error ? <AppText color={colors.error} accessibilityRole="alert">{error}</AppText> : null}
-      <Button label="Send SOS alert" loading={busy || !ready} onPress={submit} />
+      <Button label={locked ? "Retry saved SOS report" : "Save SOS report"} loading={busy || !ready} onPress={submit} />
       <AppText variant="caption" muted style={{ textAlign: 'center' }}>
         Contact emergency services directly if life is at risk.
       </AppText>

@@ -391,6 +391,7 @@ export function createTelematicsApi({
       }),
     );
     data.vehicles = mergePositions(data.vehicles, data.positions || []);
+    if (data.summary?.analyticsError) errors.analytics = data.summary.analyticsError;
     data.adblue = data.fuel.filter((row) => row.fuelType === "ADBLUE");
     data.fuel = data.fuel.filter((row) => row.fuelType !== "ADBLUE");
     data.alerts = data.alertFeed?.records || [];

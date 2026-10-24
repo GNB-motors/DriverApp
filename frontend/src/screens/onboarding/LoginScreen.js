@@ -9,7 +9,7 @@ import { AppText, Button, bodyFont, colors, spacing, radius } from '../../compon
 /**
  * Sign in — email OR mobile + password (all roles: driver / owner / manager).
  * Calls AuthContext.login; on success the role-based navigator swaps to the
- * right stack. Offline (no EXPO_PUBLIC_API_URL) it falls back to the demo map.
+ * right stack. Request failures remain visible; no offline demo login.
  */
 export default function LoginScreen({ navigation }) {
   const insets = useSafeAreaInsets();

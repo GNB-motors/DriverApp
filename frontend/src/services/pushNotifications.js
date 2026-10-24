@@ -13,7 +13,8 @@ async function accountKey(token) { return Crypto.digestStringAsync(Crypto.Crypto
 // Foreground notification display — show banner + sound while app is open.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),

@@ -288,7 +288,7 @@ export async function registerPushDevice(expoPushToken, platform, authToken) {
   const res = await apiClient.post(
     '/driver/push/device',
     { token: expoPushToken, platform },
-    { token: authToken },
+    { token: authToken, timeout: 15000 },
   );
   return res.data?.data;
 }
@@ -297,6 +297,7 @@ export async function unregisterPushDevice(expoPushToken, authToken) {
   const res = await apiClient.delete('/driver/push/device', {
     data: { token: expoPushToken },
     token: authToken,
+    timeout: 15000,
   });
   return res.data?.data;
 }
