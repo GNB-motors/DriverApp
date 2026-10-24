@@ -1,3 +1,4 @@
+import { ALERT_TITLES, alertSeverity } from "./alertMetadata";
 import axios from "axios";
 import { appLoginUrl } from "./authEndpoint";
 
@@ -9,6 +10,7 @@ function rows(payload) {
   const value = payload?.data ?? payload;
   if (Array.isArray(value)) return value;
   for (const key of [
+    "records",
     "items",
     "results",
     "tickets",
@@ -30,17 +32,36 @@ const normalize = (row) => ({
   branchId: recordId(row.branchId),
 });
 function vehicleView(row, position = row.position, rule = row.locationRule) {
+  const age = position?.eventDateTime
+    ? (Date.now() - new Date(position.eventDateTime).getTime()) / 60000
+    : Infinity;
+  const valid =
+    Number.isFinite(position?.latitude) &&
+    Number.isFinite(position?.longitude) &&
+    Math.abs(position.latitude) <= 90 &&
+    Math.abs(position.longitude) <= 180;
+  const stale =
+    !!position?.isStale || !Number.isFinite(age) || age > 15 || age < -2;
   return {
     ...normalize(row),
     plate: row.registrationNumber,
     model: row.model || row.make || "Model unavailable",
-    status: position
-      ? position.ageMinutes > 15
+    status: !position
+      ? "unknown"
+      : stale || position.state === "OFFLINE"
         ? "offline"
         : position.speed > 0
           ? "moving"
-          : "stopped"
-      : "unknown",
+          : position.ignition === true
+            ? "idling"
+            : "stopped",
+    telemetryRegistration:
+      position?.registrationNumber ||
+      row.fleetEdgeRegistration ||
+      row.registrationNumber,
+    courseDegrees: position?.courseDegrees ?? null,
+    speed: position?.speed ?? null,
+    isStale: stale,
     source:
       rule?.source === "PHONE_GPS"
         ? "phone"
@@ -50,12 +71,12 @@ function vehicleView(row, position = row.position, rule = row.locationRule) {
             ? "truck"
             : null,
     updatedAt: position?.eventDateTime || null,
-    coordinates: position
+    coordinates: valid
       ? { latitude: position.latitude, longitude: position.longitude }
       : null,
     location:
       rule?.label ||
-      (position
+      (valid
         ? `${position.latitude.toFixed(5)}, ${position.longitude.toFixed(5)}`
         : "Location unavailable"),
     odometerKm: row.odometerReading ?? null,
@@ -102,16 +123,27 @@ const unavailable = (name) => {
 
 export function describeApiError(error) {
   const status = error.response?.status;
-  if (status === 401) return 'Your session has expired. Please sign in again.';
-  if (status === 403) return 'You do not have access to this data in the selected branch.';
-  if (status === 404) return 'This feature is not available on the connected server.';
-  if (status === 400) return 'The request could not be processed. Refresh and try again.';
-  if (status >= 500) return 'The server is temporarily unavailable. Please retry.';
-  if (error.code === 'ECONNABORTED') return 'The request timed out. Please retry.';
-  return error.message || 'Could not connect to the server. Please retry.';
+  if (status === 401) return "Your session has expired. Please sign in again.";
+  if (status === 403)
+    return "You do not have access to this data in the selected branch.";
+  if (status === 404)
+    return "This feature is not available on the connected server.";
+  if (status === 400)
+    return "The request could not be processed. Refresh and try again.";
+  if (status >= 500)
+    return "The server is temporarily unavailable. Please retry.";
+  if (error.code === "ECONNABORTED")
+    return "The request timed out. Please retry.";
+  return error.message || "Could not connect to the server. Please retry.";
 }
 
-export function createTelematicsApi({ baseURL, token, user, audience, onUnauthorized }) {
+export function createTelematicsApi({
+  baseURL,
+  token,
+  user,
+  audience,
+  onUnauthorized,
+}) {
   if (!baseURL || !token || !user?._id)
     throw new Error("Sign in again to connect to the server.");
   // Preserve a reverse-proxy prefix such as /v1, matching the existing login helper.
@@ -121,22 +153,30 @@ export function createTelematicsApi({ baseURL, token, user, audience, onUnauthor
     timeout: 20000,
     headers: { Authorization: `Bearer ${token}` },
   });
-  client.interceptors.response.use((response) => response, (error) => {
-    if (error.response?.status === 401) Promise.resolve(onUnauthorized?.()).catch(() => {});
-    if (error.response) {
-      console.warn('API request failed', { path: error.config?.url, status: error.response.status, message: error.response.data?.message });
-      error.message = describeApiError(error);
-    }
-    return Promise.reject(error);
-  });
+  client.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401)
+        Promise.resolve(onUnauthorized?.()).catch(() => {});
+      if (error.response) {
+        console.warn("API request failed", {
+          path: error.config?.url,
+          status: error.response.status,
+          message: error.response.data?.message,
+        });
+        error.message = describeApiError(error);
+      }
+      return Promise.reject(error);
+    },
+  );
   const queries = {
-    '/vehicles': { limit: 100 },
-    '/auto-trips': { limit: 100 },
-    '/fuel-logs': { limit: 100 },
-    '/driver/incidents': { limit: 100 },
-    '/support-tickets': { limit: 100 },
-    '/branches': { limit: 100 },
-    '/alert-inbox': { status: 'ALL' },
+    "/vehicles": { limit: 100 },
+    "/auto-trips": { limit: 100 },
+    "/fuel-logs": { limit: 100 },
+    "/driver/incidents": { limit: 100 },
+    "/support-tickets": { limit: 100 },
+    "/branches": { limit: 100 },
+    "/alert-inbox": { status: "ALL" },
   };
   const get = async (path, config) => (await client.get(path, config)).data;
   const post = async (path, body) => (await client.post(path, body)).data;
@@ -219,25 +259,102 @@ export function createTelematicsApi({ baseURL, token, user, audience, onUnauthor
     ];
     return data;
   }
+  const headersFor = (branchId) =>
+    branchId ? { "X-Branch-Id": branchId } : {};
+  async function listOwnerAlerts({
+    branchId,
+    page = 1,
+    acknowledged,
+    vehicle,
+    type,
+    from,
+    to,
+  } = {}) {
+    const payload = (
+      await get("/owner-alerts", {
+        params: { page, limit: 30, acknowledged, vehicle, type, from, to },
+        headers: headersFor(branchId),
+      })
+    ).data;
+    if (!Array.isArray(payload?.records) || !Number.isFinite(payload.total))
+      throw new Error("Invalid owner alerts response.");
+    return {
+      ...payload,
+      records: payload.records.map((row) => ({
+        ...normalize(row),
+        title:
+          ALERT_TITLES[row.type] ||
+          row.type?.replace(/_/g, " ") ||
+          "Fleet alert",
+        description: row.message,
+        vehicleNumber: row.vehicleNumber,
+        acknowledged: !!row.acknowledged,
+        severity: alertSeverity(row.type),
+        createdAt: row.at,
+      })),
+    };
+  }
+  async function listPositions(branchId) {
+    const payload = (
+      await get("/livetracking/positions", { headers: headersFor(branchId) })
+    ).data;
+    if (!Array.isArray(payload?.records))
+      throw new Error("Invalid live position response.");
+    return payload.records;
+  }
+  const plateKey = (plate) =>
+    String(plate || "")
+      .replace(/[^a-z0-9]/gi, "")
+      .toUpperCase();
+  function mergePositions(vehicles, positions) {
+    const used = new Set();
+    const merged = vehicles.map((vehicle) => {
+      const candidates = positions.filter(
+        (point) =>
+          vehicle.chassisNumber &&
+          point.vin &&
+          plateKey(vehicle.chassisNumber) === plateKey(point.vin),
+      );
+      const matches = candidates.length
+        ? candidates
+        : positions.filter((point) =>
+            [vehicle.registrationNumber, vehicle.fleetEdgeRegistration].some(
+              (plate) =>
+                plate && plateKey(plate) === plateKey(point.registrationNumber),
+            ),
+          );
+      const point = matches.sort(
+        (a, b) =>
+          new Date(b.eventDateTime || 0) - new Date(a.eventDateTime || 0),
+      )[0];
+      if (point) used.add(point);
+      return vehicleView(vehicle, point || null);
+    });
+    // The positions API already limits rows to registered/authorized trucks.
+    // Keep real positions even when a master-list page does not contain the truck.
+    for (const point of positions)
+      if (!used.has(point))
+        merged.push(
+          vehicleView(
+            {
+              id: `position:${point.registrationNumber}`,
+              registrationNumber: point.registrationNumber,
+              chassisNumber: point.vin,
+            },
+            point,
+          ),
+        );
+    return merged;
+  }
   async function loadFleet(branchId) {
     const data = Object.fromEntries(resources.map((key) => [key, []]));
     const errors = {};
     const jobs = {
-      vehicles: () => mapList("/vehicles", (row) => vehicleView(row), branchId),
+      vehicles: () => mapList("/vehicles", normalize, branchId),
       trips: () => mapList("/auto-trips", tripView, branchId),
       fuel: () => mapList("/fuel-logs", fuelView, branchId),
-      alerts: () =>
-        mapList(
-          "/alert-inbox",
-          (row) => ({
-            ...normalize(row),
-            title: row.title || row.label || row.condition || row.type,
-            description: row.message || row.description || row.wants,
-            acknowledged: !!row.acknowledgedAt,
-            severity: row.severity?.toLowerCase(),
-          }),
-          branchId,
-        ),
+      positions: () => listPositions(branchId),
+      alertFeed: () => listOwnerAlerts({ branchId }),
     };
     await Promise.all(
       Object.entries(jobs).map(async ([key, request]) => {
@@ -249,6 +366,10 @@ export function createTelematicsApi({ baseURL, token, user, audience, onUnauthor
         }
       }),
     );
+    data.vehicles = mergePositions(data.vehicles, data.positions || []);
+    data.alerts = data.alertFeed?.records || [];
+    if (errors.alertFeed) errors.alerts = errors.alertFeed;
+    delete errors.alertFeed;
     data.errors = errors;
     data.unavailable = [
       "Driver roster",
@@ -257,21 +378,39 @@ export function createTelematicsApi({ baseURL, token, user, audience, onUnauthor
       "Workshop bills",
       "Reviews",
       "AdBlue",
-      "Live positions",
     ];
     return data;
   }
   return {
     loadDriver,
     loadFleet,
+    listOwnerAlerts,
+    listPositions,
+    mergePositions,
+    async getTrail(registration, { branchId, from, to } = {}) {
+      const payload = (
+        await get(
+          `/livetracking/positions/${encodeURIComponent(registration)}/trail`,
+          { params: { from, to, limit: 2000 }, headers: headersFor(branchId) },
+        )
+      ).data;
+      if (!Array.isArray(payload?.points))
+        throw new Error("Invalid trail response.");
+      return payload;
+    },
     async branches() {
       return mapList("/branches");
     },
     async acknowledgeAlert(id, { branchId } = {}) {
       if (audience === "driver")
         return unavailable("Driver alert acknowledgement");
-      return (await client.put(`/alert-inbox/${encodeURIComponent(id)}/ack`, {}, { headers: branchId ? { "X-Branch-Id": branchId } : {} }))
-        .data;
+      return (
+        await client.put(
+          `/owner-alerts/${encodeURIComponent(id)}/ack`,
+          {},
+          { headers: headersFor(branchId) },
+        )
+      ).data;
     },
     assignTruck() {
       return unavailable("Location-verified truck pairing");

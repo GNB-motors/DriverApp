@@ -13,7 +13,7 @@ const Tab = createBottomTabNavigator(); const Stack = createNativeStackNavigator
 const icons = { Today: 'sunny-outline', Live: 'map-outline', Fleet: 'bus-outline', Alerts: 'notifications-outline', More: 'grid-outline' };
 function OwnerTabs() {
   const { data } = useManagerData();
-  const unread = data?.alerts.filter((a) => !a.acknowledged).length || 0;
+  const unread = data?.alertFeed?.unacknowledgedCount || 0;
   return <Tab.Navigator tabBar={(props) => <CurvedTabBar {...props} />} screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name={icons[route.name]} size={size} color={color} /> })}>
     <Tab.Screen name="Today" component={Owner.Today} />
     <Tab.Screen name="Live" component={Screens.ManagerLive} />

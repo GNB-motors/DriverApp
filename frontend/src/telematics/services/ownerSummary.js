@@ -8,7 +8,7 @@ export function summarizeOwner(data) {
     offline: vehicles.filter((v) => v.status === 'offline').length,
     unlinked: vehicles.filter((v) => !v.driverId).length,
     drivers: data?.drivers.length || 0,
-    alerts: data?.alerts.filter((a) => !a.acknowledged).length || 0,
+    alerts: data?.alertFeed?.unacknowledgedCount ?? 0,
     critical: data?.alerts.filter((a) => !a.acknowledged && a.severity === 'critical').length || 0,
     issues: data?.issues.filter((item) => item.status !== 'Resolved').length || 0,
     pendingReviews: [...fuel, ...(data?.bills || [])].filter((item) => item.status === 'Pending review').length,

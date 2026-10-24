@@ -25,7 +25,7 @@ will display an error; there is no automatic compatibility fallback.
 ## Still unavailable
 
 Location-verified change-truck pairing, phone tracking, driver alerts, stop notes,
-workshop bill uploads, personal documents, fleet position maps, driver roster,
+workshop bill uploads, personal documents, driver roster,
 review writes, AdBlue and SOS escalation. These actions display an unavailable
 state and never simulate success. Lists are currently bounded to 100 server rows;
 summary counts describe loaded records, not whole-fleet totals.
@@ -40,3 +40,25 @@ migration or deployment is performed by this change.
 GPS trip fuel payloads and absence of runtime mock dependencies.
 `npx expo export --platform web` checks bundling. Real-account device verification
 against the deployed backend remains required after deployment.
+
+## Phase 2 maps and Owner Alerts
+
+Web uses Google Maps JavaScript, reading EXPO_PUBLIC_GOOGLE_MAPS_API_KEY.
+Native uses react-native-maps; iOS defaults to Apple Maps. Android native builds
+read EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY through app.config.js. Browser and
+Android keys must have the appropriate platform/API restrictions. The local web
+key is copied from the frontend; values are never committed.
+
+Live positions read `/livetracking/positions` → data.records. VIN/registration
+matching, marker details, search/status filters and recorded 24-hour trails are
+wired. Trail gaps are not connected. Position polling runs every 30 seconds in
+the foreground and stops on background/unmount/account changes.
+
+The Alerts tab uses the actual `/owner-alerts` feed, with page navigation,
+acknowledgement state, type/vehicle and 7/30/90-day filters. Pending badges use
+the server count. Ack targets `/owner-alerts/:id/ack`. The operational inbox is
+a different endpoint and is not a replacement for this feed.
+
+Backend branch deployment is required for new branch enforcement. Real-account
+parity and physical-device map verification remain pending; no deployment is
+performed by this implementation. Remaining Phase 1 security blockers apply.
