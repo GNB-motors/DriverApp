@@ -33,6 +33,7 @@ import FleetMap from "../components/FleetMap";
 import VehicleTrailMap from "../components/VehicleTrailMap";
 import Picker from "../../components/ui/SelectField";
 import { ALERT_TITLES } from "../services/alertMetadata";
+import { recentTrips, tripDetail } from "../services/tripSummary";
 import { useFocusEffect } from "@react-navigation/native";
 import { MenuRow } from "./DriverScreens";
 
@@ -148,29 +149,7 @@ export function ManagerHome({ navigation }) {
           caption="Fuel and workshop bills"
         />
       </View>
-      <SectionHeading
-        title="Needs attention"
-        caption="Exceptions worth a closer look."
-      />
-      {data?.alerts
-        .filter((item) => !item.acknowledged)
-        .map((alert) => (
-          <AlertRow
-            key={alert.id}
-            alert={alert}
-            onPress={() =>
-              navigation.navigate("Manager alert", { id: alert.id })
-            }
-          />
-        ))}
-      {data &&
-        !data.errors.alerts &&
-        !data.alerts.some((item) => !item.acknowledged) && (
-          <Empty
-            title="All caught up"
-            detail="No pending alerts in this branch."
-          />
-        )}
+      <RecentTrips navigation={navigation} data={data} />
       <SectionHeading title="Keep things moving" />
       <MenuRow
         title="Duty board"
@@ -191,6 +170,44 @@ export function ManagerHome({ navigation }) {
         onPress={() => navigation.navigate("Maintenance")}
       />
     </ManagerPage>
+  );
+}
+export function RecentTrips({ navigation, data }) {
+  const trips = recentTrips(data?.trips);
+  const plates = Object.fromEntries(
+    (data?.vehicles || []).map((v) => [v.id, v.plate]),
+  );
+  return (
+    <>
+      <SectionHeading
+        title="Recent trips"
+        caption="Latest GPS-detected journeys."
+      />
+      {trips.map((trip) => (
+        <MenuRow
+          key={trip.id}
+          title={`${trip.from} → ${trip.to}`}
+          detail={tripDetail(trip, plates[trip.vehicleId])}
+          icon="navigate-outline"
+          onPress={() => navigation.navigate("Manager trip", { id: trip.id })}
+        />
+      ))}
+      {data && !data.errors.trips && !trips.length && (
+        <Card>
+          <AppText weight="semibold">No trips yet.</AppText>
+          <AppText muted>
+            Journeys appear here once trucks are detected on the road.
+          </AppText>
+        </Card>
+      )}
+      {trips.length > 0 && (
+        <Button
+          label="View all trips"
+          variant="secondary"
+          onPress={() => navigation.navigate("Fleet trips")}
+        />
+      )}
+    </>
   );
 }
 function Empty({

@@ -15,6 +15,8 @@ import { DutyCard, KpiCard, SectionHeading, VehicleRow, AlertRow, DataState } fr
 import FleetMap from '../components/FleetMap';
 import { validCoordinate } from '../components/mapGeometry';
 import { capturePairingFix } from '../tracking/useDriverLocationSharing';
+import { recentTrips, tripDetail, tripStatusLabel } from '../services/tripSummary';
+import { formatLitres } from '../../utils/format';
 
 const money = (value) => `₹${Number(value).toLocaleString('en-IN')}`;
 const date = (value) => new Date(value).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -40,21 +42,22 @@ export function DriverHome({ navigation }) {
   const { data, preferences } = useDriverData();
   const { user } = useAuth();
   const firstName = (preferences.nickname || user?.name || user?.firstName || 'Driver').split(' ')[0];
+  const trips = recentTrips(data?.trips);
   return <Page navigation={navigation} title={`Hello, ${firstName}.`} subtitle="A clear view of the road ahead." action={<SosAction navigation={navigation} />}>
     {data?.duty && <DutyCard driver={data.driver} />}
 
     <SectionHeading title="Your truck" caption="Vehicle details and location source." />
     {data?.vehicle ? <VehicleRow vehicle={data.vehicle} onPress={() => navigation.navigate('My truck')} /> : <Empty title="No truck linked" description="Ask your manager, or choose a truck." action={<Button label="Change truck" onPress={() => navigation.navigate('Change truck')} />} />}
     <View style={s.quickGrid}>{[['Add fuel', 'water-outline'], ['Report issue', 'construct-outline'], ['Documents', 'document-text-outline']].map(([title, icon]) => <Pressable key={title} style={s.quick} accessibilityRole="button" onPress={() => navigation.navigate(title)}><View style={s.quickIcon}><Ionicons name={icon} size={23} color={colors.primary} /></View><AppText variant="small" weight="semibold" center>{title}</AppText></Pressable>)}</View>
-    <SectionHeading title="On your route" caption="Your latest GPS-detected trip." />
-    {data?.trips[0] ? <TripCard trip={data.trips[0]} onPress={() => navigation.navigate('Trip detail', { id: data.trips[0].id })} /> : <Empty title="No trips yet" description="Your journeys will appear here." />}
-    <SectionHeading title="Needs attention" />
-    {data?.alerts.filter((item) => !item.acknowledged).map((alert) => <AlertRow key={alert.id} alert={alert} onPress={() => navigation.navigate('Alert detail', { id: alert.id })} />)}
+    <SectionHeading title="Your trips" caption="Latest GPS-detected journeys." />
+    {trips[0] ? <TripCard trip={trips[0]} onPress={() => navigation.navigate('Trip detail', { id: trips[0].id })} /> : <Empty title="No trips yet" description="Your journeys will appear here." />}
+    {trips.slice(1).map((trip) => <MenuRow key={trip.id} title={`${trip.from} → ${trip.to}`} detail={tripDetail(trip)} icon="navigate-outline" onPress={() => navigation.navigate('Trip detail', { id: trip.id })} />)}
+    {trips.length > 0 && <Button label="View all trips" variant="secondary" onPress={() => navigation.navigate('Trips')} />}
   </Page>;
 }
 function TripCard({ trip, onPress }) {
   return <Card onPress={onPress} accessibilityRole="button" accessibilityLabel={`${trip.from} to ${trip.to}`} style={s.trip}>
-    <View style={s.between}><AppText variant="caption" color={colors.primary} weight="semibold">{trip.status.toUpperCase()}</AppText><AppText variant="caption" muted>{date(trip.startedAt)}</AppText></View>
+    <View style={s.between}><AppText variant="caption" color={colors.primary} weight="semibold">{tripStatusLabel(trip.status).toUpperCase()}</AppText><AppText variant="caption" muted>{date(trip.startedAt)}</AppText></View>
     <View style={s.route}><View style={s.routeLine}><View style={s.routeDot} /><View style={s.routeStem} /><View style={[s.routeDot, { backgroundColor: colors.primary }]} /></View><View style={s.flex}><AppText variant="h3">{trip.from}</AppText><AppText variant="h3" style={s.destination}>{trip.to}</AppText></View><Ionicons name="arrow-forward" size={22} color={colors.primary} /></View>
     <AppText mono muted>{trip.distanceKm == null ? 'Distance unavailable' : `${trip.distanceKm} km`} · GPS-detected</AppText>
   </Card>;
@@ -192,7 +195,7 @@ export function TripDetail({ navigation, route }) {
               <MenuRow
                 key={entry.id}
                 title={entry.station || entry.title}
-                detail={`${entry.litres} L · ${money(entry.amountInr)} · ${entry.status}`}
+                detail={`${formatLitres(entry.litres)} L · ${money(entry.amountInr)} · ${entry.status}`}
                 icon="water-outline"
               />
             ))}

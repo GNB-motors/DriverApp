@@ -11,6 +11,7 @@ import { ManagerPage } from "../screens/ManagerScreens";
 import { MenuRow } from "../screens/DriverScreens";
 import DateField from "./DateField";
 import { FileLink } from "./OperationalScreens";
+import { formatLitres } from "../../utils/format";
 const permittedBranch = (branchId) =>
   branchId === "all" ? undefined : branchId;
 export function DriverRoster({ navigation }) {
@@ -638,7 +639,7 @@ export function FleetRecordDetail({ navigation, route }) {
           />
           {kind === "fuel" && (
             <AppText>
-              {record.litres} L · ₹{record.totalAmount} ·{" "}
+              {formatLitres(record.litres)} L · ₹{record.totalAmount} ·{" "}
               {new Date(record.refuelTime).toLocaleString()}
             </AppText>
           )}

@@ -5,32 +5,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppText, Card, Button, colors, radius } from '../../components/ui';
 import { useManagerData } from '../context/ManagerDataContext';
 import { summarizeOwner } from '../services/ownerSummary';
-import { ManagerPage } from './ManagerScreens';
+import { ManagerPage, RecentTrips } from './ManagerScreens';
 import { MenuRow } from './DriverScreens';
 import { KpiCard, SectionHeading, DataState } from '../components';
+import { formatLitres } from '../../utils/format';
 const money = (value) => typeof value === 'number' ? `₹${value.toLocaleString('en-IN')}` : '—';
-const RECENT_TRIPS = 5;
-const tripDetail = (trip, plate) => [
-  plate,
-  trip.distanceKm == null ? 'Distance unavailable' : `${Math.round(trip.distanceKm)} km`,
-  trip.startedAt ? new Date(trip.startedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : null,
-  trip.status.charAt(0) + trip.status.slice(1).toLowerCase().replace(/_/g, ' '),
-].filter(Boolean).join(' · ');
 
 export function Today({ navigation }) {
   const { data, branchId, branches } = useManagerData(); const summary = summarizeOwner(data);
-  const recentTrips = data?.trips.filter((trip) => trip.status !== 'DISMISSED').slice(0, RECENT_TRIPS) || [];
-  const plates = Object.fromEntries((data?.vehicles || []).map((v) => [v.id, v.plate]));
   return <ManagerPage navigation={navigation} title="The bigger picture." subtitle="Your fleet. Your priorities. One clear view.">
     <LinearGradient colors={colors.heroGradient} style={s.hero}><View style={s.heroTop}><AppText variant="caption" color={colors.onPrimaryMuted}>{branchId === 'all' ? 'ORGANIZATION OVERVIEW' : `${branchId.toUpperCase()} OVERVIEW`}</AppText><Ionicons name="pulse-outline" size={23} color={colors.white} /></View><AppText variant="display" color={colors.white}>{summary.trucks} trucks.</AppText><AppText color={colors.onPrimaryMuted}>{summary.moving} moving · {summary.drivers} drivers · {summary.unknown} telemetry unavailable</AppText><Button label="Explore your fleet" variant="secondary" onPress={() => navigation.navigate('Fleet')} style={{ marginTop: 10 }} /></LinearGradient>
     <View style={s.metrics}><KpiCard label="Open alerts" value={summary.alerts} icon="notifications-outline" caption={`${summary.critical} critical on loaded page`} /><KpiCard label="Pending reviews" value={summary.pendingReviews} icon="receipt-outline" caption="Fuel and workshop bills" /></View>
     <MenuRow title="Your fleet digest" detail="Exceptions, activity and next steps" icon="sparkles-outline" onPress={() => navigation.navigate('Digest')} />
-    <SectionHeading title="Recent trips" caption="Latest GPS-detected journeys." />
-    {recentTrips.map((trip) => <MenuRow key={trip.id} title={`${trip.from} → ${trip.to}`} detail={tripDetail(trip, plates[trip.vehicleId])} icon="navigate-outline" onPress={() => navigation.navigate('Manager trip', { id: trip.id })} />)}
-    {data && !data.errors.trips && !recentTrips.length && <Card><AppText weight="semibold">No trips yet.</AppText><AppText muted>Journeys appear here once trucks are detected on the road.</AppText></Card>}
-    {recentTrips.length > 0 && <Button label="View all trips" variant="secondary" onPress={() => navigation.navigate('Fleet trips')} />}
+    <RecentTrips navigation={navigation} data={data} />
     <SectionHeading title="Operational overview" />
-    <MenuRow title="Fuel & AdBlue" detail={`${summary.fuelLitres} L fuel · ${summary.adblueLitres} L AdBlue · last 30 days`} icon="water-outline" onPress={() => navigation.navigate('Fuel & AdBlue')} />
+    <MenuRow title="Fuel & AdBlue" detail={`${formatLitres(summary.fuelLitres)} L fuel · ${formatLitres(summary.adblueLitres)} L AdBlue · last 30 days`} icon="water-outline" onPress={() => navigation.navigate('Fuel & AdBlue')} />
     <MenuRow title="Maintenance" detail={`${summary.issues} open issues`} icon="construct-outline" onPress={() => navigation.navigate('Maintenance')} />
     <SectionHeading title={branchId === 'all' ? 'Across your branches' : 'Selected branch'} caption="Loaded records in the selected branch." />
     {branches.filter((branch) => branch.id !== 'all' && (branchId === 'all' || branch.id === branchId)).map((branch) => {
@@ -41,12 +30,12 @@ export function Today({ navigation }) {
 }
 export function FuelAdblue({ navigation }) {
   const { data } = useManagerData(); const summary = summarizeOwner(data);
-  return <ManagerPage navigation={navigation} title="Fuel & AdBlue" subtitle="Recorded quantities. Clear costs."><View style={s.metrics}><KpiCard label="Fuel recorded" value={summary.fuelLitres} unit="L" caption="last 30 days" icon="water-outline" /><KpiCard label="AdBlue recorded" value={summary.adblueLitres} unit="L" caption="last 30 days" icon="flask-outline" /></View><Card style={s.cost}><AppText variant="caption" muted>{data?.summary?.asOf ? `Analytics as of ${new Date(data.summary.asOf).toLocaleString()}${data.summary.stale ? " · stale" : ""}` : "Analytics freshness unavailable"}</AppText><AppText variant="label" muted>RECORDED COST</AppText><AppText variant="h1" mono>{money(typeof summary.fuelAmount === 'number' && typeof summary.adblueAmount === 'number' ? summary.fuelAmount + summary.adblueAmount : null)}</AppText><AppText variant="small" muted>Fuel {money(summary.fuelAmount)} · AdBlue {money(summary.adblueAmount)}</AppText><AppText variant="caption" muted>Last 30 days, all record statuses. Warehouse capture totals; not consumption or ledger values.</AppText></Card><Button label="Review fuel slips" variant="secondary" onPress={() => navigation.navigate('Fuel review')} /><SectionHeading title="By vehicle" caption="Entries on the loaded page; headline totals cover the full period." />{data?.vehicles.map((vehicle) => {
+  return <ManagerPage navigation={navigation} title="Fuel & AdBlue" subtitle="Recorded quantities. Clear costs."><View style={s.metrics}><KpiCard label="Fuel recorded" value={formatLitres(summary.fuelLitres)} unit="L" caption="last 30 days" icon="water-outline" /><KpiCard label="AdBlue recorded" value={formatLitres(summary.adblueLitres)} unit="L" caption="last 30 days" icon="flask-outline" /></View><Card style={s.cost}><AppText variant="caption" muted>{data?.summary?.asOf ? `Analytics as of ${new Date(data.summary.asOf).toLocaleString()}${data.summary.stale ? " · stale" : ""}` : "Analytics freshness unavailable"}</AppText><AppText variant="label" muted>RECORDED COST</AppText><AppText variant="h1" mono>{money(typeof summary.fuelAmount === 'number' && typeof summary.adblueAmount === 'number' ? summary.fuelAmount + summary.adblueAmount : null)}</AppText><AppText variant="small" muted>Fuel {money(summary.fuelAmount)} · AdBlue {money(summary.adblueAmount)}</AppText><AppText variant="caption" muted>Last 30 days, all record statuses. Warehouse capture totals; not consumption or ledger values.</AppText></Card><Button label="Review fuel slips" variant="secondary" onPress={() => navigation.navigate('Fuel review')} /><SectionHeading title="By vehicle" caption="Entries on the loaded page; headline totals cover the full period." />{data?.vehicles.map((vehicle) => {
     const fuel = data.fuel.filter((item) => item.vehicleId === vehicle.id); const adblue = data.adblue.filter((item) => item.vehicleId === vehicle.id);
     if (!fuel.length && !adblue.length) return null;
     const fuelLitres = fuel.reduce((sum, item) => sum + item.litres, 0); const adblueLitres = adblue.reduce((sum, item) => sum + item.litres, 0);
-    return <MenuRow key={vehicle.id} title={vehicle.plate} detail={`${fuelLitres} L fuel · ${adblueLitres} L AdBlue`} icon="bus-outline" onPress={() => navigation.navigate('Vehicle detail', { id: vehicle.id })} />;
-  })}{!summary.fuelLitres && !summary.adblueLitres && <DataState state="empty" />}<SectionHeading title="AdBlue entries" />{data?.adblue.map((item) => <MenuRow key={item.id} title={data.vehicles.find((v) => v.id === item.vehicleId)?.plate || 'truck'} detail={`${item.litres} L · ${money(item.amountInr)} · entry`} icon="flask-outline" />)}</ManagerPage>;
+    return <MenuRow key={vehicle.id} title={vehicle.plate} detail={`${formatLitres(fuelLitres)} L fuel · ${formatLitres(adblueLitres)} L AdBlue`} icon="bus-outline" onPress={() => navigation.navigate('Vehicle detail', { id: vehicle.id })} />;
+  })}{!summary.fuelLitres && !summary.adblueLitres && <DataState state="empty" />}<SectionHeading title="AdBlue entries" />{data?.adblue.map((item) => <MenuRow key={item.id} title={data.vehicles.find((v) => v.id === item.vehicleId)?.plate || 'truck'} detail={`${formatLitres(item.litres)} L · ${money(item.amountInr)} · entry`} icon="flask-outline" />)}</ManagerPage>;
 }
 export function Digest({ navigation }) {
   const { data } = useManagerData(); const summary = summarizeOwner(data);

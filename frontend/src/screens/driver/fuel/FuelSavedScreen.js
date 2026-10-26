@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText, Button, Card, colors, spacing } from '../../../components/ui';
+import { formatLitres } from '../../../utils/format';
 
 /**
  * 19 · Fuel saved — with mileage feedback.
@@ -15,7 +16,7 @@ export default function FuelSavedScreen({ navigation, route }) {
   // fleet average nor a wallet projection, so neither is shown.
   const p = route.params || {};
   const pocket = (p.paidBy ?? 'My pocket') === 'My pocket';
-  const litres = p.litres ?? '—';
+  const litres = formatLitres(p.litres);
   const totalFmt = p.totalFmt ?? '—';
   const tripId = p.tripId ?? '';
   const mileage = p.mileage ?? null;

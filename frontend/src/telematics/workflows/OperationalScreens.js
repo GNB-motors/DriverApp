@@ -10,6 +10,8 @@ import { AppText, Button, Card, TextField, colors } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 import { useDriverData } from "../context/DriverDataContext";
 import { Page, MenuRow } from "../screens/DriverScreens";
+import AttachmentPicker from "./AttachmentPicker";
+import { formatLitres } from "../../utils/format";
 import DateField from "./DateField";
 const labels = {
   fuel: "Fuel history",
@@ -256,7 +258,7 @@ export function RecordDetail({ navigation, route }) {
           {kind === "fuel" && (
             <Card>
               <AppText>
-                {record.litres} L · ₹{record.totalAmount} · {record.fuelType} ·{" "}
+                {formatLitres(record.litres)} L · ₹{record.totalAmount} · {record.fuelType} ·{" "}
                 {record.fillingType}
               </AppText>
               <AppText muted>
@@ -561,6 +563,31 @@ export function OperationalForm({ navigation, route }) {
       setProgress(null);
     }
   }
+  const fileFirst = ["fuel", "bills", "documents"].includes(kind);
+  const attachment = (
+    <AttachmentPicker
+      title={
+        { fuel: "Fuel receipt", bills: "Workshop bill", documents: "Document" }[
+          kind
+        ] || "Attachment"
+      }
+      hint={
+        {
+          fuel: "Take a clear photo of the pump bill or receipt.",
+          bills:
+            "The original workshop bill. OCR proposes values for your fleet to review.",
+          documents: "A clear photo or PDF of the original document.",
+        }[kind] || "Optional photo or PDF."
+      }
+      asset={asset}
+      locked={!!saved}
+      disabled={busy}
+      onCamera={() => pick(true)}
+      onGallery={() => pick(false)}
+      onFile={() => pick(false, true)}
+      onRemove={() => setAsset(null)}
+    />
+  );
   const text = (key, label, options = {}) => (
     <TextField
       key={key}
@@ -624,6 +651,7 @@ export function OperationalForm({ navigation, route }) {
                   prevent duplicate entries.
                 </AppText>
               )}
+              {fileFirst && attachment}
               {kind === "fuel" && (
                 <>
                   <MenuRow
@@ -736,33 +764,7 @@ export function OperationalForm({ navigation, route }) {
                   kind === "reply" ? "Your reply" : "Describe the issue",
                   { multiline: true },
                 )}
-              {kind === "bills" && (
-                <AppText muted>
-                  Upload the original workshop bill. OCR proposes values for
-                  your fleet to review.
-                </AppText>
-              )}
-              {asset && (
-                <AppText>{asset.name || "Selected attachment"}</AppText>
-              )}
-              <Button
-                label={
-                  saved
-                    ? "Reselect the same attachment if needed"
-                    : "Choose photo or PDF"
-                }
-                variant="secondary"
-                disabled={busy}
-                onPress={() => pick(false, true)}
-              />
-              {!saved && (
-                <Button
-                  label="Take photo"
-                  variant="secondary"
-                  disabled={busy}
-                  onPress={() => pick(true)}
-                />
-              )}
+              {!fileFirst && attachment}
               {progress != null && <AppText>Uploading: {progress}%</AppText>}
               <Button
                 label={
