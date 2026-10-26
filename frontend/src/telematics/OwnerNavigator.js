@@ -10,6 +10,7 @@ import { TelematicsApiProvider } from './context/TelematicsApiContext';
 import { ManagerDataProvider, useManagerData } from './context/ManagerDataContext';
 import * as Screens from './screens/ManagerScreens';
 import * as Owner from './screens/OwnerScreens';
+import FleetMapScreen from './screens/FleetMapScreen';
 const Tab = createBottomTabNavigator(); const Stack = createNativeStackNavigator();
 const icons = { Today: 'sunny-outline', Live: 'map-outline', Fleet: 'bus-outline', Alerts: 'notifications-outline', More: 'grid-outline' };
 function OwnerTabs() {
@@ -30,6 +31,7 @@ export default function OwnerNavigator() {
   return <TelematicsApiProvider key={identity} identity={identity} audience="owner"><ManagerDataProvider audience="owner"><Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
     <Stack.Screen name="Owner tabs" component={OwnerTabs} />
     <Stack.Screen name="Fleet" component={Screens.Fleet} />
+    <Stack.Screen name="Fleet map" component={FleetMapScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
     <Stack.Screen name="Vehicle detail" component={Screens.VehicleDetail} />
     <Stack.Screen name="Driver detail" component={Screens.DriverDetail} />
     <Stack.Screen name="Duty board" component={Operations.DriverRoster} />

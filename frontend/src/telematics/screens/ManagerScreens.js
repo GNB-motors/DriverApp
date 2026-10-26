@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
-import WorkspacePage, { AvailabilityNotice } from "../components/WorkspacePage";
+import WorkspacePage from "../components/WorkspacePage";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -42,7 +42,7 @@ const date = (value) =>
     day: "numeric",
     month: "short",
   });
-export function ManagerPage({ navigation, title, subtitle, children, allowEmpty = false }) {
+export function ManagerPage({ navigation, title, subtitle, action, children, allowEmpty = false }) {
   const {
     data,
     loading,
@@ -59,6 +59,7 @@ export function ManagerPage({ navigation, title, subtitle, children, allowEmpty 
       title={title}
       subtitle={subtitle}
       label={roleLabel}
+      action={action}
       refreshing={loading && !!data}
       onRefresh={refresh}
       filters={branches.length > 1 ? (
@@ -93,7 +94,6 @@ export function ManagerPage({ navigation, title, subtitle, children, allowEmpty 
                 <AppText color={colors.error}>{key}: {message}</AppText>
               </Card>
             ))}
-            <AvailabilityNotice items={data?.unavailable} />
             {children}
           </>
         )}
@@ -225,14 +225,25 @@ export function ManagerLive({ navigation }) {
           .toLowerCase()
           .includes(search.trim().toLowerCase()),
     ) || [];
+  const openMap = () => navigation.navigate("Fleet map", { filter });
   return (
     <ManagerPage
       navigation={navigation}
       title="Fleet positions"
       subtitle="A view of your trucks on the road."
+      action={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open live map"
+          onPress={openMap}
+          style={s.headerAction}
+        >
+          <Ionicons name="expand-outline" size={22} color={colors.primary} />
+        </Pressable>
+      }
     >
       <TextField
-        label="Search trucks"
+        accessibilityLabel="Search trucks"
         placeholder="Registration or model"
         value={search}
         onChangeText={setSearch}
@@ -243,6 +254,7 @@ export function ManagerLive({ navigation }) {
         onSelectVehicle={(vehicle) =>
           navigation.navigate("Vehicle detail", { id: vehicle.id })
         }
+        onExpand={openMap}
       />
       <Filters
         values={["all", "moving", "stopped", "idling", "offline"]}
@@ -963,6 +975,14 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   branchSelected: { backgroundColor: colors.primary },
+  headerAction: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   content: { gap: 14 },
   hero: { borderRadius: radius.xl, padding: 24, gap: 12 },
   heroButton: { marginTop: 10 },

@@ -12,7 +12,8 @@ import AppText from './AppText';
  *   <TextField label="Litres" unit="L" mono keyboardType="numeric" error="Required field" />
  *
  * Props: label, value, onChangeText, placeholder, icon (Ionicons, left chip),
- *        unit (right suffix), error (string), mono, editable, keyboardType, …TextInput props.
+ *        unit (right suffix), error (string), mono, editable, keyboardType,
+ *        fieldStyle (input box overrides), …TextInput props.
  */
 export default function TextField({
   label,
@@ -25,6 +26,7 @@ export default function TextField({
   mono = false,
   editable = true,
   style,
+  fieldStyle,
   inputStyle,
   ...rest
 }) {
@@ -47,6 +49,7 @@ export default function TextField({
       <View
         style={[
           styles.field,
+          fieldStyle,
           hasError && styles.fieldError,
           !editable && styles.fieldDisabled,
         ]}
@@ -92,7 +95,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: radius.md,

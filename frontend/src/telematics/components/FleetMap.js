@@ -1,13 +1,15 @@
 import React, { useEffect, useRef } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
-import { AppText, Card, colors } from "../../components/ui";
+import { Ionicons } from "@expo/vector-icons";
+import { AppText, Card, colors, elevation, radius } from "../../components/ui";
 import { mapPoints, trailCoordinates, trailSegments } from "./mapGeometry";
 const EMPTY_TRAIL = [];
 export default function FleetMap({
   vehicles,
   trailPoints = EMPTY_TRAIL,
   onSelectVehicle,
+  onExpand,
   caption,
 }) {
   const map = useRef(null);
@@ -66,6 +68,16 @@ export default function FleetMap({
           />
         ))}
       </MapView>
+      {onExpand && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open full-screen map"
+          onPress={onExpand}
+          style={styles.expand}
+        >
+          <Ionicons name="expand-outline" size={20} color={colors.text} />
+        </Pressable>
+      )}
       <AppText variant="caption" muted style={styles.caption}>
         {caption ||
           `${points.length} trucks with reported coordinates · Tap a marker for details`}
@@ -81,4 +93,16 @@ const styles = StyleSheet.create({
   },
   map: { height: 340, width: "100%" },
   caption: { padding: 12 },
+  expand: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+    ...elevation.md,
+  },
 });

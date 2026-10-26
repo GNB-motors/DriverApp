@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, ScrollView, Pressable, StyleSheet, KeyboardAvoidingView, Platform, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,21 +43,6 @@ export default function WorkspacePage({ navigation, title, subtitle, label, acti
   );
 }
 
-export function AvailabilityNotice({ items = [] }) {
-  const [expanded, setExpanded] = useState(false);
-  if (!items.length) return null;
-  return (
-    <View style={styles.notice}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Data availability details" accessibilityState={{ expanded }} onPress={() => setExpanded(!expanded)} style={styles.noticeButton}>
-        <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
-        <AppText variant="caption" muted style={styles.fill}>Partial data · Totals include available data only</AppText>
-        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />
-      </Pressable>
-      {expanded && <AppText variant="small" muted style={styles.noticeDetail}>Unavailable: {items.join(', ')}.</AppText>}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   fill: { flex: 1 },
@@ -69,7 +54,4 @@ const styles = StyleSheet.create({
   back: { width: 44, height: 44, borderRadius: radius.full, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   action: { flexShrink: 0, alignSelf: 'flex-start', marginTop: spacing.xs },
   page: { width: '100%', maxWidth: 680, alignSelf: 'center', paddingTop: spacing.md, gap: spacing.md },
-  notice: { borderRadius: radius.md },
-  noticeButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44, paddingVertical: spacing.sm },
-  noticeDetail: { paddingLeft: 26, paddingBottom: spacing.sm },
 });

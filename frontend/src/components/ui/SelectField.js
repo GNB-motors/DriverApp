@@ -83,7 +83,7 @@ function SelectOption() { return null; }
 SelectField.Item = SelectOption;
 
 const styles = StyleSheet.create({
-  field: { minHeight: 52, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background },
+  field: { minHeight: 52, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
   fieldOpen: { borderColor: colors.primary },
   value: { flex: 1, minWidth: 0 },
   valueText: { fontSize: 15, lineHeight: 22 },

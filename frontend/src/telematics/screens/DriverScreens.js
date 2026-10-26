@@ -4,7 +4,7 @@ import { View, Pressable, StyleSheet, Alert, Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as Crypto from 'expo-crypto';
-import WorkspacePage, { AvailabilityNotice } from '../components/WorkspacePage';
+import WorkspacePage from '../components/WorkspacePage';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { AppText, Card, Button, TextField, colors, radius, spacing } from '../../components/ui';
@@ -25,7 +25,6 @@ export function Page({ navigation, title, subtitle, children, action, allowEmpty
   return <WorkspacePage navigation={navigation} title={title} subtitle={subtitle} label="HIGHWAY SAHAYAK" action={action} refreshing={loading && !!data} onRefresh={refresh}>
     {error && !allowEmpty ? <><AppText color={colors.error}>{error}</AppText><DataState state="error" onRetry={refresh} /><Button label="Sign out" variant="secondary" onPress={logout} /></> : !data && !allowEmpty ? <DataState state="loading" /> : !allowEmpty && !data.driver ? <DataState state="empty" /> : <View style={s.content}>
       {data?.errors && Object.entries(data.errors).map(([key, message]) => <Card key={key}><AppText color={colors.error}>{key}: {message}</AppText></Card>)}
-      <AvailabilityNotice items={data?.unavailable} />
       {children}</View>}
   </WorkspacePage>;
 }
