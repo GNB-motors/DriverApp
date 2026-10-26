@@ -4,18 +4,25 @@ import { translations } from '../i18n/translations';
 import logger from '../utils/logger';
 
 const LanguageContext = createContext();
+const ONBOARDING_KEY = 'onboardingComplete';
 
 export function LanguageProvider({ children }) {
   const [language, setLanguage] = useState(null); // 'en' or 'hi'
+  const [onboarded, setOnboarded] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     const loadLanguage = async () => {
       try {
-        const storedLang = await storage.getItem('appLanguage');
+        const [storedLang, storedOnboarded] = await Promise.all([
+          storage.getItem('appLanguage'),
+          storage.getItem(ONBOARDING_KEY),
+        ]);
         if (storedLang) {
           setLanguage(storedLang);
         }
+        // Installs from before this flag picked their language during onboarding.
+        setOnboarded(storedOnboarded === true || !!storedLang);
       } catch (e) {
         logger.error('Language', `Failed to load language: ${e?.message}`);
       } finally {
@@ -38,6 +45,12 @@ export function LanguageProvider({ children }) {
     }
   };
 
+  // Survives logout, so a returning user lands straight on sign in.
+  const completeOnboarding = async () => {
+    setOnboarded(true);
+    await storage.setItem(ONBOARDING_KEY, true);
+  };
+
   // Translation function helper
   const t = (screen, key) => {
     const lang = language && translations[language] ? language : 'en';
@@ -46,7 +59,7 @@ export function LanguageProvider({ children }) {
   };
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage: changeLanguage, isLoaded, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage: changeLanguage, isLoaded, onboarded, completeOnboarding, t }}>
       {children}
     </LanguageContext.Provider>
   );

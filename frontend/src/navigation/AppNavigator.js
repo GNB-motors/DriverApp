@@ -32,9 +32,9 @@ import SplashScreen from '../components/ui/SplashScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const tabIcon = (routeName) => ({ color, size }) => { const Icon = NAV_ICONS[routeName] || NAV_ICONS.Home; return <Icon size={size} color={color} />; };
-function AuthStack() {
+function AuthStack({ initialRoute }) {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+    <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false, animation: 'fade' }}>
       <Stack.Screen name="GetStarted" component={GetStartedScreen} />
       <Stack.Screen name="OnboardingLanguage" component={OnboardingLanguageScreen} />
       <Stack.Screen name="Phone" component={PhoneNumberScreen} />
@@ -84,11 +84,11 @@ function FieldAgentStack() {
 
 
 export default function AppNavigator() {
-  const { isLoaded } = useLanguage();
+  const { isLoaded, onboarded } = useLanguage();
   const { user, loading } = useAuth();
   if (!isLoaded || loading) return <SplashScreen />;
   const shell = selectAppShell(user);
-  if (shell === 'login') return <AuthStack />;
+  if (shell === 'login') return <AuthStack initialRoute={onboarded ? 'Login' : 'GetStarted'} />;
   if (shell === 'driver') return <DriverNavigator />;
   if (shell === 'manager') return <ManagerNavigator />;
   if (shell === 'owner') return <OwnerNavigator />;

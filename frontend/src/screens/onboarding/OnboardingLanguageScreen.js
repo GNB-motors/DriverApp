@@ -17,11 +17,12 @@ const LANGS = [
 
 export default function OnboardingLanguageScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, completeOnboarding } = useLanguage();
   const [selected, setSelected] = useState(language || 'en');
 
   const onContinue = () => {
     setLanguage(selected);
+    completeOnboarding();
     navigation.navigate('Login');
   };
 

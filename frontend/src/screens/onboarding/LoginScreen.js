@@ -39,9 +39,11 @@ export default function LoginScreen({ navigation }) {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="dark" />
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn} accessibilityLabel="Go back">
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </Pressable>
+        {navigation.canGoBack() && (
+          <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn} accessibilityLabel="Go back">
+            <Ionicons name="chevron-back" size={22} color={colors.text} />
+          </Pressable>
+        )}
       </View>
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
