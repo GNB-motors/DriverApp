@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import Notifications from './notificationsModule';
 import { useAuth } from '../context/AuthContext';
 import { createTelematicsApi } from '../telematics/services/telematicsApi';
 
@@ -9,7 +9,7 @@ export default function NotificationRouter({ navigationRef, ready }) {
   const [pending, setPending] = useState(null);
   const handled = useRef(new Set());
   useEffect(() => {
-    if (Platform.OS === 'web') return undefined;
+    if (Platform.OS === 'web' || !Notifications) return undefined;
     const accept = (response) => { if (response) setPending(response); };
     const listener = Notifications.addNotificationResponseReceivedListener(accept);
     Notifications.getLastNotificationResponseAsync().then(accept).catch(() => {});

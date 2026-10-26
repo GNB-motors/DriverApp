@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import Notifications from './notificationsModule';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import logger from '../utils/logger';
@@ -11,7 +11,7 @@ const PUSH_TOKEN_KEY = 'expo_push_token';
 async function accountKey(token) { return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, token || ''); }
 
 // Foreground notification display — show banner + sound while app is open.
-Notifications.setNotificationHandler({
+Notifications?.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
@@ -21,13 +21,12 @@ Notifications.setNotificationHandler({
 });
 
 export function setupAndroidChannel() {
-  if (Platform.OS !== 'android') return;
+  if (Platform.OS !== 'android' || !Notifications) return;
   Notifications.setNotificationChannelAsync('sos', {
     name: 'SOS Alerts',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#EF4444',
-    sound: 'default',
   }).catch(() => {});
 }
 
@@ -48,6 +47,10 @@ async function getProjectId() {
  */
 async function register(authToken, { registerDevice, unregisterDevice, isCurrent = () => true, requestPermission = false }) {
   if (Platform.OS === 'web' || !isCurrent()) return null;
+  if (!Notifications) {
+    logger.warn('Push', 'Push notifications need a development build on Android (not Expo Go).');
+    return null;
+  }
   if (!Device.isDevice) {
     logger.warn('Push', 'Push notifications require a physical device.');
     return null;
