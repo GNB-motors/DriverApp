@@ -62,20 +62,20 @@ function vehicleView(row, position = row.position, rule = row.locationRule) {
     Math.abs(position.latitude) <= 90 &&
     Math.abs(position.longitude) <= 180;
   const stale =
-    !!position?.isStale || !Number.isFinite(age) || age > 15 || age < -2;
+    position?.isStale === true || !Number.isFinite(age) || age > (position?.freshMinutes ?? 15) || age < -2;
   return {
     ...normalize(row),
     plate: row.registrationNumber,
     model: row.model || row.make || "Model unavailable",
-    status: !position
+    status: !position || !Number.isFinite(age) || age < -2
       ? "unknown"
       : stale || position.state === "OFFLINE"
         ? "offline"
-        : position.speed > 0
+        : !Number.isFinite(position.speed) ? 'unknown' : position.speed > 0
           ? "moving"
           : position.ignition === true
             ? "idling"
-            : "stopped",
+            : position.ignition === false ? 'stopped' : 'unknown',
     telemetryRegistration:
       position?.registrationNumber ||
       row.fleetEdgeRegistration ||
@@ -380,10 +380,10 @@ export function createTelematicsApi({
     const data = Object.fromEntries(resources.map((key) => [key, []]));
     const errors = {};
     const jobs = {
-      summary: async () => (await get("/fleet/workflows/summary", { headers: headersFor(branchId) })).data,
+      ...(audience !== 'owner' && { summary: async () => (await get("/fleet/workflows/summary", { headers: headersFor(branchId) })).data }),
       vehicles: () => mapList("/vehicles", normalize, branchId),
-      trips: () => mapList("/auto-trips", tripView, branchId),
-      fuel: () => mapList("/fuel-logs", fuelView, branchId),
+      trips: async () => audience === 'owner' ? rows(await get('/auto-trips', { params: { page: 1, limit: 30 }, headers: headersFor(branchId) })).map(tripView) : mapList('/auto-trips', tripView, branchId),
+      fuel: () => audience === 'owner' ? Promise.resolve([]) : mapList('/fuel-logs', fuelView, branchId),
       drivers: async () =>
         (await collectPages((page, limit) => get("/fleet/workflows/drivers", {
             params: { page, limit },
@@ -466,7 +466,35 @@ export function createTelematicsApi({
     return (await client.post(path, body, { timeout: 120000 })).data.data;
   }
   return {
-    async defLedger() { return (await get('/def-ledger')).data; },
+    async ownerDaily(date, branchId) { return (await get('/app/v2/reports/daily', { params: { date }, headers: headersFor(branchId) })).data; },
+    async ownerRows(params, branchId) { return (await get('/app/v2/reports/rows', { params, headers: headersFor(branchId) })).data; },
+    async ownerTrends(date, branchId) { return (await get('/app/v2/reports/trends', { params: { date }, headers: headersFor(branchId) })).data; },
+    async ownerRecord(kind, id, branchId) { return (await get(`/app/v2/records/${kind}/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data; },
+    async ownerDecision(kind, id, body, branchId) { return (await client.post(`/app/v2/records/${kind}/${encodeURIComponent(id)}/actions`, body, { headers: headersFor(branchId) })).data.data; },
+    async ownerEscalations(branchId, all = false, page = 1) { return (await get('/app/v2/escalations', { params: { all, page }, headers: headersFor(branchId) })).data; },
+    async ownerEscalation(id, branchId, historyPage = 1) { return (await get(`/app/v2/escalations/${encodeURIComponent(id)}`, { params: { historyPage }, headers: headersFor(branchId) })).data; },
+    async ownerCalls(branchId, page = 1) { return (await get('/app/v2/calls', { params: { page }, headers: headersFor(branchId) })).data; },
+    async ownerStartCall(body, branchId) { return (await client.post('/app/v2/calls', body, { headers: headersFor(branchId) })).data.data; },
+    async ownerCallOutcome(id, body, branchId) { return (await client.patch(`/app/v2/calls/${encodeURIComponent(id)}`, body, { headers: headersFor(branchId) })).data.data; },
+    async ownerPreferences(body) { return body ? (await client.put('/app/v2/reports/preferences', body)).data.data : (await get('/app/v2/reports/preferences')).data; },
+    async ownerAudience(params, branchId) { return (await get('/app/v2/communication/audience', { params, headers: headersFor(branchId) })).data; },
+    async conversations(branchId, page = 1) { return (await get('/app/v2/communication/conversations', { params: { page }, headers: headersFor(branchId) })).data; },
+    async createConversation(body, branchId) { return (await client.post('/app/v2/communication/conversations', body, { headers: headersFor(branchId) })).data.data; },
+    async cancelBroadcast(id, branchId) { return (await client.post(`/app/v2/communication/conversations/${encodeURIComponent(id)}/cancel`, {}, { headers: headersFor(branchId) })).data.data; },
+    async updateConversationMembers(id, body, branchId) { return (await client.patch(`/app/v2/communication/conversations/${encodeURIComponent(id)}/members`, body, { headers: headersFor(branchId) })).data.data; },
+    async conversationMessages(id, params, branchId) { return (await get(`/app/v2/communication/conversations/${encodeURIComponent(id)}/messages`, { params, headers: headersFor(branchId) })).data; },
+    async sendMessage(id, payload, asset, branchId) {
+      let body = payload;
+      if (asset) {
+        body = new FormData();
+        for (const [key, value] of Object.entries(payload)) body.append(key, value);
+        if (typeof document !== 'undefined') body.append('file', asset.file || await (await fetch(asset.uri)).blob(), asset.name || 'message.jpg');
+        else body.append('file', { uri: asset.uri, name: asset.name || 'message.jpg', type: asset.mimeType || 'image/jpeg' });
+      }
+      return (await client.post(`/app/v2/communication/conversations/${encodeURIComponent(id)}/messages`, body, { timeout: 120000, headers: headersFor(branchId) })).data.data;
+    },
+    async messageReceipt(id, messageId, action, branchId) { return (await client.post(`/app/v2/communication/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/receipt`, { action }, { headers: headersFor(branchId) })).data.data; },
+    async defLedger(branchId) { return (await get('/def-ledger', { headers: headersFor(branchId) })).data; },
     async myStops() { return rows(await get('/place-intelligence/stops/mine', { params: { days: 14, limit: 50 } })); },
     async explainStop(id, purpose, note) { return (await post(`/place-intelligence/stops/${encodeURIComponent(id)}/reason`, { purpose, ...(note?.trim() && { note: note.trim() }) })).data; },
     async erpTrips(page = 1) { return get('/app/v1/trips', { params: { page, limit: 30 } }); },
@@ -673,9 +701,9 @@ export function createTelematicsApi({
         })),
       };
     },
-    async listTrips(page = 1) {
+    async listTrips(page = 1, branchId, vehicleId) {
       const payload = (
-        await get("/auto-trips", { params: { page, limit: 30 } })
+        await get("/auto-trips", { params: { page, limit: 30, ...(vehicleId && { vehicleId }) }, headers: headersFor(branchId) })
       ).data;
       if (!Array.isArray(payload?.items) || !Number.isFinite(payload.total))
         throw new Error("Invalid trips response.");

@@ -1,0 +1,19 @@
+# Owner experience implementation
+
+Base: DriverApp `Dev-Branch` at `20d9f69`; backend integration uses the matching `feat/owner-experience-completion` implementation based on backend main `82085f34`.
+
+The active OwnerNavigator now opens the dated daily report from Today/Digest. It registers report evidence, fuel capture/financial bill review, finance evidence, trends, report schedule settings, ranked/full inbox, escalation details/history, calls/outcomes, direct/group conversations and broadcasts. Owner startup no longer downloads complete fuel/trip histories or a duplicate 30-day summary. Recent-trip context is bounded; the owner trip-history reader remains paginated and can filter a specific truck. Driver More also registers Messages and Conversation for replies and acknowledgements. Live classification uses the backend freshness policy; missing speed/ignition remains unknown rather than verified idle. Existing Team & access, fleet/map, workshop review, documents and handover remain available.
+
+Report date/branch/account keys mask old responses immediately. Failed refreshes retain only same-scope data and explicitly identify it as previously loaded. Each supported headline carries backend filters to paginated rows. Recorded purchases, expenses confirmed, advances paid, billed margin and cash movement keep their distinct meanings. Source-dependent sections retain unavailable states rather than fabricated figures. Report history is explicitly recomputed and today is labelled partial.
+
+Submissions are saved locally before sending with their full UUID/content. Lost responses retry the same operation. An in-progress 409 preserves that operation; a definite validation/version rejection can be corrected. Media drafts retain their local URI. Reopening a web browser may invalidate a browser blob URL; a message whose media is no longer accessible cannot be silently reconstructed or sent with changed bytes under the old ID.
+
+Conversations support text, photo, recorded voice, explicit current location and structured updates. Broadcasts use a persisted recipient selection and are dispatched by the backend worker. Delivery/read/acknowledged and skipped receipts are separate. Manual membership can be edited; automatic branch/on-duty groups follow the actual backend roster/session sources. Crew/lane/plant groups require their source contracts rather than invented membership.
+
+Native calls open the device dialer and record initiation separately from the selected outcome. Report notifications validate the account/organisation and report date/branch before opening. Narration uses installed English/Hindi/Bengali voices and preserves unknown/partial qualifications; a missing voice is shown as unavailable.
+
+`expo-speech` and `expo-audio` are pinned to the installed Expo SDK's compatible versions. The audio config plugin supplies the microphone permission description. Expo app version is now **1.0.1**, so the existing `runtimeVersion: appVersion` policy separates the changed native dependency set from older binaries. Build a matching native binary before publishing an update for it. Bundles do not establish physical-device success.
+
+Checks: existing `check:telematics`, `check:api`, `check:parity`, `check:push`, plus `check:owner` for IST boundaries, language/unknown narration, retry classification, scoped report/review/receipt contracts and native voice multipart.
+
+The backend's `app/modules/ownerExperience/README.md` defines each source, feature gate, API and lifecycle. Optional email/WhatsApp distribution and navigation/crew-dependent business metrics are not presented as implemented by the mobile screens.

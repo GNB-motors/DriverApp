@@ -2,8 +2,11 @@
   "expo": {
     "name": "driver-app",
     "slug": "driver-app",
-    "version": "1.0.0",
-    "scheme": ["gnbedge", "digilockerapp"],
+    "version": "1.0.1",
+    "scheme": [
+      "gnbedge",
+      "digilockerapp"
+    ],
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -70,7 +73,13 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "GNBEdge uses the microphone only when you record a voice message."
+        }
+      ]
     ],
     "extra": {
       "eas": {

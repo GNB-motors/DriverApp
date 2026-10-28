@@ -44,7 +44,7 @@ const date = (value) =>
     day: "numeric",
     month: "short",
   });
-export function ManagerPage({ navigation, title, subtitle, action, children, allowEmpty = false }) {
+export function ManagerPage({ navigation, title, subtitle, action, children, allowEmpty = false, showSourceErrors = true }) {
   const {
     data,
     loading,
@@ -91,7 +91,7 @@ export function ManagerPage({ navigation, title, subtitle, action, children, all
           <DataState state="loading" />
         ) : (
           <>
-            {Object.entries(data?.errors || {}).map(([key, message]) => (
+            {showSourceErrors && Object.entries(data?.errors || {}).map(([key, message]) => (
               <Card key={key}>
                 <AppText color={colors.error}>{key}: {message}</AppText>
               </Card>
@@ -329,6 +329,7 @@ export function Fleet({ navigation }) {
   );
 }
 export function VehicleDetail({ navigation, route }) {
+  const { user } = useAuth();
   const { data } = useManagerData();
   const vehicle = data?.vehicles.find((v) => v.id === route.params?.id);
   const driver = data?.drivers.find((d) => d.id === vehicle?.driverId);
@@ -367,7 +368,7 @@ export function VehicleDetail({ navigation, route }) {
               navigation.navigate("Truck handover", { vehicleId: vehicle.id })
             }
           />
-          <SectionHeading title="Recent trips" />
+          <SectionHeading title="Recent trips" caption="Recent loaded records; open the trip list for complete history." />
           {data.trips
             .filter((t) => t.vehicleId === vehicle.id)
             .map((t) => (
@@ -382,8 +383,9 @@ export function VehicleDetail({ navigation, route }) {
               />
             ))}
           {!data.trips.some((t) => t.vehicleId === vehicle.id) && (
-            <AppText muted>No trips for this truck.</AppText>
+            <AppText muted>No trips for this truck in the loaded recent records.</AppText>
           )}
+          {user.role === 'OWNER' && <Button label="All trips for this truck" variant="secondary" onPress={() => navigation.navigate('Fleet trips', { vehicleId: vehicle.id })} />}
         </>
       ) : (
         <Unavailable />
@@ -440,6 +442,7 @@ export function Drivers({ navigation, route }) {
   );
 }
 export function DriverDetail({ navigation, route }) {
+  const { user } = useAuth();
   const { data } = useManagerData();
   const driver = data?.drivers.find((d) => d.id === route.params?.id);
   const vehicle = data?.vehicles.find((v) => v.id === driver?.vehicleId);
@@ -448,6 +451,7 @@ export function DriverDetail({ navigation, route }) {
       {driver ? (
         <>
           <DriverRow driver={driver} />
+          {user.role === 'OWNER' && <Button label="Call driver" icon="call-outline" disabled={!driver.mobileNumber} onPress={() => navigation.navigate('Owner calls', { driverId: driver.id, autoDial: true, callRequest: String(Date.now()) })} />}
           {Number.isFinite(driver.limitMinutes) ? <DutyCard driver={driver} /> : <AppText muted>Fleet duty summary is not connected.</AppText>}
           {vehicle ? (
             <VehicleRow
