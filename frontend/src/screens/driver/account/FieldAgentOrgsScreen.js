@@ -18,16 +18,23 @@ export default function FieldAgentOrgsScreen({ navigation }) {
   // Custom API hook to fetch organizations for this field agent
   const { data: orgs, loading, error, refetch } = useApi(
     async () => {
-      const res = await client.get("/app/v1/auth/orgs");
+      const res = await client.get("/me/orgs");
       return res.data?.data ?? res.data ?? [];
     },
     [],
     { fallback: [] }
   );
 
-  const handleSelectOrg = (org) => {
-    setActiveOrg(org);
-    navigation.navigate("Home");
+  const [selectionError, setSelectionError] = React.useState('');
+  const [switching, setSwitching] = React.useState(false);
+  const switchingRef = React.useRef(false);
+  const handleSelectOrg = async (org) => {
+    if (switchingRef.current) return;
+    switchingRef.current = true;
+    setSwitching(true); setSelectionError('');
+    try { await setActiveOrg(org); navigation.navigate("Home"); }
+    catch (failure) { setSelectionError(failure.message); }
+    finally { switchingRef.current = false; setSwitching(false); }
   };
 
   return (
@@ -44,6 +51,7 @@ export default function FieldAgentOrgsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}
       >
+        {selectionError ? <AppText color={colors.error}>{selectionError}</AppText> : null}
         {loading && orgs.length === 0 ? (
           <Loading />
         ) : error ? (
@@ -56,7 +64,7 @@ export default function FieldAgentOrgsScreen({ navigation }) {
               const isActive = organization?._id === org.orgId || organization?.orgId === org.orgId;
               
               return (
-                <Pressable key={org.orgId} onPress={() => handleSelectOrg(org)}>
+                <Pressable accessibilityRole="button" accessibilityLabel={org.companyName} disabled={switching} key={org.orgId} onPress={() => handleSelectOrg(org)}>
                   <Card elevated="sm" padding={16} style={[styles.orgCard, isActive && styles.activeCard]}>
                     <View style={styles.orgRow}>
                       <View style={[styles.iconBox, isActive && styles.activeIconBox]}>

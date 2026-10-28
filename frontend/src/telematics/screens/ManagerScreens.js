@@ -1,3 +1,4 @@
+import HistoricalTripScreen from './HistoricalTripScreen';
 import PushSettings from '../../components/PushSettings';
 import React, { useState, useEffect, useCallback } from "react";
 import {
@@ -839,52 +840,18 @@ export function DocumentDetail({ navigation, route }) {
   );
 }
 export function Trips({ navigation, route }) {
-  const { data } = useManagerData();
-  const detail = route.name === "Manager trip";
-  const trips =
-    data?.trips.filter((t) => !detail || t.id === route.params?.id) || [];
-  return (
-    <ManagerPage
-      navigation={navigation}
-      title={detail ? "Trip details" : "Fleet trips"}
-      subtitle="GPS-detected journeys. No ERP trips."
-    >
-      {trips.map((trip) => (
-        <View key={trip.id} style={s.content}>
-          <MenuRow
-            title={`${trip.from} → ${trip.to}`}
-            detail={`${trip.distanceKm} km · ${trip.status}`}
-            icon="navigate-outline"
-            onPress={
-              detail
-                ? undefined
-                : () => navigation.navigate("Manager trip", { id: trip.id })
-            }
-          />
-          {detail && (
-            <>
-              <FleetMap
-                vehicles={data.vehicles.filter((v) => v.id === trip.vehicleId)}
-                trail
-              />
-              {data.stops
-                .filter((stop) => stop.tripId === trip.id)
-                .map((stop) => (
-                  <MenuRow
-                    key={stop.id}
-                    title={stop.location}
-                    detail={`${stop.durationMinutes} min · ${stop.reason}`}
-                    icon="pause-circle-outline"
-                  />
-                ))}
-            </>
-          )}
-        </View>
-      ))}
-      {!trips.length && <Unavailable />}
-    </ManagerPage>
-  );
+  if (route.name === 'Manager trip') return <HistoricalTripScreen navigation={navigation} route={route} />;
+  return <FleetTripList navigation={navigation} />;
 }
+function FleetTripList({ navigation }) {
+  const { data } = useManagerData();
+  const trips = data?.trips || [];
+  return <ManagerPage navigation={navigation} title="Fleet trips" subtitle="GPS-detected journeys.">
+    {trips.map((trip) => <MenuRow key={trip.id} title={`${trip.from} → ${trip.to}`} detail={`${trip.distanceKm ?? 'Unknown'} km · ${trip.status}`} icon="navigate-outline" onPress={() => navigation.navigate('Manager trip', { id: trip.id })} />)}
+    {!trips.length && <Unavailable />}
+  </ManagerPage>;
+}
+
 export function More({ navigation }) {
   return (
     <ManagerPage
@@ -899,6 +866,8 @@ export function More({ navigation }) {
         ["Maintenance", "construct-outline"],
         ["Fuel review", "water-outline"],
         ["Fleet documents", "document-text-outline"],
+        ["Team & access", "people-outline"],
+        ["AdBlue / DEF", "flask-outline"],
         ["Manager settings", "settings-outline"],
       ].map(([name, icon]) => (
         <MenuRow

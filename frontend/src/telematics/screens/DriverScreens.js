@@ -189,6 +189,7 @@ export function TripDetail({ navigation, route }) {
               navigation.navigate("Add fuel", { tripId: trip.id, trip })
             }
           />
+          {trip.erpTripId && <Button label="ERP trip / delivery documents" variant="secondary" onPress={() => navigation.navigate('ERP trip', { id: typeof trip.erpTripId === 'object' ? trip.erpTripId._id : trip.erpTripId })} />}
           {data?.fuel
             .filter((entry) => entry.tripId === trip.id)
             .map((entry) => (
@@ -378,7 +379,7 @@ export function QuickAdd({ navigation }) {
   return <Page navigation={navigation} title="What would you like to add?" subtitle="Simple steps. Back to the road.">{actions.map(([title, icon, detail]) => <MenuRow key={title} title={title} icon={icon} detail={detail} danger={title === 'SOS'} onPress={() => navigation.replace(title)} />)}</Page>;
 }
 export function DriverMore({ navigation }) {
-  const items = [['My truck', 'bus-outline'], ['Location sharing', 'location-outline'], ['Documents', 'document-text-outline'], ['Fuel history', 'water-outline'], ['My issues', 'construct-outline'], ['Workshop bills', 'receipt-outline'], ['Support', 'help-circle-outline'], ['Profile', 'person-outline']];
+  const items = [['ERP trips', 'document-text-outline'], ['My truck', 'bus-outline'], ['Location sharing', 'location-outline'], ['Documents', 'document-text-outline'], ['Fuel history', 'water-outline'], ['My issues', 'construct-outline'], ['Workshop bills', 'receipt-outline'], ['Support', 'help-circle-outline'], ['Profile', 'person-outline']];
   return <Page navigation={navigation} title="Everything else" subtitle="Your essentials, in one place.">{items.map(([title, icon]) => <MenuRow key={title} title={title} icon={icon} onPress={() => navigation.navigate(title)} />)}</Page>;
 }
 function Success({ title, description, onDone }) {

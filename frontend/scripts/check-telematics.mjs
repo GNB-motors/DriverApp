@@ -63,7 +63,9 @@ const source = (
 const { default: axios } = await import(
   pathToFileURL(require.resolve("axios")).href
 );
-const { createTelematicsApi } = await import(toModule(source));
+const { createTelematicsApi, describeApiError } = await import(toModule(source));
+assert.equal(describeApiError({ response: { status: 400, data: { message: 'Select a document file.' } } }), 'Select a document file.');
+assert.equal(describeApiError({ response: { status: 400, data: {} } }), 'The request could not be processed. Refresh and try again.');
 const requests = [];
 axios.defaults.adapter = async (config) => {
   requests.push(config);
@@ -317,7 +319,12 @@ assert.deepEqual(
 // Phase 3 request contracts use the same authenticated API root.
 axios.defaults.adapter = async (config) => {
   requests.push(config);
-  const payload = config.url.startsWith("/driver/workflows/")
+  const payload = ["/ocr/scan/receipt", "/ocr/scan"].includes(config.url)
+    ? { location: "Test pump", volume: 12.5, rate: 100 }
+    : config.url === "/documents" ? { _id: "uploaded-document" }
+    : config.url === "/mileage/fuel-log" ? { fuelLog: { _id: "saved-fuel" } }
+    : config.url.startsWith("/mileage/last-odometer/") ? { odometerReading: 1000 }
+    : config.url.startsWith("/driver/workflows/")
     ? config.method === "post"
       ? { record: { _id: "stored-document" }, replayed: false }
       : { items: [], total: 0 }
@@ -371,6 +378,76 @@ assert.equal(requests.at(-1).params.page, 2);
 assert.equal((await phase3.getTripTrack("trip")).points[0].longitude, 88);
 
 // Operational uploads retain real file bytes, the persisted request ID and bearer authentication.
+const { receiptFields, receiptRefuelTime } = await import(toModule(await readFile(new URL('../src/telematics/services/fuelReceipt.js', import.meta.url), 'utf8')));
+const { fuelPayload, saveFuelEntry } = await import(toModule(await readFile(new URL('../src/telematics/services/fuelEntry.js', import.meta.url), 'utf8')));
+const baseFuel = { litres: '12.5', rate: '99.82', odometerReading: '', fillingType: 'FULL_TANK', location: 'Pump', refuelTime: '2026-10-27T18:00:00.000Z' };
+const optionalOdo = fuelPayload(baseFuel, 'truck', 'driver', { odometerReading: 1000 });
+assert.equal(Object.hasOwn(optionalOdo, 'odometerReading'), false, 'full tank permits backend odometer fallback');
+assert.equal(optionalOdo.rate, 99.82);
+assert.throws(() => fuelPayload({ ...baseFuel, odometerReading: '1000' }, 'truck', 'driver', { odometerReading: 1000 }), /greater/);
+assert.throws(() => fuelPayload({ ...baseFuel, rate: '' }, 'truck', 'driver'), /positive/);
+assert.throws(() => fuelPayload(baseFuel, '', 'driver'), /vehicle/);
+let durableDraft = { payload: optionalOdo, fuel: { asset: { uri: 'file:///receipt.jpg' }, ocr: { volume: 12.5 } }, odometer: { asset: { uri: 'file:///odo.jpg' }, ocr: { reading: 1100 } } };
+let uploadedDocs = 0;
+let saveAttempts = 0;
+const retryApi = {
+  fuelUploadDocument: async (_vehicle, _asset, type, ocr) => { uploadedDocs++; assert.ok(ocr); return { _id: type === 'FUEL_SLIP' ? 'receipt-id' : 'odo-id' }; },
+  fuelSave: async (payload) => { assert.equal(payload.documentId, 'receipt-id'); assert.equal(payload.odometerDocId, 'odo-id'); if (++saveAttempts === 1) throw new Error('connection lost after save'); return { id: 'existing-fuel' }; },
+};
+const persistFuel = async (next) => { durableDraft = JSON.parse(JSON.stringify(next)); };
+await assert.rejects(() => saveFuelEntry(retryApi, durableDraft, persistFuel), /connection lost/);
+assert.equal(durableDraft.documentId, 'receipt-id');
+assert.equal(durableDraft.odometerDocId, 'odo-id');
+assert.equal((await saveFuelEntry(retryApi, durableDraft, persistFuel)).id, 'existing-fuel');
+assert.equal(uploadedDocs, 2, 'retry must reuse both uploaded document IDs');
+const uploadedAt = '2026-10-28T04:00:00.000Z';
+assert.equal(receiptRefuelTime('2026-10-27 23:45:10', uploadedAt), '2026-10-27T18:15:10.000Z');
+assert.equal(receiptRefuelTime('2026-10-28 01:00:00', uploadedAt), '2026-10-27T19:30:00.000Z');
+assert.equal(receiptRefuelTime('2026-10-27T18:15:10Z', uploadedAt), '2026-10-27T18:15:10.000Z');
+assert.equal(receiptRefuelTime('2026-10-27T23:45:10+05:30', uploadedAt), '2026-10-27T18:15:10.000Z');
+assert.equal(receiptRefuelTime('2024-02-29 12:30', uploadedAt), '2024-02-29T07:00:00.000Z');
+for (const invalid of [null, undefined, '', 'not a date', '2026-10-27', '2026-02-29 12:00:00', '2026-04-31 12:00:00', '2026-10-27 24:00:00'])
+  assert.equal(receiptRefuelTime(invalid, uploadedAt), uploadedAt);
+assert.deepEqual(receiptFields({ station: '', litres: '', amountInr: '' }, { location: 'Pump', volume: 12.5, rate: 100 }), { station: 'Pump', litres: '12.5', amountInr: '1250.00' });
+assert.deepEqual(receiptFields({ station: 'Manual', litres: '8', amountInr: '800' }, { location: 'OCR', volume: 12.5, rate: 100 }), { station: 'Manual', litres: '8', amountInr: '800' });
+assert.deepEqual(receiptFields({ litres: '', amountInr: '' }, { volume: null, rate: 'invalid' }), { litres: '', amountInr: '' });
+// Expo iOS uses URI parts, not browser Blobs.
+const BrowserFormData = globalThis.FormData;
+globalThis.FormData = class FormData {
+  constructor() { this.parts = []; }
+  append(...part) { this.parts.push(part); }
+  getParts() { return this.parts; }
+  toString() { return '[object FormData]'; }
+};
+try {
+  const receipt = await phase3.scanFuelReceipt({ uri: 'file:///receipt.heic', fileName: 'receipt.heic', mimeType: 'image/heic' });
+  const scan = requests.at(-1);
+  assert.equal(scan.url, '/ocr/scan/receipt');
+  assert.equal(scan.headers.Authorization, 'Bearer test-token');
+  assert.deepEqual(scan.data.getParts(), [['file', { uri: 'file:///receipt.heic', name: 'receipt.heic', type: 'image/heic' }]]);
+  assert.equal(receipt.volume, 12.5);
+  await phase3.fuelScan({ uri: 'file:///odo.jpg', name: 'odo.jpg', mimeType: 'image/jpeg' }, 'ODOMETER');
+  assert.equal(requests.at(-1).url, '/ocr/scan');
+  assert.deepEqual(requests.at(-1).data.getParts()[0], ['docType', 'ODOMETER']);
+  const uploaded = await phase3.fuelUploadDocument('truck', { uri: 'file:///receipt.jpg', name: 'receipt.jpg' }, 'FUEL_SLIP', { datetime: '2026-10-27 23:45:00' });
+  assert.equal(uploaded._id, 'uploaded-document');
+  const uploadParts = Object.fromEntries(requests.at(-1).data.getParts());
+  assert.equal(requests.at(-1).url, '/documents');
+  assert.equal(uploadParts.entityId, 'truck');
+  assert.equal(uploadParts.docType, 'FUEL_SLIP');
+  assert.equal(JSON.parse(uploadParts.ocrData).datetime, '2026-10-27 23:45:00');
+  assert.equal(uploadParts.file.uri, 'file:///receipt.jpg');
+  assert.equal((await phase3.fuelLastOdometer('truck')).odometerReading, 1000);
+  assert.equal(requests.at(-1).url, '/mileage/last-odometer/truck');
+  await phase3.fuelSave({ vehicleId: 'truck', documentId: 'receipt' });
+  assert.equal(requests.at(-1).url, '/mileage/fuel-log');
+  assert.equal(JSON.parse(requests.at(-1).data).documentId, 'receipt');
+  await phase3.uploadWorkflow('fuel', { clientRequestId: 'native-upload', litres: 12.5 }, { uri: 'file:///receipt.heic', name: 'receipt.heic', mimeType: 'image/heic' });
+  assert.equal(requests.at(-1).url, '/driver/workflows/fuel');
+  assert.equal(requests.at(-1).data.getParts().at(-1)[1].uri, 'file:///receipt.heic');
+} finally {
+  globalThis.FormData = BrowserFormData;
+}
 globalThis.document = {};
 try {
   const result = await phase3.uploadWorkflow(

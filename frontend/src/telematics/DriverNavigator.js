@@ -1,3 +1,5 @@
+import { ErpTripsScreen, ErpTripScreen } from './screens/ErpTripsScreen';
+import StopReasonsScreen from './screens/StopReasonsScreen';
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -36,10 +38,12 @@ export default function DriverNavigator() {
     <Stack.Screen name="Quick add" component={Screens.QuickAdd} options={{ presentation: 'modal' }} />
     <Stack.Screen name="My truck" component={Screens.MyTruck} />
     <Stack.Screen name="Change truck" component={Screens.ChangeTruck} />
+    <Stack.Screen name="ERP trips" component={ErpTripsScreen} />
+    <Stack.Screen name="ERP trip" component={ErpTripScreen} />
     <Stack.Screen name="Trip detail" component={Screens.TripDetail} />
     <Stack.Screen name="Alert detail" component={Screens.AlertDetail} />
     {['Add fuel', 'Report issue', 'Workshop bill', 'Upload document', 'New support ticket', 'Reply to support'].map((name) => <Stack.Screen key={name} name={name} component={Operations.OperationalForm} />)}
-    <Stack.Screen name="Explain a stop" component={Screens.CaptureForm} />
+    <Stack.Screen name="Explain a stop" component={StopReasonsScreen} />
     <Stack.Screen name="Operation detail" component={Operations.RecordDetail} />
     <Stack.Screen name="Support" component={Operations.RecordList} />
     {['Fuel history', 'My issues', 'Workshop bills'].map((name) => <Stack.Screen key={name} name={name} component={Operations.RecordList} />)}

@@ -13,6 +13,7 @@ import { Page, MenuRow } from "../screens/DriverScreens";
 import AttachmentPicker from "./AttachmentPicker";
 import { formatLitres } from "../../utils/format";
 import DateField from "./DateField";
+import FuelLogFormScreen from "../../screens/driver/fuel/FuelLogFormScreen";
 const labels = {
   fuel: "Fuel history",
   bills: "Workshop bills",
@@ -353,6 +354,10 @@ export function RecordDetail({ navigation, route }) {
   );
 }
 export function OperationalForm({ navigation, route }) {
+  if (kindFor(route) === "fuel") return <FuelLogFormScreen navigation={navigation} route={route} />;
+  return <OtherOperationalForm navigation={navigation} route={route} />;
+}
+function OtherOperationalForm({ navigation, route }) {
   const { service, data, refresh } = useDriverData();
   const { user } = useAuth();
   const kind = kindFor(route);
@@ -436,7 +441,8 @@ export function OperationalForm({ navigation, route }) {
         const item = result.assets[0];
         if ((item.size || item.fileSize || 0) > 10 * 1024 * 1024)
           throw new Error("Choose a file smaller than 10 MB.");
-        setAsset({ ...item, name: item.name || item.fileName || "photo.jpg" });
+        const selected = { ...item, name: item.name || item.fileName || "photo.jpg" };
+        setAsset(selected);
       }
     } catch (failure) {
       setError(failure.message);
@@ -444,32 +450,6 @@ export function OperationalForm({ navigation, route }) {
   }
   function payload() {
     const requestId = Crypto.randomUUID();
-    if (kind === "fuel") {
-      if (!data?.vehicle)
-        throw new Error("Link a truck before recording fuel.");
-      if (
-        !fields.station.trim() ||
-        !(Number(fields.litres) > 0) ||
-        !(Number(fields.amountInr) > 0)
-      )
-        throw new Error("Enter station, positive litres and total amount.");
-      if (fields.fillingType === "FULL_TANK" && !fields.odometerReading.trim())
-        throw new Error("Enter the odometer reading for a full-tank fill.");
-      return {
-        clientRequestId: requestId,
-        vehicleId: data.vehicle.id,
-        autoTripId: route.params?.tripId,
-        station: fields.station.trim(),
-        litres: Number(fields.litres),
-        amountInr: Number(fields.amountInr),
-        fuelType: fields.fuelType,
-        fillingType: fields.fillingType,
-        refuelTime: fields.refuelTime,
-        ...(fields.odometerReading && {
-          odometerReading: Number(fields.odometerReading),
-        }),
-      };
-    }
     if (kind === "documents") {
       if (!asset) throw new Error("Select a document file.");
       return {
@@ -652,52 +632,7 @@ export function OperationalForm({ navigation, route }) {
                 </AppText>
               )}
               {fileFirst && attachment}
-              {kind === "fuel" && (
-                <>
-                  <MenuRow
-                    title={data?.vehicle?.plate || "No assigned truck"}
-                    detail={
-                      route.params?.tripId
-                        ? "Fuel for the selected GPS trip"
-                        : "Fuel for your current truck"
-                    }
-                  />
-                  {text("station", "Fuel station")}
-                  {text("litres", "Litres", { keyboardType: "decimal-pad" })}
-                  {text("amountInr", "Total amount (₹)", {
-                    keyboardType: "decimal-pad",
-                  })}
-                  <Select
-                    label="Fuel type"
-                    value={fields.fuelType}
-                    onChange={(value) => update("fuelType", value)}
-                    disabled={locked}
-                    values={[
-                      ["DIESEL", "Diesel"],
-                      ["ADBLUE", "AdBlue"],
-                    ]}
-                  />
-                  <Select
-                    label="Fill type"
-                    value={fields.fillingType}
-                    onChange={(value) => update("fillingType", value)}
-                    disabled={locked}
-                    values={[
-                      ["PARTIAL", "Partial fill"],
-                      ["FULL_TANK", "Full tank"],
-                    ]}
-                  />
-                  {text("odometerReading", "Odometer (km)", {
-                    keyboardType: "decimal-pad",
-                  })}
-                  <DateField
-                    label="Refuel date and time"
-                    value={fields.refuelTime}
-                    onChange={(value) => update("refuelTime", value)}
-                    disabled={locked}
-                  />
-                </>
-              )}
+              {warning ? <AppText muted>{warning}</AppText> : null}
               {kind === "documents" && (
                 <>
                   <Select

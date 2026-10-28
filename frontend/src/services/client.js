@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { appLoginUrl } from '../telematics/services/authEndpoint';
+import { notifySessionExpired } from './sessionEvents';
 
 /**
  * Central API client — the single place base URL, headers and error handling
@@ -17,7 +19,7 @@ if (RAW && !__DEV__ && !/^https:\/\//i.test(RAW)) {
   throw new Error('Insecure API URL: EXPO_PUBLIC_API_URL must use https:// in production builds.');
 }
 
-export const API_BASE = RAW ? `${RAW}/api` : '';
+export const API_BASE = RAW ? appLoginUrl(RAW).replace(/\/app\/v1\/auth\/login$/, '') : '';
 
 /** True when a backend URL is configured; false → app runs on demo fallback. */
 export const apiConfigured = () => !!RAW;
@@ -52,6 +54,11 @@ client.interceptors.response.use(
   (res) => res,
   (error) => {
     const status = error.response?.status;
+    if (status === 401) {
+      const authorization = error.config?.headers?.Authorization;
+      if (typeof authorization === 'string' && authorization.startsWith('Bearer '))
+        notifySessionExpired(authorization.slice(7));
+    }
     if (status === 401 && onUnauthorized) onUnauthorized();
 
     // No response at all, or an axios network/timeout code → the request never

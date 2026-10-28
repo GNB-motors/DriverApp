@@ -21,7 +21,7 @@ import SOSOptionsScreen from '../screens/driver/sos/SOSOptionsScreen';
 import SOSEmergencyActiveScreen from '../screens/driver/sos/SOSEmergencyActiveScreen';
 import ChooseLanguageScreen from '../screens/driver/account/ChooseLanguageScreen';
 import AlertsScreen from '../screens/driver/alerts/AlertsScreen';
-import FuelCaptureScreen from '../screens/driver/fuel/FuelCaptureScreen';
+import FuelCaptureScreen from '../screens/driver/fuel/FuelLogFormScreen';
 import FuelEntryDetailsScreen from '../screens/driver/fuel/FuelEntryDetailsScreen';
 import FuelSavedScreen from '../screens/driver/fuel/FuelSavedScreen';
 import FuelLogScreen from '../screens/driver/fuel/FuelLogScreen';
@@ -85,14 +85,14 @@ function FieldAgentStack() {
 
 export default function AppNavigator() {
   const { isLoaded, onboarded } = useLanguage();
-  const { user, loading } = useAuth();
+  const { user, loading, activeOrgId } = useAuth();
   if (!isLoaded || loading) return <SplashScreen />;
   const shell = selectAppShell(user);
   if (shell === 'login') return <AuthStack initialRoute={onboarded ? 'Login' : 'GetStarted'} />;
   if (shell === 'driver') return <DriverNavigator />;
   if (shell === 'manager') return <ManagerNavigator />;
   if (shell === 'owner') return <OwnerNavigator />;
-  if (shell === 'field-agent') return <FieldAgentStack />;
+  if (shell === 'field-agent') return <FieldAgentStack key={`${user._id}:${activeOrgId || 'none'}`} />;
   return <UnsupportedRoleScreen />;
 }
 const styles = StyleSheet.create({ fill: { flex: 1 } });

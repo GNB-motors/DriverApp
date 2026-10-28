@@ -1,3 +1,6 @@
+import TeamAccessScreen from './screens/TeamAccessScreen';
+import DefLedgerScreen from './screens/DefLedgerScreen';
+import HistoricalTripScreen from './screens/HistoricalTripScreen';
 import * as Operations from './workflows/FleetOperationalScreens';
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -44,12 +47,12 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Fleet documents" component={Operations.FleetRecords} />
     <Stack.Screen name="Manager document" component={Operations.FleetRecordDetail} />
     <Stack.Screen name="Fleet trips" component={Screens.Trips} />
-    <Stack.Screen name="Manager trip" component={Screens.Trips} />
+    <Stack.Screen name="Manager trip" component={HistoricalTripScreen} />
     <Stack.Screen name="Drivers" component={Operations.DriverRoster} />
     <Stack.Screen name="Digest" component={Owner.Digest} />
-    <Stack.Screen name="Fuel & AdBlue" component={Owner.FuelAdblue} />
+    <Stack.Screen name="Fuel & AdBlue" component={DefLedgerScreen} />
     <Stack.Screen name="Branch overview" component={Owner.BranchOverview} />
-    <Stack.Screen name="Team & access" component={Owner.DeferredTeam} />
+    <Stack.Screen name="Team & access" component={TeamAccessScreen} />
     <Stack.Screen name="Owner settings" component={Screens.Settings} />
   </Stack.Navigator></ManagerDataProvider></TelematicsApiProvider>;
 }
