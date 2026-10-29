@@ -1,3 +1,4 @@
+import { useExperienceCopy } from '../experience/ExperienceUI';
 import { OwnerScreen, OwnerGroupRow } from '../components/OwnerReportView';
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
@@ -49,7 +50,9 @@ export function BranchOverview({ navigation, route }) {
   return <ManagerPage navigation={navigation} title={branch?.name || 'Branch overview'} subtitle="Loaded branch records.">{visible ? <><View style={s.metrics}><KpiCard label="Trucks" value={vehicles.length} icon="bus-outline" /><KpiCard label="Drivers" value={data?.drivers.filter((d) => d.branchId === branch.id).length || 0} icon="people-outline" /></View>{vehicles.map((v) => <MenuRow key={v.id} title={v.plate} detail={`${v.model} · ${v.status}`} icon="bus-outline" onPress={() => navigation.navigate('Vehicle detail', { id: v.id })} />)}{!vehicles.length && <DataState state="empty" />}<Button label={`Filter to ${branch.name}`} variant="secondary" onPress={() => selectBranch(branch.id)} /></> : <Card><AppText muted>This branch is outside the selected view. Choose All branches above to see its records.</AppText></Card>}</ManagerPage>;
 }
 export function More({ navigation }) {
+  const c = useExperienceCopy();
   const groups = [
+    [c('previewTitle'), [['Driver papers review', c('reviewPapers'), 'documents-outline'], ['Crew messages', c('crewMessages'), 'chatbubbles-outline'], ['New preview broadcast', c('broadcasts'), 'megaphone-outline'], ['Experience truth', c('truth'), 'pulse-outline'], ['Experience settings', c('settings'), 'settings-outline']]],
     ['Fleet & people', [['Drivers', 'Driver roster', 'people-outline'], ['Crew & driving', 'Crew & driving', 'swap-horizontal-outline'], ['Fleet trips', 'Trip history', 'navigate-outline'], ['Fuel & AdBlue', 'Fuel & AdBlue', 'water-outline'], ['Maintenance', 'Maintenance', 'construct-outline']]],
     ['Money & records', [['Capture reviews', 'Capture reviews', 'scan-outline'], ['Owner finance', 'Billing & cash flow', 'wallet-outline'], ['Fleet documents', 'Fleet documents', 'document-text-outline']]],
     ['Conversations', [['Messages', 'Messages & broadcasts', 'chatbubbles-outline'], ['Owner calls', 'Calls & follow-ups', 'call-outline'], ['Owner escalations', 'Owner inbox', 'notifications-outline']]],
