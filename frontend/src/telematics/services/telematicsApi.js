@@ -466,6 +466,18 @@ export function createTelematicsApi({
     return (await client.post(path, body, { timeout: 120000 })).data.data;
   }
   return {
+    async ownerDeliveryHistory(page = 1) { return (await get('/app/v2/reports/delivery-history', { params: { page } })).data; },
+    async ownerGroupTargets(branchId) { return (await get('/app/v2/communication/group-targets', { headers: headersFor(branchId) })).data; },
+    async ownerGroupPreview(params, branchId) { return (await get('/app/v2/communication/group-preview', { params, headers: headersFor(branchId) })).data; },
+    async ownerCrews(branchId) { return (await get('/app/v2/crews', { headers: headersFor(branchId) })).data; },
+    async ownerAssignCrew(id, body, branchId) { return (await client.put(`/app/v2/crews/${encodeURIComponent(id)}`, body, { headers: headersFor(branchId) })).data.data; },
+    async ownerCrewPolicy(body, branchId) { return (await client.put('/app/v2/crews/policy/settings', body, { headers: headersFor(branchId) })).data.data; },
+    async myCrew() { return (await get('/app/v2/crew/mine')).data; },
+    async crewDeclaration(body) { return (await client.post('/app/v2/crew/declaration', body)).data.data; },
+    async ownerTripCosts(id, branchId) { return (await get(`/app/v2/trips/${encodeURIComponent(id)}/costs`, { headers: headersFor(branchId) })).data; },
+    async ownerSaveTripCosts(id, body, branchId) { return (await client.post(`/app/v2/trips/${encodeURIComponent(id)}/costs`, body, { headers: headersFor(branchId) })).data.data; },
+    async ownerPromise(id, branchId) { return (await get(`/app/v2/trips/${encodeURIComponent(id)}/promise`, { headers: headersFor(branchId) })).data; },
+    async ownerSavePromise(id, body, branchId) { return (await client.post(`/app/v2/trips/${encodeURIComponent(id)}/promise`, body, { headers: headersFor(branchId) })).data.data; },
     async ownerDaily(date, branchId) { return (await get('/app/v2/reports/daily', { params: { date }, headers: headersFor(branchId) })).data; },
     async ownerRows(params, branchId) { return (await get('/app/v2/reports/rows', { params, headers: headersFor(branchId) })).data; },
     async ownerTrends(date, branchId) { return (await get('/app/v2/reports/trends', { params: { date }, headers: headersFor(branchId) })).data; },

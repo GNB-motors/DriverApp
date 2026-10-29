@@ -191,6 +191,7 @@ export function OwnerReport({ navigation, route }) {
           {[
             "fleet",
             "trips",
+            "distance",
             "diesel",
             "adblue",
             "tolls",
@@ -199,6 +200,9 @@ export function OwnerReport({ navigation, route }) {
             "register",
             "sensorReconciliation",
             "people",
+            "driverTrends",
+            "etaRisks",
+            "ewbRisks",
             "finance",
             "fuelReviews",
             "workshopReviews",
@@ -280,6 +284,11 @@ export function OwnerReport({ navigation, route }) {
         </>
       )}
       <MenuRow
+        title="Crews and declared duty"
+        icon="people-outline"
+        onPress={() => navigation.navigate("Crews")}
+      />
+      <MenuRow
         title="Owner escalations"
         icon="warning-outline"
         onPress={() => navigation.navigate("Owner escalations")}
@@ -329,6 +338,8 @@ function RecordSummary({ item }) {
     <>
       <AppText variant="h3">
         {item.registrationNumber ||
+          item.vehicleNumber ||
+          item.ewbNumber ||
           item.title ||
           item.advanceNumber ||
           item.challanNo ||
@@ -365,6 +376,192 @@ function RecordSummary({ item }) {
       )}
       {item.outstandingAmount != null && (
         <AppText>Outstanding now: ₹{item.outstandingAmount}</AppText>
+      )}
+      {item.observedKm !== undefined && (
+        <AppText>
+          Observed distance:{" "}
+          {item.observedKm == null
+            ? "Unavailable"
+            : `${item.observedKm.toFixed(2)} km`}{" "}
+          · {Number(item.coveragePct).toFixed(1)}% of day covered
+        </AppText>
+      )}
+      {item.excludedIntervals !== undefined && (
+        <AppText>Excluded counter intervals: {item.excludedIntervals}</AppText>
+      )}
+      {item.sensorStatus && (
+        <AppText>Sensor window: {item.sensorStatus}</AppText>
+      )}
+      {[
+        "billL",
+        "registerL",
+        "sensorFillL",
+        "billRegisterGapL",
+        "billSensorFillGapL",
+        "engineBurnL",
+        "tankDeltaL",
+        "unaccountedLossL",
+      ]
+        .filter((name) => Object.prototype.hasOwnProperty.call(item, name))
+        .map((name) => (
+          <AppText key={name}>
+            {name.replace(/([A-Z])/g, " $1")}:{" "}
+            {item[name] == null ? "Unavailable" : `${item[name]} L`}
+          </AppText>
+        ))}
+      {item.settledMargin != null && (
+        <AppText>Owner-attested settled margin: ₹{item.settledMargin}</AppText>
+      )}
+      {item.costCoverage && (
+        <>
+          <AppText>
+            Posted revenue:{" "}
+            {item.postedRevenue == null
+              ? "Unavailable"
+              : `₹${item.postedRevenue}`}
+          </AppText>
+          <AppText>
+            Posted hire cost:{" "}
+            {item.postedHireCost == null
+              ? "Unavailable"
+              : `₹${item.postedHireCost}`}
+          </AppText>
+          <AppText>
+            Contribution:{" "}
+            {item.contribution == null
+              ? "Unavailable"
+              : `₹${item.contribution}`}
+          </AppText>
+          <AppText>
+            Hire cost per laden km:{" "}
+            {item.hireCostPerLadenKm == null
+              ? "Unavailable"
+              : `₹${item.hireCostPerLadenKm.toFixed(2)}`}
+          </AppText>
+          <AppText muted>
+            {item.costCoverage}. Actual profit remains unavailable.
+          </AppText>
+          {[...(item.revenueEvidence || []), ...(item.costEvidence || [])].map(
+            (bill) => (
+              <AppText key={bill._id}>
+                Posted bill {bill.billNumber || bill._id}: ₹
+                {bill.lineNet ?? bill.netAmount ?? "Unavailable"}
+              </AppText>
+            ),
+          )}
+        </>
+      )}
+      {item.arrivedAt && (
+        <AppText>
+          Primary destination arrival:{" "}
+          {new Date(item.arrivedAt).toLocaleString("en-IN", {
+            timeZone: "Asia/Kolkata",
+          })}{" "}
+          IST
+        </AppText>
+      )}
+      {item.onTime !== undefined && (
+        <>
+          <AppText>
+            {item.onTime === null
+              ? "No eligible pre-arrival promise"
+              : item.onTime
+                ? "On time"
+                : `Late by ${Number(item.delayMinutes).toFixed(0)} minutes`}
+          </AppText>
+          {item.promisedAt && (
+            <AppText>
+              Promise v{item.promiseVersion}:{" "}
+              {new Date(item.promisedAt).toLocaleString("en-IN", {
+                timeZone: "Asia/Kolkata",
+              })}{" "}
+              IST · {item.agreement}
+            </AppText>
+          )}
+        </>
+      )}
+      {item.driverName && (
+        <>
+          <AppText>
+            {item.driverName}: {Number(item.drivingMinutes).toFixed(0)} driving
+            minutes · {Number(item.restMinutes).toFixed(0)} rest minutes ·{" "}
+            {Number(item.offDutyMinutes).toFixed(0)} off-duty minutes
+          </AppText>
+          <AppText muted>{item.evidence}</AppText>
+          <AppText>
+            Company driving threshold exceeded:{" "}
+            {item.exceedsDrivingPolicy == null
+              ? "Not configured"
+              : item.exceedsDrivingPolicy
+                ? "Yes"
+                : "No"}
+          </AppText>
+          <AppText>
+            Recorded rest meets company threshold:{" "}
+            {item.meetsRecordedRestPolicy == null
+              ? "Not configured"
+              : item.meetsRecordedRestPolicy
+                ? "Yes"
+                : "No"}
+          </AppText>
+        </>
+      )}
+      {item.ewbNumber && (
+        <AppText>
+          E-way bill {item.ewbNumber} · recorded validity{" "}
+          {item.validUpto
+            ? new Date(item.validUpto).toLocaleString("en-IN", {
+                timeZone: "Asia/Kolkata",
+              }) + " IST"
+            : "Unknown"}{" "}
+          · source pulled{" "}
+          {item.pulledAt ? new Date(item.pulledAt).toLocaleString() : "Unknown"}
+        </AppText>
+      )}
+      {item.consistencyScore != null && (
+        <>
+          <AppText>
+            Driver {item.driverId}: consistency {item.consistencyScore}/100 ·{" "}
+            {item.trendDirection}
+          </AppText>
+          <AppText>
+            {item.sampleCount} {item.efficiencyGranularity} observations ·
+            period {new Date(item.periodStart).toLocaleDateString()} to{" "}
+            {new Date(item.periodEnd).toLocaleDateString()}
+          </AppText>
+          <AppText muted>
+            This is the latest sampled period, not a daily score change.
+          </AppText>
+        </>
+      )}
+      {item.predictionStatus && (
+        <>
+          <AppText>Forecast: {item.predictionStatus}</AppText>
+          <AppText>
+            Median arrival:{" "}
+            {item.p50 ? new Date(item.p50).toLocaleString() : "Unavailable"} ·
+            upper band:{" "}
+            {item.p90 ? new Date(item.p90).toLocaleString() : "Unavailable"}
+          </AppText>
+          <AppText>
+            Promise comparison:{" "}
+            {item.promiseRisk?.replaceAll("_", " ") || "Unavailable"}
+          </AppText>
+          {item.ewayBills.map((bill) => (
+            <AppText key={bill.ewbNumber}>
+              E-way bill {bill.ewbNumber}:{" "}
+              {bill.risk?.replaceAll("_", " ") || "Unavailable"} · validity{" "}
+              {bill.validUpto
+                ? new Date(bill.validUpto).toLocaleString()
+                : "Unknown"}
+            </AppText>
+          ))}
+          <AppText muted>
+            Forecast-band comparisons require fresh measured predictions for
+            this exact destination. They do not confirm an actual arrival or a
+            legal compliance outcome.
+          </AppText>
+        </>
       )}
       {item.wants && <AppText>{item.wants}</AppText>}
       {item.offenseDescription && <AppText>{item.offenseDescription}</AppText>}
@@ -442,6 +639,16 @@ export function OwnerReportRows({ navigation, route }) {
           {request.data.items.map((item) => (
             <Card key={item._id}>
               <RecordSummary item={item} />
+              {route.params.metric === "tripMargin" && item.erpTripId && (
+                <Button
+                  label="Trip cost evidence and closure"
+                  variant="secondary"
+                  onPress={() =>
+                    navigation.navigate("Trip costs", { id: item._id })
+                  }
+                />
+              )}
+
               {[
                 "diesel",
                 "adblue",
@@ -681,6 +888,11 @@ export function ReportSettings({ navigation }) {
   const request = useOwnerRequest(`${key}:preferences`, () =>
     service.ownerPreferences(),
   );
+  const [deliveryPage, setDeliveryPage] = useState(1);
+  const delivery = useOwnerRequest(
+    `${key}:delivery-history:${deliveryPage}`,
+    () => service.ownerDeliveryHistory(deliveryPage),
+  );
   const [form, setForm] = useState(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -688,6 +900,8 @@ export function ReportSettings({ navigation }) {
     if (request.data)
       setForm({
         enabled: request.data.enabled,
+        emailEnabled: request.data.emailEnabled || false,
+        whatsappEnabled: request.data.whatsappEnabled || false,
         time: request.data.time,
         language: request.data.language,
         branchId: request.data.branchId || null,
@@ -710,6 +924,30 @@ export function ReportSettings({ navigation }) {
               ["false", "Disabled"],
             ]}
           />
+          {["emailEnabled", "whatsappEnabled"].map((channel) => (
+            <Choice
+              key={channel}
+              label={
+                channel === "emailEnabled"
+                  ? "Email a report to my account email"
+                  : "WhatsApp report to my account phone"
+              }
+              value={String(form[channel])}
+              onChange={(value) =>
+                setForm({ ...form, [channel]: value === "true" })
+              }
+              options={[
+                ["false", "Disabled"],
+                ["true", "I opt in"],
+              ]}
+            />
+          ))}
+          <AppText muted>
+            Optional channels require configured providers. WhatsApp requires an
+            approved report template for your selected language. Reports go to
+            your account contact details. Provider acceptance does not confirm
+            receipt.
+          </AppText>
           <TextField
             label="Time in IST (HH:mm)"
             value={form.time}
@@ -756,6 +994,26 @@ export function ReportSettings({ navigation }) {
           />
         </>
       )}
+      <AppText variant="h3">Email and WhatsApp delivery history</AppText>
+      <RequestState request={delivery} />
+      {delivery.data?.items.map((item) => (
+        <Card key={item._id}>
+          <AppText>
+            {item.date} IST · {item.channel} · {item.state}
+          </AppText>
+          <AppText>{item.reason || ""}</AppText>
+        </Card>
+      ))}
+      <Button
+        label="Previous deliveries"
+        disabled={deliveryPage === 1}
+        onPress={() => setDeliveryPage(deliveryPage - 1)}
+      />
+      <Button
+        label="More deliveries"
+        disabled={!delivery.data || deliveryPage * 30 >= delivery.data.total}
+        onPress={() => setDeliveryPage(deliveryPage + 1)}
+      />
       {error ? <AppText color={colors.error}>{error}</AppText> : null}
     </Screen>
   );
@@ -1167,6 +1425,124 @@ export function OwnerCalls({ navigation, route }) {
         disabled={!calls.data || page * 30 >= calls.data.total}
         onPress={() => setPage(page + 1)}
       />
+    </Screen>
+  );
+}
+
+export function OwnerArrivalPromise({ navigation, route }) {
+  const { service, branch, key } = useScope();
+  const id = route.params.id;
+  const request = useOwnerRequest(`${key}:promise:${id}`, () =>
+    service.ownerPromise(id, branch),
+  );
+  const write = useOwnerWrite(`${key}:promise:${id}`);
+  const [time, setTime] = useState("");
+  const [agreement, setAgreement] = useState("");
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    setTime("");
+    setAgreement("");
+    setError("");
+    setSaved(false);
+  }, [key, id]);
+  const canCapture =
+    request.data?.trip?.status === "OPEN" &&
+    !request.data?.trip?.drop?.arrivedAt;
+  async function save() {
+    setError("");
+    setSaved(false);
+    if (
+      !write.draft &&
+      (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(time) ||
+        !Number.isFinite(+new Date(time.replace(" ", "T") + ":00+05:30")))
+    ) {
+      setError("Enter an IST arrival time as YYYY-MM-DD HH:mm.");
+      return;
+    }
+    const result = await write.execute(
+      {
+        expectedVersion: request.data?.promise?.version || 0,
+        promisedAt:
+          write.draft?.promisedAt ||
+          new Date(time.replace(" ", "T") + ":00+05:30").toISOString(),
+        agreement,
+      },
+      (body) => service.ownerSavePromise(id, body, branch),
+    );
+    if (result) {
+      setSaved(true);
+      request.reload();
+    }
+  }
+  return (
+    <Screen navigation={navigation} title="Agreed arrival promise">
+      <RequestState request={request} />
+      <AppText muted>
+        Record the primary destination's agreed arrival time and who agreed it.
+        All versions remain in history. Promises entered after arrival do not
+        qualify for on-time assessment.
+      </AppText>
+      {request.data && (
+        <>
+          <AppText>
+            {request.data.trip.registrationNumber} · {request.data.trip.status}
+          </AppText>
+          {(request.data.promise?.versions || [])
+            .slice()
+            .reverse()
+            .map((v) => (
+              <Card key={v.version}>
+                <AppText>
+                  Version {v.version}:{" "}
+                  {new Date(v.promisedAt).toLocaleString("en-IN", {
+                    timeZone: "Asia/Kolkata",
+                  })}{" "}
+                  IST
+                </AppText>
+                <AppText>{v.agreement}</AppText>
+                <AppText muted>
+                  Recorded {new Date(v.capturedAt).toLocaleString()} ·{" "}
+                  {v.userId}
+                </AppText>
+              </Card>
+            ))}
+          {canCapture || write.draft ? (
+            <>
+              <TextField
+                label="Agreed arrival (IST, YYYY-MM-DD HH:mm)"
+                value={time}
+                onChangeText={setTime}
+                editable={!write.busy && !write.draft}
+              />
+              <TextField
+                label="Agreement evidence / agreed with"
+                value={agreement}
+                onChangeText={setAgreement}
+                editable={!write.busy && !write.draft}
+                multiline
+              />
+              <Button
+                label={
+                  write.draft ? "Retry saved promise" : "Save arrival promise"
+                }
+                disabled={!write.ready || (!write.draft && !agreement.trim())}
+                loading={write.busy}
+                onPress={save}
+              />
+            </>
+          ) : (
+            <AppText>
+              Arrival promises can be captured on open trips before arrival.
+            </AppText>
+          )}
+        </>
+      )}
+      {error || write.error ? (
+        <AppText color={colors.error}>{error || write.error}</AppText>
+      ) : null}
+      {saved && <AppText>Arrival promise saved.</AppText>}
+      <Button label="Refresh" variant="secondary" onPress={request.reload} />
     </Screen>
   );
 }

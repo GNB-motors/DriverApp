@@ -1,5 +1,7 @@
+import OwnerTripCostScreen from './screens/OwnerTripCostScreen';
+import { OwnerCrews } from './screens/OwnerCrewScreens';
 import TeamAccessScreen from './screens/TeamAccessScreen';
-import { OwnerReport, OwnerReportRows, OwnerRecord, OwnerFinance, OwnerTrends, ReportSettings, OwnerEscalations, OwnerEscalation, OwnerCalls, OwnerTripList } from './screens/OwnerReportScreens';
+import { OwnerArrivalPromise, OwnerReport, OwnerReportRows, OwnerRecord, OwnerFinance, OwnerTrends, ReportSettings, OwnerEscalations, OwnerEscalation, OwnerCalls, OwnerTripList } from './screens/OwnerReportScreens';
 import { Messages, NewConversation, Conversation } from './screens/OwnerCommunicationScreens';
 import useOwnerRequest from './hooks/useOwnerRequest';
 import DefLedgerScreen from './screens/DefLedgerScreen';
@@ -41,6 +43,7 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Fleet map" component={FleetMapScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
     <Stack.Screen name="Vehicle detail" component={Screens.VehicleDetail} />
     <Stack.Screen name="Driver detail" component={Screens.DriverDetail} />
+    <Stack.Screen name="Crews" component={OwnerCrews} />
     <Stack.Screen name="Duty board" component={Operations.DriverRoster} />
     <Stack.Screen name="Truck handover" component={Operations.Handover} />
     <Stack.Screen name="Manager alert" component={Screens.AlertDetail} />
@@ -54,6 +57,8 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Manager trip" component={HistoricalTripScreen} />
     <Stack.Screen name="Drivers" component={Operations.DriverRoster} />
     <Stack.Screen name="Digest" component={OwnerReport} />
+    <Stack.Screen name="Trip costs" component={OwnerTripCostScreen} />
+    <Stack.Screen name="Arrival promise" component={OwnerArrivalPromise} />
     <Stack.Screen name="Owner report" component={OwnerReport} />
     <Stack.Screen name="Owner report rows" component={OwnerReportRows} />
     <Stack.Screen name="Owner record" component={OwnerRecord} />

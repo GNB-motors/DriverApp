@@ -1,3 +1,4 @@
+import { DriverCrewDuty } from './screens/OwnerCrewScreens';
 import { ErpTripsScreen, ErpTripScreen } from './screens/ErpTripsScreen';
 import StopReasonsScreen from './screens/StopReasonsScreen';
 import { Messages, Conversation } from './screens/OwnerCommunicationScreens';
@@ -36,6 +37,7 @@ export default function DriverNavigator() {
   const identity = `${user._id}:${orgId}`;
   return <TelematicsApiProvider key={identity} identity={identity}><DriverDataProvider><Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
     <Stack.Screen name="Driver tabs" component={DriverTabs} />
+    <Stack.Screen name="Crew duty" component={DriverCrewDuty} />
     <Stack.Screen name="Messages" component={Messages} />
     <Stack.Screen name="Conversation" component={Conversation} />
     <Stack.Screen name="Quick add" component={Screens.QuickAdd} options={{ presentation: 'modal' }} />

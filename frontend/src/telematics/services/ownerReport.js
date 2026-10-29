@@ -14,6 +14,10 @@ export const displayMetric = (metric) =>
     ? "Unavailable"
     : `${metric.unit === "INR" ? "₹" : ""}${Number(metric.value).toLocaleString("en-IN", { maximumFractionDigits: 2 })}${metric.unit === "INR" ? "" : ` ${metric.unit}`}`;
 export const sectionNames = {
+  distance: "Observed daily distance",
+  etaRisks: "Current measured ETA risks",
+  ewbRisks: "Linked e-way bills expired or due within 24 hours",
+  driverTrends: "Latest sampled driver trends",
   people: "Drivers and pairing status now",
   register: "Imported fuel register",
   sensorReconciliation: "Bill / register / sensor reconciliation",
@@ -36,9 +40,9 @@ export const sectionNames = {
   finance: "Billing and cash movement",
   onTime: "On-time arrivals",
   turnaround: "Plant turnaround",
-  crew: "At-wheel and rest",
+  crew: "Declared crew driving and rest",
   navigation: "Navigation coverage",
-  tripMargin: "Actual per-trip margin",
+  tripMargin: "Linked trip revenue and hire contribution",
 };
 export function reportSpeech(report, language = "en") {
   const words = {

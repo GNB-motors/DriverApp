@@ -92,7 +92,21 @@ export function NewConversation({ navigation, route }) {
     [onDuty, setOnDuty] = useState(false),
     [text, setText] = useState(""),
     [scheduledAt, setScheduledAt] = useState(""),
-    [membership, setMembership] = useState("MANUAL");
+    [membership, setMembership] = useState("MANUAL"),
+    [targetId, setTargetId] = useState("");
+  const targeted =
+    type === "GROUP" && ["CREW", "PLANT", "LANE"].includes(membership);
+  const targets = useOwnerRequest(`${key}:group-targets`, () =>
+    service.ownerGroupTargets(branch),
+  );
+  const preview = useOwnerRequest(
+    `${key}:group-preview:${membership}:${targetId}`,
+    () =>
+      targeted && targetId
+        ? service.ownerGroupPreview({ membership, targetId }, branch)
+        : Promise.resolve(null),
+  );
+  useEffect(() => setTargetId(""), [key, membership]);
   const audience = useOwnerRequest(`${key}:audience:${onDuty}`, () =>
     service.ownerAudience({ driverOnly: true, onDuty }, branch),
   );
@@ -140,7 +154,7 @@ export function NewConversation({ navigation, route }) {
         type,
         title,
         members,
-        ...(type === "GROUP" && { membership }),
+        ...(type === "GROUP" && { membership, ...(targeted && { targetId }) }),
         ...(type === "BROADCAST" && {
           text,
           ...(scheduledAt && { scheduledAt }),
@@ -178,8 +192,41 @@ export function NewConversation({ navigation, route }) {
             ["MANUAL", "Manual selection"],
             ["BRANCH", "Automatic branch drivers"],
             ["ON_DUTY", "Automatic ongoing duty sessions"],
+            ["CREW", "Automatic truck crew"],
+            ["PLANT", "Automatic drivers at plant"],
+            ["LANE", "Automatic active ERP lane"],
           ]}
         />
+      )}
+      {targeted && (
+        <>
+          <RequestState request={targets} />
+          <Choice
+            label={
+              membership === "CREW"
+                ? "Crew truck"
+                : membership === "PLANT"
+                  ? "Confirmed plant"
+                  : "Active ERP lane"
+            }
+            value={targetId}
+            onChange={setTargetId}
+            disabled={locked}
+            options={(
+              targets.data?.[
+                { CREW: "crews", PLANT: "plants", LANE: "lanes" }[membership]
+              ] || []
+            ).map((v) => [v._id, v.name])}
+          />
+          <RequestState request={preview} />
+          {preview.data && (
+            <AppText>
+              {preview.data.items.map((p) => p.firstName).join(", ") ||
+                "No matching drivers now"}
+              . {preview.data.note}
+            </AppText>
+          )}
+        </>
       )}
       <TextField
         label="Title"
@@ -258,6 +305,7 @@ export function NewConversation({ navigation, route }) {
           (editing && !existing.data) ||
           (!write.draft &&
             (!title.trim() ||
+              (targeted && !targetId) ||
               (!(type === "GROUP" && membership !== "MANUAL") &&
                 !members.length) ||
               (type === "BROADCAST" && !text.trim())))
