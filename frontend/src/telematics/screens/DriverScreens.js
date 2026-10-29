@@ -5,13 +5,13 @@ import { View, Pressable, StyleSheet, Alert, Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as Crypto from 'expo-crypto';
-import WorkspacePage from '../components/WorkspacePage';
+import DriverScreenShell from '../components/DriverScreenShell';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { AppText, Card, Button, TextField, colors, radius, spacing } from '../../components/ui';
+import { AppText, Card, Button, TextField, Badge, colors, radius } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { useDriverData } from '../context/DriverDataContext';
-import { DutyCard, KpiCard, SectionHeading, VehicleRow, AlertRow, DataState } from '../components';
+import { DutyCard, SectionHeading, VehicleRow, AlertRow, DataState } from '../components';
 
 import FleetMap from '../components/FleetMap';
 import { validCoordinate } from '../components/mapGeometry';
@@ -19,17 +19,24 @@ import { capturePairingFix } from '../tracking/useDriverLocationSharing';
 import { recentTrips, tripDetail, tripStatusLabel } from '../services/tripSummary';
 import { formatLitres } from '../../utils/format';
 
-const money = (value) => `₹${Number(value).toLocaleString('en-IN')}`;
-const date = (value) => new Date(value).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+const money = (value, unavailable = 'Amount unavailable') => value == null || value === '' || !Number.isFinite(Number(value))
+  ? unavailable
+  : `₹${Number(value).toLocaleString('en-IN')}`;
+const date = (value, unavailable = 'Date unavailable') => {
+  const parsed = value == null ? null : new Date(value);
+  return parsed && Number.isFinite(parsed.getTime())
+    ? parsed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+    : unavailable;
+};
 
 export function Page({ navigation, title, subtitle, children, action, allowEmpty = false }) {
   const { data, loading, error, refresh } = useDriverData();
   const { logout } = useAuth();
-  return <WorkspacePage navigation={navigation} title={title} subtitle={subtitle} label="HIGHWAY SAHAYAK" action={action} refreshing={loading && !!data} onRefresh={refresh}>
+  return <DriverScreenShell navigation={navigation} title={title} subtitle={subtitle} label="HIGHWAY SAHAYAK" action={action} refreshing={loading && !!data} onRefresh={refresh}>
     {error && !allowEmpty ? <><AppText color={colors.error}>{error}</AppText><DataState state="error" onRetry={refresh} /><Button label="Sign out" variant="secondary" onPress={logout} /></> : !data && !allowEmpty ? <DataState state="loading" /> : !allowEmpty && !data.driver ? <DataState state="empty" /> : <View style={s.content}>
       {data?.errors && Object.entries(data.errors).map(([key, message]) => <Card key={key}><AppText color={colors.error}>{key}: {message}</AppText></Card>)}
       {children}</View>}
-  </WorkspacePage>;
+  </DriverScreenShell>;
 }
 export function MenuRow({ title, detail, icon = 'chevron-forward', onPress, danger = false }) {
   return <Card onPress={onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={title} style={s.menu}><View style={[s.menuIcon, danger && { backgroundColor: colors.expiredBg }]}><Ionicons name={icon} size={21} color={danger ? colors.error : colors.primary} /></View><View style={s.flex}><AppText weight="semibold" color={danger ? colors.error : colors.text}>{title}</AppText>{detail && <AppText variant="small" muted style={s.detail}>{detail}</AppText>}</View>{onPress && <Ionicons name="chevron-forward" size={17} color={colors.textMuted} />}</Card>;
@@ -58,8 +65,18 @@ export function DriverHome({ navigation }) {
   </Page>;
 }
 function TripCard({ trip, onPress }) {
+  const { t } = useLanguage();
+  const status = tripStatusLabel(trip.status);
+  const statusText = String(status || '').toLowerCase();
+  const tone = /complete|finish|closed/.test(statusText)
+    ? 'valid'
+    : /cancel|reject|fail/.test(statusText)
+      ? 'expired'
+      : /active|transit|progress|ongoing/.test(statusText)
+        ? 'inTransit'
+        : 'neutral';
   return <Card onPress={onPress} accessibilityRole="button" accessibilityLabel={`${trip.from} to ${trip.to}`} style={s.trip}>
-    <View style={s.between}><AppText variant="caption" color={colors.primary} weight="semibold">{tripStatusLabel(trip.status).toUpperCase()}</AppText><AppText variant="caption" muted>{date(trip.startedAt)}</AppText></View>
+    <View style={s.between}><Badge tone={tone} label={status} dot /><AppText variant="caption" muted>{date(trip.startedAt, t('roleDesign', 'unavailableDate'))}</AppText></View>
     <View style={s.route}><View style={s.routeLine}><View style={s.routeDot} /><View style={s.routeStem} /><View style={[s.routeDot, { backgroundColor: colors.primary }]} /></View><View style={s.flex}><AppText variant="h3">{trip.from}</AppText><AppText variant="h3" style={s.destination}>{trip.to}</AppText></View><Ionicons name="arrow-forward" size={22} color={colors.primary} /></View>
     <AppText mono muted>{trip.distanceKm == null ? 'Distance unavailable' : `${trip.distanceKm} km`} · GPS-detected</AppText>
   </Card>;
@@ -137,6 +154,7 @@ export function DriverTrips({ navigation }) {
   );
 }
 export function TripDetail({ navigation, route }) {
+  const { t } = useLanguage();
   const { data, service } = useDriverData();
   const [trip, setTrip] = useState(null);
   const [track, setTrack] = useState(null);
@@ -198,7 +216,7 @@ export function TripDetail({ navigation, route }) {
               <MenuRow
                 key={entry.id}
                 title={entry.station || entry.title}
-                detail={`${formatLitres(entry.litres)} L · ${money(entry.amountInr)} · ${entry.status}`}
+                detail={`${formatLitres(entry.litres)} L · ${money(entry.amountInr, t('roleDesign', 'unavailableAmount'))} · ${entry.status}`}
                 icon="water-outline"
               />
             ))}
@@ -252,15 +270,16 @@ export function DriverInbox({ navigation }) {
   const [page, setPage] = useState(1);
   const [feed, setFeed] = useState(null);
   const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
   useEffect(() => {
     let active = true;
     setFeed(null); setError('');
     service.listDriverAlerts({ page, unread: filter === 'Unread' }).then((value) => { if (active) setFeed(value); }).catch((e) => { if (active) setError(e.message); });
     return () => { active = false; };
-  }, [service, filter, page, data?.unreadCount]);
+  }, [service, filter, page, data?.unreadCount, revision]);
   return <Page navigation={navigation} title="Your inbox" subtitle="Your duty, assignment, support and incident updates." allowEmpty>
     <View style={s.filters}>{['All', 'Unread'].map((item) => <Pressable key={item} style={[s.filter, filter === item && s.activeFilter]} accessibilityRole="button" accessibilityState={{ selected: filter === item }} onPress={() => { setFilter(item); setPage(1); }}><AppText weight="semibold" color={filter === item ? colors.white : colors.textMuted}>{item}</AppText></Pressable>)}</View>
-    {error ? <AppText color={colors.error}>{error}</AppText> : !feed ? <DataState state="loading" /> : <>
+    {error ? <><DataState state="error" onRetry={() => setRevision((old) => old + 1)} /><AppText color={colors.error} accessibilityRole="alert">{error}</AppText></> : !feed ? <DataState state="loading" /> : <>
       <AppText muted>{feed.unreadCount} unread · {feed.total} matching alerts</AppText>
       {feed.items.map((alert) => <AlertRow key={alert.id} alert={alert} onPress={() => navigation.navigate('Alert detail', { id: alert.id })} />)}
       {!feed.items.length && <Empty title="No matching alerts" description="New updates will appear here." />}
@@ -381,8 +400,25 @@ export function QuickAdd({ navigation }) {
   return <Page navigation={navigation} title="What would you like to add?" subtitle="Simple steps. Back to the road.">{actions.map(([title, icon, detail]) => <MenuRow key={title} title={title} icon={icon} detail={detail} danger={title === 'SOS'} onPress={() => navigation.replace(title)} />)}</Page>;
 }
 export function DriverMore({ navigation }) {
-  const items = [['Crew & driving', 'people-outline'], ['Messages', 'chatbubbles-outline'], ['ERP trips', 'document-text-outline'], ['My truck', 'bus-outline'], ['Location sharing', 'location-outline'], ['Documents', 'document-text-outline'], ['Fuel history', 'water-outline'], ['My issues', 'construct-outline'], ['Workshop bills', 'receipt-outline'], ['Support', 'help-circle-outline'], ['Profile', 'person-outline']];
-  return <Page navigation={navigation} title="Everything else" subtitle="Your essentials, in one place.">{items.map(([title, icon]) => <MenuRow key={title} title={title} icon={icon} onPress={() => navigation.navigate(title)} />)}</Page>;
+  const { language, t } = useLanguage();
+  const sectionTitleStyle = language === 'hi' || language === 'bn'
+    ? { lineHeight: 30, paddingTop: 2, paddingBottom: 2 }
+    : undefined;
+  const groups = [
+    {
+      key: 'moreTruckTrips',
+      items: [['Crew & driving', 'people-outline'], ['ERP trips', 'document-text-outline'], ['My truck', 'bus-outline'], ['Location sharing', 'location-outline']],
+    },
+    {
+      key: 'moreMessagesRecords',
+      items: [['Messages', 'chatbubbles-outline'], ['Documents', 'document-text-outline'], ['Fuel history', 'water-outline'], ['My issues', 'construct-outline'], ['Workshop bills', 'receipt-outline'], ['Support', 'help-circle-outline']],
+    },
+    {
+      key: 'moreAccount',
+      items: [['Profile', 'person-outline']],
+    },
+  ];
+  return <Page navigation={navigation} title="Everything else" subtitle="Your essentials, in one place.">{groups.map((group) => <React.Fragment key={group.key}><SectionHeading title={t('roleDesign', group.key)} titleStyle={sectionTitleStyle} />{group.items.map(([title, icon]) => <MenuRow key={title} title={title} icon={icon} onPress={() => navigation.navigate(title)} />)}</React.Fragment>)}</Page>;
 }
 function Success({ title, description, onDone }) {
   return <Card style={s.empty}><View style={s.successIcon}><Ionicons name="checkmark" size={32} color={colors.success} /></View><AppText variant="h2" center>{title}</AppText><AppText muted center>{description}</AppText><Button label="Done" onPress={onDone} /></Card>;
@@ -621,7 +657,7 @@ export function SosUnavailable({ navigation }) {
   );
 }
 const s = StyleSheet.create({
-  flex: { flex: 1 }, content: { gap: 14 },
+  flex: { flex: 1 }, content: { gap: 16 },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, sos: { minHeight: 48, paddingHorizontal: 12, borderRadius: radius.full, backgroundColor: colors.expiredBg, flexDirection: 'row', alignItems: 'center', gap: 6 }, menu: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 76, borderColor: colors.border }, menuIcon: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' }, detail: { marginTop: 4 }, empty: { alignItems: 'center', padding: 24, gap: 16 }, selected: { borderColor: colors.primary, backgroundColor: colors.blueTint },
   quickGrid: { flexDirection: 'row', gap: 10 }, quick: { flex: 1, minHeight: 100, alignItems: 'center', gap: 10, paddingVertical: 14, paddingHorizontal: 4, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }, quickIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   trip: { gap: 18, padding: 24, borderColor: colors.border }, between: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }, route: { flexDirection: 'row', alignItems: 'center', gap: 14 }, routeLine: { alignItems: 'center' }, routeDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: colors.primary }, routeStem: { height: 28, width: 2, backgroundColor: colors.border }, destination: { marginTop: 16 }, map: { overflow: 'hidden', borderRadius: radius.lg }, mapCaption: { padding: 16 },

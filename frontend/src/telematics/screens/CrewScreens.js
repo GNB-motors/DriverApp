@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Platform, Pressable } from "react-native";
-import { AppText, Button, Card, TextField, colors } from "../../components/ui";
+import { Alert, Platform, Pressable, View } from "react-native";
+import { AppText, Badge, Button, Card, TextField, colors } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { useTelematicsApi } from "../context/TelematicsApiContext";
 import { useManagerData } from "../context/ManagerDataContext";
 import useOwnerRequest from "../hooks/useOwnerRequest";
@@ -87,6 +88,7 @@ function Summary({ data }) {
 }
 export function DriverCrewCard({ navigation }) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const service = useTelematicsApi();
   const request = useOwnerRequest(
     `${identity(user)}:crew-card`,
@@ -98,7 +100,55 @@ export function DriverCrewCard({ navigation }) {
       <AppText variant="h3">Crew & driving</AppText>
       <RequestState request={request} />
       {request.data ? (
-        <Summary data={request.data} />
+        <>
+          <View style={styles.driverSummary}>
+            <AppText variant="h3" mono numberOfLines={1}>
+              {request.data.vehicle.registrationNumber}
+            </AppText>
+            <Badge
+              tone={
+                request.data.status === "DRIVING"
+                  ? "onDuty"
+                  : request.data.status === "PENDING"
+                    ? "pending"
+                    : request.data.status === "DISPUTED"
+                      ? "expired"
+                      : "neutral"
+              }
+              label={labels[request.data.status] || labels.UNKNOWN}
+              dot
+            />
+          </View>
+          {request.data.currentDriverId ? (
+            <AppText>
+              At the wheel: {nameFor(request.data, request.data.currentDriverId)}
+            </AppText>
+          ) : null}
+          {!request.data.members.length ? (
+            <AppText muted>No crew assigned.</AppText>
+          ) : null}
+          {request.data.members.some(
+            (member) => !member.accepted || member.status !== "ACTIVE",
+          ) ? (
+            <AppText color={colors.warning}>
+              {t("roleDesign", "crewMembershipNeedsAttention")}
+            </AppText>
+          ) : null}
+          {request.data.requiresOwnerReview ? (
+            <AppText color={colors.warning}>
+              Owner review needed: crew membership or account access changed.
+            </AppText>
+          ) : null}
+          {request.data.pending ? (
+            <AppText color={colors.warning}>
+              {request.data.pending.invalidated
+                ? "Handover unavailable because crew membership changed."
+                : request.data.pending.expired
+                  ? "Handover expired without confirmation."
+                  : `Waiting for ${nameFor(request.data, request.data.pending.targetDriverId)} until ${time(request.data.pending.expiresAt)}.`}
+            </AppText>
+          ) : null}
+        </>
       ) : (
         !request.loading &&
         !request.error && (
@@ -113,6 +163,15 @@ export function DriverCrewCard({ navigation }) {
     </Card>
   );
 }
+const styles = {
+  driverSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+};
 export function VehicleCrewCard({ navigation, vehicleId }) {
   const { user } = useAuth();
   const { branchId } = useManagerData();

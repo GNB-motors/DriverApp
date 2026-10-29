@@ -1,17 +1,21 @@
 import { VehicleCrewCard } from "./CrewScreens";
 import HistoricalTripScreen from './HistoricalTripScreen';
 import PushSettings from '../../components/PushSettings';
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   ScrollView,
   Pressable,
   StyleSheet,
-  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
 } from "react-native";
-import WorkspacePage from "../components/WorkspacePage";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import { useIsFocused } from "@react-navigation/native";
 import {
   AppText,
   Card,
@@ -21,6 +25,7 @@ import {
   radius,
 } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { useManagerData } from "../context/ManagerDataContext";
 import {
   VehicleRow,
@@ -40,12 +45,16 @@ import { useFocusEffect } from "@react-navigation/native";
 import { MenuRow } from "./DriverScreens";
 
 const money = (value) => `₹${Number(value).toLocaleString("en-IN")}`;
+const roleText = (t, key, fallback) => t("roleDesign", key) || fallback;
 const date = (value) =>
   new Date(value).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
   });
 export function ManagerPage({ navigation, title, subtitle, action, children, allowEmpty = false, showSourceErrors = true }) {
+  const insets = useSafeAreaInsets();
+  const focused = useIsFocused();
+  const { t } = useLanguage();
   const {
     data,
     loading,
@@ -56,80 +65,136 @@ export function ManagerPage({ navigation, title, subtitle, action, children, all
     roleLabel,
     selectBranch,
   } = useManagerData();
+  const showBack = navigation.getState().type === "stack" && navigation.canGoBack();
   return (
-    <WorkspacePage
-      navigation={navigation}
-      title={title}
-      subtitle={subtitle}
-      label={roleLabel}
-      action={action}
-      refreshing={loading && !!data}
-      onRefresh={refresh}
-      filters={branches.length > 1 ? (
-        <ScrollView horizontal style={s.branchScroller} showsHorizontalScrollIndicator={false} contentContainerStyle={s.branchRow}>
-          {branches.map((branch) => (
-            <Pressable
-              key={branch.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Branch: ${branch.id === "all" ? "All branches" : branch.name}`}
-              accessibilityState={{ selected: branchId === branch.id }}
-              style={[s.branchFilter, branchId === branch.id && s.branchFilterSelected]}
-              onPress={() => selectBranch(branch.id)}
-            >
-              <Ionicons name="business-outline" size={14} color={branchId === branch.id ? colors.white : colors.textMuted} />
-              <AppText variant="caption" weight="semibold" color={branchId === branch.id ? colors.white : colors.textMuted}>
-                {branch.id === "all" ? "All branches" : branch.name}
-              </AppText>
-            </Pressable>
-          ))}
+    <View style={s.screen}>
+      {focused && <StatusBar style="light" />}
+      <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentInsetAdjustmentBehavior="never"
+          automaticallyAdjustContentInsets={false}
+          refreshControl={<RefreshControl refreshing={loading && !!data} onRefresh={refresh} tintColor={colors.primary} colors={[colors.primary]} />}
+          contentContainerStyle={[s.page, { paddingBottom: insets.bottom + 20 }]}
+        >
+          <LinearGradient
+            colors={colors.gradient || colors.heroGradient}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 0.9, y: 1 }}
+            style={[s.pageHero, { paddingTop: insets.top + 18, paddingLeft: 20 + insets.left, paddingRight: 20 + insets.right }]}
+          >
+            <View style={s.heroHeadingRow}>
+              {showBack && (
+                <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" style={s.backButton}>
+                  <Ionicons name="chevron-back" size={22} color={colors.white} />
+                </Pressable>
+              )}
+              <View style={s.heroHeading}>
+                <AppText variant="caption" weight="semibold" color={colors.onPrimaryMuted} style={s.eyebrow}>
+                  {roleLabel || roleText(t, "managerShellFallbackLabel", "MANAGER WORKSPACE")}
+                </AppText>
+                <AppText variant="h1" accessibilityRole="header" color={colors.white} style={s.pageTitle}>
+                  {title}
+                </AppText>
+                {subtitle ? <AppText variant="small" color={colors.onPrimaryMuted} style={s.pageSubtitle}>{subtitle}</AppText> : null}
+              </View>
+              {action ? <View style={s.heroAction}>{action}</View> : null}
+            </View>
+            {branches.length > 1 ? (
+              <ScrollView horizontal style={s.branchScroller} showsHorizontalScrollIndicator={false} contentContainerStyle={s.branchRow}>
+                {branches.map((branch) => {
+                  const selected = branchId === branch.id;
+                  return (
+                    <Pressable
+                      key={branch.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Branch: ${branch.id === "all" ? "All branches" : branch.name}`}
+                      accessibilityState={{ selected }}
+                      style={[s.branchFilter, selected ? s.branchFilterSelected : s.branchFilterUnselected]}
+                      onPress={() => selectBranch(branch.id)}
+                    >
+                      <Ionicons name="business-outline" size={15} color={selected ? colors.primaryDeep : colors.white} />
+                      <AppText variant="caption" weight="semibold" color={selected ? colors.primaryDeep : colors.white}>
+                        {branch.id === "all" ? "All branches" : branch.name}
+                      </AppText>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
+          </LinearGradient>
+          <View style={[s.sheet, { marginLeft: 16 + insets.left, marginRight: 16 + insets.right }]}>
+            <View style={s.content}>
+              {error && !allowEmpty ? (
+                <DataState state="error" onRetry={refresh} />
+              ) : !data && !allowEmpty ? (
+                <DataState state="loading" />
+              ) : (
+                <>
+                  {showSourceErrors && Object.entries(data?.errors || {}).map(([key, message]) => (
+                    <Card key={key}>
+                      <AppText color={colors.error}>{key}: {message}</AppText>
+                    </Card>
+                  ))}
+                  {children}
+                </>
+              )}
+            </View>
+          </View>
         </ScrollView>
-      ) : null}
-    >
-      <View style={s.content}>
-        {error && !allowEmpty ? (
-          <DataState state="error" onRetry={refresh} />
-        ) : !data && !allowEmpty ? (
-          <DataState state="loading" />
-        ) : (
-          <>
-            {showSourceErrors && Object.entries(data?.errors || {}).map(([key, message]) => (
-              <Card key={key}>
-                <AppText color={colors.error}>{key}: {message}</AppText>
-              </Card>
-            ))}
-            {children}
-          </>
-        )}
-      </View>
-    </WorkspacePage>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 export function ManagerHome({ navigation }) {
-  const { data, branchId } = useManagerData();
-  const pending = data
-    ? data.fuel.filter((item) => item.status === "Pending review").length +
-      data.bills.filter((item) => item.status === "Pending review").length
-    : 0;
+  const { t } = useLanguage();
+  const { data, branchId, branches } = useManagerData();
+  const vehicleCount = data?.errors?.vehicles ? "—" : data?.vehicles.length ?? 0;
+  const driverCount = data?.errors?.drivers ? "—" : data?.drivers.length ?? 0;
+  const pendingFuel = data?.errors?.fuel
+    ? null
+    : data?.fuel.filter((item) => item.status === "Pending review").length ?? 0;
+  const pendingFuelDetail = pendingFuel == null
+    ? roleText(t, "managerHomeFuelRecordsUnavailable", "Fuel records unavailable")
+    : roleText(t, "managerHomePendingFuelDetail", "{count} pending fuel slips").replace("{count}", String(pendingFuel));
+  const livePositionsAvailable = !data?.errors?.positions && !data?.errors?.vehicles;
+  const selectedBranchLabel = branchId === "all"
+    ? roleText(t, "managerHomeAuthorizedBranches", "Authorized branches")
+    : branches.find((branch) => branch.id === branchId)?.name || roleText(t, "managerHomeSelectedBranch", "Selected branch");
+  const recognizedStatuses = new Set(["moving", "stopped", "idling", "offline", "unknown"]);
+  const unavailableStatusCount = (data?.vehicles || []).filter((vehicle) => {
+    const status = String(vehicle.status || "").toLowerCase();
+    return status === "unknown" || !recognizedStatuses.has(status);
+  }).length;
   return (
     <ManagerPage
       navigation={navigation}
       title="Your fleet, in focus."
-      subtitle="The overview you need. The actions that matter."
+      subtitle={roleText(t, "managerHomeSubtitle", "Live positions, drivers, and recent trips.")}
     >
       <LinearGradient colors={colors.heroGradient} style={s.hero}>
         <AppText variant="caption" color={colors.onPrimaryMuted}>
-          {branchId.toUpperCase()} · LOADED RECORDS
+          {selectedBranchLabel} · LOADED RECORDS
         </AppText>
         <AppText variant="display" color={colors.white}>
-          {data?.vehicles.length || 0} trucks.
+          {vehicleCount} trucks.
         </AppText>
-        <AppText color={colors.onPrimaryMuted}>
-          {data?.vehicles.filter((v) => v.status === "moving").length || 0}{" "}
-          moving ·{" "}
-          {data?.vehicles.filter((v) => v.status === "offline").length || 0}{" "}
-          offline
-        </AppText>
+        {livePositionsAvailable ? (
+          <View style={s.liveSummary}>
+            <AppText color={colors.onPrimaryMuted}>
+              {data?.vehicles.filter((v) => v.status === "moving").length || 0}{" "}
+              moving ·{" "}
+              {data?.vehicles.filter((v) => v.status === "offline").length || 0}{" "}
+              offline
+            </AppText>
+            <AppText variant="caption" color={colors.onPrimaryMuted}>
+              {roleText(t, "managerHomeStatusUnavailableCount", "Status unavailable: {count}").replace("{count}", String(unavailableStatusCount))}
+            </AppText>
+          </View>
+        ) : (
+          <AppText color={colors.onPrimaryMuted}>{roleText(t, "managerHomeLiveCountsUnavailable", "Live position counts unavailable")}</AppText>
+        )}
         <Button
           label="Explore fleet"
           variant="secondary"
@@ -139,16 +204,16 @@ export function ManagerHome({ navigation }) {
       </LinearGradient>
       <View style={s.metrics}>
         <KpiCard
-          value={data?.drivers.length || 0}
+          value={driverCount}
           label="Drivers"
           icon="people-outline"
-          caption="In selected branch"
+          caption={data?.errors?.drivers ? roleText(t, "managerHomeDriverRecordsUnavailable", "Driver records unavailable") : "In selected branch"}
         />
         <KpiCard
-          value={pending}
-          label="To review"
+          value={pendingFuel == null ? "—" : pendingFuel}
+          label={roleText(t, "managerHomePendingFuelLabel", "Pending fuel slips")}
           icon="receipt-outline"
-          caption="Fuel and workshop bills"
+          caption={pendingFuel == null ? roleText(t, "managerHomeCountsUnavailable", "Counts unavailable") : roleText(t, "managerHomePendingFuelCaption", "In the selected branch")}
         />
       </View>
       <RecentTrips navigation={navigation} data={data} />
@@ -161,13 +226,13 @@ export function ManagerHome({ navigation }) {
       />
       <MenuRow
         title="Review fuel slips"
-        detail={`${pending} items across fuel and bills`}
+        detail={pendingFuelDetail}
         icon="water-outline"
         onPress={() => navigation.navigate("Fuel review")}
       />
       <MenuRow
         title="Maintenance & issues"
-        detail="Track repairs and workshop bills"
+        detail={roleText(t, "managerHomeMaintenanceDetail", "Review workshop bills and vehicle issues")}
         icon="construct-outline"
         onPress={() => navigation.navigate("Maintenance")}
       />
@@ -291,7 +356,7 @@ export function ManagerLive({ navigation }) {
           />
         </View>
       ))}
-      {!vehicles.length && <Empty />}
+      {!vehicles.length && !data?.errors?.vehicles && !data?.errors?.positions && <Empty />}
     </ManagerPage>
   );
 }
@@ -325,7 +390,7 @@ export function Fleet({ navigation }) {
           onPress={() => navigation.navigate("Vehicle detail", { id: v.id })}
         />
       ))}
-      {!vehicles.length && <Empty />}
+      {!vehicles.length && !data?.errors?.positions && !data?.errors?.vehicles && <Empty />}
     </ManagerPage>
   );
 }
@@ -396,9 +461,12 @@ export function VehicleDetail({ navigation, route }) {
   );
 }
 export function Drivers({ navigation, route }) {
+  const { t } = useLanguage();
   const { data } = useManagerData();
   const duty = route.name === "Duty board";
   const [filter, setFilter] = useState("All");
+  const availableStates = [...new Set((data?.drivers || []).map((driver) => driver.state).filter((state) => state && state !== "Unavailable"))];
+  const filters = ["All", ...availableStates, "Unlinked"];
   const drivers =
     data?.drivers.filter(
       (d) =>
@@ -409,13 +477,19 @@ export function Drivers({ navigation, route }) {
     <ManagerPage
       navigation={navigation}
       title={duty ? "Duty board" : "Your drivers"}
-      subtitle="People behind every kilometre."
+      subtitle={duty ? roleText(t, "managerDutySubtitle", "Driver and truck assignments in this branch.") : "People behind every kilometre."}
     >
       <Filters
-        values={["All", "Driving", "Resting", "Unlinked"]}
+        values={filters}
         selected={filter}
         onSelect={setFilter}
       />
+      {duty && (data?.drivers || []).some((driver) => !Number.isFinite(driver.drivingMinutes)) && (
+        <Card>
+          <AppText weight="semibold">{roleText(t, "managerDutyTimeUnavailableTitle", "Driving-time data unavailable")}</AppText>
+          <AppText muted>{roleText(t, "managerDutyTimeUnavailableBody", "Driver assignments are shown below; duty hours are not connected in this view.")}</AppText>
+        </Card>
+      )}
       {drivers.map((driver) => (
         <Pressable
           key={driver.id}
@@ -426,7 +500,7 @@ export function Drivers({ navigation, route }) {
           }
         >
           <DriverRow driver={driver} />
-          {duty && (
+          {duty && Number.isFinite(driver.drivingMinutes) && (
             <AppText variant="caption" muted style={s.dutyCaption}>
               {Math.floor(driver.drivingMinutes / 60)}h{" "}
               {driver.drivingMinutes % 60}m driving
@@ -434,7 +508,7 @@ export function Drivers({ navigation, route }) {
           )}
         </Pressable>
       ))}
-      {!drivers.length && <Empty />}
+      {!drivers.length && !data?.errors?.drivers && <Empty />}
       <Button
         label="Link a driver to a truck"
         variant="secondary"
@@ -854,35 +928,31 @@ function FleetTripList({ navigation }) {
   const trips = data?.trips || [];
   return <ManagerPage navigation={navigation} title="Fleet trips" subtitle="GPS-detected journeys.">
     {trips.map((trip) => <MenuRow key={trip.id} title={`${trip.from} → ${trip.to}`} detail={`${trip.distanceKm ?? 'Unknown'} km · ${trip.status}`} icon="navigate-outline" onPress={() => navigation.navigate('Manager trip', { id: trip.id })} />)}
-    {!trips.length && <Unavailable />}
+    {!trips.length && !data?.errors?.trips && <Unavailable />}
   </ManagerPage>;
 }
 
 export function More({ navigation }) {
+  const { t, language } = useLanguage();
+  const indicSectionTitleStyle = language === "hi" || language === "bn"
+    ? { lineHeight: 30, paddingTop: 2, paddingBottom: 2 }
+    : undefined;
   return (
     <ManagerPage
       navigation={navigation}
       title="Fleet essentials"
       subtitle="The rest of your working toolkit."
     >
-      {[
-        ["Fleet", "bus-outline"],
-        ["Duty board", "time-outline"],
-        ["Fleet trips", "navigate-outline"],
-        ["Maintenance", "construct-outline"],
-        ["Fuel review", "water-outline"],
-        ["Fleet documents", "document-text-outline"],
-        ["Team & access", "people-outline"],
-        ["AdBlue / DEF", "flask-outline"],
-        ["Manager settings", "settings-outline"],
-      ].map(([name, icon]) => (
-        <MenuRow
-          key={name}
-          title={name === "Manager settings" ? "Settings & support" : name}
-          icon={icon}
-          onPress={() => navigation.navigate(name)}
-        />
+      <SectionHeading title={roleText(t, "managerMoreFleetPeople", "Fleet & people")} titleStyle={indicSectionTitleStyle} caption={roleText(t, "managerMoreFleetPeopleCaption", "Vehicles, drivers, and trip history.")} />
+      {[["Fleet", "bus-outline"], ["Duty board", "time-outline"], ["Fleet trips", "navigate-outline"], ["Team & access", "people-outline"]].map(([name, icon]) => (
+        <MenuRow key={name} title={name} icon={icon} onPress={() => navigation.navigate(name)} />
       ))}
+      <SectionHeading title={roleText(t, "managerMoreRecordsReviews", "Records & reviews")} titleStyle={indicSectionTitleStyle} caption={roleText(t, "managerMoreRecordsReviewsCaption", "Operational follow-up for this branch.")} />
+      {[["Maintenance", "construct-outline"], ["Fuel review", "water-outline"], ["Fleet documents", "document-text-outline"], ["AdBlue / DEF", "flask-outline"]].map(([name, icon]) => (
+        <MenuRow key={name} title={name} icon={icon} onPress={() => navigation.navigate(name)} />
+      ))}
+      <SectionHeading title={roleText(t, "managerMoreAdministration", "Administration")} titleStyle={indicSectionTitleStyle} />
+      <MenuRow title="Settings & support" icon="settings-outline" onPress={() => navigation.navigate("Manager settings")} />
     </ManagerPage>
   );
 }
@@ -954,10 +1024,23 @@ function Filters({ values, selected, onSelect }) {
 
 const s = StyleSheet.create({
   flex: { flex: 1 },
+  screen: { flex: 1, backgroundColor: colors.background },
+  page: { width: "100%", maxWidth: 760, alignSelf: "center", flexGrow: 1, backgroundColor: colors.background },
+  pageHero: { paddingBottom: 42, gap: 18 },
+  heroHeadingRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  heroHeading: { flex: 1, minWidth: 0 },
+  liveSummary: { gap: 2 },
+  eyebrow: { letterSpacing: 1, textTransform: "uppercase", marginBottom: 5 },
+  pageTitle: { fontSize: 25, lineHeight: 31 },
+  pageSubtitle: { marginTop: 5 },
+  heroAction: { flexShrink: 0, alignSelf: "flex-start" },
+  backButton: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.onPrimaryFaint, alignItems: "center", justifyContent: "center" },
+  sheet: { marginTop: -24, backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, minHeight: 240, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 20, borderWidth: 1, borderColor: colors.hairline },
   branchScroller: { flexGrow: 0 },
   branchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  branchFilter: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: radius.full, backgroundColor: colors.surface },
-  branchFilterSelected: { backgroundColor: colors.primary },
+  branchFilter: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: radius.full },
+  branchFilterSelected: { backgroundColor: colors.white },
+  branchFilterUnselected: { backgroundColor: colors.onPrimaryFaint },
   branch: {
     minHeight: 48,
     paddingHorizontal: 20,

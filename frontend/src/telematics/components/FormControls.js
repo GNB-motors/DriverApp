@@ -1,16 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppText, Button, colors, spacing } from '../../components/ui';
+import { useIsFocused } from '@react-navigation/native';
+import { AppText, Button, BackHeader, colors, spacing } from '../../components/ui';
 import Select from '../../components/ui/SelectField';
 
-export function Screen({ navigation, title, children }) {
+export function Screen({ navigation, title, subtitle, action, children }) {
   const insets = useSafeAreaInsets();
-  return <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.md, paddingBottom: insets.bottom + spacing.lg, gap: spacing.md }}>
-      <Button label="Back" variant="ghost" onPress={() => navigation.goBack()} />
-      <AppText variant="h2">{title}</AppText>{children}
-    </ScrollView>
+  const focused = useIsFocused();
+  const showBack = navigation.getState().type === 'stack' && navigation.canGoBack();
+  return <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <BackHeader active={focused} title={title} subtitle={subtitle} right={action} onBack={showBack ? () => navigation.goBack() : undefined} />
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="never" contentContainerStyle={{ width: '100%', maxWidth: 680, alignSelf: 'center', paddingTop: spacing.md, paddingLeft: spacing.md + insets.left, paddingRight: spacing.md + insets.right, paddingBottom: insets.bottom + spacing.lg, gap: spacing.md }}>
+        {children}
+      </ScrollView>
+    </KeyboardAvoidingView>
   </View>;
 }
 export function Choice({ label, value, options, onChange, disabled }) {

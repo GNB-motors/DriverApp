@@ -54,6 +54,7 @@ export function OwnerScreen({ navigation, title, subtitle, action, children }) {
     <View style={s.screen}>
       {focused && <StatusBar style="dark" />}
       <BackHeader
+        active={focused}
         title={title}
         subtitle={subtitle}
         onBack={back ? () => navigation.goBack() : undefined}
