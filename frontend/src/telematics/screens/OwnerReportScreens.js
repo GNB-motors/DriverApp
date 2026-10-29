@@ -422,7 +422,7 @@ export function OwnerReportRows({ navigation, route }) {
     else if (metric === "issues")
       navigation.navigate("Review detail", { kind: "issues", id: row._id });
     else if (metric === "documents")
-      navigation.navigate("Manager document", { id: row._id });
+      navigation.navigate("Owner record", { kind: "document", id: row._id });
     else if (metric === "people")
       navigation.navigate("Owner calls", { driverId: row._id });
     else if (metric === "inbox")
@@ -536,6 +536,9 @@ export function OwnerRecord({ navigation, route }) {
   );
   const write = useOwnerWrite(`${key}:review:${kind}:${id}`);
   const [note, setNote] = useState("");
+  const [notingIssue, setNotingIssue] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+  useEffect(() => { setNote(""); setNotingIssue(false); setConfirmation(""); }, [key, kind, id]);
   const item = request.data;
   async function decide(action) {
     const result = await write.execute(
@@ -544,13 +547,15 @@ export function OwnerRecord({ navigation, route }) {
     );
     if (result) {
       setNote("");
+      setNotingIssue(false);
+      setConfirmation(kind === "document" ? ((write.draft?.action || action) === "REJECT" ? "Issue recorded. Verification status is unchanged." : "Document verified.") : "Decision saved.");
       request.reload();
     }
   }
   return (
     <Screen
       navigation={navigation}
-      title={kind === "fuel" ? "Fuel capture review" : "Financial bill review"}
+      title={kind === "document" ? "Document review" : kind === "fuel" ? "Fuel capture review" : "Financial bill review"}
     >
       <RequestState request={request} />
       {item && (
@@ -558,18 +563,46 @@ export function OwnerRecord({ navigation, route }) {
           <Card>
             <RecordSummary item={item} />
             <FileLink
-              url={item.receipt?.publicUrl || item.receiptUrl}
-              label="Open receipt evidence"
+              url={kind === "document" ? item.fileUrl : item.receipt?.publicUrl || item.receiptUrl}
+              label={kind === "document" ? "Open document evidence" : "Open receipt evidence"}
             />
           </Card>
           <AppText muted>
-            {kind === "fuel"
+            {kind === "document"
+              ? "Verify after reviewing the document. Noting an issue records your concern without changing verification status."
+              : kind === "fuel"
               ? "This reviews the recorded capture. It does not approve an expense or record payment."
               : "Confirmation includes this bill in the driver wallet. It is not payment."}
           </AppText>
+          {confirmation ? <AppText>{confirmation}</AppText> : null}
+          {kind === "document" && (
+            <Card>
+              <AppText weight="bold">{item.isVerified ? "Verified" : "Not verified"}</AppText>
+              <AppText>{item.entityType === "USER" ? "Driver document" : "Vehicle document"} · {String(item.entityId)}</AppText>
+              <AppText>Expiry: {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "Not recorded"}</AppText>
+              {item.verifiedAt && <AppText>Verified on {new Date(item.verifiedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST</AppText>}
+              {!item.fileUrl && <AppText muted>No document file is available.</AppText>}
+              {write.draft ? (
+                <Button label="Retry saved document action" disabled={!write.ready} loading={write.busy} onPress={() => decide(write.draft.action)} />
+              ) : (
+                <>
+                  {!item.isVerified && <Button label="VERIFY" disabled={!write.ready || write.busy || request.loading || !item.updatedAt} onPress={() => decide("VERIFY")} />}
+                  {notingIssue ? (
+                    <>
+                      <TextField label="What is the issue?" value={note} onChangeText={setNote} maxLength={2000} multiline editable={!write.busy} />
+                      <Button label="Save issue note" disabled={!write.ready || write.busy || request.loading || !item.updatedAt || !note.trim()} loading={write.busy} onPress={() => decide("REJECT")} />
+                      <Button label="Cancel" variant="ghost" disabled={write.busy} onPress={() => { setNotingIssue(false); setNote(""); }} />
+                    </>
+                  ) : (
+                    <Button label="Note an issue" variant="secondary" disabled={!write.ready || write.busy} onPress={() => { setConfirmation(""); setNotingIssue(true); }} />
+                  )}
+                </>
+              )}
+            </Card>
+          )}
           {(kind === "fuel"
             ? item.reviewStatus === "NEEDS_REVIEW"
-            : item.status === "PENDING") && (
+            : kind === "expense" && item.status === "PENDING") && (
             <>
               <TextField
                 label="Review note / rejection reason"

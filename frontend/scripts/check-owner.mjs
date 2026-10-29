@@ -140,6 +140,18 @@ const payload = {
 await api.ownerDecision("fuel", "receipt", payload, "branch-b");
 assert.deepEqual(JSON.parse(calls.at(-1).data), payload);
 assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-b");
+await api.ownerRecord("document", "document-id", "branch-b");
+assert.equal(calls.at(-1).url, "/app/v2/records/document/document-id");
+assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-b");
+for (const action of ["VERIFY", "REJECT"]) {
+  const documentPayload = { ...payload, action };
+  await api.ownerDecision("document", "document-id", documentPayload, "branch-b");
+  assert.equal(calls.at(-1).url, "/app/v2/records/document/document-id/actions");
+  assert.deepEqual(JSON.parse(calls.at(-1).data), documentPayload);
+  assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-b");
+  await api.ownerDecision("document", "document-id", documentPayload, "branch-b");
+  assert.deepEqual(JSON.parse(calls.at(-1).data), documentPayload);
+}
 await api.conversationMessages("thread", { before: "cursor" }, "branch-b");
 assert.equal(calls.at(-1).params.before, "cursor");
 await api.messageReceipt("thread", "message", "ACKNOWLEDGE", "branch-b");
