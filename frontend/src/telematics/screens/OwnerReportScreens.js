@@ -2,20 +2,31 @@ import { captureKindLabel, captureWarnings } from "../services/documentCapture";
 import React, { useEffect, useRef, useState } from "react";
 import { View, Linking } from "react-native";
 import * as Speech from "expo-speech";
-import { AppText, Button, Card, TextField, colors } from "../../components/ui";
+import { Ionicons } from "@expo/vector-icons";
+import { reportMeta } from "../services/ownerPresentation";
+import {
+  AppText,
+  Button,
+  Card,
+  TextField,
+  Badge,
+  SegmentedControl,
+  colors,
+} from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 import { useManagerData } from "../context/ManagerDataContext";
-import { ManagerPage } from "./ManagerScreens";
 import { MenuRow } from "./DriverScreens";
 import { FileLink } from "../workflows/OperationalScreens";
-import { Screen, Choice, RequestState } from "../components/FormControls";
+import { Choice, RequestState } from "../components/FormControls";
+import {
+  OwnerScreen as Screen,
+  OwnerReportDashboard,
+  OwnerSectionContent,
+} from "../components/OwnerReportView";
 import useOwnerRequest from "../hooks/useOwnerRequest";
 import useOwnerWrite from "../hooks/useOwnerWrite";
 import {
   yesterday,
-  istDay,
-  shiftDay,
-  validBusinessDay,
   displayMetric,
   sectionNames,
   reportSpeech,
@@ -35,13 +46,11 @@ function useScope() {
   };
 }
 export function OwnerReport({ navigation, route }) {
-  const { service, branch, key, selectBranch } = useScope();
+  const { user } = useAuth();
+  const { service, branch, key, selectBranch, branchId, branches } = useScope();
   const [date, setDate] = useState(route.params?.date || yesterday());
-  const [dateInput, setDateInput] = useState(date);
-  useEffect(() => setDateInput(date), [date]);
   const [language, setLanguage] = useState("en");
   const [speechError, setSpeechError] = useState("");
-  const [audioOptions, setAudioOptions] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const speechSequence = useRef(0);
   useEffect(() => {
@@ -108,213 +117,60 @@ export function OwnerReport({ navigation, route }) {
     }
   }
   return (
-    <ManagerPage
-      allowEmpty
-      showSourceErrors={false}
+    <OwnerReportDashboard
       navigation={navigation}
-      title="Aaj ka hisaab"
-      subtitle="Recorded business activity and fleet now."
-    >
-      <TextField
-        label="Report date (IST, YYYY-MM-DD)"
-        value={dateInput}
-        onChangeText={setDateInput}
-        maxLength={10}
-      />
-      <Button
-        label="Show selected day"
-        variant="secondary"
-        disabled={!validBusinessDay(dateInput) || dateInput > istDay()}
-        onPress={() => setDate(dateInput)}
-      />
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <Button
-          label="Previous day"
-          variant="secondary"
-          onPress={() => setDate(shiftDay(date, -1))}
-        />
-        <Button
-          label="Next day"
-          variant="secondary"
-          disabled={date >= istDay()}
-          onPress={() => setDate(shiftDay(date, 1))}
-        />
-      </View>
-      <RequestState request={request} />
-      {request.data && (
-        <>
-          <AppText muted>
-            Recomputed{" "}
-            {new Date(request.data.generatedAt).toLocaleString("en-IN", {
-              timeZone: "Asia/Kolkata",
-            })}{" "}
-            IST. Earlier reports can change as late records arrive. Current
-            fleet and backlogs have their own timestamps.
-          </AppText>
-          {request.data.partialDay && (
-            <AppText muted>
-              Today is still in progress. These are partial-day recorded totals.
-            </AppText>
-          )}
-          {audioOptions && (
-            <Choice
-              label="Listen in"
-              value={language}
-              onChange={(value) => {
-                if (["en", "hi", "bn"].includes(value)) setLanguage(value);
-              }}
-              options={[
-                ["en", "English"],
-                ["hi", "हिन्दी"],
-                ["bn", "বাংলা"],
-              ]}
-            />
-          )}
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Button
-              label={`Listen (${{ en: "English", hi: "हिन्दी", bn: "বাংলা" }[language]})`}
-              icon="volume-high-outline"
-              onPress={listen}
-            />
-            <Button
-              label="Language"
-              variant="ghost"
-              onPress={() => setAudioOptions(!audioOptions)}
-            />
-          </View>
-          {speaking && (
-            <Button
-              label="Stop narration"
-              variant="ghost"
-              onPress={() => Speech.stop()}
-            />
-          )}
-          {speechError ? (
-            <AppText color={colors.error}>{speechError}</AppText>
-          ) : null}
-          {[
-            "fleet",
-            "trips",
-            "diesel",
-            "adblue",
-            "tolls",
-            "expenses",
-            "advances",
-            "register",
-            "sensorReconciliation",
-            "people",
-            "pairedDrivers",
-            "finance",
-            "fuelReviews",
-            "workshopReviews",
-            "expenseReviews",
-            "issues",
-            "issuesRaised",
-            "inbox",
-            "documents",
-            "challans",
-            "deviations",
-            "deviationsRaised",
-            "dataHealth",
-            "onTime",
-            "turnaround",
-            "crew",
-            "navigation",
-            "tripMargin",
-          ].map((name) => {
-            const section = request.data.sections[name];
-            if (!section) return null;
-            return (
-              <Card key={name}>
-                <AppText variant="h3">{sectionNames[name]}</AppText>
-                <AppText muted>
-                  {section.availability === "unavailable"
-                    ? section.reasonCode === "NOT_ENABLED"
-                      ? "Not enabled"
-                      : "Source unavailable"
-                    : section.status === "error"
-                      ? "Could not load"
-                      : section.status === "empty"
-                        ? "No matching records"
-                        : "Recorded data available"}{" "}
-                  · {section.coverage} coverage
-                </AppText>
-                {Object.entries(section.metrics).map(([metric, value]) => (
-                  <View key={metric}>
-                    <AppText weight="bold">
-                      {metric.replace(/([A-Z])/g, " $1")}:{" "}
-                      {displayMetric(value)}
-                    </AppText>
-                    <AppText variant="caption" muted>
-                      {value.meaning}
-                    </AppText>
-                  </View>
-                ))}
-                {section.sources.map((source) => (
-                  <AppText key={source.name} variant="caption" muted>
-                    Source: {source.name} · observed{" "}
-                    {source.observedAt
-                      ? new Date(source.observedAt).toLocaleString()
-                      : "no source timestamp"}{" "}
-                    · checked {new Date(source.checkedAt).toLocaleString()}
-                  </AppText>
-                ))}
-                {section.notes.map((note, index) => (
-                  <AppText key={index} muted>
-                    {note}
-                  </AppText>
-                ))}
-                {section.drilldown && (
-                  <Button
-                    label="Open underlying records"
-                    variant="secondary"
-                    onPress={() =>
-                      navigation.navigate(
-                        section.drilldown.route,
-                        section.drilldown.filters,
-                      )
-                    }
-                  />
-                )}
-              </Card>
-            );
-          })}
-          {request.data.notes.map((note) => (
-            <AppText key={note} muted>
-              {note}
-            </AppText>
-          ))}
-        </>
-      )}
-      <MenuRow
-        title="Owner escalations"
-        icon="warning-outline"
-        onPress={() => navigation.navigate("Owner escalations")}
-      />
-      <MenuRow
-        title="Messages & broadcasts"
-        icon="chatbubbles-outline"
-        onPress={() => navigation.navigate("Messages")}
-      />
-      <MenuRow
-        title="Trends and same weekday"
-        icon="trending-up-outline"
-        onPress={() => navigation.navigate("Owner trends", { date })}
-      />
-      <MenuRow
-        title="Morning report settings"
-        icon="settings-outline"
-        onPress={() => navigation.navigate("Report settings")}
-      />
-      <Button
-        label="Refresh report"
-        variant="secondary"
-        onPress={request.reload}
-        disabled={request.loading}
-      />
-    </ManagerPage>
+      request={request}
+      date={date}
+      onDateChange={setDate}
+      user={user}
+      branchId={branchId}
+      branches={branches}
+      onBranchChange={selectBranch}
+      language={language}
+      onLanguageChange={setLanguage}
+      speaking={speaking}
+      onListen={listen}
+      onStop={() => Speech.stop()}
+      speechError={speechError}
+    />
   );
 }
+export function OwnerReportSection({ navigation, route }) {
+  const { service, branch, key } = useScope();
+  const { name, date } = route.params;
+  const request = useOwnerRequest(`${key}:${date}:section:${name}`, () =>
+    service.ownerDaily(date, branch),
+  );
+  const section = request.data?.sections?.[name];
+  return (
+    <Screen
+      navigation={navigation}
+      title={reportMeta[name]?.[0] || sectionNames[name] || name}
+      subtitle={
+        section?.sources?.some((source) => source.period?.at)
+          ? "Current operational state"
+          : `${date} · IST business day`
+      }
+    >
+      <RequestState request={request} />
+      {request.data && (
+        <OwnerSectionContent
+          key={`${key}:${date}:${name}`}
+          name={name}
+          section={section}
+          onRecords={() =>
+            section?.drilldown &&
+            navigation.navigate(
+              section.drilldown.route,
+              section.drilldown.filters,
+            )
+          }
+        />
+      )}
+    </Screen>
+  );
+}
+
 function RecordSummary({ item }) {
   const at =
     item.expiryDate ||
@@ -432,22 +288,35 @@ export function OwnerReportRows({ navigation, route }) {
   return (
     <Screen
       navigation={navigation}
-      title={sectionNames[route.params.metric] || route.params.metric}
+      title={
+        reportMeta[route.params.metric]?.[0] ||
+        sectionNames[route.params.metric] ||
+        route.params.metric
+      }
+      subtitle={`${route.params.date} · IST business day`}
     >
-      <AppText>
-        {route.params.date} IST · selected branch · Page {page}
-      </AppText>
       <RequestState request={request} />
       {request.data && (
         <>
-          <AppText>
-            {request.data.total} matching records. Recomputed when opened.
-          </AppText>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <AppText variant="small" muted>
+              {request.data.total} matching records
+            </AppText>
+            <AppText variant="caption" mono muted>
+              Page {page}
+            </AppText>
+          </View>
           {!request.data.items.length && (
             <AppText>No matching records.</AppText>
           )}
           {request.data.items.map((item) => (
-            <Card key={item._id}>
+            <Card key={item._id} style={{ gap: 10 }}>
               <RecordSummary item={item} />
               {[
                 "diesel",
@@ -471,16 +340,24 @@ export function OwnerReportRows({ navigation, route }) {
               )}
             </Card>
           ))}
-          <Button
-            label="Previous page"
-            disabled={page === 1}
-            onPress={() => setPage(page - 1)}
-          />
-          <Button
-            label="Next page"
-            disabled={page * 30 >= request.data.total}
-            onPress={() => setPage(page + 1)}
-          />
+          {(request.data.total > 30 || page > 1) && (
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <Button
+                label="Previous page"
+                style={{ flex: 1 }}
+                variant="secondary"
+                disabled={page === 1}
+                onPress={() => setPage(page - 1)}
+              />
+              <Button
+                label="Next page"
+                style={{ flex: 1 }}
+                variant="secondary"
+                disabled={page * 30 >= request.data.total}
+                onPress={() => setPage(page + 1)}
+              />
+            </View>
+          )}
         </>
       )}
     </Screen>
@@ -1082,52 +959,148 @@ export function OwnerEscalations({ navigation, route }) {
     () => service.ownerEscalations(branch, all, page),
     60000,
   );
+  useEffect(() => {
+    setPage(1);
+  }, [key]);
   return (
     <Screen
       navigation={navigation}
-      title={all ? "Full owner inbox" : "Top owner escalations"}
+      title="Owner inbox"
+      subtitle="The things that need your attention."
     >
-      <Button
-        label={all ? "Show top five" : "Open full inbox and history"}
-        variant="secondary"
-        onPress={() => {
-          setAll(!all);
+      <SegmentedControl
+        variant="pill"
+        value={all ? "all" : "priority"}
+        options={[
+          { label: "Top priority", value: "priority" },
+          { label: "All items", value: "all" },
+        ]}
+        onChange={(value) => {
+          setAll(value === "all");
           setPage(1);
         }}
       />
       <RequestState request={request} />
       {request.data && (
         <>
-          <AppText>
-            {request.data.activeCount} active · {request.data.total} retained
-            items
-          </AppText>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <AppText variant="small" muted>
+              {request.data.total} retained items
+            </AppText>
+            <Badge
+              tone={request.data.activeCount ? "pending" : "neutral"}
+              label={`${request.data.activeCount} active`}
+            />
+          </View>
           {!request.data.items.length && (
-            <AppText>No items in this view.</AppText>
+            <Card padding={28} style={{ alignItems: "center", gap: 12 }}>
+              <View
+                style={{
+                  padding: 16,
+                  borderRadius: 20,
+                  backgroundColor: colors.blueTint,
+                }}
+              >
+                <Ionicons
+                  name="checkmark-done-outline"
+                  size={30}
+                  color={colors.primary}
+                />
+              </View>
+              <AppText variant="h3" center>
+                {request.data.activeCount === 0
+                  ? "You’re all caught up"
+                  : "No items in this view"}
+              </AppText>
+              <AppText variant="small" muted center>
+                Fuel reviews, incidents and document alerts will appear here
+                when they need a closer look.
+              </AppText>
+            </Card>
           )}
           {request.data.items.map((item) => (
-            <MenuRow
+            <Card
               key={item._id}
-              title={item.label || item.condition}
-              detail={`${item.subjectLabel || item.subjectKey} · score ${item.ranking.score} · ${item.ownerWorkflow?.state || item.status}`}
               onPress={() =>
                 navigation.navigate("Owner escalation", { id: item._id })
               }
-            />
+              style={{ gap: 12 }}
+            >
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+              >
+                <Badge
+                  tone={
+                    item.severity === "critical"
+                      ? "expired"
+                      : item.severity === "caution"
+                        ? "pending"
+                        : "info"
+                  }
+                  label={
+                    item.severity === "critical"
+                      ? "Urgent"
+                      : item.severity === "caution"
+                        ? "Needs review"
+                        : "Update"
+                  }
+                />
+                <AppText
+                  variant="caption"
+                  muted
+                  style={{ flex: 1, textAlign: "right" }}
+                >
+                  {String(item.ownerWorkflow?.state || item.status)
+                    .replaceAll("_", " ")
+                    .toLowerCase()}
+                </AppText>
+              </View>
+              <AppText variant="h3">{item.label || item.condition}</AppText>
+              <AppText variant="small" muted>
+                {item.subjectLabel || item.subjectKey}
+              </AppText>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              >
+                <AppText
+                  variant="small"
+                  weight="semibold"
+                  color={colors.rage700}
+                  style={{ flex: 1 }}
+                >
+                  Review case
+                </AppText>
+                <Ionicons
+                  name="arrow-forward"
+                  size={18}
+                  color={colors.primary}
+                />
+              </View>
+            </Card>
           ))}
-          {all && (
-            <>
+          {all && request.data.total > 30 && (
+            <View style={{ flexDirection: "row", gap: 12 }}>
               <Button
-                label="Previous page"
+                label="Previous"
+                style={{ flex: 1 }}
+                variant="secondary"
                 disabled={page === 1}
                 onPress={() => setPage(page - 1)}
               />
               <Button
-                label="Next page"
+                label="Next"
+                style={{ flex: 1 }}
+                variant="secondary"
                 disabled={page * 30 >= request.data.total}
                 onPress={() => setPage(page + 1)}
               />
-            </>
+            </View>
           )}
         </>
       )}

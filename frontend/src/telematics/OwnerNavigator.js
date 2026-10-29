@@ -1,7 +1,7 @@
 import { FleetCrewScreen } from "./screens/CrewScreens";
 import { OwnerCaptures } from "./screens/OwnerReportScreens";
 import TeamAccessScreen from './screens/TeamAccessScreen';
-import { OwnerReport, OwnerReportRows, OwnerRecord, OwnerFinance, OwnerTrends, ReportSettings, OwnerEscalations, OwnerEscalation, OwnerCalls, OwnerTripList } from './screens/OwnerReportScreens';
+import { OwnerReportSection, OwnerReport, OwnerReportRows, OwnerRecord, OwnerFinance, OwnerTrends, ReportSettings, OwnerEscalations, OwnerEscalation, OwnerCalls, OwnerTripList } from './screens/OwnerReportScreens';
 import { Messages, NewConversation, Conversation } from './screens/OwnerCommunicationScreens';
 import useOwnerRequest from './hooks/useOwnerRequest';
 import DefLedgerScreen from './screens/DefLedgerScreen';
@@ -58,6 +58,7 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Drivers" component={Operations.DriverRoster} />
     <Stack.Screen name="Digest" component={OwnerReport} />
     <Stack.Screen name="Owner report" component={OwnerReport} />
+    <Stack.Screen name="Owner report section" component={OwnerReportSection} />
     <Stack.Screen name="Owner report rows" component={OwnerReportRows} />
     <Stack.Screen name="Owner record" component={OwnerRecord} />
     <Stack.Screen name="Owner finance" component={OwnerFinance} />

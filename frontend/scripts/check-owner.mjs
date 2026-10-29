@@ -83,10 +83,18 @@ assert.match(
   comparisonNotes(comparison(["MISSING_INPUTS"], ["2026-10-24"]))[0],
   /2026-10-24; no average/,
 );
-const { captureKindLabel, captureWarnings } = await import(moduleUrl(await read("../src/telematics/services/documentCapture.js")));
+const { captureKindLabel, captureWarnings } = await import(
+  moduleUrl(await read("../src/telematics/services/documentCapture.js"))
+);
 assert.equal(captureKindLabel("REPAIR_INVOICE"), "Repair invoice");
-assert.match(captureWarnings({ reasons: ["EXACT_DUPLICATE"] })[0], /Both copies are retained/);
-assert.match(captureWarnings({ reasons: ["OCR_UNAVAILABLE"] })[0], /Review the original/);
+assert.match(
+  captureWarnings({ reasons: ["EXACT_DUPLICATE"] })[0],
+  /Both copies are retained/,
+);
+assert.match(
+  captureWarnings({ reasons: ["OCR_UNAVAILABLE"] })[0],
+  /Review the original/,
+);
 assert.equal(captureWarnings({ reasons: ["BLURRY", "BLURRY"] }).length, 1);
 const endpoint = moduleUrl(
   await read("../src/telematics/services/authEndpoint.js"),
@@ -150,11 +158,24 @@ assert.equal(calls.at(-1).url, "/app/v2/records/document/document-id");
 assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-b");
 for (const action of ["VERIFY", "REJECT"]) {
   const documentPayload = { ...payload, action };
-  await api.ownerDecision("document", "document-id", documentPayload, "branch-b");
-  assert.equal(calls.at(-1).url, "/app/v2/records/document/document-id/actions");
+  await api.ownerDecision(
+    "document",
+    "document-id",
+    documentPayload,
+    "branch-b",
+  );
+  assert.equal(
+    calls.at(-1).url,
+    "/app/v2/records/document/document-id/actions",
+  );
   assert.deepEqual(JSON.parse(calls.at(-1).data), documentPayload);
   assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-b");
-  await api.ownerDecision("document", "document-id", documentPayload, "branch-b");
+  await api.ownerDecision(
+    "document",
+    "document-id",
+    documentPayload,
+    "branch-b",
+  );
   assert.deepEqual(JSON.parse(calls.at(-1).data), documentPayload);
 }
 await api.conversationMessages("thread", { before: "cursor" }, "branch-b");
@@ -162,7 +183,10 @@ assert.equal(calls.at(-1).params.before, "cursor");
 await api.messageReceipt("thread", "message", "ACKNOWLEDGE", "branch-b");
 assert.deepEqual(JSON.parse(calls.at(-1).data), { action: "ACKNOWLEDGE" });
 assert.equal(calls.at(-1).headers.Authorization, "Bearer owner-session");
-const explainBody = { clientRequestId: "driver-rid-1", note: "Pump fault confirmed." };
+const explainBody = {
+  clientRequestId: "driver-rid-1",
+  note: "Pump fault confirmed.",
+};
 await api.driverExplain("alert-id-1", explainBody, "branch-b");
 assert.equal(calls.at(-1).url, "/app/v2/escalations/alert-id-1/explain");
 assert.deepEqual(JSON.parse(calls.at(-1).data), explainBody);
@@ -173,7 +197,13 @@ assert.equal(calls.at(-1).params.page, 2);
 await api.crewVehicle("truck", 3, "branch-b");
 assert.equal(calls.at(-1).url, "/app/v2/crew/vehicles/truck");
 assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-b");
-const crewBody = { clientRequestId: "saved-crew-action", expectedVersion: 4, action: "ACCEPT", proposalId: "saved-proposal", safelyStopped: true };
+const crewBody = {
+  clientRequestId: "saved-crew-action",
+  expectedVersion: 4,
+  action: "ACCEPT",
+  proposalId: "saved-proposal",
+  safelyStopped: true,
+};
 await api.crewAction("truck", crewBody, "branch-b");
 assert.equal(calls.at(-1).url, "/app/v2/crew/vehicles/truck/actions");
 assert.deepEqual(JSON.parse(calls.at(-1).data), crewBody);
@@ -270,4 +300,51 @@ try {
 }
 console.log(
   "Passed: IST day boundaries, unknown versus zero narration in three languages, trend labels and comparison caveats, retry-key preservation, branch/date/page propagation, review decisions, message receipts, native voice multipart and driver-submitted explanations.",
+);
+
+const presentation = await import(
+  moduleUrl(await read("../src/telematics/services/ownerPresentation.js"))
+);
+const zero = {
+  availability: "available",
+  status: "empty",
+  coverage: "complete",
+  metrics: { count: { value: 0 } },
+};
+assert.equal(
+  presentation.metricValue(zero, "count"),
+  0,
+  "a recorded zero must stay zero",
+);
+assert.equal(
+  presentation.metricValue({ ...zero, availability: "unavailable" }, "count"),
+  null,
+  "disabled sections must not expose a zero",
+);
+assert.equal(
+  presentation.metricValue({ ...zero, status: "error" }, "count"),
+  null,
+  "failed sections must not expose a zero",
+);
+assert.equal(
+  presentation.metricValue(zero, "missing"),
+  null,
+  "missing fields must not become zero",
+);
+assert.equal(presentation.shortNumber(null, true), "—");
+assert.equal(presentation.shortNumber(0, true), "₹0");
+assert.deepEqual(
+  presentation.groupSections(
+    { diesel: zero, crew: zero, futureSource: zero },
+    "Work",
+  ),
+  ["futureSource"],
+  "new source sections must remain reachable",
+);
+assert.deepEqual(
+  presentation.groupSections({ diesel: zero, crew: zero }, "People"),
+  ["crew"],
+);
+console.log(
+  "Passed: dashboard zero/unknown/error separation, money formatting and complete report-section navigation.",
 );

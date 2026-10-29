@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as Crypto from "expo-crypto";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-import { Image, Linking, Platform } from "react-native";
+import { Image, Linking, Platform, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import {
@@ -13,12 +14,23 @@ import {
   useAudioPlayer,
   useAudioPlayerStatus,
 } from "expo-audio";
-import { AppText, Button, Card, TextField, colors } from "../../components/ui";
+import {
+  AppText,
+  Button,
+  Card,
+  TextField,
+  Badge,
+  colors,
+} from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 import { useTelematicsApi } from "../context/TelematicsApiContext";
 import { useManagerData } from "../context/ManagerDataContext";
-import { Screen, Choice, RequestState } from "../components/FormControls";
-import { MenuRow } from "./DriverScreens";
+import { Choice, RequestState } from "../components/FormControls";
+import {
+  OwnerScreen as Screen,
+  OwnerGroupRow,
+  IconAction,
+} from "../components/OwnerReportView";
 import useOwnerRequest from "../hooks/useOwnerRequest";
 import useOwnerWrite from "../hooks/useOwnerWrite";
 
@@ -47,39 +59,104 @@ export function Messages({ navigation }) {
   );
   useEffect(() => setPage(1), [key]);
   return (
-    <Screen navigation={navigation} title="Messages and broadcasts">
-      {user.role === "OWNER" && (
-        <Button
-          label="New conversation or broadcast"
-          onPress={() => navigation.navigate("New conversation")}
-        />
-      )}
+    <Screen
+      navigation={navigation}
+      title="Messages"
+      subtitle="Your team, one conversation away."
+      action={
+        user.role === "OWNER" ? (
+          <IconAction
+            icon="add"
+            label="New conversation or broadcast"
+            onPress={() => navigation.navigate("New conversation")}
+          />
+        ) : null
+      }
+    >
       <RequestState request={request} />
       {request.data && (
         <>
           {!request.data.items.length && (
-            <AppText>No conversations yet.</AppText>
+            <Card padding={28} style={{ alignItems: "center", gap: 14 }}>
+              <View
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 20,
+                  backgroundColor: colors.blueTint,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons
+                  name="chatbubbles-outline"
+                  size={30}
+                  color={colors.primary}
+                />
+              </View>
+              <AppText variant="h3" center>
+                Keep your team in sync
+              </AppText>
+              <AppText variant="small" muted center>
+                {user.role === "OWNER"
+                  ? "Start a direct conversation, create a group or send an update to your drivers."
+                  : "Conversations with your owner and crew will appear here."}
+              </AppText>
+              {user.role === "OWNER" && (
+                <Button
+                  label="Start a conversation"
+                  size="sm"
+                  icon="add"
+                  onPress={() => navigation.navigate("New conversation")}
+                />
+              )}
+            </Card>
           )}
-          {request.data.items.map((thread) => (
-            <MenuRow
-              key={thread._id}
-              title={thread.title}
-              detail={`${thread.type} · ${thread.state} · ${thread.members.length} members`}
-              onPress={() =>
-                navigation.navigate("Conversation", { id: thread._id })
-              }
-            />
-          ))}
-          <Button
-            label="Previous page"
-            disabled={page === 1}
-            onPress={() => setPage(page - 1)}
-          />
-          <Button
-            label="Next page"
-            disabled={page * 30 >= request.data.total}
-            onPress={() => setPage(page + 1)}
-          />
+          {!!request.data.items.length && (
+            <Card padding={0}>
+              {request.data.items.map((thread, index) => (
+                <OwnerGroupRow
+                  key={thread._id}
+                  title={thread.title}
+                  subtitle={`${thread.type === "DIRECT" ? "Direct message" : thread.type === "BROADCAST" ? "Broadcast" : "Group"} · ${thread.members.length} people`}
+                  icon={
+                    thread.type === "GROUP"
+                      ? "people-outline"
+                      : thread.type === "BROADCAST"
+                        ? "megaphone-outline"
+                        : "chatbubble-outline"
+                  }
+                  last={index === request.data.items.length - 1}
+                  right={
+                    thread.state === "SCHEDULED" ? (
+                      <Badge tone="pending" label="Scheduled" />
+                    ) : undefined
+                  }
+                  onPress={() =>
+                    navigation.navigate("Conversation", { id: thread._id })
+                  }
+                />
+              ))}
+            </Card>
+          )}
+          {request.data.total > 30 && (
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <Button
+                label="Previous"
+                style={{ flex: 1 }}
+                variant="secondary"
+                disabled={page === 1}
+                onPress={() => setPage(page - 1)}
+              />
+              <Button
+                label="Next"
+                style={{ flex: 1 }}
+                variant="secondary"
+                disabled={page * 30 >= request.data.total}
+                onPress={() => setPage(page + 1)}
+              />
+            </View>
+          )}
         </>
       )}
     </Screen>
@@ -300,8 +377,7 @@ function CardMessage({ item, user, onExplain }) {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
-  const canExplain =
-    user.role === "DRIVER" && item.card?.escalationId && !done;
+  const canExplain = user.role === "DRIVER" && item.card?.escalationId && !done;
   async function submit() {
     if (!note.trim()) return;
     setSubmitting(true);
@@ -341,7 +417,9 @@ function CardMessage({ item, user, onExplain }) {
             multiline
             placeholder="Describe what happened in your own words."
           />
-          {!!error && <AppText style={{ color: colors.error }}>{error}</AppText>}
+          {!!error && (
+            <AppText style={{ color: colors.error }}>{error}</AppText>
+          )}
           <Button
             label={submitting ? "Submitting…" : "Submit"}
             disabled={submitting || !note.trim()}
@@ -364,8 +442,17 @@ function CardMessage({ item, user, onExplain }) {
 }
 function MessageItem({ item, user, acknowledge, onExplain }) {
   const sent = String(item.senderId) === String(user._id);
+  const [receiptsOpen, setReceiptsOpen] = useState(false);
   return (
-    <Card>
+    <Card
+      variant={sent ? "tinted" : "surface"}
+      style={{
+        gap: 10,
+        maxWidth: "94%",
+        alignSelf: sent ? "flex-end" : "flex-start",
+        minWidth: "60%",
+      }}
+    >
       <AppText variant="caption" muted>
         {sent ? "You" : "Fleet colleague"} ·{" "}
         {new Date(item.createdAt).toLocaleString()}
@@ -411,20 +498,28 @@ function MessageItem({ item, user, acknowledge, onExplain }) {
             acknowledged ·{" "}
             {item.recipients.filter((r) => r.skippedReason).length} skipped
           </AppText>
-          {item.recipients.map((r) => (
-            <AppText key={String(r.userId)} variant="caption" muted>
-              {r.label || "Recipient"}:{" "}
-              {r.skippedReason
-                ? "skipped: no longer active in this scope"
-                : r.acknowledgedAt
-                  ? "acknowledged"
-                  : r.readAt
-                    ? "read"
-                    : r.deliveredAt
-                      ? "fetched"
-                      : "waiting"}
-            </AppText>
-          ))}
+          <Button
+            size="sm"
+            fullWidth={false}
+            label={receiptsOpen ? "Hide delivery details" : "Delivery details"}
+            variant="ghost"
+            onPress={() => setReceiptsOpen(!receiptsOpen)}
+          />
+          {receiptsOpen &&
+            item.recipients.map((r) => (
+              <AppText key={String(r.userId)} variant="caption" muted>
+                {r.label || "Recipient"}:{" "}
+                {r.skippedReason
+                  ? "skipped: no longer active in this scope"
+                  : r.acknowledgedAt
+                    ? "acknowledged"
+                    : r.readAt
+                      ? "read"
+                      : r.deliveredAt
+                        ? "fetched"
+                        : "waiting"}
+              </AppText>
+            ))}
         </>
       ) : (
         <Button
@@ -439,6 +534,21 @@ function MessageItem({ item, user, acknowledge, onExplain }) {
         />
       )}
     </Card>
+  );
+}
+function AttachmentAction({ icon, label, text, disabled, onPress }) {
+  return (
+    <View style={{ flex: 1, alignItems: "center", gap: 4 }}>
+      <IconAction
+        icon={icon}
+        label={label}
+        disabled={disabled}
+        onPress={onPress}
+      />
+      <AppText variant="caption" muted>
+        {text}
+      </AppText>
+    </View>
   );
 }
 export function Conversation({ navigation, route }) {
@@ -670,12 +780,14 @@ export function Conversation({ navigation, route }) {
               }}
             />
           ))}
-          <Button
-            label="Older messages"
-            disabled={!request.data.hasMore}
-            variant="secondary"
-            onPress={() => setBefore(request.data.before)}
-          />
+          {request.data.hasMore && (
+            <Button
+              label="Older messages"
+              disabled={!request.data.hasMore}
+              variant="secondary"
+              onPress={() => setBefore(request.data.before)}
+            />
+          )}
           {before && (
             <Button
               label="Latest messages"
@@ -708,41 +820,60 @@ export function Conversation({ navigation, route }) {
                 }
                 onPress={() => send()}
               />
-              <Button
-                label="Attach photo"
-                variant="secondary"
-                disabled={locked || recorderState.isRecording}
-                onPress={pickPhoto}
-              />
-              <Button
-                label={
-                  recorderState.isRecording
-                    ? "Stop and attach voice note"
-                    : "Record voice note"
-                }
-                variant="secondary"
-                disabled={locked}
-                onPress={record}
-              />
-              <Button
-                label="Share current location"
-                variant="secondary"
-                disabled={locked || !!asset || recorderState.isRecording}
-                onPress={location}
-              />
-              <Button
-                label="Send structured update"
-                variant="secondary"
-                disabled={
-                  locked || !text.trim() || !!asset || recorderState.isRecording
-                }
-                onPress={() =>
-                  send({
-                    kind: "CARD",
-                    card: { title: "Fleet update", detail: text },
-                  })
-                }
-              />
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  gap: 8,
+                }}
+              >
+                <AttachmentAction
+                  icon="image-outline"
+                  label="Attach photo"
+                  text="Photo"
+                  disabled={locked || recorderState.isRecording}
+                  onPress={pickPhoto}
+                />
+                <AttachmentAction
+                  icon={
+                    recorderState.isRecording
+                      ? "stop-circle-outline"
+                      : "mic-outline"
+                  }
+                  label={
+                    recorderState.isRecording
+                      ? "Stop and attach voice note"
+                      : "Record voice note"
+                  }
+                  text={recorderState.isRecording ? "Stop" : "Voice"}
+                  disabled={locked}
+                  onPress={record}
+                />
+                <AttachmentAction
+                  icon="location-outline"
+                  label="Share current location"
+                  text="Location"
+                  disabled={locked || !!asset || recorderState.isRecording}
+                  onPress={location}
+                />
+                <AttachmentAction
+                  icon="document-text-outline"
+                  label="Send structured update"
+                  text="Update"
+                  disabled={
+                    locked ||
+                    !text.trim() ||
+                    !!asset ||
+                    recorderState.isRecording
+                  }
+                  onPress={() =>
+                    send({
+                      kind: "CARD",
+                      card: { title: "Fleet update", detail: text },
+                    })
+                  }
+                />
+              </View>
               {asset && (
                 <Button
                   label="Remove attachment"
