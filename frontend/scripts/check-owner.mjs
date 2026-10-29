@@ -83,6 +83,11 @@ assert.match(
   comparisonNotes(comparison(["MISSING_INPUTS"], ["2026-10-24"]))[0],
   /2026-10-24; no average/,
 );
+const { captureKindLabel, captureWarnings } = await import(moduleUrl(await read("../src/telematics/services/documentCapture.js")));
+assert.equal(captureKindLabel("REPAIR_INVOICE"), "Repair invoice");
+assert.match(captureWarnings({ reasons: ["EXACT_DUPLICATE"] })[0], /Both copies are retained/);
+assert.match(captureWarnings({ reasons: ["OCR_UNAVAILABLE"] })[0], /Review the original/);
+assert.equal(captureWarnings({ reasons: ["BLURRY", "BLURRY"] }).length, 1);
 const endpoint = moduleUrl(
   await read("../src/telematics/services/authEndpoint.js"),
 );

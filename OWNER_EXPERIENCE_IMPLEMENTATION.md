@@ -17,3 +17,13 @@ Native calls open the device dialer and record initiation separately from the se
 Checks: existing `check:telematics`, `check:api`, `check:parity`, `check:push`, plus `check:owner` for IST boundaries, language/unknown narration, retry classification, scoped report/review/receipt contracts and native voice multipart.
 
 The backend's `app/modules/ownerExperience/README.md` defines each source, feature gate, API and lifecycle. Optional email/WhatsApp distribution and navigation/crew-dependent business metrics are not presented as implemented by the mobile screens.
+
+## Capture and team follow-up — 29 October 2026
+
+Document upload now defaults to Detect from photo. It retains the existing identity-scoped persisted submission and retry ID. Backend AUTO capture stores the original, suggested classification/extraction, image-quality warnings and same-entity exact-content duplicate links. Unknown kinds and OCR outages remain reviewable; no expense or payment is created. Existing declared compliance document uploads remain supported.
+
+Owner More → Capture reviews opens a paginated branch-scoped queue of unverified universal captures, including documents without expiry dates. Owner record shows original evidence, suggested fields, missing values and warnings; VERIFY confirms the document and Note an issue records a concern without changing verification. Driver document detail reports saved/awaiting review or verified state.
+
+Team & access already supported roles, assignments and branch overrides. This follow-up adds employee creation and account-status changes through existing employee APIs, with explicit confirmation for status changes. Initial passwords are held in component memory only. Access mutations now carry selected branch headers.
+
+Limits: duplicate detection compares exact bytes within the same entity; similar photos and cross-entity matches are not inferred. PDF image clarity is explicitly unavailable. Automatic recognition depends on deploying the updated Python OCR service; classification/extraction is always subject to owner review. Device camera, actual OCR/model output and live access changes need acceptance testing.

@@ -1,3 +1,4 @@
+import { captureKindLabel, captureWarnings } from "../services/documentCapture";
 import React, { useEffect, useRef, useState } from "react";
 import { View, Linking } from "react-native";
 import * as Speech from "expo-speech";
@@ -528,6 +529,49 @@ export function OwnerTripList({ navigation, route }) {
     </Screen>
   );
 }
+export function OwnerCaptures({ navigation }) {
+  const { service, branch, key } = useScope();
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), [key]);
+  const request = useOwnerRequest(`${key}:captures:${page}`, () =>
+    service.ownerCaptures(page, branch),
+  );
+  return (
+    <Screen navigation={navigation} title="Capture reviews">
+      <RequestState request={request} />
+      {request.data && (
+        <>
+          <AppText>{request.data.total} documents awaiting review</AppText>
+          {request.data.items.map((item) => (
+            <Card key={item._id}>
+              <RecordSummary item={item} />
+              <AppText>{captureWarnings(item.captureReview).join(" ")}</AppText>
+              <Button
+                label="Review capture"
+                onPress={() =>
+                  navigation.navigate("Owner record", {
+                    kind: "document",
+                    id: item._id,
+                  })
+                }
+              />
+            </Card>
+          ))}
+          <Button
+            label="Previous page"
+            disabled={page === 1}
+            onPress={() => setPage(page - 1)}
+          />
+          <Button
+            label="Next page"
+            disabled={page * 30 >= request.data.total}
+            onPress={() => setPage(page + 1)}
+          />
+        </>
+      )}
+    </Screen>
+  );
+}
 export function OwnerRecord({ navigation, route }) {
   const { service, branch, key } = useScope();
   const { kind, id } = route.params;
@@ -538,7 +582,11 @@ export function OwnerRecord({ navigation, route }) {
   const [note, setNote] = useState("");
   const [notingIssue, setNotingIssue] = useState(false);
   const [confirmation, setConfirmation] = useState("");
-  useEffect(() => { setNote(""); setNotingIssue(false); setConfirmation(""); }, [key, kind, id]);
+  useEffect(() => {
+    setNote("");
+    setNotingIssue(false);
+    setConfirmation("");
+  }, [key, kind, id]);
   const item = request.data;
   async function decide(action) {
     const result = await write.execute(
@@ -548,14 +596,26 @@ export function OwnerRecord({ navigation, route }) {
     if (result) {
       setNote("");
       setNotingIssue(false);
-      setConfirmation(kind === "document" ? ((write.draft?.action || action) === "REJECT" ? "Issue recorded. Verification status is unchanged." : "Document verified.") : "Decision saved.");
+      setConfirmation(
+        kind === "document"
+          ? (write.draft?.action || action) === "REJECT"
+            ? "Issue recorded. Verification status is unchanged."
+            : "Document verified."
+          : "Decision saved.",
+      );
       request.reload();
     }
   }
   return (
     <Screen
       navigation={navigation}
-      title={kind === "document" ? "Document review" : kind === "fuel" ? "Fuel capture review" : "Financial bill review"}
+      title={
+        kind === "document"
+          ? "Document review"
+          : kind === "fuel"
+            ? "Fuel capture review"
+            : "Financial bill review"
+      }
     >
       <RequestState request={request} />
       {item && (
@@ -563,38 +623,159 @@ export function OwnerRecord({ navigation, route }) {
           <Card>
             <RecordSummary item={item} />
             <FileLink
-              url={kind === "document" ? item.fileUrl : item.receipt?.publicUrl || item.receiptUrl}
-              label={kind === "document" ? "Open document evidence" : "Open receipt evidence"}
+              url={
+                kind === "document"
+                  ? item.fileUrl
+                  : item.receipt?.publicUrl || item.receiptUrl
+              }
+              label={
+                kind === "document"
+                  ? "Open document evidence"
+                  : "Open receipt evidence"
+              }
             />
           </Card>
           <AppText muted>
             {kind === "document"
               ? "Verify after reviewing the document. Noting an issue records your concern without changing verification status."
               : kind === "fuel"
-              ? "This reviews the recorded capture. It does not approve an expense or record payment."
-              : "Confirmation includes this bill in the driver wallet. It is not payment."}
+                ? "This reviews the recorded capture. It does not approve an expense or record payment."
+                : "Confirmation includes this bill in the driver wallet. It is not payment."}
           </AppText>
           {confirmation ? <AppText>{confirmation}</AppText> : null}
           {kind === "document" && (
             <Card>
-              <AppText weight="bold">{item.isVerified ? "Verified" : "Not verified"}</AppText>
-              <AppText>{item.entityType === "USER" ? "Driver document" : "Vehicle document"} · {String(item.entityId)}</AppText>
-              <AppText>Expiry: {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "Not recorded"}</AppText>
-              {item.verifiedAt && <AppText>Verified on {new Date(item.verifiedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST</AppText>}
-              {!item.fileUrl && <AppText muted>No document file is available.</AppText>}
+              <AppText weight="bold">
+                {item.isVerified ? "Verified" : "Not verified"}
+              </AppText>
+              <AppText>
+                {item.entityType === "USER"
+                  ? "Driver document"
+                  : "Vehicle document"}{" "}
+                · {String(item.entityId)}
+              </AppText>
+              <AppText>
+                Expiry:{" "}
+                {item.expiryDate
+                  ? new Date(item.expiryDate).toLocaleDateString("en-IN", {
+                      timeZone: "Asia/Kolkata",
+                    })
+                  : "Not recorded"}
+              </AppText>
+              {item.verifiedAt && (
+                <AppText>
+                  Verified on{" "}
+                  {new Date(item.verifiedAt).toLocaleString("en-IN", {
+                    timeZone: "Asia/Kolkata",
+                  })}{" "}
+                  IST
+                </AppText>
+              )}
+              {!item.fileUrl && (
+                <AppText muted>No document file is available.</AppText>
+              )}
+              {item.captureReview && (
+                <>
+                  <AppText>
+                    Detected:{" "}
+                    {captureKindLabel(item.captureReview.classifiedKind)} ·
+                    confidence{" "}
+                    {item.captureReview.kindConfidence ?? "unavailable"}
+                  </AppText>
+                  <AppText>
+                    {captureWarnings(item.captureReview).join(" ")}
+                  </AppText>
+                  {item.captureReview.duplicateOf && (
+                    <AppText>
+                      Possible duplicate of an existing document. Both originals
+                      are retained.
+                    </AppText>
+                  )}
+                  <AppText weight="bold">
+                    Suggested extraction — check against the original
+                  </AppText>
+                  {Object.entries(item.ocrData?.processedData || {})
+                    .filter(([field]) => field !== "quality")
+                    .map(([field, value]) => (
+                      <AppText key={field}>
+                        {field.replaceAll("_", " ")}:{" "}
+                        {value == null
+                          ? "Unknown"
+                          : typeof value === "object"
+                            ? JSON.stringify(value)
+                            : String(value)}
+                      </AppText>
+                    ))}
+                  {!!item.ocrData?.missingFields?.length && (
+                    <AppText>
+                      Missing: {item.ocrData.missingFields.join(", ")}
+                    </AppText>
+                  )}
+                </>
+              )}
               {write.draft ? (
-                <Button label="Retry saved document action" disabled={!write.ready} loading={write.busy} onPress={() => decide(write.draft.action)} />
+                <Button
+                  label="Retry saved document action"
+                  disabled={!write.ready}
+                  loading={write.busy}
+                  onPress={() => decide(write.draft.action)}
+                />
               ) : (
                 <>
-                  {!item.isVerified && <Button label="VERIFY" disabled={!write.ready || write.busy || request.loading || !item.updatedAt} onPress={() => decide("VERIFY")} />}
+                  {!item.isVerified && (
+                    <Button
+                      label="VERIFY"
+                      disabled={
+                        !write.ready ||
+                        write.busy ||
+                        request.loading ||
+                        !item.updatedAt
+                      }
+                      onPress={() => decide("VERIFY")}
+                    />
+                  )}
                   {notingIssue ? (
                     <>
-                      <TextField label="What is the issue?" value={note} onChangeText={setNote} maxLength={2000} multiline editable={!write.busy} />
-                      <Button label="Save issue note" disabled={!write.ready || write.busy || request.loading || !item.updatedAt || !note.trim()} loading={write.busy} onPress={() => decide("REJECT")} />
-                      <Button label="Cancel" variant="ghost" disabled={write.busy} onPress={() => { setNotingIssue(false); setNote(""); }} />
+                      <TextField
+                        label="What is the issue?"
+                        value={note}
+                        onChangeText={setNote}
+                        maxLength={2000}
+                        multiline
+                        editable={!write.busy}
+                      />
+                      <Button
+                        label="Save issue note"
+                        disabled={
+                          !write.ready ||
+                          write.busy ||
+                          request.loading ||
+                          !item.updatedAt ||
+                          !note.trim()
+                        }
+                        loading={write.busy}
+                        onPress={() => decide("REJECT")}
+                      />
+                      <Button
+                        label="Cancel"
+                        variant="ghost"
+                        disabled={write.busy}
+                        onPress={() => {
+                          setNotingIssue(false);
+                          setNote("");
+                        }}
+                      />
                     </>
                   ) : (
-                    <Button label="Note an issue" variant="secondary" disabled={!write.ready || write.busy} onPress={() => { setConfirmation(""); setNotingIssue(true); }} />
+                    <Button
+                      label="Note an issue"
+                      variant="secondary"
+                      disabled={!write.ready || write.busy}
+                      onPress={() => {
+                        setConfirmation("");
+                        setNotingIssue(true);
+                      }}
+                    />
                   )}
                 </>
               )}

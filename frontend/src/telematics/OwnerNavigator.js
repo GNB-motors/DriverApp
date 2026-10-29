@@ -1,3 +1,4 @@
+import { OwnerCaptures } from "./screens/OwnerReportScreens";
 import TeamAccessScreen from './screens/TeamAccessScreen';
 import { OwnerReport, OwnerReportRows, OwnerRecord, OwnerFinance, OwnerTrends, ReportSettings, OwnerEscalations, OwnerEscalation, OwnerCalls, OwnerTripList } from './screens/OwnerReportScreens';
 import { Messages, NewConversation, Conversation } from './screens/OwnerCommunicationScreens';
@@ -68,6 +69,7 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Conversation" component={Conversation} />
     <Stack.Screen name="Fuel & AdBlue" component={DefLedgerScreen} />
     <Stack.Screen name="Branch overview" component={Owner.BranchOverview} />
+    <Stack.Screen name="Capture reviews" component={OwnerCaptures} />
     <Stack.Screen name="Team & access" component={TeamAccessScreen} />
     <Stack.Screen name="Owner settings" component={Screens.Settings} />
   </Stack.Navigator></ManagerDataProvider></TelematicsApiProvider>;

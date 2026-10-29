@@ -1,3 +1,4 @@
+import { captureKindLabel, captureWarnings } from "../services/documentCapture";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Linking, View, Platform } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
@@ -259,8 +260,8 @@ export function RecordDetail({ navigation, route }) {
           {kind === "fuel" && (
             <Card>
               <AppText>
-                {formatLitres(record.litres)} L · ₹{record.totalAmount} · {record.fuelType} ·{" "}
-                {record.fillingType}
+                {formatLitres(record.litres)} L · ₹{record.totalAmount} ·{" "}
+                {record.fuelType} · {record.fillingType}
               </AppText>
               <AppText muted>
                 {new Date(record.refuelTime).toLocaleString()}
@@ -271,7 +272,37 @@ export function RecordDetail({ navigation, route }) {
               <FileLink url={record.receipt?.publicUrl} />
             </Card>
           )}
-          {kind === "documents" && <FileLink url={record.publicUrl} />}
+          {kind === "documents" && (
+            <>
+              <FileLink url={record.publicUrl} />
+              {record.captureReview && (
+                <Card>
+                  <AppText>
+                    {record.isVerified
+                      ? "Verified"
+                      : "Saved · Awaiting owner review"}
+                  </AppText>
+                  <AppText>
+                    Detected:{" "}
+                    {captureKindLabel(record.captureReview.classifiedKind)}
+                  </AppText>
+                  <AppText>
+                    {captureWarnings(record.captureReview)
+                      .filter(
+                        (line) =>
+                          !record.isVerified ||
+                          line !== "Awaiting owner review",
+                      )
+                      .join(" ")}
+                  </AppText>
+                  <AppText muted>
+                    These are suggestions from the photo. No expense or payment
+                    has been created.
+                  </AppText>
+                </Card>
+              )}
+            </>
+          )}
           {kind === "bills" && (
             <>
               <FileLink url={record.sourceFile?.publicUrl} />
@@ -354,7 +385,8 @@ export function RecordDetail({ navigation, route }) {
   );
 }
 export function OperationalForm({ navigation, route }) {
-  if (kindFor(route) === "fuel") return <FuelLogFormScreen navigation={navigation} route={route} />;
+  if (kindFor(route) === "fuel")
+    return <FuelLogFormScreen navigation={navigation} route={route} />;
   return <OtherOperationalForm navigation={navigation} route={route} />;
 }
 function OtherOperationalForm({ navigation, route }) {
@@ -372,10 +404,7 @@ function OtherOperationalForm({ navigation, route }) {
     odometerReading: "",
     refuelTime: new Date().toISOString(),
     scope: route.params?.scope || "personal",
-    docType:
-      (route.params?.scope || "personal") === "personal"
-        ? "DRIVER_LICENSE"
-        : "RC",
+    docType: "AUTO",
     expiryDate: "",
     title: "",
     description: "",
@@ -441,7 +470,10 @@ function OtherOperationalForm({ navigation, route }) {
         const item = result.assets[0];
         if ((item.size || item.fileSize || 0) > 10 * 1024 * 1024)
           throw new Error("Choose a file smaller than 10 MB.");
-        const selected = { ...item, name: item.name || item.fileName || "photo.jpg" };
+        const selected = {
+          ...item,
+          name: item.name || item.fileName || "photo.jpg",
+        };
         setAsset(selected);
       }
     } catch (failure) {
@@ -613,8 +645,17 @@ function OtherOperationalForm({ navigation, route }) {
             <AppText>
               {kind === "bills"
                 ? `Bill photo stored. OCR status: ${done.scanStatus}. Extracted values need fleet review.`
-                : "Your entry was confirmed by the server."}
+                : kind === "documents" && done.captureReview
+                  ? `Photo saved as ${captureKindLabel(done.captureReview.classifiedKind)}. Awaiting owner review.`
+                  : "Your entry was confirmed by the server."}
             </AppText>
+            {kind === "documents" &&
+              done.captureReview &&
+              captureWarnings(done.captureReview).map((line) => (
+                <AppText key={line} muted>
+                  {line}
+                </AppText>
+              ))}
             {warning && <AppText color={colors.error}>{warning}</AppText>}
           </Card>
           <Button label="Done" onPress={() => navigation.goBack()} />
@@ -640,10 +681,7 @@ function OtherOperationalForm({ navigation, route }) {
                     value={fields.scope}
                     onChange={(value) => {
                       update("scope", value);
-                      update(
-                        "docType",
-                        value === "personal" ? "DRIVER_LICENSE" : "RC",
-                      );
+                      update("docType", "AUTO");
                     }}
                     disabled={locked}
                     values={[
@@ -656,10 +694,13 @@ function OtherOperationalForm({ navigation, route }) {
                     value={fields.docType}
                     onChange={(value) => update("docType", value)}
                     disabled={locked}
-                    values={(fields.scope === "personal"
-                      ? ["DRIVER_LICENSE", "PAN", "AADHAAR"]
-                      : ["RC", "PUC", "FITNESS_CERTIFICATE"]
-                    ).map((value) => [value, value.replaceAll("_", " ")])}
+                    values={[
+                      ["AUTO", "Detect from photo"],
+                      ...(fields.scope === "personal"
+                        ? ["DRIVER_LICENSE", "PAN", "AADHAAR"]
+                        : ["RC", "PUC", "FITNESS_CERTIFICATE"]
+                      ).map((value) => [value, value.replaceAll("_", " ")]),
+                    ]}
                   />
                   <DateField
                     label="Expiry date (optional)"
