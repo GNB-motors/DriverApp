@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import * as Crypto from "expo-crypto";
 import { useFocusEffect } from "@react-navigation/native";
 import { Image, Linking, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
@@ -293,7 +294,75 @@ function VoicePlayer({ url }) {
     </>
   );
 }
-function MessageItem({ item, user, acknowledge }) {
+function CardMessage({ item, user, onExplain }) {
+  const [explaining, setExplaining] = useState(false);
+  const [note, setNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
+  const canExplain =
+    user.role === "DRIVER" && item.card?.escalationId && !done;
+  async function submit() {
+    if (!note.trim()) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      await onExplain(item.card.escalationId, note.trim());
+      setDone(true);
+      setExplaining(false);
+    } catch (failure) {
+      setError(failure.message || "Failed to submit. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+  return (
+    <>
+      <AppText variant="h3">{item.card.title}</AppText>
+      <AppText>{item.card.detail}</AppText>
+      {done && (
+        <AppText variant="caption" style={{ color: colors.success }}>
+          Your explanation was submitted.
+        </AppText>
+      )}
+      {canExplain && !explaining && (
+        <Button
+          label="Submit explanation"
+          variant="secondary"
+          onPress={() => setExplaining(true)}
+        />
+      )}
+      {canExplain && explaining && (
+        <>
+          <TextField
+            label="Your explanation"
+            value={note}
+            onChangeText={setNote}
+            multiline
+            placeholder="Describe what happened in your own words."
+          />
+          {!!error && <AppText style={{ color: colors.error }}>{error}</AppText>}
+          <Button
+            label={submitting ? "Submitting…" : "Submit"}
+            disabled={submitting || !note.trim()}
+            onPress={submit}
+          />
+          <Button
+            label="Cancel"
+            variant="secondary"
+            disabled={submitting}
+            onPress={() => {
+              setExplaining(false);
+              setNote("");
+              setError("");
+            }}
+          />
+        </>
+      )}
+    </>
+  );
+}
+function MessageItem({ item, user, acknowledge, onExplain }) {
   const sent = String(item.senderId) === String(user._id);
   return (
     <Card>
@@ -330,10 +399,7 @@ function MessageItem({ item, user, acknowledge }) {
         </>
       )}
       {item.kind === "CARD" && (
-        <>
-          <AppText variant="h3">{item.card.title}</AppText>
-          <AppText>{item.card.detail}</AppText>
-        </>
+        <CardMessage item={item} user={user} onExplain={onExplain} />
       )}
       {sent ? (
         <>
@@ -594,6 +660,13 @@ export function Conversation({ navigation, route }) {
                 } catch (failure) {
                   setError(failure.message);
                 }
+              }}
+              onExplain={async (escalationId, note) => {
+                await service.driverExplain(
+                  escalationId,
+                  { clientRequestId: Crypto.randomUUID(), note },
+                  branch,
+                );
               }}
             />
           ))}

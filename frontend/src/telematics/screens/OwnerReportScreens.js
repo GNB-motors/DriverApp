@@ -18,6 +18,9 @@ import {
   displayMetric,
   sectionNames,
   reportSpeech,
+  trendSections,
+  trendPointText,
+  comparisonNotes,
 } from "../services/ownerReport";
 
 function useScope() {
@@ -199,15 +202,18 @@ export function OwnerReport({ navigation, route }) {
             "register",
             "sensorReconciliation",
             "people",
+            "pairedDrivers",
             "finance",
             "fuelReviews",
             "workshopReviews",
             "expenseReviews",
             "issues",
+            "issuesRaised",
             "inbox",
             "documents",
             "challans",
             "deviations",
+            "deviationsRaised",
             "dataHealth",
             "onTime",
             "turnaround",
@@ -640,13 +646,106 @@ export function OwnerFinance({ navigation, route }) {
 export function OwnerTrends({ navigation, route }) {
   const { service, branch, key } = useScope();
   const date = route.params?.date || yesterday();
+  const [expanded, setExpanded] = useState(null);
   const request = useOwnerRequest(`${key}:${date}:trends`, () =>
     service.ownerTrends(date, branch),
   );
+  const data = request.data;
+  if (data?.sections)
+    return (
+      <Screen navigation={navigation} title="Trends and same weekday">
+        <RequestState request={request} />
+        <AppText>
+          {data.days[0].date} to {data.date} IST · selected branch
+        </AppText>
+        {data.notes.map((note) => (
+          <AppText key={note} muted>
+            {note}
+          </AppText>
+        ))}
+        {trendSections.map((name) => {
+          const section = data.sections[name];
+          if (!section) return null;
+          return (
+            <Card key={name}>
+              <AppText variant="h3">{sectionNames[name]}</AppText>
+              {section.availability === "unavailable" ? (
+                <AppText muted>
+                  {section.reasonCode === "NOT_ENABLED"
+                    ? "Not enabled"
+                    : section.status === "error"
+                      ? "Could not load"
+                      : "Source unavailable"}
+                </AppText>
+              ) : (
+                Object.entries(section.metrics).map(([metric, trend]) => (
+                  <View key={metric}>
+                    <AppText weight="bold">
+                      {metric.replace(/([A-Z])/g, " $1")}:{" "}
+                      {trendPointText(trend.series.at(-1), trend.unit)}
+                    </AppText>
+                    <AppText variant="caption" muted>
+                      Same weekday ({trend.comparison.sameWeekday.date}):{" "}
+                      {trendPointText(trend.series.at(-8), trend.unit)} · 7-day
+                      average:{" "}
+                      {displayMetric({
+                        value: trend.comparison.previousSevenDays.dailyAverage,
+                        unit: trend.unit,
+                      })}
+                    </AppText>
+                    {comparisonNotes(trend.comparison).map((note) => (
+                      <AppText
+                        key={note}
+                        variant="caption"
+                        color={colors.warning}
+                      >
+                        {note}
+                      </AppText>
+                    ))}
+                    {expanded === name &&
+                      trend.series.map((point) => (
+                        <AppText key={point.date} variant="caption">
+                          {point.date}
+                          {point.partialDay ? " (partial day)" : ""}:{" "}
+                          {trendPointText(point, trend.unit)} · {point.rows}{" "}
+                          rows
+                          {point.missingRows
+                            ? ` · ${point.missingRows} missing`
+                            : ""}
+                        </AppText>
+                      ))}
+                  </View>
+                ))
+              )}
+              {section.notes.map((note) => (
+                <AppText key={note} variant="caption" muted>
+                  {note}
+                </AppText>
+              ))}
+              {section.availability === "available" && (
+                <Button
+                  label={expanded === name ? "Hide days" : "Show 14 days"}
+                  variant="ghost"
+                  onPress={() => setExpanded(expanded === name ? null : name)}
+                />
+              )}
+            </Card>
+          );
+        })}
+        {data.notTrended.map((group) => (
+          <AppText key={group.note} variant="caption" muted>
+            {group.sections
+              .map((name) => sectionNames[name] || name)
+              .join(", ")}
+            : {group.note}
+          </AppText>
+        ))}
+      </Screen>
+    );
   return (
     <Screen navigation={navigation} title="Recorded purchase trends">
       <RequestState request={request} />
-      {request.data && (
+      {data && (
         <>
           <AppText>
             INR · recorded purchase rows only. No rows means no recorded

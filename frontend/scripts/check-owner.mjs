@@ -3,7 +3,16 @@ import { readFile } from "node:fs/promises";
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 const moduleUrl = (source) =>
   `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
-const { istDay, shiftDay, validBusinessDay, reportSpeech } = await import(
+const {
+  istDay,
+  shiftDay,
+  validBusinessDay,
+  reportSpeech,
+  sectionNames,
+  trendSections,
+  trendPointText,
+  comparisonNotes,
+} = await import(
   moduleUrl(await read("../src/telematics/services/ownerReport.js"))
 );
 assert.equal(istDay(new Date("2026-10-28T18:29:59Z")), "2026-10-28");
@@ -49,6 +58,31 @@ assert.match(reportSpeech(report), /Registered vehicles: 0/);
 assert.match(reportSpeech(report), /Trips marked complete: Unavailable/);
 assert.match(reportSpeech(report, "hi"), /जानकारी उपलब्ध नहीं/);
 assert.match(reportSpeech(report, "bn"), /তথ্য নেই/);
+for (const name of trendSections)
+  assert.ok(sectionNames[name], `trend section ${name} needs a label`);
+assert.equal(
+  trendPointText({ status: "empty", value: null }, "minutes"),
+  "No records",
+);
+assert.equal(
+  trendPointText({ status: "partial", value: null, rows: 2 }, "INR"),
+  "Unavailable",
+  "a day with missing amounts is unknown, not empty",
+);
+assert.equal(trendPointText({ status: "empty", value: 0 }, "INR"), "₹0");
+const comparison = (reasons, missingDays = []) => ({
+  reasons,
+  previousSevenDays: { missingDays },
+});
+assert.deepEqual(comparisonNotes(comparison([])), []);
+assert.match(
+  comparisonNotes(comparison(["SELECTED_PARTIAL_DAY"]))[0],
+  /still in progress/,
+);
+assert.match(
+  comparisonNotes(comparison(["MISSING_INPUTS"], ["2026-10-24"]))[0],
+  /2026-10-24; no average/,
+);
 const endpoint = moduleUrl(
   await read("../src/telematics/services/authEndpoint.js"),
 );
@@ -81,6 +115,10 @@ await api.ownerDaily("2026-10-28", "branch-a");
 assert.equal(calls.at(-1).url, "/app/v2/reports/daily");
 assert.equal(calls.at(-1).params.date, "2026-10-28");
 assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-a");
+await api.ownerTrends("2026-10-28", "branch-a");
+assert.equal(calls.at(-1).url, "/app/v2/reports/trends");
+assert.equal(calls.at(-1).params.date, "2026-10-28");
+assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-a");
 await api.ownerRows(
   { date: "2026-10-28", metric: "diesel", page: 4 },
   "branch-a",
@@ -107,6 +145,11 @@ assert.equal(calls.at(-1).params.before, "cursor");
 await api.messageReceipt("thread", "message", "ACKNOWLEDGE", "branch-b");
 assert.deepEqual(JSON.parse(calls.at(-1).data), { action: "ACKNOWLEDGE" });
 assert.equal(calls.at(-1).headers.Authorization, "Bearer owner-session");
+const explainBody = { clientRequestId: "driver-rid-1", note: "Pump fault confirmed." };
+await api.driverExplain("alert-id-1", explainBody, "branch-b");
+assert.equal(calls.at(-1).url, "/app/v2/escalations/alert-id-1/explain");
+assert.deepEqual(JSON.parse(calls.at(-1).data), explainBody);
+assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-b");
 const startup = calls.length;
 await api.loadFleet("branch-b");
 assert.equal(
@@ -197,5 +240,5 @@ try {
   globalThis.FormData = originalFormData;
 }
 console.log(
-  "Passed: IST day boundaries, unknown versus zero narration in three languages, retry-key preservation, branch/date/page propagation, review decisions, message receipts and native voice multipart.",
+  "Passed: IST day boundaries, unknown versus zero narration in three languages, trend labels and comparison caveats, retry-key preservation, branch/date/page propagation, review decisions, message receipts, native voice multipart and driver-submitted explanations.",
 );

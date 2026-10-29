@@ -39,7 +39,37 @@ export const sectionNames = {
   crew: "At-wheel and rest",
   navigation: "Navigation coverage",
   tripMargin: "Actual per-trip margin",
+  issuesRaised: "Incidents raised in the day",
+  deviationsRaised: "Route deviations detected in the day",
+  pairedDrivers: "Drivers paired during the day",
 };
+export const trendSections = [
+  "trips",
+  "diesel",
+  "adblue",
+  "expenses",
+  "advances",
+  "tolls",
+  "register",
+  "turnaround",
+  "issuesRaised",
+  "deviationsRaised",
+  "pairedDrivers",
+];
+export const trendPointText = (point, unit) =>
+  point.status === "empty" && point.value == null
+    ? "No records"
+    : displayMetric({ value: point.value, unit });
+export function comparisonNotes(comparison) {
+  const missing = comparison.previousSevenDays.missingDays;
+  return comparison.reasons.map((reason) =>
+    reason === "SELECTED_PARTIAL_DAY"
+      ? "The selected day is still in progress."
+      : missing.length
+        ? `Missing inputs on ${missing.join(", ")}; no average is shown.`
+        : "The selected day has missing inputs.",
+  );
+}
 export function reportSpeech(report, language = "en") {
   const words = {
     en: {

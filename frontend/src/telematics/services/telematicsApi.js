@@ -494,6 +494,7 @@ export function createTelematicsApi({
       return (await client.post(`/app/v2/communication/conversations/${encodeURIComponent(id)}/messages`, body, { timeout: 120000, headers: headersFor(branchId) })).data.data;
     },
     async messageReceipt(id, messageId, action, branchId) { return (await client.post(`/app/v2/communication/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/receipt`, { action }, { headers: headersFor(branchId) })).data.data; },
+    async driverExplain(alertId, body, branchId) { return (await client.post(`/app/v2/escalations/${encodeURIComponent(alertId)}/explain`, body, { headers: headersFor(branchId) })).data.data; },
     async defLedger(branchId) { return (await get('/def-ledger', { headers: headersFor(branchId) })).data; },
     async myStops() { return rows(await get('/place-intelligence/stops/mine', { params: { days: 14, limit: 50 } })); },
     async explainStop(id, purpose, note) { return (await post(`/place-intelligence/stops/${encodeURIComponent(id)}/reason`, { purpose, ...(note?.trim() && { note: note.trim() }) })).data; },
