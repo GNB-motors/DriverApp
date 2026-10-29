@@ -1,3 +1,4 @@
+import { FleetCrewScreen } from "./screens/CrewScreens";
 import { OwnerCaptures } from "./screens/OwnerReportScreens";
 import TeamAccessScreen from './screens/TeamAccessScreen';
 import { OwnerReport, OwnerReportRows, OwnerRecord, OwnerFinance, OwnerTrends, ReportSettings, OwnerEscalations, OwnerEscalation, OwnerCalls, OwnerTripList } from './screens/OwnerReportScreens';
@@ -36,7 +37,8 @@ export default function OwnerNavigator() {
   const { user } = useAuth();
   const orgId = typeof user.orgId === 'object' ? user.orgId?._id : user.orgId;
   const identity = `${user._id}:${orgId}:owner`;
-  return <TelematicsApiProvider key={identity} identity={identity} audience="owner"><ManagerDataProvider audience="owner"><Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+  return <TelematicsApiProvider key={identity} identity={identity} audience="owner"><ManagerDataProvider audience="owner"><Stack.Navigator initialRouteName="Owner tabs" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+    <Stack.Screen name="Crew & driving" component={FleetCrewScreen} />
     <Stack.Screen name="Owner tabs" component={OwnerTabs} />
     <Stack.Screen name="Fleet" component={Screens.Fleet} />
     <Stack.Screen name="Fleet map" component={FleetMapScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />

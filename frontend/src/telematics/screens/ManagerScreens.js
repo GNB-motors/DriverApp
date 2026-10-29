@@ -1,3 +1,4 @@
+import { VehicleCrewCard } from "./CrewScreens";
 import HistoricalTripScreen from './HistoricalTripScreen';
 import PushSettings from '../../components/PushSettings';
 import React, { useState, useEffect, useCallback } from "react";
@@ -342,6 +343,7 @@ export function VehicleDetail({ navigation, route }) {
       {vehicle ? (
         <>
           <VehicleRow vehicle={vehicle} />
+          <VehicleCrewCard navigation={navigation} vehicleId={vehicle.id} />
           <VehicleTrailMap vehicle={vehicle} />
           <MenuRow
             title={driver?.name || "No driver linked"}

@@ -27,3 +27,11 @@ Owner More → Capture reviews opens a paginated branch-scoped queue of unverifi
 Team & access already supported roles, assignments and branch overrides. This follow-up adds employee creation and account-status changes through existing employee APIs, with explicit confirmation for status changes. Initial passwords are held in component memory only. Access mutations now carry selected branch headers.
 
 Limits: duplicate detection compares exact bytes within the same entity; similar photos and cross-entity matches are not inferred. PDF image clarity is explicitly unavailable. Automatic recognition depends on deploying the updated Python OCR service; classification/extraction is always subject to owner review. Device camera, actual OCR/model output and live access changes need acceptance testing.
+
+## Crew and driving handover — 29 October 2026
+
+Driver Home/My truck/More now open Crew & driving. An invited driver accepts crew membership, then explicitly starts or ends driving. The current driver can request handover to an accepted co-driver; only that target can accept or dispute it, and the sender can cancel. Driver actions require acknowledgement that the person is safely stopped. Saved actions retain their UUID, expected version and original payload; online acceptance time is authoritative, so offline retries never invent earlier driving attribution.
+
+Owner/manager Vehicle detail shows a crew summary and paginated interval/action history. Owners select up to two active drivers from the truck's branch and can clear disputes with a reason. Changing crew ends the active driving interval and cancels pending handover. Drivers must confirm again before a current driver is shown. Managers read only. Pending, disputed, expired and invalidated requests keep driving unconfirmed.
+
+Crew invitations and handover reminders use the existing inbox/push pipeline; dispatch checks current membership, branch and expiry. Notification taps re-fetch current crew state. Views poll only while focused. This flow is separate from legacy truck pairing, location permissions and fuel/score attribution. Real two-phone and background-notification behavior still require acceptance testing.

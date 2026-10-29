@@ -1,3 +1,4 @@
+import { DriverCrewScreen } from "./screens/CrewScreens";
 import { ErpTripsScreen, ErpTripScreen } from './screens/ErpTripsScreen';
 import StopReasonsScreen from './screens/StopReasonsScreen';
 import { Messages, Conversation } from './screens/OwnerCommunicationScreens';
@@ -34,7 +35,8 @@ export default function DriverNavigator() {
   const { user } = useAuth();
   const orgId = typeof user.orgId === 'object' ? user.orgId?._id : user.orgId;
   const identity = `${user._id}:${orgId}`;
-  return <TelematicsApiProvider key={identity} identity={identity}><DriverDataProvider><Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+  return <TelematicsApiProvider key={identity} identity={identity}><DriverDataProvider><Stack.Navigator initialRouteName="Driver tabs" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+    <Stack.Screen name="Crew & driving" component={DriverCrewScreen} />
     <Stack.Screen name="Driver tabs" component={DriverTabs} />
     <Stack.Screen name="Messages" component={Messages} />
     <Stack.Screen name="Conversation" component={Conversation} />

@@ -167,6 +167,18 @@ await api.driverExplain("alert-id-1", explainBody, "branch-b");
 assert.equal(calls.at(-1).url, "/app/v2/escalations/alert-id-1/explain");
 assert.deepEqual(JSON.parse(calls.at(-1).data), explainBody);
 assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-b");
+await api.crewMe(2);
+assert.equal(calls.at(-1).url, "/app/v2/crew/me");
+assert.equal(calls.at(-1).params.page, 2);
+await api.crewVehicle("truck", 3, "branch-b");
+assert.equal(calls.at(-1).url, "/app/v2/crew/vehicles/truck");
+assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-b");
+const crewBody = { clientRequestId: "saved-crew-action", expectedVersion: 4, action: "ACCEPT", proposalId: "saved-proposal", safelyStopped: true };
+await api.crewAction("truck", crewBody, "branch-b");
+assert.equal(calls.at(-1).url, "/app/v2/crew/vehicles/truck/actions");
+assert.deepEqual(JSON.parse(calls.at(-1).data), crewBody);
+await api.crewAction("truck", crewBody, "branch-b");
+assert.deepEqual(JSON.parse(calls.at(-1).data), crewBody);
 const startup = calls.length;
 await api.loadFleet("branch-b");
 assert.equal(
