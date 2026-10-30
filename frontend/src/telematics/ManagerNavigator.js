@@ -68,5 +68,7 @@ export default function ManagerNavigator() {
     <Stack.Screen name="AdBlue / DEF" component={DefLedgerScreen} />
     <Stack.Screen name="Team & access" component={TeamAccessScreen} />
     <Stack.Screen name="Manager settings" component={Screens.Settings} />
+    <Stack.Screen name="SOS centre" component={Screens.SosCentre} />
+    <Stack.Screen name="SOS detail" component={Screens.SosDetail} />
   </Stack.Navigator></ExperienceProvider></ManagerDataProvider></TelematicsApiProvider>;
 }

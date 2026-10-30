@@ -656,6 +656,242 @@ export function SosUnavailable({ navigation }) {
     </Page>
   );
 }
+// ─── Site Card (Plant Gate) ───────────────────────────────────────────────────
+
+const SITE_MOCK = {
+  plantName: 'Steel Authority Nagpur — Gate 3',
+  eta: '2026-10-30T08:45:00.000Z',
+  estimatedWait: 35,
+  queueAhead: 4,
+  papers: [
+    { id: 'eway', label: 'E-way bill', done: true },
+    { id: 'challan', label: 'Delivery challan', done: true },
+    { id: 'rc', label: 'RC / Registration', done: true },
+    { id: 'insurance', label: 'Insurance', done: false },
+    { id: 'fitness', label: 'Fitness certificate', done: false },
+    { id: 'permit', label: 'National permit', done: true },
+  ],
+};
+
+export function SiteCard({ navigation, route }) {
+  const site = route?.params?.site ?? SITE_MOCK;
+  const [papers, setPapers] = useState(site.papers);
+  const pendingCount = papers.filter((p) => !p.done).length;
+  const doneCount = papers.length - pendingCount;
+
+  function togglePaper(id) {
+    setPapers((prev) => prev.map((p) => (p.id === id ? { ...p, done: !p.done } : p)));
+  }
+
+  return (
+    <Page
+      navigation={navigation}
+      title={site.plantName}
+      subtitle="Plant gate — papers and queue status"
+      allowEmpty
+    >
+      {/* Queue & wait summary */}
+      <Card>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <View style={{ flex: 1, alignItems: 'center', padding: 12, backgroundColor: colors.infoBg, borderRadius: radius.md }}>
+            <AppText variant="large" weight="bold" color={colors.primary}>{site.queueAhead}</AppText>
+            <AppText variant="small" muted>ahead of you</AppText>
+          </View>
+          <View style={{ flex: 1, alignItems: 'center', padding: 12, backgroundColor: colors.pendingBg, borderRadius: radius.md }}>
+            <AppText variant="large" weight="bold" color={colors.warning}>{site.estimatedWait} min</AppText>
+            <AppText variant="small" muted>estimated wait</AppText>
+          </View>
+        </View>
+      </Card>
+
+      {/* Papers checklist */}
+      <Card>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <AppText weight="semibold">Papers checklist</AppText>
+          <AppText variant="small" color={pendingCount === 0 ? colors.success : colors.warning} weight="semibold">
+            {doneCount}/{papers.length} ready
+          </AppText>
+        </View>
+        {papers.map((paper) => (
+          <Pressable
+            key={paper.id}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: paper.done }}
+            accessibilityLabel={paper.label}
+            onPress={() => togglePaper(paper.id)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+              paddingVertical: 10,
+              borderBottomWidth: 1,
+              borderBottomColor: colors.border,
+            }}
+          >
+            <View
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                backgroundColor: paper.done ? colors.validBg : colors.background,
+                borderWidth: 1.5,
+                borderColor: paper.done ? colors.success : colors.border,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {paper.done && <Ionicons name="checkmark" size={14} color={colors.success} />}
+            </View>
+            <AppText style={{ flex: 1 }} color={paper.done ? colors.textMuted : colors.text}>
+              {paper.label}
+            </AppText>
+            {!paper.done && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Upload ${paper.label}`}
+                onPress={() => navigation.navigate('Upload document')}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: radius.full,
+                  backgroundColor: colors.infoBg,
+                }}
+              >
+                <Ionicons name="camera-outline" size={14} color={colors.primary} />
+                <AppText variant="small" color={colors.primary}>Upload</AppText>
+              </Pressable>
+            )}
+          </Pressable>
+        ))}
+        {pendingCount === 0 && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={colors.success} />
+            <AppText variant="small" color={colors.success} weight="semibold">All papers are ready for gate</AppText>
+          </View>
+        )}
+      </Card>
+
+      {/* Quick actions */}
+      <Button
+        label="Upload a document"
+        variant="secondary"
+        icon="camera-outline"
+        onPress={() => navigation.navigate('Upload document')}
+      />
+    </Page>
+  );
+}
+
+// ─── Driver Earnings ──────────────────────────────────────────────────────────
+
+const EARNINGS_MOCK = {
+  month: 'October 2026',
+  advance: 5000,
+  bhatta: [
+    { label: 'Daily allowance', date: '2026-10-28', amount: 400 },
+    { label: 'Daily allowance', date: '2026-10-27', amount: 400 },
+    { label: 'Night halt', date: '2026-10-26', amount: 600 },
+    { label: 'Daily allowance', date: '2026-10-25', amount: 400 },
+  ],
+  expenses: [
+    { id: 'exp-1', label: 'Toll — Nagpur', date: '2026-10-28', amount: 480, status: 'paid' },
+    { id: 'exp-2', label: 'Tyre puncture', date: '2026-10-26', amount: 250, status: 'paid' },
+    { id: 'exp-3', label: 'Fuel advance', date: '2026-10-24', amount: 1200, status: 'pending' },
+    { id: 'exp-4', label: 'Cleaning', date: '2026-10-22', amount: 100, status: 'rejected' },
+  ],
+};
+
+const EXPENSE_STATUS_COLOR = { paid: colors.success, pending: colors.warning, rejected: colors.error };
+const EXPENSE_STATUS_BG = { paid: colors.validBg, pending: colors.pendingBg, rejected: colors.expiredBg };
+
+function EarningRow({ label, date: d, amount, status }) {
+  const col = EXPENSE_STATUS_COLOR[status] || colors.textMuted;
+  const bg = EXPENSE_STATUS_BG[status] || colors.background;
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+        gap: 10,
+      }}
+    >
+      <View style={{ flex: 1 }}>
+        <AppText variant="small" weight="semibold">{label}</AppText>
+        <AppText variant="small" muted>{d}</AppText>
+      </View>
+      <AppText weight="semibold">{money(amount)}</AppText>
+      {status && (
+        <View style={{ backgroundColor: bg, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2 }}>
+          <AppText variant="small" color={col} weight="semibold" style={{ textTransform: 'capitalize' }}>{status}</AppText>
+        </View>
+      )}
+    </View>
+  );
+}
+
+export function DriverEarnings({ navigation }) {
+  const { month, advance, bhatta, expenses } = EARNINGS_MOCK;
+  const totalBhatta = bhatta.reduce((sum, b) => sum + b.amount, 0);
+  const paidExpenses = expenses.filter((e) => e.status === 'paid').reduce((sum, e) => sum + e.amount, 0);
+  const pendingExpenses = expenses.filter((e) => e.status === 'pending').reduce((sum, e) => sum + e.amount, 0);
+
+  return (
+    <Page navigation={navigation} title="My earnings" subtitle={`${month} — advances, bhatta and expenses`} allowEmpty>
+      {/* Summary cards */}
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 1, backgroundColor: colors.infoBg, borderRadius: radius.md, padding: 14, gap: 4 }}>
+          <AppText variant="small" muted>Advance given</AppText>
+          <AppText variant="large" weight="bold" color={colors.primary}>{money(advance)}</AppText>
+        </View>
+        <View style={{ flex: 1, backgroundColor: colors.validBg, borderRadius: radius.md, padding: 14, gap: 4 }}>
+          <AppText variant="small" muted>Bhatta this month</AppText>
+          <AppText variant="large" weight="bold" color={colors.success}>{money(totalBhatta)}</AppText>
+        </View>
+      </View>
+
+      {/* Expenses summary row */}
+      <Card>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+          <AppText weight="semibold">Expenses</AppText>
+          <AppText variant="small" color={pendingExpenses > 0 ? colors.warning : colors.success} weight="semibold">
+            {pendingExpenses > 0 ? `${money(pendingExpenses)} pending` : 'All settled'}
+          </AppText>
+        </View>
+        {expenses.map((exp) => (
+          <EarningRow
+            key={exp.id}
+            label={exp.label}
+            date={exp.date}
+            amount={exp.amount}
+            status={exp.status}
+          />
+        ))}
+        <Button
+          label="Submit new expense"
+          variant="secondary"
+          icon="add-outline"
+          onPress={() => navigation.navigate('Report issue')}
+          style={{ marginTop: 12 }}
+        />
+      </Card>
+
+      {/* Bhatta log */}
+      <Card>
+        <AppText weight="semibold" style={{ marginBottom: 10 }}>Bhatta log</AppText>
+        {bhatta.map((b, idx) => (
+          <EarningRow key={idx} label={b.label} date={b.date} amount={b.amount} />
+        ))}
+      </Card>
+    </Page>
+  );
+}
+
 const s = StyleSheet.create({
   flex: { flex: 1 }, content: { gap: 16 },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, sos: { minHeight: 48, paddingHorizontal: 12, borderRadius: radius.full, backgroundColor: colors.expiredBg, flexDirection: 'row', alignItems: 'center', gap: 6 }, menu: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 76, borderColor: colors.border }, menuIcon: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' }, detail: { marginTop: 4 }, empty: { alignItems: 'center', padding: 24, gap: 16 }, selected: { borderColor: colors.primary, backgroundColor: colors.blueTint },

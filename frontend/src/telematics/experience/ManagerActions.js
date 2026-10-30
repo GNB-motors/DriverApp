@@ -211,7 +211,9 @@ export function ManagerActionHome({ navigation }) {
   const { preview, setPreview, events, motion, setMotion } = useExperience();
   const [expanded, setExpanded] = useState(() => new Set(ACTION_FIXTURES.slice(0, 3).map((action) => action.id)));
   const toggle = (id) => setExpanded((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
-  const openDetail = (action) => navigation.navigate('Manager action detail', { actionId: action.id });
+  const openDetail = (action) => action.type === 'sos'
+    ? navigation.navigate('SOS centre')
+    : navigation.navigate('Manager action detail', { actionId: action.id });
   const onSwipe = (actionId, intent) => navigation.navigate('Manager action detail', { actionId, intent });
   const onIntent = (action, intent) => navigation.navigate('Manager action detail', { actionId: action.id, intent });
   return <ExperiencePage navigation={navigation} title={copy('titleHome')} subtitle={copy('homeSubtitle')}>

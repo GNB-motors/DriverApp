@@ -992,6 +992,370 @@ function Unavailable() {
   );
 }
 
+// ─── SOS Centre ──────────────────────────────────────────────────────────────
+
+const SOS_MOCK = [
+  {
+    id: "sos-001",
+    driverName: "Ramesh Kumar",
+    vehicleNumber: "MH 04 AB 1234",
+    type: "accident",
+    typeLabel: "Accident",
+    location: "NH-44, near Nagpur toll",
+    reportedAt: new Date(Date.now() - 7 * 60000).toISOString(),
+    status: "open",
+  },
+  {
+    id: "sos-002",
+    driverName: "Sunil Patil",
+    vehicleNumber: "MH 12 CD 5678",
+    type: "breakdown",
+    typeLabel: "Breakdown",
+    location: "Pune-Mumbai Expressway, km 42",
+    reportedAt: new Date(Date.now() - 34 * 60000).toISOString(),
+    status: "open",
+  },
+  {
+    id: "sos-003",
+    driverName: "Ajay Singh",
+    vehicleNumber: "GJ 01 EF 9012",
+    type: "medical",
+    typeLabel: "Medical emergency",
+    location: "Ahmedabad Ring Road, near Vatva",
+    reportedAt: new Date(Date.now() - 2 * 3600000).toISOString(),
+    status: "acknowledged",
+    acknowledgedBy: "Manager (you)",
+  },
+  {
+    id: "sos-004",
+    driverName: "Vikram Yadav",
+    vehicleNumber: "RJ 14 GH 3456",
+    type: "safety",
+    typeLabel: "Safety threat",
+    location: "Jaipur bypass, Sikar road",
+    reportedAt: new Date(Date.now() - 5 * 3600000).toISOString(),
+    status: "resolved",
+    resolvedBy: "Manager (you)",
+  },
+];
+
+const SOS_TYPE_COLOR = {
+  accident: colors.error,
+  medical: colors.error,
+  breakdown: colors.warning,
+  safety: "#8B5CF6",
+};
+
+function sosBadgeColor(status) {
+  if (status === "open") return colors.error;
+  if (status === "acknowledged") return colors.warning;
+  return colors.success;
+}
+
+function sosTimeAgo(isoString) {
+  const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 60000);
+  if (diff < 1) return "Just now";
+  if (diff < 60) return `${diff}m ago`;
+  const h = Math.floor(diff / 60);
+  return `${h}h ${diff % 60}m ago`;
+}
+
+function SosRow({ item, onPress }) {
+  const dotColor = SOS_TYPE_COLOR[item.type] || colors.error;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`SOS: ${item.driverName}, ${item.typeLabel}`}
+      onPress={onPress}
+      style={{ marginBottom: 10 }}
+    >
+      <Card>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <View
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: 5,
+              backgroundColor: dotColor,
+              marginTop: 2,
+            }}
+          />
+          <View style={{ flex: 1, gap: 4 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <AppText weight="semibold">{item.driverName}</AppText>
+              <AppText variant="small" muted>{sosTimeAgo(item.reportedAt)}</AppText>
+            </View>
+            <AppText variant="small" color={dotColor} weight="semibold">{item.typeLabel}</AppText>
+            <AppText variant="small" muted>{item.vehicleNumber}</AppText>
+            <AppText variant="small" muted numberOfLines={1}>{item.location}</AppText>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </View>
+      </Card>
+    </Pressable>
+  );
+}
+
+export function SosCentre({ navigation }) {
+  const [filter, setFilter] = useState("Open");
+  const filterMap = { Open: "open", Acknowledged: "acknowledged", Resolved: "resolved" };
+  const filtered = SOS_MOCK.filter((item) => item.status === filterMap[filter]);
+
+  return (
+    <ManagerPage
+      navigation={navigation}
+      title="SOS centre"
+      subtitle="Active incidents need an immediate response."
+      allowEmpty
+    >
+      <Filters
+        values={["Open", "Acknowledged", "Resolved"]}
+        selected={filter}
+        onSelect={setFilter}
+      />
+      {filtered.length === 0 ? (
+        <Card>
+          <View style={s.empty}>
+            <Ionicons
+              name={filter === "Open" ? "shield-checkmark-outline" : "checkmark-circle-outline"}
+              size={40}
+              color={filter === "Open" ? colors.success : colors.textMuted}
+            />
+            <AppText weight="semibold" style={{ textAlign: "center" }}>
+              {filter === "Open" ? "No open SOS incidents" : `No ${filter.toLowerCase()} incidents`}
+            </AppText>
+            <AppText variant="small" muted style={{ textAlign: "center" }}>
+              {filter === "Open"
+                ? "All drivers are safe. Open incidents will appear here immediately."
+                : `${filter} incidents will appear here.`}
+            </AppText>
+          </View>
+        </Card>
+      ) : (
+        <View>
+          {filter === "Open" && (
+            <View
+              style={{
+                backgroundColor: colors.expiredBg,
+                borderRadius: radius.md,
+                padding: 12,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 12,
+              }}
+            >
+              <Ionicons name="warning-outline" size={18} color={colors.error} />
+              <AppText variant="small" color={colors.error} weight="semibold">
+                {filtered.length} open {filtered.length === 1 ? "incident" : "incidents"} — call the driver immediately
+              </AppText>
+            </View>
+          )}
+          {filtered.map((item) => (
+            <SosRow
+              key={item.id}
+              item={item}
+              onPress={() => navigation.navigate("SOS detail", { sos: item })}
+            />
+          ))}
+        </View>
+      )}
+    </ManagerPage>
+  );
+}
+
+// ─── SOS Detail ──────────────────────────────────────────────────────────────
+
+function SosTimelineEvent({ icon, label, time, color }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 8 }}>
+      <View
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          backgroundColor: color + "20",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name={icon} size={16} color={color} />
+      </View>
+      <View style={{ flex: 1, paddingTop: 4 }}>
+        <AppText variant="small" weight="semibold">{label}</AppText>
+        {time ? <AppText variant="small" muted>{sosTimeAgo(time)}</AppText> : null}
+      </View>
+    </View>
+  );
+}
+
+export function SosDetail({ navigation, route }) {
+  const item = route?.params?.sos ?? SOS_MOCK[0];
+  const [status, setStatus] = useState(item.status);
+  const [busy, setBusy] = useState(false);
+  const dotColor = SOS_TYPE_COLOR[item.type] || colors.error;
+
+  function handleAcknowledge() {
+    setBusy(true);
+    setTimeout(() => {
+      setStatus("acknowledged");
+      setBusy(false);
+    }, 600);
+  }
+
+  function handleResolve() {
+    setBusy(true);
+    setTimeout(() => {
+      setStatus("resolved");
+      setBusy(false);
+    }, 600);
+  }
+
+  return (
+    <ManagerPage
+      navigation={navigation}
+      title="SOS detail"
+      subtitle={item.typeLabel}
+      allowEmpty
+    >
+      {/* Status banner */}
+      <View
+        style={{
+          backgroundColor: sosBadgeColor(status) + "18",
+          borderRadius: radius.md,
+          padding: 14,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <Ionicons
+          name={status === "open" ? "warning" : status === "acknowledged" ? "eye-outline" : "checkmark-circle-outline"}
+          size={22}
+          color={sosBadgeColor(status)}
+        />
+        <View style={{ flex: 1 }}>
+          <AppText weight="semibold" color={sosBadgeColor(status)} style={{ textTransform: "capitalize" }}>
+            {status}
+          </AppText>
+          <AppText variant="small" muted>Reported {sosTimeAgo(item.reportedAt)}</AppText>
+        </View>
+      </View>
+
+      {/* Driver card */}
+      <Card>
+        <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: colors.infoBg,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="person" size={20} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <AppText weight="semibold">{item.driverName}</AppText>
+              <AppText variant="small" muted>{item.vehicleNumber}</AppText>
+            </View>
+            <Button
+              label="Call"
+              size="small"
+              icon="call-outline"
+              onPress={() => {}}
+            />
+          </View>
+          <View style={{ height: 1, backgroundColor: colors.border }} />
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+            <Ionicons name="location-outline" size={16} color={colors.textMuted} style={{ marginTop: 2 }} />
+            <AppText variant="small" muted style={{ flex: 1 }}>{item.location}</AppText>
+          </View>
+          <View style={{ flexDirection: "row", gap: 6 }}>
+            <View
+              style={{
+                backgroundColor: dotColor + "18",
+                borderRadius: radius.full,
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+              }}
+            >
+              <AppText variant="small" color={dotColor} weight="semibold">{item.typeLabel}</AppText>
+            </View>
+          </View>
+        </View>
+      </Card>
+
+      {/* Emergency actions */}
+      <Card>
+        <AppText variant="label" muted style={{ marginBottom: 10 }}>Emergency contacts</AppText>
+        <View style={{ gap: 8 }}>
+          <Button
+            label="Call 112 (Emergency)"
+            variant="secondary"
+            icon="call-outline"
+            onPress={() => {}}
+          />
+          <Button
+            label="Call driver's family"
+            variant="secondary"
+            icon="people-outline"
+            onPress={() => {}}
+          />
+        </View>
+      </Card>
+
+      {/* Timeline */}
+      <Card>
+        <AppText variant="label" muted style={{ marginBottom: 6 }}>Incident timeline</AppText>
+        <SosTimelineEvent
+          icon="warning-outline"
+          label="SOS reported by driver"
+          time={item.reportedAt}
+          color={colors.error}
+        />
+        {status !== "open" && (
+          <SosTimelineEvent
+            icon="eye-outline"
+            label={`Acknowledged by ${item.acknowledgedBy || "manager"}`}
+            time={new Date(Date.now() - 20 * 60000).toISOString()}
+            color={colors.warning}
+          />
+        )}
+        {status === "resolved" && (
+          <SosTimelineEvent
+            icon="checkmark-circle-outline"
+            label={`Resolved by ${item.resolvedBy || "manager"}`}
+            time={new Date(Date.now() - 5 * 60000).toISOString()}
+            color={colors.success}
+          />
+        )}
+      </Card>
+
+      {/* Action buttons */}
+      {status === "open" && (
+        <Button
+          label={busy ? "Acknowledging…" : "Acknowledge incident"}
+          variant="primary"
+          onPress={handleAcknowledge}
+          disabled={busy}
+        />
+      )}
+      {status === "acknowledged" && (
+        <Button
+          label={busy ? "Resolving…" : "Mark as resolved"}
+          variant="primary"
+          onPress={handleResolve}
+          disabled={busy}
+        />
+      )}
+    </ManagerPage>
+  );
+}
+
 function Filters({ values, selected, onSelect }) {
   return (
     <ScrollView
