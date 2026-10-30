@@ -2420,26 +2420,79 @@ function ApprovalCard({ item, type, onApprove, onReject, isActionOpen, onToggleA
 }
 
 export function ManagerApprovals({ navigation }) {
+  const { data, service, branchId } = useManagerData();
   const [tab, setTab] = useState("Fuel");
   const [items, setItems] = useState({ fuel: [...APPROVAL_MOCK.fuel], expense: [...APPROVAL_MOCK.expense], document: [...APPROVAL_MOCK.document] });
+  const [expenseItems, setExpenseItems] = useState(null);
+  const [docItems, setDocItems] = useState(null);
 
   const tabKey = tab.toLowerCase();
   const list = items[tabKey] || [];
   const pendingCount = (t) => (items[t] || []).filter((i) => i.status === "pending").length;
   const totalPending = pendingCount("fuel") + pendingCount("expense") + pendingCount("document");
 
-  function approve(id) {
+  const realFuel = React.useMemo(() => {
+    if (!data?.fuel?.length) return null;
+    return data.fuel
+      .filter((f) => (f.status || "").toLowerCase().includes("pending") || f.reviewStatus === "pending")
+      .map((f) => ({
+        id: f.id || f._id,
+        driverName: f.driver?.name || f.driverName || "—",
+        vehicle: f.vehicle?.registrationNumber || f.vehicleNumber || "—",
+        litres: f.litres,
+        amount: f.amount || f.totalAmount,
+        station: f.station || f.location || "—",
+        date: f.date || (f.createdAt || "").slice(0, 10) || "—",
+        status: "pending",
+      }));
+  }, [data]);
+
+  React.useEffect(() => {
+    let active = true;
+    const branch = branchId === "all" ? undefined : branchId;
+    Promise.all([
+      service.fleetWorkflow("expenses", 1, branch).catch(() => null),
+      service.fleetWorkflow("documents", 1, branch).catch(() => null),
+    ]).then(([expRes, docRes]) => {
+      if (!active) return;
+      setExpenseItems(expRes?.items || expRes?.records || expRes?.results || null);
+      setDocItems(docRes?.items || docRes?.records || docRes?.results || null);
+    });
+    return () => { active = false; };
+  }, [service, branchId]);
+
+  React.useEffect(() => {
     setItems((prev) => ({
-      ...prev,
-      [tabKey]: prev[tabKey].map((i) => i.id === id ? { ...i, status: "approved" } : i),
+      fuel: realFuel?.length ? realFuel : prev.fuel,
+      expense: expenseItems?.length
+        ? expenseItems.map((e) => ({ id: e._id || e.id, driverName: e.driver?.name || "—", vehicle: e.vehicle?.registrationNumber || "—", amount: e.amount, label: e.description || e.category || e.label || "—", date: (e.date || e.createdAt || "").slice(0, 10) || "—", status: "pending" }))
+        : prev.expense,
+      document: docItems?.length
+        ? docItems.map((d) => ({ id: d._id || d.id, driverName: d.driver?.name || "—", vehicle: d.vehicle?.registrationNumber || "—", docType: d.docType || d.type || "—", expiryDate: (d.expiresAt || "").slice(0, 10) || "—", date: (d.createdAt || "").slice(0, 10) || "—", status: "pending" }))
+        : prev.document,
     }));
+  }, [realFuel, expenseItems, docItems]);
+
+  async function approve(id) {
+    const kind = tabKey;
+    const branch = branchId === "all" ? undefined : branchId;
+    setItems((prev) => ({ ...prev, [kind]: prev[kind].map((i) => i.id === id ? { ...i, status: "approved" } : i) }));
+    try {
+      await service.ownerDecision(kind, id, { action: "approve" }, branch);
+    } catch {
+      setItems((prev) => ({ ...prev, [kind]: prev[kind].map((i) => i.id === id ? { ...i, status: "pending" } : i) }));
+    }
   }
 
-  function reject(id, reason) {
-    setItems((prev) => ({
-      ...prev,
-      [tabKey]: prev[tabKey].map((i) => i.id === id ? { ...i, status: "rejected", rejectReason: reason } : i),
-    }));
+  async function reject(id, reason) {
+    const kind = tabKey;
+    const branch = branchId === "all" ? undefined : branchId;
+    setItems((prev) => ({ ...prev, [kind]: prev[kind].map((i) => i.id === id ? { ...i, status: "rejected", rejectReason: reason } : i) }));
+    try {
+      await service.ownerDecision(kind, id, { action: "reject", reason }, branch);
+    } catch {
+      setItems((prev) => ({ ...prev, [kind]: prev[kind].map((i) => i.id === id ? { ...i, status: "pending" } : i) }));
+    }
   }
 
   return (

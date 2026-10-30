@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Badge, Card, colors, radius, spacing } from '../../components/ui';
 import { useLanguage } from '../../context/LanguageContext';
 import { useExperience } from './ExperienceContext';
+import { useTelematicsApi } from '../context/TelematicsApiContext';
 import { ActionButton, ExperiencePage, PreviewNotice } from './ExperienceUI';
 import { getDriverCopy } from './driverCopy';
 import { getDriveTokens } from '../../theme/driveTokens';
@@ -124,7 +125,7 @@ function Choice({ label, selected, onPress, tone = 'secondary', minHeight = 56, 
   );
 }
 
-function PromptChip({ copy, onAnswer, onExpire }) {
+function PromptChip({ copy, question, onAnswer, onExpire }) {
   const progress = useRef(new Animated.Value(1)).current;
   const onExpireRef = useRef(onExpire);
   onExpireRef.current = onExpire;
@@ -148,7 +149,7 @@ function PromptChip({ copy, onAnswer, onExpire }) {
     <Card style={styles.promptCard} accessibilityRole="summary">
       <View style={styles.promptTitle}>
         <Ionicons name="help-circle-outline" size={22} color={colors.primary} />
-        <AppText weight="bold">{copy('promptJam')}</AppText>
+        <AppText weight="bold">{question || copy('promptJam')}</AppText>
         <AppText variant="caption" muted>{copy('promptTitle')}</AppText>
       </View>
       <View style={styles.promptTrack} accessibilityLabel={copy('promptExpired')}>
@@ -216,6 +217,7 @@ export function NavigateScreen({ navigation }) {
     setSettings,
     recordEvent,
   } = useExperience();
+  const service = useTelematicsApi();
   const [panel, setPanel] = useState('idle');
   const [destination, setDestination] = useState('');
   const [query, setQuery] = useState('');
@@ -224,6 +226,7 @@ export function NavigateScreen({ navigation }) {
   const [cacheOpen, setCacheOpen] = useState(false);
   const [degraded, setDegraded] = useState('normal');
   const [prompt, setPrompt] = useState(null);
+  const [promptId, setPromptId] = useState(null);
   const [distanceToManeuver, setDistanceToManeuver] = useState(200);
   const [promptMessage, setPromptMessage] = useState('');
   const drive = getDriveTokens(settings.theme);
@@ -271,20 +274,37 @@ export function NavigateScreen({ navigation }) {
   }
   function answerPrompt(answer) {
     if (!prompt) return;
-    recordEvent('DEMO_QUESTION_ANSWERED', { questionId: prompt.id, answer, value: answer });
+    recordEvent('QUESTION_ANSWERED', { questionId: prompt.id, answer, value: answer });
+    if (promptId) service.answerPrompt(promptId, { answer }).catch(() => {});
     setPrompt(null);
+    setPromptId(null);
     setPromptMessage('');
   }
   function expirePrompt() {
     if (!prompt) return;
-    recordEvent('DEMO_QUESTION_ANSWERED', { questionId: prompt.id, answer: 'UNANSWERED', value: 'UNANSWERED' });
+    recordEvent('QUESTION_ANSWERED', { questionId: prompt.id, answer: 'UNANSWERED', value: 'UNANSWERED' });
+    if (promptId) service.answerPrompt(promptId, { answer: 'UNANSWERED' }).catch(() => {});
     setPrompt(null);
+    setPromptId(null);
     setPromptMessage(copy('promptExpired'));
   }
-  function showPrompt() {
+  async function showPrompt() {
     if (!preview || motion !== 'stopped' || distanceToManeuver <= 300 || !settings.prompts) return;
     setPromptMessage('');
-    setPrompt({ id: `demo-jam-${Date.now()}` });
+    try {
+      const res = await service.listPrompts({ limit: 1 });
+      const first = res?.items?.[0] || res?.[0];
+      if (first) {
+        setPromptId(first.id || first._id);
+        setPrompt({ id: first.id || first._id, question: first.question });
+      } else {
+        setPromptId(null);
+        setPrompt({ id: `demo-jam-${Date.now()}` });
+      }
+    } catch {
+      setPromptId(null);
+      setPrompt({ id: `demo-jam-${Date.now()}` });
+    }
   }
   function reportRoad() {
     navigation.navigate('Road report');
@@ -506,7 +526,7 @@ function GuidancePanel({ copy, language, panel, preview, motion, setMotion, sett
       </View>
       {degraded === 'offline' || degraded === 'offRoute' ? <AppText color={palette.hazard}>{copy('recalcOffline')}</AppText> : null}
       {degraded === 'bothDark' ? <AppText color={palette.hazard}>{copy('noHazards')}</AppText> : null}
-      {prompt ? <PromptChip copy={copy} onAnswer={answerPrompt} onExpire={expirePrompt} /> : null}
+      {prompt ? <PromptChip copy={copy} question={prompt?.question} onAnswer={answerPrompt} onExpire={expirePrompt} /> : null}
       {!prompt && promptMessage ? <AppText variant="small" color={palette.textMuted}>{promptMessage}</AppText> : null}
       <Card style={[styles.etaCard, { backgroundColor: palette.bg, borderColor: palette.border }]}>
         <AppText variant="caption" color={palette.textMuted}>{copy('etaRange')}</AppText>
