@@ -70,5 +70,6 @@ export default function ManagerNavigator() {
     <Stack.Screen name="Manager settings" component={Screens.Settings} />
     <Stack.Screen name="SOS centre" component={Screens.SosCentre} />
     <Stack.Screen name="SOS detail" component={Screens.SosDetail} />
+    <Stack.Screen name="Manager approvals" component={Screens.ManagerApprovals} />
   </Stack.Navigator></ExperienceProvider></ManagerDataProvider></TelematicsApiProvider>;
 }

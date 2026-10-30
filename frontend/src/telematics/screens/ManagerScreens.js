@@ -1386,6 +1386,217 @@ function Filters({ values, selected, onSelect }) {
   );
 }
 
+// ─── Manager Approvals ────────────────────────────────────────────────────────
+
+const APPROVAL_MOCK = {
+  fuel: [
+    { id: "fa-001", driverName: "Ramesh Kumar", vehicle: "MH 04 AB 1234", litres: 120, amount: 10800, station: "Indian Oil, NH-44 Nagpur", date: "2026-10-29", status: "pending", receiptUrl: null },
+    { id: "fa-002", driverName: "Sunil Patil", vehicle: "MH 12 CD 5678", litres: 85, amount: 7650, station: "BPCL, Pune Bypass", date: "2026-10-28", status: "pending", receiptUrl: null },
+    { id: "fa-003", driverName: "Ajay Singh", vehicle: "GJ 01 EF 9012", litres: 200, amount: 18000, station: "HP Petrol, Ahmedabad", date: "2026-10-27", status: "approved" },
+  ],
+  expense: [
+    { id: "ea-001", driverName: "Vikram Yadav", vehicle: "RJ 14 GH 3456", label: "Toll — Jaipur Bypass", amount: 680, date: "2026-10-29", status: "pending" },
+    { id: "ea-002", driverName: "Ramesh Kumar", vehicle: "MH 04 AB 1234", label: "Tyre puncture repair", amount: 350, date: "2026-10-28", status: "pending" },
+    { id: "ea-003", driverName: "Sunil Patil", vehicle: "MH 12 CD 5678", label: "Overnight meal", amount: 120, date: "2026-10-27", status: "rejected" },
+  ],
+  document: [
+    { id: "da-001", driverName: "Ajay Singh", vehicle: "GJ 01 EF 9012", docType: "Fitness certificate", expiryDate: "2026-12-01", date: "2026-10-29", status: "pending" },
+    { id: "da-002", driverName: "Vikram Yadav", vehicle: "RJ 14 GH 3456", docType: "PUC certificate", expiryDate: "2026-11-15", date: "2026-10-28", status: "approved" },
+  ],
+};
+
+const APPROVAL_STATUS_COLOR = { pending: colors.warning, approved: colors.success, rejected: colors.error };
+const APPROVAL_STATUS_BG = { pending: colors.pendingBg, approved: colors.validBg, rejected: colors.expiredBg };
+const REJECT_REASONS = ["Duplicate entry", "Receipt missing", "Amount mismatch", "Not policy-approved", "Other"];
+
+function ApprovalStatusPill({ status }) {
+  return (
+    <View style={{
+      backgroundColor: APPROVAL_STATUS_BG[status] || colors.background,
+      borderRadius: radius.full,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+    }}>
+      <AppText variant="small" color={APPROVAL_STATUS_COLOR[status] || colors.textMuted} weight="semibold" style={{ textTransform: "capitalize" }}>
+        {status}
+      </AppText>
+    </View>
+  );
+}
+
+function ApprovalCard({ item, type, onApprove, onReject, isActionOpen, onToggleAction }) {
+  const [rejectReason, setRejectReason] = useState("");
+  const [confirmReject, setConfirmReject] = useState(false);
+  const isPending = item.status === "pending";
+
+  function submitReject() {
+    if (!rejectReason) return;
+    onReject(item.id, rejectReason);
+    setConfirmReject(false);
+    setRejectReason("");
+  }
+
+  return (
+    <Card style={{ marginBottom: 10 }}>
+      <View style={{ gap: 8 }}>
+        {/* Header row */}
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flex: 1 }}>
+            <AppText weight="semibold">{item.driverName}</AppText>
+            <AppText variant="small" muted>{item.vehicle}</AppText>
+          </View>
+          <ApprovalStatusPill status={item.status} />
+        </View>
+
+        {/* Detail row */}
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            {type === "fuel" && (
+              <>
+                <AppText variant="small">{item.litres} L — {item.station}</AppText>
+                <AppText variant="small" muted>{item.date}</AppText>
+              </>
+            )}
+            {type === "expense" && (
+              <>
+                <AppText variant="small">{item.label}</AppText>
+                <AppText variant="small" muted>{item.date}</AppText>
+              </>
+            )}
+            {type === "document" && (
+              <>
+                <AppText variant="small">{item.docType}</AppText>
+                <AppText variant="small" muted>Expiry: {item.expiryDate}</AppText>
+              </>
+            )}
+          </View>
+          {item.amount != null && (
+            <AppText weight="semibold" color={colors.primaryDeep}>
+              ₹{Number(item.amount).toLocaleString("en-IN")}
+            </AppText>
+          )}
+        </View>
+
+        {/* Approve / Reject actions for pending items */}
+        {isPending && (
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+            <Button
+              label="Approve"
+              size="small"
+              onPress={() => onApprove(item.id)}
+              style={{ flex: 1 }}
+            />
+            <Button
+              label="Reject"
+              variant="secondary"
+              size="small"
+              onPress={() => setConfirmReject((v) => !v)}
+              style={{ flex: 1 }}
+            />
+          </View>
+        )}
+
+        {/* Reject reason picker */}
+        {confirmReject && (
+          <View style={{ gap: 6, marginTop: 4 }}>
+            <AppText variant="small" weight="semibold">Reason for rejection</AppText>
+            {REJECT_REASONS.map((reason) => (
+              <Pressable
+                key={reason}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: rejectReason === reason }}
+                onPress={() => setRejectReason(reason)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingVertical: 6,
+                }}
+              >
+                <View style={{
+                  width: 18, height: 18, borderRadius: 9,
+                  borderWidth: 1.5,
+                  borderColor: rejectReason === reason ? colors.error : colors.border,
+                  backgroundColor: rejectReason === reason ? colors.expiredBg : "transparent",
+                  alignItems: "center", justifyContent: "center",
+                }}>
+                  {rejectReason === reason && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.error }} />}
+                </View>
+                <AppText variant="small">{reason}</AppText>
+              </Pressable>
+            ))}
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+              <Button label="Cancel" variant="secondary" size="small" onPress={() => { setConfirmReject(false); setRejectReason(""); }} style={{ flex: 1 }} />
+              <Button label="Confirm reject" size="small" onPress={submitReject} disabled={!rejectReason} style={{ flex: 1 }} />
+            </View>
+          </View>
+        )}
+      </View>
+    </Card>
+  );
+}
+
+export function ManagerApprovals({ navigation }) {
+  const [tab, setTab] = useState("Fuel");
+  const [items, setItems] = useState({ fuel: [...APPROVAL_MOCK.fuel], expense: [...APPROVAL_MOCK.expense], document: [...APPROVAL_MOCK.document] });
+
+  const tabKey = tab.toLowerCase();
+  const list = items[tabKey] || [];
+  const pendingCount = (t) => (items[t] || []).filter((i) => i.status === "pending").length;
+  const totalPending = pendingCount("fuel") + pendingCount("expense") + pendingCount("document");
+
+  function approve(id) {
+    setItems((prev) => ({
+      ...prev,
+      [tabKey]: prev[tabKey].map((i) => i.id === id ? { ...i, status: "approved" } : i),
+    }));
+  }
+
+  function reject(id, reason) {
+    setItems((prev) => ({
+      ...prev,
+      [tabKey]: prev[tabKey].map((i) => i.id === id ? { ...i, status: "rejected", rejectReason: reason } : i),
+    }));
+  }
+
+  return (
+    <ManagerPage
+      navigation={navigation}
+      title="Approvals"
+      subtitle={totalPending > 0 ? `${totalPending} item${totalPending !== 1 ? "s" : ""} waiting for your decision` : "All caught up — no pending approvals"}
+      allowEmpty
+    >
+      <Filters
+        values={["Fuel", "Expense", "Document"]}
+        selected={tab}
+        onSelect={setTab}
+      />
+
+      {list.length === 0 ? (
+        <Card>
+          <View style={s.empty}>
+            <Ionicons name="checkmark-circle-outline" size={40} color={colors.success} />
+            <AppText weight="semibold" style={{ textAlign: "center" }}>No {tab.toLowerCase()} approvals</AppText>
+            <AppText variant="small" muted style={{ textAlign: "center" }}>Items submitted by drivers will appear here.</AppText>
+          </View>
+        </Card>
+      ) : (
+        <View>
+          {list.map((item) => (
+            <ApprovalCard
+              key={item.id}
+              item={item}
+              type={tabKey}
+              onApprove={approve}
+              onReject={reject}
+            />
+          ))}
+        </View>
+      )}
+    </ManagerPage>
+  );
+}
+
 const s = StyleSheet.create({
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: colors.background },
