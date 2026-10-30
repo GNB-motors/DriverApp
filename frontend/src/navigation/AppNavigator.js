@@ -28,6 +28,7 @@ import FuelLogScreen from '../screens/driver/fuel/FuelLogScreen';
 import FieldAgentHomeScreen from '../screens/driver/home/FieldAgentHomeScreen';
 import FieldAgentOrgsScreen from '../screens/driver/account/FieldAgentOrgsScreen';
 import FieldAgentProfileScreen from '../screens/driver/account/FieldAgentProfileScreen';
+import FieldAgentVehiclePickerScreen from '../screens/driver/fuel/FieldAgentVehiclePickerScreen';
 import SplashScreen from '../components/ui/SplashScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -63,6 +64,7 @@ function FieldAgentStackInner() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Main" component={FieldAgentTabs} />
+      <Stack.Screen name="VehiclePicker" component={FieldAgentVehiclePickerScreen} />
       <Stack.Screen name="FuelCapture" component={FuelCaptureScreen} />
       <Stack.Screen name="FuelEntryDetails" component={FuelEntryDetailsScreen} />
       <Stack.Screen name="FuelSaved" component={FuelSavedScreen} />

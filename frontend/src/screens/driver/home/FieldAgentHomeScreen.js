@@ -99,7 +99,7 @@ export default function FieldAgentHomeScreen({ navigation }) {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Upload fuel receipt"
-            onPress={() => navigation.navigate("FuelCapture")}
+            onPress={() => navigation.navigate("VehiclePicker")}
             style={styles.heroCta}
           >
             <LinearGradient
