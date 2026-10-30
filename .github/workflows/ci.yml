@@ -48,3 +48,6 @@ jobs:
       # failure mode that a testless project actually hits in the field.
       - name: parse-check
         run: node scripts/parse-check.js
+
+      - name: Server data and unavailable states
+        run: npm run check:live-data

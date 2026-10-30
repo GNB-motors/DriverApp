@@ -21,7 +21,7 @@ if (RAW && !__DEV__ && !/^https:\/\//i.test(RAW)) {
 
 export const API_BASE = RAW ? appLoginUrl(RAW).replace(/\/app\/v1\/auth\/login$/, '') : '';
 
-/** True when a backend URL is configured; false → app runs on demo fallback. */
+/** True when a backend URL is configured; false means server data is unavailable. */
 export const apiConfigured = () => !!RAW;
 
 // In-memory session used by the request interceptor (set by AuthContext on

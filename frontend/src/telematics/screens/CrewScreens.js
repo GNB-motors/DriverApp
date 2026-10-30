@@ -199,7 +199,16 @@ export function DriverCrewScreen({ navigation }) {
   return <CrewScreen navigation={navigation} driver />;
 }
 export function FleetCrewScreen({ navigation, route }) {
-  const { branchId } = useManagerData();
+  const { branchId, data, loading, error, refresh } = useManagerData();
+  if (!route.params?.vehicleId) {
+    return <Screen navigation={navigation} title="Crew & driving">
+      {loading ? <AppText muted>Loading trucks…</AppText> : null}
+      {error ? <><AppText color={colors.error}>{error}</AppText><Button label="Retry" onPress={refresh} /></> : null}
+      {data?.errors?.vehicles ? <><AppText color={colors.error}>{data.errors.vehicles}</AppText><Button label="Retry" onPress={refresh} /></> : null}
+      {!loading && !error && !data?.errors?.vehicles && data?.vehicles?.length === 0 ? <AppText muted>No trucks in this branch.</AppText> : null}
+      {(data?.vehicles || []).map(vehicle => <Button key={vehicle.id} label={vehicle.plate || vehicle.registrationNumber || "Truck"} variant="secondary" onPress={() => navigation.push('Crew & driving', { vehicleId: vehicle.id })} />)}
+    </Screen>;
+  }
   return (
     <CrewScreen
       navigation={navigation}

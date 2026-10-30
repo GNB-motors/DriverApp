@@ -1,33 +1,7 @@
 import React from 'react';
-import { AppText, Card, colors } from '../../components/ui';
-import { ExperiencePage, ActionButton, useExperienceCopy } from './ExperienceUI';
-import { useExperience } from './ExperienceContext';
-export function DriverMoreExperience({ navigation }) {
- const c = useExperienceCopy(); const links = [['help','Helpful cards'],['truckCrew','Crew & driving'],['dvir','Pre-trip check'],['podTitle','Confirm delivery'],['restHours','Rest & hours'],['earnings','My earnings'],['fuelEntry','Log diesel'],['expenseClaim','Add expense'],['documents','Document reminders'],['money','Papers & money'],['settings','Experience settings'],['crewMessages','Crew messages'],['help','Driver help'],['profile','Profile'],['existingTools','Existing tools']];
- return <ExperiencePage title={c('moreLabel')} navigation={navigation}>{links.map(([key, route]) => <Card key={key} onPress={() => navigation.navigate(route)} accessibilityLabel={c(key)}><AppText weight="semibold" color={colors.primaryDeep}>{c(key)} →</AppText></Card>)}</ExperiencePage>;
-}
-export function DriverTripsExperience({ navigation }) {
- const c = useExperienceCopy(); const { preview } = useExperience();
- return <ExperiencePage title={c('trips')} navigation={navigation}>{preview && <Card style={{ gap: 12 }}><AppText variant="h3">{c('sampleRoute')}</AppText><AppText>{`${c('sample')} · 29 Oct · 176 km`}</AppText><AppText color={colors.warning}>{c('unconfirmed')}</AppText><ActionButton label={c('tripSummary')} onPress={() => navigation.navigate('Journey summary')} /></Card>}<ActionButton label={c('tripRecords')} tone="secondary" onPress={() => navigation.navigate('Recorded trips')} /><ActionButton label={c('money')} tone="secondary" onPress={() => navigation.navigate('Papers & money')} /></ExperiencePage>;
-}
-const MANAGER_MORE_LINKS = [
-  ['fleet', 'Fleet essentials', 'Fleet essentials'],
-  ['reviewPapers', 'Driver papers review', 'Driver papers review'],
-  ['approvals', 'Manager approvals', 'Approvals'],
-  ['truckCrew', 'Crew management', 'Crew management'],
-  ['crewMessages', 'Crew messages', 'Crew messages'],
-  ['broadcasts', 'New preview broadcast', 'Broadcasts'],
-  ['settings', 'Experience settings', 'Settings'],
-];
-export function ManagerMoreExperience({ navigation }) {
-  const c = useExperienceCopy();
-  return (
-    <ExperiencePage title={c('moreLabel')} navigation={navigation}>
-      {MANAGER_MORE_LINKS.map(([key, route, label]) => (
-        <Card key={key} onPress={() => navigation.navigate(route)} accessibilityLabel={label}>
-          <AppText weight="semibold" color={colors.primaryDeep}>{c(key) || label} →</AppText>
-        </Card>
-      ))}
-    </ExperiencePage>
-  );
-}
+import { DriverTrips, DriverMore } from '../screens/DriverScreens';
+import { More } from '../screens/ManagerScreens';
+
+export const DriverTripsExperience = DriverTrips;
+export const DriverMoreExperience = DriverMore;
+export function ManagerMoreExperience(props) { return <More {...props} />; }

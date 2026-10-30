@@ -1,45 +1,34 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
-/**
- * useApi — tiny data-fetch hook for screens.
- *
- *   const { data, loading, error, refetch } = useApi(
- *     () => walletService.getDriverLedger(id),
- *     [id],
- *     { enabled: useReal, fallback: mock.ledger },
- *   );
- *
- * When `enabled` is false it stays on `fallback` (used so the offline demo keeps
- * rendering mock data). On error it falls back too, so a screen never blanks out.
- */
-export function useApi(fn, deps = [], { enabled = true, fallback = null } = {}) {
-  const [data, setData] = useState(fallback);
-  const [loading, setLoading] = useState(!!enabled);
-  const [error, setError] = useState(null);
-
+// Read server data only. A changed query immediately masks previous data;
+// failed/disabled requests and late responses never restore a fallback.
+export function useApi(fn, deps = [], { enabled = true } = {}) {
+  const loader = useRef(fn);
+  loader.current = fn;
+  const lifecycle = useRef({ generation: 0 }).current;
+  // Callers supply query/account dependencies; fn may be an inline function.
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  const scope = useMemo(() => ({}), [enabled, ...deps]);
+  const [state, setState] = useState({ scope: null, data: null, loading: !!enabled, error: null });
+
   const run = useCallback(async () => {
-    // Always clear any previous error before (re)fetching so refetch() starts
-    // from a clean slate.
-    setError(null);
-    if (!enabled) { setLoading(false); return; }
-    setLoading(true);
+    const current = ++lifecycle.generation;
+    setState({ scope, data: null, error: null, loading: !!enabled });
+    if (!enabled) return;
     try {
-      const d = await fn();
-      setData(d);
-    } catch (e) {
-      // Preserve the failure so callers can surface it; the hook still falls
-      // back to mock data (when provided) so the screen never blanks out.
-      setError(e);
-      if (fallback != null) setData(fallback);
-    } finally {
-      setLoading(false);
+      const data = await loader.current();
+      if (current === lifecycle.generation) setState({ scope, data, error: null, loading: false });
+    } catch (error) {
+      if (current === lifecycle.generation) setState({ scope, data: null, error, loading: false });
     }
-  }, deps);
+  }, [enabled, scope, lifecycle]);
 
-  useEffect(() => { run(); }, [run]);
+  useEffect(() => {
+    run();
+    return () => { lifecycle.generation++; };
+  }, [run, lifecycle]);
 
-  return { data, loading, error, refetch: run };
+  const visible = state.scope === scope ? state : { data: null, error: null, loading: !!enabled };
+  return { data: visible.data, loading: visible.loading, error: visible.error, refetch: run };
 }
-
 export default useApi;

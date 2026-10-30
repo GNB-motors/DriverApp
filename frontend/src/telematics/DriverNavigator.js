@@ -1,9 +1,7 @@
-import { ExperienceProvider } from './experience/ExperienceContext';
-import { useExperienceCopy } from './experience/ExperienceUI';
+import { UnavailableScreen, useExperienceCopy } from './experience/ExperienceUI';
 import { NavigateScreen, CaptureScreen } from './experience/DriverNavigation';
 import { DriverMoreExperience, DriverTripsExperience } from './experience/ExperienceHub';
 import { ExperienceInbox } from './experience/ExperienceExtras';
-import { ActionDetail, DriverHelpfulCards } from './experience/ManagerActions';
 import { driverExperienceRoutes } from './experience/routes';
 import { DriverCrewScreen } from "./screens/CrewScreens";
 import { ErpTripsScreen, ErpTripScreen } from './screens/ErpTripsScreen';
@@ -44,11 +42,11 @@ export default function DriverNavigator() {
   const { user } = useAuth();
   const orgId = typeof user.orgId === 'object' ? user.orgId?._id : user.orgId;
   const identity = `${user._id}:${orgId}`;
-  return <TelematicsApiProvider key={identity} identity={identity}><DriverDataProvider><ExperienceProvider key={identity}><Stack.Navigator initialRouteName="Driver tabs" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+  return <TelematicsApiProvider key={identity} identity={identity}><DriverDataProvider><Stack.Navigator initialRouteName="Driver tabs" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
     {Object.entries(driverExperienceRoutes).filter(([name]) => name !== 'Experience inbox').map(([name, component]) => <Stack.Screen key={name} name={name} component={component} />)}
     <Stack.Screen name="Capture" component={CaptureScreen} options={{ presentation: 'modal' }} />
-    <Stack.Screen name="Helpful cards" component={DriverHelpfulCards} />
-    <Stack.Screen name="Manager action detail" component={ActionDetail} />
+    <Stack.Screen name="Helpful cards" component={UnavailableScreen} />
+    <Stack.Screen name="Manager action detail" component={UnavailableScreen} />
     <Stack.Screen name="Recorded trips" component={Screens.DriverTrips} />
     <Stack.Screen name="Existing tools" component={Screens.DriverMore} />
     <Stack.Screen name="Existing alerts" component={Screens.DriverInbox} />
@@ -69,13 +67,13 @@ export default function DriverNavigator() {
     <Stack.Screen name="Operation detail" component={Operations.RecordDetail} />
     <Stack.Screen name="Support" component={Operations.RecordList} />
     {['Fuel history', 'My issues', 'Workshop bills'].map((name) => <Stack.Screen key={name} name={name} component={Operations.RecordList} />)}
-    <Stack.Screen name="Documents" component={Screens.DriverDocumentStatus} />
-    <Stack.Screen name="My papers" component={Screens.DriverDocumentStatus} />
+    <Stack.Screen name="Documents" component={Operations.RecordList} initialParams={{ kind: 'documents' }} />
+    <Stack.Screen name="My papers" component={Operations.RecordList} initialParams={{ kind: 'documents' }} />
     <Stack.Screen name="Document detail" component={Operations.RecordDetail} />
     <Stack.Screen name="Location sharing" component={Screens.LocationSharing} />
     <Stack.Screen name="Profile" component={Screens.Profile} />
     <Stack.Screen name="SOS" component={Screens.SosUnavailable} options={{ presentation: 'modal' }} />
-    <Stack.Screen name="Site card" component={Screens.SiteCard} />
-    <Stack.Screen name="At-wheel handover" component={Screens.AtWheelHandover} />
-  </Stack.Navigator></ExperienceProvider></DriverDataProvider></TelematicsApiProvider>;
+    <Stack.Screen name="Site card" component={UnavailableScreen} />
+    <Stack.Screen name="At-wheel handover" component={DriverCrewScreen} />
+  </Stack.Navigator></DriverDataProvider></TelematicsApiProvider>;
 }

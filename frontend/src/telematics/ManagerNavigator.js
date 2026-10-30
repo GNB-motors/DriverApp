@@ -1,7 +1,6 @@
-import { Messages, Conversation } from './screens/OwnerCommunicationScreens';
-import { ExperienceProvider } from './experience/ExperienceContext';
-import { useExperienceCopy } from './experience/ExperienceUI';
-import { ManagerActionHome, ActionDetail, DriverTimeline, ManagerLiveSurface } from './experience/ManagerActions';
+import { Messages, Conversation, NewConversation } from './screens/OwnerCommunicationScreens';
+import { UnavailableScreen, useExperienceCopy } from './experience/ExperienceUI';
+import { ManagerActionHome, ActionDetail, DriverTimeline, ManagerLiveSurface, ManagerReviews, ManagerDriverDetail } from './experience/ManagerActions';
 import { ManagerMoreExperience } from './experience/ExperienceHub';
 import { reviewExperienceRoutes } from './experience/routes';
 import { FleetCrewScreen } from "./screens/CrewScreens";
@@ -29,7 +28,7 @@ function ManagerTabs() {
   return <Tab.Navigator tabBar={(props) => <CurvedTabBar {...props} />} screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name={icons[route.name]} size={size} color={color} /> })}>
     <Tab.Screen name="Home" component={ManagerActionHome} options={{ tabBarLabel: c('home') }} />
     <Tab.Screen name="Live" component={ManagerLiveSurface} options={{ tabBarLabel: c('live') }} />
-    <Tab.Screen name="Drivers" component={Screens.ManagerDutyBoard} options={{ tabBarLabel: c('drivers') }} />
+    <Tab.Screen name="Drivers" component={Operations.DriverRoster} options={{ tabBarLabel: c('drivers') }} />
     <Tab.Screen name="Alerts" component={Screens.Alerts} options={{ tabBarBadge: unread || undefined }} />
     <Tab.Screen name="More" component={ManagerMoreExperience} options={{ tabBarLabel: c('moreLabel') }} />
   </Tab.Navigator>;
@@ -38,12 +37,13 @@ export default function ManagerNavigator() {
   const { user } = useAuth();
   const orgId = typeof user.orgId === 'object' ? user.orgId?._id : user.orgId;
   const identity = `${user._id}:${orgId}:manager`;
-  return <TelematicsApiProvider key={identity} identity={identity} audience="manager"><ManagerDataProvider><ExperienceProvider key={identity}><Stack.Navigator initialRouteName="Manager tabs" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+  return <TelematicsApiProvider key={identity} identity={identity} audience="manager"><ManagerDataProvider><Stack.Navigator initialRouteName="Manager tabs" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
     {Object.entries(reviewExperienceRoutes).map(([name, component]) => <Stack.Screen key={name} name={name} component={component} />)}
     <Stack.Screen name="Manager action detail" component={ActionDetail} />
     <Stack.Screen name="Driver timeline" component={DriverTimeline} />
     <Stack.Screen name="Messages" component={Messages} />
     <Stack.Screen name="Conversation" component={Conversation} />
+    <Stack.Screen name="New conversation" component={NewConversation} />
     <Stack.Screen name="Driver assignments" component={Operations.DriverRoster} />
     <Stack.Screen name="Fleet overview" component={Screens.ManagerHome} />
     <Stack.Screen name="Live records" component={Screens.ManagerLive} />
@@ -68,10 +68,10 @@ export default function ManagerNavigator() {
     <Stack.Screen name="AdBlue / DEF" component={DefLedgerScreen} />
     <Stack.Screen name="Team & access" component={TeamAccessScreen} />
     <Stack.Screen name="Manager settings" component={Screens.Settings} />
-    <Stack.Screen name="SOS centre" component={Screens.SosCentre} />
-    <Stack.Screen name="SOS detail" component={Screens.SosDetail} />
-    <Stack.Screen name="Manager approvals" component={Screens.ManagerApprovals} />
-    <Stack.Screen name="Crew management" component={Screens.ManagerCrewManagement} />
-    <Stack.Screen name="Manager driver detail" component={Screens.ManagerDriverDetail} />
-  </Stack.Navigator></ExperienceProvider></ManagerDataProvider></TelematicsApiProvider>;
+    <Stack.Screen name="SOS centre" component={UnavailableScreen} />
+    <Stack.Screen name="SOS detail" component={UnavailableScreen} />
+    <Stack.Screen name="Manager approvals" component={ManagerReviews} />
+    <Stack.Screen name="Crew management" component={FleetCrewScreen} />
+    <Stack.Screen name="Manager driver detail" component={ManagerDriverDetail} />
+  </Stack.Navigator></ManagerDataProvider></TelematicsApiProvider>;
 }

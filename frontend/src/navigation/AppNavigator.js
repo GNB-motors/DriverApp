@@ -13,9 +13,6 @@ import { selectAppShell } from '../telematics/services/appShell';
 import UnsupportedRoleScreen from '../telematics/screens/UnsupportedRoleScreen';
 import GetStartedScreen from '../screens/onboarding/GetStartedScreen';
 import OnboardingLanguageScreen from '../screens/onboarding/OnboardingLanguageScreen';
-import PhoneNumberScreen from '../screens/onboarding/PhoneNumberScreen';
-import OtpScreen from '../screens/onboarding/OtpScreen';
-import PasswordScreen from '../screens/onboarding/PasswordScreen';
 import LoginScreen from '../screens/onboarding/LoginScreen';
 import SOSOptionsScreen from '../screens/driver/sos/SOSOptionsScreen';
 import SOSEmergencyActiveScreen from '../screens/driver/sos/SOSEmergencyActiveScreen';
@@ -38,9 +35,6 @@ function AuthStack({ initialRoute }) {
     <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false, animation: 'fade' }}>
       <Stack.Screen name="GetStarted" component={GetStartedScreen} />
       <Stack.Screen name="OnboardingLanguage" component={OnboardingLanguageScreen} />
-      <Stack.Screen name="Phone" component={PhoneNumberScreen} />
-      <Stack.Screen name="Otp" component={OtpScreen} />
-      <Stack.Screen name="Password" component={PasswordScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
     </Stack.Navigator>
   );

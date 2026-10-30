@@ -1,4 +1,3 @@
-import { ExperienceProvider } from './experience/ExperienceContext';
 import { reviewExperienceRoutes } from './experience/routes';
 import { FleetCrewScreen } from "./screens/CrewScreens";
 import { OwnerCaptures } from "./screens/OwnerReportScreens";
@@ -39,7 +38,7 @@ export default function OwnerNavigator() {
   const { user } = useAuth();
   const orgId = typeof user.orgId === 'object' ? user.orgId?._id : user.orgId;
   const identity = `${user._id}:${orgId}:owner`;
-  return <TelematicsApiProvider key={identity} identity={identity} audience="owner"><ManagerDataProvider audience="owner"><ExperienceProvider key={identity}><Stack.Navigator initialRouteName="Owner tabs" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+  return <TelematicsApiProvider key={identity} identity={identity} audience="owner"><ManagerDataProvider audience="owner"><Stack.Navigator initialRouteName="Owner tabs" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
     {Object.entries(reviewExperienceRoutes).map(([name, component]) => <Stack.Screen key={name} name={name} component={component} />)}
     <Stack.Screen name="Crew & driving" component={FleetCrewScreen} />
     <Stack.Screen name="Owner tabs" component={OwnerTabs} />
@@ -80,5 +79,5 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Owner settings" component={Screens.Settings} />
     <Stack.Screen name="Owner home" component={Owner.OwnerHomeSummary} />
     <Stack.Screen name="Aaj ka hisaab" component={Owner.OwnerDailyReport} />
-  </Stack.Navigator></ExperienceProvider></ManagerDataProvider></TelematicsApiProvider>;
+  </Stack.Navigator></ManagerDataProvider></TelematicsApiProvider>;
 }

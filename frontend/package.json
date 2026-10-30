@@ -11,7 +11,8 @@
     "check:push": "node scripts/check-push.mjs",
     "check:api": "node scripts/check-api-session.mjs",
     "check:parity": "node scripts/check-parity.mjs",
-    "check:owner": "node scripts/check-owner.mjs"
+    "check:owner": "node scripts/check-owner.mjs",
+    "check:live-data": "node scripts/check-live-data.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/dm-mono": "^0.4.2",
@@ -68,6 +69,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^4.6.2",
     "jest": "~30.5.2",
-    "jest-expo": "~58.0.12"
+    "jest-expo": "~58.0.12",
+    "jsdom": "26.1.0"
   }
 }

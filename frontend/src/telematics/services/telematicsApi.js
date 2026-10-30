@@ -508,7 +508,7 @@ export function createTelematicsApi({
     uploadPod: (id, asset) => uploadErp('/erp/pods/upload', 'pod', id, asset),
     async crewMe(page = 1) { return (await get('/app/v2/crew/me', { params: { page } })).data; },
     async crewVehicle(vehicleId, page = 1, branchId) { return (await get(`/app/v2/crew/vehicles/${encodeURIComponent(vehicleId)}`, { params: { page }, headers: headersFor(branchId) })).data; },
-    async crewAction(vehicleId, body, branchId) { return (await client.post(`/app/v2/crew/${encodeURIComponent(vehicleId)}/actions`, body, { headers: headersFor(branchId) })).data.data; },
+    async crewAction(vehicleId, body, branchId) { return (await client.post(`/app/v2/crew/vehicles/${encodeURIComponent(vehicleId)}/actions`, body, { headers: headersFor(branchId) })).data.data; },
     async crewConfidence() { return (await get('/app/v2/crew/confidence')).data; },
     async crewAsk(vehicleId, body) { return (await client.post(`/app/v2/crew/${encodeURIComponent(vehicleId)}/ask`, body)).data.data; },
     async ownerCaptures(page, branchId) { return (await get('/app/v2/captures', { params: { page }, headers: headersFor(branchId) })).data; },

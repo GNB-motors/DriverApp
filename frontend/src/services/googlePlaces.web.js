@@ -18,7 +18,7 @@ export async function searchGooglePlaces(input, token) {
 }
 export async function getGooglePlace(placeId, token) {
   const library = await places();
-  return new Promise((resolve, reject) => new library.PlacesService(document.createElement('div')).getDetails({ placeId, sessionToken: sessions.get(token), fields: ['name', 'formatted_address', 'geometry', 'address_components'] }, (details, status) => {
+  return new Promise((resolve, reject) => new library.PlacesService(globalThis.document.createElement('div')).getDetails({ placeId, sessionToken: sessions.get(token), fields: ['name', 'formatted_address', 'geometry', 'address_components'] }, (details, status) => {
     sessions.delete(token);
     if (status === 'OK' && details) resolve(details);
     else reject(new Error('Google place details are unavailable.'));
