@@ -56,12 +56,121 @@ export function More({ navigation }) {
     ['Fleet & people', [['Drivers', 'Driver roster', 'people-outline'], ['Crew & driving', 'Crew & driving', 'swap-horizontal-outline'], ['Fleet trips', 'Trip history', 'navigate-outline'], ['Fuel & AdBlue', 'Fuel & AdBlue', 'water-outline'], ['Maintenance', 'Maintenance', 'construct-outline']]],
     ['Money & records', [['Capture reviews', 'Capture reviews', 'scan-outline'], ['Owner finance', 'Billing & cash flow', 'wallet-outline'], ['Fleet documents', 'Fleet documents', 'document-text-outline']]],
     ['Conversations', [['Messages', 'Messages & broadcasts', 'chatbubbles-outline'], ['Owner calls', 'Calls & follow-ups', 'call-outline'], ['Owner escalations', 'Owner inbox', 'notifications-outline']]],
-    ['Your workspace', [['Owner trends', 'Reports & trends', 'trending-up-outline'], ['Report settings', 'Morning report', 'sunny-outline'], ['Team & access', 'Team & access', 'person-add-outline'], ['Owner settings', 'Settings & support', 'settings-outline']]],
+    ['Your workspace', [['Owner home', 'Fleet home summary', 'home-outline'], ['Owner trends', 'Reports & trends', 'trending-up-outline'], ['Report settings', 'Morning report', 'sunny-outline'], ['Team & access', 'Team & access', 'person-add-outline'], ['Owner settings', 'Settings & support', 'settings-outline']]],
   ];
   return <OwnerScreen navigation={navigation} title="Your workspace" subtitle="Fleet, finances and your team.">
     {groups.map(([label, links]) => <View key={label} style={{ gap: 10 }}><AppText variant="label" muted>{label}</AppText><Card padding={0}>{links.map(([route, title, icon], index) => <OwnerGroupRow key={route} title={title} icon={icon} last={index === links.length - 1} onPress={() => navigation.navigate(route)} />)}</Card></View>)}
   </OwnerScreen>;
 }
+// ─── Owner Home Summary (O-01) ────────────────────────────────────────────────
+
+const OWNER_HOME_MOCK = {
+  orgName: "Patil Transport Pvt. Ltd.",
+  date: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
+  fleet: { total: 18, driving: 7, idle: 3, plant: 4, offline: 4 },
+  topAlerts: [
+    { id: "a1", type: "sos", title: "SOS — Mohan Sharma", vehicle: "MP 09 IJ 7890", severity: "high", ago: "12m" },
+    { id: "a2", type: "idle", title: "Idle >2h — Sunil Patil", vehicle: "MH 12 CD 5678", severity: "medium", ago: "38m" },
+    { id: "a3", type: "papers", title: "Insurance expiring — GJ 01 EF 9012", vehicle: "GJ 01 EF 9012", severity: "low", ago: "3h" },
+  ],
+  reportReady: true,
+};
+
+const ALERT_SEVERITY_CFG = {
+  high:   { tone: colors.error, bg: colors.expiredBg, icon: "alert-circle-outline" },
+  medium: { tone: colors.warning, bg: colors.pendingBg, icon: "warning-outline" },
+  low:    { tone: colors.textMuted, bg: colors.background, icon: "information-circle-outline" },
+};
+
+export function OwnerHomeSummary({ navigation }) {
+  const { fleet, topAlerts, orgName, date, reportReady } = OWNER_HOME_MOCK;
+  const insets = { top: 48 }; // fallback — real code should use useSafeAreaInsets
+
+  return (
+    <ManagerPage navigation={navigation} title="Good morning" subtitle={orgName} allowEmpty>
+      {/* Date line */}
+      <AppText variant="small" muted style={{ marginTop: -8 }}>{date}</AppText>
+
+      {/* Fleet state tiles */}
+      <Card>
+        <AppText weight="semibold" style={{ marginBottom: 10 }}>Fleet right now</AppText>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          {[
+            { label: "Driving", value: fleet.driving, bg: colors.infoBg, tone: colors.primary, icon: "car-outline" },
+            { label: "Idle", value: fleet.idle, bg: colors.pendingBg, tone: colors.warning, icon: "time-outline" },
+            { label: "At plant", value: fleet.plant, bg: colors.validBg, tone: colors.success, icon: "business-outline" },
+            { label: "Offline", value: fleet.offline, bg: colors.background, tone: colors.textMuted, icon: "wifi-outline" },
+          ].map((item) => (
+            <View key={item.label} style={{ flex: 1, minWidth: 70, backgroundColor: item.bg, borderRadius: radius.md, padding: 12, alignItems: "center", gap: 4, borderWidth: 1, borderColor: colors.border }}>
+              <Ionicons name={item.icon} size={18} color={item.tone} />
+              <AppText style={{ fontSize: 22, fontWeight: "800" }} color={item.tone}>{item.value}</AppText>
+              <AppText variant="small" muted style={{ textAlign: "center" }}>{item.label}</AppText>
+            </View>
+          ))}
+        </View>
+        <AppText variant="small" muted style={{ marginTop: 8 }}>
+          {fleet.total} trucks total · {fleet.driving + fleet.idle + fleet.plant} active today
+        </AppText>
+      </Card>
+
+      {/* Today's report CTA */}
+      <View style={{ borderRadius: radius.lg, overflow: "hidden" }}>
+        <LinearGradient
+          colors={colors.gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ padding: 16, flexDirection: "row", alignItems: "center", gap: 14 }}
+        >
+          <Ionicons name="document-text-outline" size={26} color={colors.white} />
+          <View style={{ flex: 1 }}>
+            <AppText weight="semibold" color={colors.white}>
+              {reportReady ? "Today's report is ready" : "Report preparing…"}
+            </AppText>
+            <AppText variant="small" color={colors.onPrimaryMuted}>Fuel, trips, exceptions, driver scores</AppText>
+          </View>
+          <Button
+            label="Open report"
+            size="small"
+            onPress={() => navigation.navigate("Digest")}
+            style={{ backgroundColor: "rgba(255,255,255,0.18)", borderColor: "rgba(255,255,255,0.3)" }}
+          />
+        </LinearGradient>
+      </View>
+
+      {/* Top 3 alerts */}
+      <View style={{ gap: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <AppText weight="semibold">Top alerts</AppText>
+          <Button
+            label="View all"
+            size="small"
+            variant="secondary"
+            onPress={() => navigation.navigate("Owner escalations")}
+          />
+        </View>
+        {topAlerts.map((alert) => {
+          const cfg = ALERT_SEVERITY_CFG[alert.severity] || ALERT_SEVERITY_CFG.low;
+          return (
+            <Card key={alert.id} style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+              <View style={{ width: 36, height: 36, borderRadius: radius.md, backgroundColor: cfg.bg, alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name={cfg.icon} size={18} color={cfg.tone} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <AppText variant="small" weight="semibold" numberOfLines={1}>{alert.title}</AppText>
+                <AppText variant="small" muted>{alert.vehicle} · {alert.ago} ago</AppText>
+              </View>
+            </Card>
+          );
+        })}
+      </View>
+
+      <AppText variant="small" muted style={{ textAlign: "center", marginTop: 4 }}>
+        Mock data · O-01 backend endpoint not built yet
+      </AppText>
+    </ManagerPage>
+  );
+}
+
 export function DeferredTeam({ navigation }) {
   return <ManagerPage navigation={navigation} title="Team & access" subtitle="Planned for a later integration."><Card style={s.digest}><Ionicons name="people-outline" size={42} color={colors.primary} /><AppText variant="h2">Team management is coming later.</AppText><AppText muted>Creating users, invitations and permission changes are not available in this build. You can explore driver profiles from More → Drivers.</AppText></Card><Button label="View drivers" variant="secondary" onPress={() => navigation.navigate('Drivers')} /></ManagerPage>;
 }
