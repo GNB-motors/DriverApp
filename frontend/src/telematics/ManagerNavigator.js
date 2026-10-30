@@ -71,5 +71,6 @@ export default function ManagerNavigator() {
     <Stack.Screen name="SOS centre" component={Screens.SosCentre} />
     <Stack.Screen name="SOS detail" component={Screens.SosDetail} />
     <Stack.Screen name="Manager approvals" component={Screens.ManagerApprovals} />
+    <Stack.Screen name="Crew management" component={Screens.ManagerCrewManagement} />
   </Stack.Navigator></ExperienceProvider></ManagerDataProvider></TelematicsApiProvider>;
 }

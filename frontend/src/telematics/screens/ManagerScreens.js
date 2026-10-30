@@ -1386,6 +1386,271 @@ function Filters({ values, selected, onSelect }) {
   );
 }
 
+// ─── Manager Crew Management ──────────────────────────────────────────────────
+
+const CREW_STATUS_CFG = {
+  DRIVING:  { label: "Driving",    tone: colors.primary,   bg: colors.infoBg },
+  PENDING:  { label: "Handover",   tone: colors.warning,   bg: colors.pendingBg },
+  DISPUTED: { label: "Disputed",   tone: colors.error,     bg: colors.expiredBg },
+  UNKNOWN:  { label: "Unconfirmed",tone: colors.textMuted, bg: colors.background },
+};
+
+const CREW_FLEET_MOCK = [
+  {
+    id: "cv-001", vehicle: "MH 04 AB 1234", vehicleId: "veh-001",
+    status: "DRIVING",
+    driver: "Ramesh Kumar", driverId: "drv-001",
+    coDriver: "Sunil Patil", coDriverId: "drv-002",
+    atWheelStart: new Date(Date.now() - 250 * 60000).toISOString(),
+    handover: null,
+  },
+  {
+    id: "cv-002", vehicle: "MH 12 CD 5678", vehicleId: "veh-002",
+    status: "PENDING",
+    driver: "Sunil Patil", driverId: "drv-002",
+    coDriver: "Ajay Singh", coDriverId: "drv-003",
+    atWheelStart: new Date(Date.now() - 310 * 60000).toISOString(),
+    handover: { from: "Sunil Patil", to: "Ajay Singh", expiresIn: 12 },
+  },
+  {
+    id: "cv-003", vehicle: "GJ 01 EF 9012", vehicleId: "veh-003",
+    status: "UNKNOWN",
+    driver: null, driverId: null,
+    coDriver: null, coDriverId: null,
+    atWheelStart: null,
+    handover: null,
+  },
+  {
+    id: "cv-004", vehicle: "RJ 14 GH 3456", vehicleId: "veh-004",
+    status: "DRIVING",
+    driver: "Vikram Yadav", driverId: "drv-004",
+    coDriver: null, coDriverId: null,
+    atWheelStart: new Date(Date.now() - 525 * 60000).toISOString(),
+    handover: null,
+  },
+  {
+    id: "cv-005", vehicle: "MP 09 IJ 7890", vehicleId: "veh-005",
+    status: "DISPUTED",
+    driver: "Mohan Sharma", driverId: "drv-005",
+    coDriver: null, coDriverId: null,
+    atWheelStart: new Date(Date.now() - 90 * 60000).toISOString(),
+    handover: null,
+  },
+];
+
+const AVAILABLE_DRIVERS_MOCK = [
+  { id: "drv-006", name: "Ravi Mehta" },
+  { id: "drv-007", name: "Deepak Nair" },
+  { id: "drv-008", name: "Santosh More" },
+];
+
+function crewStintLabel(isoStart) {
+  if (!isoStart) return null;
+  const min = Math.floor((Date.now() - new Date(isoStart).getTime()) / 60000);
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h > 0 ? `${h}h ${m}m at wheel` : `${m}m at wheel`;
+}
+
+function CrewTruckCard({ truck, onAssign, onOpenCrew }) {
+  const cfg = CREW_STATUS_CFG[truck.status] || CREW_STATUS_CFG.UNKNOWN;
+  const stint = crewStintLabel(truck.atWheelStart);
+
+  return (
+    <Card style={{ marginBottom: 10 }}>
+      <View style={{ gap: 10 }}>
+        {/* Header */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <AppText weight="semibold">{truck.vehicle}</AppText>
+            {stint && (
+              <AppText variant="small" muted>{stint}</AppText>
+            )}
+          </View>
+          <View style={{ backgroundColor: cfg.bg, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
+            <AppText variant="small" color={cfg.tone} weight="semibold">{cfg.label}</AppText>
+          </View>
+        </View>
+
+        {/* Crew members */}
+        <View style={{ gap: 6 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name="person" size={14} color={colors.textMuted} />
+            <AppText variant="small" style={{ flex: 1 }}>
+              {truck.driver || <AppText variant="small" color={colors.error}>No driver confirmed</AppText>}
+            </AppText>
+            {!truck.driver && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => onAssign(truck)}
+                style={{ backgroundColor: colors.infoBg, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2 }}
+              >
+                <AppText variant="small" color={colors.primary} weight="semibold">Assign</AppText>
+              </Pressable>
+            )}
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name="people" size={14} color={colors.textMuted} />
+            <AppText variant="small" color={truck.coDriver ? colors.text : colors.textMuted} style={{ flex: 1 }}>
+              {truck.coDriver || "No co-driver"}
+            </AppText>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => onAssign(truck, true)}
+              style={{ backgroundColor: colors.background, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: colors.border }}
+            >
+              <AppText variant="small" color={colors.textMuted} weight="semibold">
+                {truck.coDriver ? "Change" : "Add"}
+              </AppText>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Handover pending notice */}
+        {truck.handover && (
+          <View style={{ backgroundColor: colors.pendingBg, borderRadius: radius.md, padding: 8, flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Ionicons name="swap-horizontal-outline" size={14} color={colors.warning} />
+            <AppText variant="small" color={colors.warning} style={{ flex: 1 }}>
+              Handover: {truck.handover.from} → {truck.handover.to} · {truck.handover.expiresIn}m left
+            </AppText>
+          </View>
+        )}
+
+        {/* Actions */}
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Button
+            label="Crew detail"
+            size="small"
+            variant="secondary"
+            onPress={() => onOpenCrew(truck)}
+            style={{ flex: 1 }}
+          />
+        </View>
+      </View>
+    </Card>
+  );
+}
+
+export function ManagerCrewManagement({ navigation }) {
+  const [filter, setFilter] = useState("All");
+  const [assignTarget, setAssignTarget] = useState(null); // { truck, isCoDriver }
+  const [selectedDriver, setSelectedDriver] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  const filterMap = { All: null, Driving: "DRIVING", Unconfirmed: "UNKNOWN", Handover: "PENDING", Disputed: "DISPUTED" };
+  const filtered = CREW_FLEET_MOCK.filter((t) => !filterMap[filter] || t.status === filterMap[filter]);
+
+  const counts = CREW_FLEET_MOCK.reduce((acc, t) => { acc[t.status] = (acc[t.status] || 0) + 1; return acc; }, {});
+  const needsAttention = (counts.UNKNOWN || 0) + (counts.DISPUTED || 0) + (counts.PENDING || 0);
+
+  function openCrew(truck) {
+    navigation.navigate("Crew & driving", { vehicleId: truck.vehicleId });
+  }
+
+  function startAssign(truck, isCoDriver = false) {
+    setAssignTarget({ truck, isCoDriver });
+    setSelectedDriver(null);
+    setNotice("");
+  }
+
+  function confirmAssign() {
+    if (!selectedDriver) return;
+    setBusy(true);
+    setTimeout(() => {
+      setBusy(false);
+      setNotice(`${selectedDriver.name} assigned to ${assignTarget.truck.vehicle}. Mock — crewAction('SET_CREW') not wired.`);
+      setAssignTarget(null);
+      setSelectedDriver(null);
+    }, 700);
+  }
+
+  return (
+    <ManagerPage
+      navigation={navigation}
+      title="Crew management"
+      subtitle={needsAttention > 0 ? `${needsAttention} truck${needsAttention !== 1 ? "s" : ""} need attention` : "All trucks have confirmed drivers"}
+      allowEmpty
+    >
+      {/* Summary */}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        {[
+          { label: `${counts.DRIVING || 0} driving`, ...CREW_STATUS_CFG.DRIVING },
+          { label: `${counts.PENDING || 0} handover`, ...CREW_STATUS_CFG.PENDING },
+          { label: `${counts.UNKNOWN || 0} unconfirmed`, ...CREW_STATUS_CFG.UNKNOWN },
+          { label: `${counts.DISPUTED || 0} disputed`, ...CREW_STATUS_CFG.DISPUTED },
+        ].map((item) => (
+          <View key={item.label} style={{ backgroundColor: item.bg, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: colors.border }}>
+            <AppText variant="small" color={item.tone} weight="semibold">{item.label}</AppText>
+          </View>
+        ))}
+      </View>
+
+      <Filters
+        values={["All", "Driving", "Unconfirmed", "Handover", "Disputed"]}
+        selected={filter}
+        onSelect={setFilter}
+      />
+
+      {notice ? (
+        <View style={{ backgroundColor: colors.validBg, borderRadius: radius.md, padding: 10, flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Ionicons name="checkmark-circle-outline" size={16} color={colors.success} />
+          <AppText variant="small" color={colors.success} style={{ flex: 1 }}>{notice}</AppText>
+        </View>
+      ) : null}
+
+      {filtered.length === 0 ? (
+        <Card>
+          <View style={s.empty}>
+            <Ionicons name="people-outline" size={36} color={colors.textMuted} />
+            <AppText weight="semibold" style={{ textAlign: "center" }}>No {filter.toLowerCase()} trucks</AppText>
+          </View>
+        </Card>
+      ) : (
+        filtered.map((truck) => (
+          <CrewTruckCard
+            key={truck.id}
+            truck={truck}
+            onAssign={startAssign}
+            onOpenCrew={openCrew}
+          />
+        ))
+      )}
+
+      {/* Assign drawer */}
+      {assignTarget && (
+        <Card>
+          <AppText weight="semibold" style={{ marginBottom: 6 }}>
+            {assignTarget.isCoDriver ? "Assign co-driver" : "Assign driver"} — {assignTarget.truck.vehicle}
+          </AppText>
+          <AppText variant="small" muted style={{ marginBottom: 12 }}>
+            Select from available drivers in this branch.
+          </AppText>
+          {AVAILABLE_DRIVERS_MOCK.map((d) => (
+            <Pressable
+              key={d.id}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: selectedDriver?.id === d.id }}
+              onPress={() => setSelectedDriver(d)}
+              style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}
+            >
+              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: selectedDriver?.id === d.id ? colors.infoBg : colors.background, alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name="person" size={16} color={selectedDriver?.id === d.id ? colors.primary : colors.textMuted} />
+              </View>
+              <AppText style={{ flex: 1 }} weight={selectedDriver?.id === d.id ? "semibold" : "regular"}>{d.name}</AppText>
+              {selectedDriver?.id === d.id && <Ionicons name="checkmark-circle" size={18} color={colors.primary} />}
+            </Pressable>
+          ))}
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
+            <Button label="Cancel" variant="secondary" size="small" onPress={() => setAssignTarget(null)} style={{ flex: 1 }} />
+            <Button label={busy ? "Saving…" : "Assign"} size="small" disabled={!selectedDriver || busy} onPress={confirmAssign} style={{ flex: 1 }} />
+          </View>
+        </Card>
+      )}
+    </ManagerPage>
+  );
+}
+
 // ─── Manager Duty Board ───────────────────────────────────────────────────────
 
 const DUTY_STATUS = {

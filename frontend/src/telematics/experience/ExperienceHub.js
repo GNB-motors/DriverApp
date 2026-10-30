@@ -14,6 +14,7 @@ const MANAGER_MORE_LINKS = [
   ['fleet', 'Fleet essentials', 'Fleet essentials'],
   ['reviewPapers', 'Driver papers review', 'Driver papers review'],
   ['approvals', 'Manager approvals', 'Approvals'],
+  ['truckCrew', 'Crew management', 'Crew management'],
   ['crewMessages', 'Crew messages', 'Crew messages'],
   ['broadcasts', 'New preview broadcast', 'Broadcasts'],
   ['settings', 'Experience settings', 'Settings'],
