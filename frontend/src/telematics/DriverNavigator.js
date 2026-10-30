@@ -69,7 +69,8 @@ export default function DriverNavigator() {
     <Stack.Screen name="Operation detail" component={Operations.RecordDetail} />
     <Stack.Screen name="Support" component={Operations.RecordList} />
     {['Fuel history', 'My issues', 'Workshop bills'].map((name) => <Stack.Screen key={name} name={name} component={Operations.RecordList} />)}
-    <Stack.Screen name="Documents" component={Operations.RecordList} />
+    <Stack.Screen name="Documents" component={Screens.DriverDocumentStatus} />
+    <Stack.Screen name="My papers" component={Screens.DriverDocumentStatus} />
     <Stack.Screen name="Document detail" component={Operations.RecordDetail} />
     <Stack.Screen name="Location sharing" component={Screens.LocationSharing} />
     <Stack.Screen name="Profile" component={Screens.Profile} />

@@ -1097,6 +1097,131 @@ export function DriverEarnings({ navigation }) {
   );
 }
 
+// ─── Driver Document Status ───────────────────────────────────────────────────
+
+const DOC_STATUS_MOCK = [
+  {
+    id: 'doc-1', label: 'Driving licence', type: 'DL',
+    status: 'valid', expiry: '2028-06-30',
+    docType: 'licence', icon: 'card-outline',
+  },
+  {
+    id: 'doc-2', label: 'Vehicle RC (MH 04 AB 1234)', type: 'RC',
+    status: 'valid', expiry: '2027-01-15',
+    docType: 'rc', icon: 'document-text-outline',
+  },
+  {
+    id: 'doc-3', label: 'Insurance certificate', type: 'Insurance',
+    status: 'expiring', expiry: '2026-11-20',
+    docType: 'insurance', icon: 'shield-checkmark-outline',
+  },
+  {
+    id: 'doc-4', label: 'Fitness certificate', type: 'Fitness',
+    status: 'expired', expiry: '2026-09-30',
+    docType: 'fitness', icon: 'medkit-outline',
+  },
+  {
+    id: 'doc-5', label: 'PUC certificate', type: 'PUC',
+    status: 'valid', expiry: '2027-03-10',
+    docType: 'puc', icon: 'leaf-outline',
+  },
+  {
+    id: 'doc-6', label: 'Medical fitness (FORM 1A)', type: 'Medical',
+    status: 'valid', expiry: '2027-07-01',
+    docType: 'medical', icon: 'body-outline',
+  },
+];
+
+const DOC_STATUS_CFG = {
+  valid:    { label: 'Valid',    tone: colors.success, bg: colors.validBg,   icon: 'checkmark-circle-outline' },
+  expiring: { label: 'Expiring', tone: colors.warning, bg: colors.pendingBg, icon: 'time-outline' },
+  expired:  { label: 'Expired',  tone: colors.error,   bg: colors.expiredBg, icon: 'close-circle-outline' },
+  missing:  { label: 'Missing',  tone: colors.error,   bg: colors.expiredBg, icon: 'alert-circle-outline' },
+};
+
+function docDaysLeft(expiry) {
+  const diff = Math.round((new Date(expiry).getTime() - Date.now()) / 86400000);
+  if (diff < 0) return `Expired ${Math.abs(diff)}d ago`;
+  if (diff === 0) return 'Expires today';
+  return `${diff}d left`;
+}
+
+export function DriverDocumentStatus({ navigation }) {
+  const expiredCount = DOC_STATUS_MOCK.filter((d) => d.status === 'expired').length;
+  const expiringCount = DOC_STATUS_MOCK.filter((d) => d.status === 'expiring').length;
+  const needsAttention = expiredCount + expiringCount;
+
+  return (
+    <Page
+      navigation={navigation}
+      title="My papers"
+      subtitle={needsAttention > 0 ? `${needsAttention} document${needsAttention !== 1 ? 's' : ''} need attention` : 'All documents are valid'}
+      allowEmpty
+    >
+      {/* Summary bar */}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {[
+          { label: `${DOC_STATUS_MOCK.filter((d) => d.status === 'valid').length} valid`, ...DOC_STATUS_CFG.valid },
+          { label: `${expiringCount} expiring`, ...DOC_STATUS_CFG.expiring },
+          { label: `${expiredCount} expired`, ...DOC_STATUS_CFG.expired },
+        ].map((item) => (
+          <View key={item.label} style={{ backgroundColor: item.bg, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: colors.border }}>
+            <AppText variant="small" color={item.tone} weight="semibold">{item.label}</AppText>
+          </View>
+        ))}
+      </View>
+
+      {needsAttention > 0 && (
+        <View style={{ backgroundColor: colors.expiredBg, borderRadius: radius.md, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
+          <AppText variant="small" color={colors.error} style={{ flex: 1 }}>
+            Update expired documents before your next trip. Capture a photo below.
+          </AppText>
+        </View>
+      )}
+
+      {/* Document list */}
+      {DOC_STATUS_MOCK.map((doc) => {
+        const cfg = DOC_STATUS_CFG[doc.status] || DOC_STATUS_CFG.missing;
+        const daysLabel = docDaysLeft(doc.expiry);
+        return (
+          <Card key={doc.id} style={{ marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+              <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: cfg.bg, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name={doc.icon} size={20} color={cfg.tone} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <AppText weight="semibold" numberOfLines={1}>{doc.label}</AppText>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ backgroundColor: cfg.bg, borderRadius: radius.full, paddingHorizontal: 6, paddingVertical: 1 }}>
+                    <AppText variant="small" color={cfg.tone} weight="semibold">{cfg.label}</AppText>
+                  </View>
+                  <AppText variant="small" muted>{daysLabel}</AppText>
+                </View>
+              </View>
+              {/* Camera shortcut for expired/expiring */}
+              {(doc.status === 'expired' || doc.status === 'expiring') && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Upload ${doc.label}`}
+                  onPress={() => navigation.navigate('Universal capture', { hint: doc.docType })}
+                  style={{ width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.infoBg, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Ionicons name="camera-outline" size={18} color={colors.primary} />
+                </Pressable>
+              )}
+            </View>
+          </Card>
+        );
+      })}
+
+      <AppText variant="small" muted style={{ textAlign: 'center', marginTop: 4 }}>
+        Documents verified by your fleet manager. Backend wiring pending (N6.3/N6.4).
+      </AppText>
+    </Page>
+  );
+}
+
 const s = StyleSheet.create({
   flex: { flex: 1 }, content: { gap: 16 },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, sos: { minHeight: 48, paddingHorizontal: 12, borderRadius: radius.full, backgroundColor: colors.expiredBg, flexDirection: 'row', alignItems: 'center', gap: 6 }, menu: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 76, borderColor: colors.border }, menuIcon: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' }, detail: { marginTop: 4 }, empty: { alignItems: 'center', padding: 24, gap: 16 }, selected: { borderColor: colors.primary, backgroundColor: colors.blueTint },
