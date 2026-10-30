@@ -1698,7 +1698,7 @@ function driverLastSeen(iso) {
   return `${h}h ago`;
 }
 
-function DutyDriverCard({ driver, onCall, onTimeline }) {
+function DutyDriverCard({ driver, onCall, onTimeline, onViewDetail }) {
   const cfg = DUTY_STATUS[driver.status] || DUTY_STATUS.off;
   const pct = hosPct(driver.atWheelMin, driver.limitMin);
   const barColor = hosColor(pct);
@@ -1762,7 +1762,7 @@ function DutyDriverCard({ driver, onCall, onTimeline }) {
         {/* Actions */}
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Button label="Call" size="small" variant="secondary" icon="call-outline" onPress={() => onCall(driver)} style={{ flex: 1 }} />
-          <Button label="Timeline" size="small" onPress={() => onTimeline(driver)} style={{ flex: 1 }} />
+          <Button label="Details" size="small" onPress={() => onViewDetail && onViewDetail(driver)} style={{ flex: 1 }} />
         </View>
       </View>
     </Card>
@@ -1787,6 +1787,10 @@ export function ManagerDutyBoard({ navigation }) {
 
   function handleTimeline(driver) {
     navigation.navigate("Driver timeline", { driverId: driver.id, driverName: driver.name });
+  }
+
+  function handleViewDetail(driver) {
+    navigation.navigate("Manager driver detail", { driverId: driver.id });
   }
 
   function chooseOutcome(outcome) {
@@ -1847,6 +1851,7 @@ export function ManagerDutyBoard({ navigation }) {
             driver={driver}
             onCall={handleCall}
             onTimeline={handleTimeline}
+            onViewDetail={handleViewDetail}
           />
         ))
       )}
@@ -1876,6 +1881,218 @@ export function ManagerDutyBoard({ navigation }) {
           </View>
         </Card>
       )}
+    </ManagerPage>
+  );
+}
+
+// ─── Manager Driver Detail ────────────────────────────────────────────────────
+
+const DRIVER_DETAIL_MOCK = {
+  "drv-001": {
+    name: "Ramesh Kumar", phone: "+91 98765 43210", vehicle: "MH 04 AB 1234",
+    status: "driving", atWheelMin: 250, limitMin: 600, scoreDelta: +4,
+    score: 84, location: "Near Nagpur, NH-44",
+    papers: [
+      { label: "Driving licence", status: "valid", expiry: "2028-06-30" },
+      { label: "Medical fitness", status: "valid", expiry: "2027-03-15" },
+      { label: "HAZMAT cert", status: "expiring", expiry: "2026-11-20" },
+    ],
+    trips: [
+      { id: "t1", date: "29 Oct", route: "Nagpur → Pune", km: 246, score: 86, hours: "5h 10m" },
+      { id: "t2", date: "28 Oct", route: "Pune → Nagpur", km: 248, score: 82, hours: "5h 25m" },
+      { id: "t3", date: "27 Oct", route: "Nagpur → Surat", km: 622, score: 79, hours: "12h 5m" },
+      { id: "t4", date: "26 Oct", route: "Surat → Nagpur", km: 618, score: 88, hours: "11h 40m" },
+      { id: "t5", date: "25 Oct", route: "Nagpur → Jaipur", km: 1070, score: 91, hours: "19h 30m" },
+    ],
+    scoreSeries: [72, 76, 79, 82, 88, 84, 84],
+    dutyTimeline: [
+      { label: "Duty start", time: "06:00", icon: "play-circle-outline", color: colors.success },
+      { label: "Driving", time: "06:10 – 10:10", icon: "car-outline", color: colors.primary },
+      { label: "Break", time: "10:10 – 10:40", icon: "cafe-outline", color: colors.warning },
+      { label: "Driving", time: "10:40 – 14:05", icon: "car-outline", color: colors.primary },
+      { label: "At plant", time: "14:05 – ongoing", icon: "business-outline", color: colors.warning },
+    ],
+  },
+};
+
+function getPaperBg(status) {
+  if (status === "valid") return colors.validBg;
+  if (status === "expiring") return colors.pendingBg;
+  return colors.expiredBg;
+}
+function getPaperColor(status) {
+  if (status === "valid") return colors.success;
+  if (status === "expiring") return colors.warning;
+  return colors.error;
+}
+
+export function ManagerDriverDetail({ navigation, route }) {
+  const driverId = route?.params?.driverId || "drv-001";
+  const driver = DRIVER_DETAIL_MOCK[driverId] || DRIVER_DETAIL_MOCK["drv-001"];
+  const [calling, setCalling] = useState(false);
+
+  const pct = hosPct(driver.atWheelMin, driver.limitMin);
+  const barColor = hosColor(pct);
+  const cfg = DUTY_STATUS[driver.status] || DUTY_STATUS.off;
+
+  const avg7Score = Math.round(driver.scoreSeries.reduce((a, b) => a + b, 0) / driver.scoreSeries.length);
+  const minScore = Math.min(...driver.scoreSeries);
+  const maxScore = Math.max(...driver.scoreSeries);
+
+  return (
+    <ManagerPage
+      navigation={navigation}
+      title={driver.name}
+      subtitle={`${driver.vehicle} · ${cfg.label}`}
+      allowEmpty
+    >
+      {/* Status + HOS */}
+      <Card style={{ gap: 10 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <AppText weight="semibold">Hours of service — today</AppText>
+            <AppText variant="small" muted>India MCV/HCV: 10h daily drive limit</AppText>
+          </View>
+          <View style={{ backgroundColor: cfg.bg, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
+            <AppText variant="small" color={cfg.tone} weight="semibold">{cfg.label}</AppText>
+          </View>
+        </View>
+        <View style={{ gap: 4 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <AppText variant="small" muted>At wheel</AppText>
+            <AppText variant="small" weight="semibold" color={pct >= 80 ? barColor : colors.text}>
+              {hosLabel(driver.atWheelMin)} / {hosLabel(driver.limitMin)}
+              {pct >= 80 ? " ⚠" : ""}
+            </AppText>
+          </View>
+          <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.border, overflow: "hidden" }}>
+            <View style={{ width: `${pct}%`, height: "100%", backgroundColor: barColor, borderRadius: 4 }} />
+          </View>
+        </View>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Button
+            label={calling ? "Calling…" : `Call ${driver.name.split(" ")[0]}`}
+            icon="call-outline"
+            size="small"
+            style={{ flex: 1 }}
+            onPress={() => { setCalling(true); setTimeout(() => setCalling(false), 1500); }}
+          />
+          <Button
+            label="Timeline"
+            size="small"
+            variant="secondary"
+            style={{ flex: 1 }}
+            onPress={() => navigation.navigate("Driver timeline", { driverId, driverName: driver.name })}
+          />
+        </View>
+      </Card>
+
+      {/* Score summary */}
+      <Card>
+        <AppText weight="semibold" style={{ marginBottom: 10 }}>Driving score — last 7 days</AppText>
+        <View style={{ flexDirection: "row", gap: 14 }}>
+          <View style={{ alignItems: "center", flex: 1 }}>
+            <AppText style={{ fontSize: 28, fontWeight: "800" }} color={colors.primary}>{driver.score}</AppText>
+            <AppText variant="small" muted>Today</AppText>
+          </View>
+          <View style={{ alignItems: "center", flex: 1 }}>
+            <AppText style={{ fontSize: 28, fontWeight: "800" }} color={colors.success}>{avg7Score}</AppText>
+            <AppText variant="small" muted>7-day avg</AppText>
+          </View>
+          <View style={{ alignItems: "center", flex: 1 }}>
+            <AppText style={{ fontSize: 22, fontWeight: "700" }} color={colors.textMuted}>{minScore}–{maxScore}</AppText>
+            <AppText variant="small" muted>Range</AppText>
+          </View>
+          <View style={{ alignItems: "center", flex: 1 }}>
+            <AppText style={{ fontSize: 22, fontWeight: "700" }} color={scoreColor(driver.scoreDelta)}>
+              {scoreText(driver.scoreDelta)}
+            </AppText>
+            <AppText variant="small" muted>Trend</AppText>
+          </View>
+        </View>
+        {/* Mini bar chart (text-based sparkline) */}
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 4, marginTop: 12, height: 40 }}>
+          {driver.scoreSeries.map((sc, i) => {
+            const barH = Math.max(4, Math.round((sc / 100) * 40));
+            return (
+              <View key={i} style={{ flex: 1, alignItems: "center" }}>
+                <View style={{ width: "100%", height: barH, backgroundColor: i === 6 ? colors.primary : colors.infoBg, borderRadius: 3 }} />
+              </View>
+            );
+          })}
+        </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+          <AppText variant="small" muted>24 Oct</AppText>
+          <AppText variant="small" muted>Today</AppText>
+        </View>
+      </Card>
+
+      {/* Duty timeline — today */}
+      <Card>
+        <AppText weight="semibold" style={{ marginBottom: 10 }}>Duty timeline — today</AppText>
+        <View style={{ gap: 10 }}>
+          {driver.dutyTimeline.map((ev, i) => (
+            <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+              <View style={{ alignItems: "center", width: 28 }}>
+                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.infoBg, alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name={ev.icon} size={14} color={ev.color} />
+                </View>
+                {i < driver.dutyTimeline.length - 1 && (
+                  <View style={{ width: 2, flex: 1, backgroundColor: colors.border, marginTop: 2, minHeight: 16 }} />
+                )}
+              </View>
+              <View style={{ flex: 1, paddingBottom: i < driver.dutyTimeline.length - 1 ? 10 : 0 }}>
+                <AppText weight="semibold" variant="small">{ev.label}</AppText>
+                <AppText variant="small" muted>{ev.time}</AppText>
+              </View>
+            </View>
+          ))}
+        </View>
+      </Card>
+
+      {/* Last 5 trips */}
+      <Card>
+        <AppText weight="semibold" style={{ marginBottom: 10 }}>Last 5 trips</AppText>
+        <View style={{ gap: 0 }}>
+          {driver.trips.map((trip, i) => (
+            <View key={trip.id}>
+              {i > 0 && <View style={{ height: 1, backgroundColor: colors.border }} />}
+              <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10, gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <AppText variant="small" weight="semibold">{trip.route}</AppText>
+                  <AppText variant="small" muted>{trip.date} · {trip.km} km · {trip.hours}</AppText>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <AppText variant="small" weight="semibold" color={trip.score >= 85 ? colors.success : trip.score >= 70 ? colors.warning : colors.error}>
+                    {trip.score}
+                  </AppText>
+                  <AppText variant="small" muted>score</AppText>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      </Card>
+
+      {/* Papers status */}
+      <Card>
+        <AppText weight="semibold" style={{ marginBottom: 10 }}>Documents & papers</AppText>
+        <View style={{ gap: 8 }}>
+          {driver.papers.map((paper) => (
+            <View key={paper.label} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <AppText variant="small" weight="semibold">{paper.label}</AppText>
+                <AppText variant="small" muted>Expires {paper.expiry}</AppText>
+              </View>
+              <View style={{ backgroundColor: getPaperBg(paper.status), borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2 }}>
+                <AppText variant="small" color={getPaperColor(paper.status)} weight="semibold" style={{ textTransform: "capitalize" }}>
+                  {paper.status}
+                </AppText>
+              </View>
+            </View>
+          ))}
+        </View>
+      </Card>
     </ManagerPage>
   );
 }
