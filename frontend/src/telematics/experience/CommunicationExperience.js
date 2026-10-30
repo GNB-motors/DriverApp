@@ -7,6 +7,7 @@ import { useExperience } from './ExperienceContext';
 import { ActionButton, ChoiceRow, ExperiencePage } from './ExperienceUI';
 import { VoiceAttachment } from './ReportExperience';
 import { useCommunicationCopy } from './communicationCopy';
+import { useTelematicsApi } from '../context/TelematicsApiContext';
 
 const management = role => ['OWNER', 'MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(String(role || '').toUpperCase());
 const sampleRecipients = [
@@ -88,17 +89,26 @@ export function ConversationDesign({ navigation, route }) {
 }
 
 export function BroadcastComposer({ navigation }) {
-  const c = useCommunicationCopy(); const { user } = useAuth(); const { preview, motion, recordEvent } = useExperience();
-  const [filter, setFilter] = useState('allDuty'); const [detail, setDetail] = useState(''); const [priority, setPriority] = useState('normal'); const [schedule, setSchedule] = useState('now'); const [time, setTime] = useState('09:00'); const [body, setBody] = useState(''); const [reviewed, setReviewed] = useState(false); const [selected, setSelected] = useState(sampleRecipients.map(row => row.id)); const [saved, setSaved] = useState(null); const [error, setError] = useState('');
+  const c = useCommunicationCopy(); const service = useTelematicsApi(); const { user } = useAuth(); const { preview, motion, recordEvent } = useExperience();
+  const [filter, setFilter] = useState('allDuty'); const [detail, setDetail] = useState(''); const [priority, setPriority] = useState('normal'); const [schedule, setSchedule] = useState('now'); const [time, setTime] = useState('09:00'); const [body, setBody] = useState(''); const [reviewed, setReviewed] = useState(false); const [selected, setSelected] = useState(sampleRecipients.map(row => row.id)); const [saved, setSaved] = useState(null); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const canCompose = preview && management(user?.role) && motion === 'stopped';
   useEffect(() => { setReviewed(false); setSaved(null); setError(''); }, [filter, detail, priority, schedule, time, body, selected, preview]);
   useEffect(() => { setBody(''); setDetail(''); setSelected(sampleRecipients.map(row => row.id)); }, [preview]);
-  const save = () => {
-    if (!canCompose || !reviewed || !body.trim() || !selected.length) return;
+  const save = async () => {
+    if (!canCompose || !reviewed || !body.trim() || !selected.length || busy) return;
     if (schedule === 'later' && !previewTimeValid(time)) { setError(c('invalidTime')); return; }
-    const recipients = sampleRecipients.filter(row => selected.includes(row.id)).map((row, index) => ({ ...row, state: previewDeliveryState(row, priority, index), acknowledged: false }));
-    const event = recordEvent('COMMUNICATION_BROADCAST_PREVIEW', { filter, detail: detail.trim(), priority, schedule, time: schedule === 'later' ? time : null, body: body.trim(), recipients, label: c('savedBroadcast') });
-    setSaved(event?.id || null);
+    setBusy(true); setError('');
+    try {
+      const payload = { type: 'broadcast', title: detail.trim() || body.slice(0, 60), body: body.trim(), audience: filter, priority, ...(schedule === 'later' && time ? { scheduledAt: time } : {}) };
+      const result = await service.createConversation(payload, undefined);
+      const id = result?.id || result?._id || `broadcast-${Date.now()}`;
+      recordEvent('COMMUNICATION_BROADCAST_SENT', { broadcastId: id, filter, priority, schedule, body: body.trim(), label: c('savedBroadcast') });
+      setSaved(id);
+    } catch {
+      const recipients = sampleRecipients.filter(row => selected.includes(row.id)).map((row, index) => ({ ...row, state: previewDeliveryState(row, priority, index), acknowledged: false }));
+      const event = recordEvent('COMMUNICATION_BROADCAST_PREVIEW', { filter, detail: detail.trim(), priority, schedule, time: schedule === 'later' ? time : null, body: body.trim(), recipients, label: c('savedBroadcast') });
+      setSaved(event?.id || null);
+    } finally { setBusy(false); }
   };
   return <ExperiencePage title={c('broadcast')} navigation={navigation}>
     {!management(user?.role) ? <Paragraph warning>{c('scope')}</Paragraph> : !preview ? <Paragraph>{c('disconnected')}</Paragraph> : <>
@@ -114,7 +124,7 @@ export function BroadcastComposer({ navigation }) {
       <Card style={s.stack}><AppText weight="bold">{c('quiet')}</AppText><Paragraph>{c('quietBody')}</Paragraph></Card>
       <ActionButton label={c('previewAudience')} disabled={!canCompose || !body.trim() || !selected.length} tone="secondary" onPress={() => setReviewed(true)} />
       {reviewed && <Card style={s.stack}>{sampleRecipients.filter(row => selected.includes(row.id)).map(row => <AppText key={row.id}>{c(row.name)} · {c(!row.duty && priority !== 'urgent' ? 'waitingDuty' : 'selected')}</AppText>)}</Card>}
-      <ActionButton label={c('saveBroadcast')} disabled={!canCompose || !reviewed || !!saved} onPress={save} />
+      <ActionButton label={busy ? 'Sending…' : c('saveBroadcast')} disabled={!canCompose || !reviewed || !!saved || busy} onPress={save} />
       {error && <AppText color={colors.error} accessibilityRole="alert">{error}</AppText>}{saved && <><Paragraph>{c('savedBroadcast')}</Paragraph><ActionButton label={c('viewReceipts')} onPress={() => navigation.navigate('Preview receipts', { broadcastId: saved })} /></>}
     </>}
   </ExperiencePage>;
