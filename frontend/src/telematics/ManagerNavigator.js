@@ -1,7 +1,7 @@
 import { Messages, Conversation } from './screens/OwnerCommunicationScreens';
 import { ExperienceProvider } from './experience/ExperienceContext';
 import { useExperienceCopy } from './experience/ExperienceUI';
-import { ManagerActionHome, ActionDetail, DriverTimeline, ManagerDriverList, ManagerLiveSurface } from './experience/ManagerActions';
+import { ManagerActionHome, ActionDetail, DriverTimeline, ManagerLiveSurface } from './experience/ManagerActions';
 import { ManagerMoreExperience } from './experience/ExperienceHub';
 import { reviewExperienceRoutes } from './experience/routes';
 import { FleetCrewScreen } from "./screens/CrewScreens";
@@ -29,7 +29,7 @@ function ManagerTabs() {
   return <Tab.Navigator tabBar={(props) => <CurvedTabBar {...props} />} screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name={icons[route.name]} size={size} color={color} /> })}>
     <Tab.Screen name="Home" component={ManagerActionHome} options={{ tabBarLabel: c('home') }} />
     <Tab.Screen name="Live" component={ManagerLiveSurface} options={{ tabBarLabel: c('live') }} />
-    <Tab.Screen name="Drivers" component={ManagerDriverList} options={{ tabBarLabel: c('drivers') }} />
+    <Tab.Screen name="Drivers" component={Screens.ManagerDutyBoard} options={{ tabBarLabel: c('drivers') }} />
     <Tab.Screen name="Alerts" component={Screens.Alerts} options={{ tabBarBadge: unread || undefined }} />
     <Tab.Screen name="More" component={ManagerMoreExperience} options={{ tabBarLabel: c('moreLabel') }} />
   </Tab.Navigator>;

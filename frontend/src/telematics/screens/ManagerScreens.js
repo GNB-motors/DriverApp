@@ -1386,6 +1386,235 @@ function Filters({ values, selected, onSelect }) {
   );
 }
 
+// ─── Manager Duty Board ───────────────────────────────────────────────────────
+
+const DUTY_STATUS = {
+  driving: { label: "Driving", tone: colors.primary, bg: colors.infoBg },
+  plant: { label: "At plant", tone: colors.warning, bg: colors.pendingBg },
+  resting: { label: "Resting", tone: colors.success, bg: colors.validBg },
+  off: { label: "Off duty", tone: colors.textMuted, bg: colors.background },
+};
+
+const DUTY_MOCK = [
+  { id: "drv-001", name: "Ramesh Kumar", vehicle: "MH 04 AB 1234", status: "driving", atWheelMin: 250, limitMin: 600, scoreDelta: +4, location: "Near Nagpur, NH-44", mismatch: false, lastSeen: new Date(Date.now() - 18 * 60000).toISOString() },
+  { id: "drv-002", name: "Sunil Patil", vehicle: "MH 12 CD 5678", status: "plant", atWheelMin: 310, limitMin: 600, scoreDelta: +1, location: "Steel Authority Nagpur — Gate 3", mismatch: false, lastSeen: new Date(Date.now() - 50 * 60000).toISOString() },
+  { id: "drv-003", name: "Ajay Singh", vehicle: "GJ 01 EF 9012", status: "resting", atWheelMin: 490, limitMin: 600, scoreDelta: -2, location: "Bypass Dhaba, Surat", mismatch: true, lastSeen: new Date(Date.now() - 65 * 60000).toISOString() },
+  { id: "drv-004", name: "Vikram Yadav", vehicle: "RJ 14 GH 3456", status: "off", atWheelMin: 0, limitMin: 600, scoreDelta: 0, location: "Home depot, Jaipur", mismatch: false, lastSeen: new Date(Date.now() - 8 * 3600000).toISOString() },
+  { id: "drv-005", name: "Mohan Sharma", vehicle: "MP 09 IJ 7890", status: "driving", atWheelMin: 525, limitMin: 600, scoreDelta: -1, location: "Bhopal bypass, NH-46", mismatch: true, lastSeen: new Date(Date.now() - 5 * 60000).toISOString() },
+];
+
+function hosPct(min, limit) { return Math.min(100, Math.round((min / limit) * 100)); }
+function hosColor(pct) {
+  if (pct >= 95) return colors.error;
+  if (pct >= 80) return colors.warning;
+  return colors.success;
+}
+function hosLabel(min) {
+  if (!min) return "—";
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+function scoreText(delta) {
+  if (delta > 0) return `+${delta} ↑`;
+  if (delta < 0) return `${delta} ↓`;
+  return "—";
+}
+function scoreColor(delta) {
+  if (delta > 0) return colors.success;
+  if (delta < 0) return colors.error;
+  return colors.textMuted;
+}
+function driverLastSeen(iso) {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (diff < 2) return "just now";
+  if (diff < 60) return `${diff}m ago`;
+  const h = Math.floor(diff / 60);
+  return `${h}h ago`;
+}
+
+function DutyDriverCard({ driver, onCall, onTimeline }) {
+  const cfg = DUTY_STATUS[driver.status] || DUTY_STATUS.off;
+  const pct = hosPct(driver.atWheelMin, driver.limitMin);
+  const barColor = hosColor(pct);
+  const nearLimit = pct >= 80;
+
+  return (
+    <Card style={{ marginBottom: 10 }}>
+      <View style={{ gap: 10 }}>
+        {/* Header */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <AppText weight="semibold">{driver.name}</AppText>
+              {driver.mismatch && (
+                <View style={{ backgroundColor: colors.pendingBg, borderRadius: radius.full, paddingHorizontal: 6, paddingVertical: 1 }}>
+                  <AppText variant="small" color={colors.warning} weight="semibold">⚠ GPS mismatch</AppText>
+                </View>
+              )}
+            </View>
+            <AppText variant="small" muted>{driver.vehicle}</AppText>
+          </View>
+          <View style={{ backgroundColor: cfg.bg, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
+            <AppText variant="small" color={cfg.tone} weight="semibold">{cfg.label}</AppText>
+          </View>
+        </View>
+
+        {/* HOS band */}
+        {driver.status !== "off" && (
+          <View style={{ gap: 4 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <AppText variant="small" muted>At wheel today</AppText>
+              <AppText variant="small" weight="semibold" color={nearLimit ? barColor : colors.text}>
+                {hosLabel(driver.atWheelMin)} / {hosLabel(driver.limitMin)}
+                {nearLimit ? " ⚠" : ""}
+              </AppText>
+            </View>
+            <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: "hidden" }}>
+              <View style={{ width: `${pct}%`, height: "100%", backgroundColor: barColor, borderRadius: 3 }} />
+            </View>
+          </View>
+        )}
+
+        {/* Stats row */}
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <AppText variant="small" muted>Score trend</AppText>
+            <AppText variant="small" weight="semibold" color={scoreColor(driver.scoreDelta)}>
+              {scoreText(driver.scoreDelta)}
+            </AppText>
+          </View>
+          <View style={{ flex: 2, gap: 2 }}>
+            <AppText variant="small" muted>Last known location</AppText>
+            <AppText variant="small" numberOfLines={1}>{driver.location}</AppText>
+          </View>
+          <View style={{ gap: 2, alignItems: "flex-end" }}>
+            <AppText variant="small" muted>Seen</AppText>
+            <AppText variant="small">{driverLastSeen(driver.lastSeen)}</AppText>
+          </View>
+        </View>
+
+        {/* Actions */}
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Button label="Call" size="small" variant="secondary" icon="call-outline" onPress={() => onCall(driver)} style={{ flex: 1 }} />
+          <Button label="Timeline" size="small" onPress={() => onTimeline(driver)} style={{ flex: 1 }} />
+        </View>
+      </View>
+    </Card>
+  );
+}
+
+export function ManagerDutyBoard({ navigation }) {
+  const [filter, setFilter] = useState("All");
+  const [callPending, setCallPending] = useState(null);
+  const [outcomeOpen, setOutcomeOpen] = useState(null);
+
+  const filterMap = { All: null, Driving: "driving", "At plant": "plant", Resting: "resting", "Off duty": "off" };
+  const filtered = DUTY_MOCK.filter((d) => !filterMap[filter] || d.status === filterMap[filter]);
+
+  const counts = DUTY_MOCK.reduce((acc, d) => { acc[d.status] = (acc[d.status] || 0) + 1; return acc; }, {});
+  const CALL_OUTCOMES = ["Reached", "Not reached", "Resolved", "Follow up"];
+
+  function handleCall(driver) {
+    setCallPending(driver);
+    setOutcomeOpen(null);
+  }
+
+  function handleTimeline(driver) {
+    navigation.navigate("Driver timeline", { driverId: driver.id, driverName: driver.name });
+  }
+
+  function chooseOutcome(outcome) {
+    setOutcomeOpen(null);
+    setCallPending(null);
+  }
+
+  return (
+    <ManagerPage
+      navigation={navigation}
+      title="Drivers"
+      subtitle="Duty status, hours of service and score trends for today."
+      allowEmpty
+    >
+      {/* Summary pills */}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        {[
+          { label: `${counts.driving || 0} driving`, color: colors.primary, bg: colors.infoBg },
+          { label: `${counts.plant || 0} at plant`, color: colors.warning, bg: colors.pendingBg },
+          { label: `${counts.resting || 0} resting`, color: colors.success, bg: colors.validBg },
+          { label: `${counts.off || 0} off duty`, color: colors.textMuted, bg: colors.background },
+        ].map((item) => (
+          <View key={item.label} style={{ backgroundColor: item.bg, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: colors.border }}>
+            <AppText variant="small" color={item.color} weight="semibold">{item.label}</AppText>
+          </View>
+        ))}
+      </View>
+
+      {/* Status filter */}
+      <Filters
+        values={["All", "Driving", "At plant", "Resting", "Off duty"]}
+        selected={filter}
+        onSelect={setFilter}
+      />
+
+      {/* Mismatch notice */}
+      {(filter === "All" || filter === "Resting") && DUTY_MOCK.some((d) => d.mismatch) && (
+        <View style={{ backgroundColor: colors.pendingBg, borderRadius: radius.md, padding: 10, flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Ionicons name="warning-outline" size={16} color={colors.warning} />
+          <AppText variant="small" color={colors.warning} style={{ flex: 1 }}>
+            {DUTY_MOCK.filter((d) => d.mismatch).length} driver{DUTY_MOCK.filter((d) => d.mismatch).length !== 1 ? "s" : ""} have a GPS mismatch — GPS shows movement but duty says resting.
+          </AppText>
+        </View>
+      )}
+
+      {/* Driver cards */}
+      {filtered.length === 0 ? (
+        <Card>
+          <View style={s.empty}>
+            <Ionicons name="people-outline" size={36} color={colors.textMuted} />
+            <AppText weight="semibold" style={{ textAlign: "center" }}>No {filter.toLowerCase()} drivers</AppText>
+          </View>
+        </Card>
+      ) : (
+        filtered.map((driver) => (
+          <DutyDriverCard
+            key={driver.id}
+            driver={driver}
+            onCall={handleCall}
+            onTimeline={handleTimeline}
+          />
+        ))
+      )}
+
+      {/* Call safety prompt */}
+      {callPending && !outcomeOpen && (
+        <Card>
+          <AppText weight="semibold" style={{ marginBottom: 6 }}>Call {callPending.name}?</AppText>
+          <AppText variant="small" muted style={{ marginBottom: 12 }}>
+            {callPending.vehicle} · {callPending.status === "driving" ? "⚠ Driver may be driving — confirm it is safe to call" : "Driver is " + DUTY_STATUS[callPending.status]?.label.toLowerCase()}
+          </AppText>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Button label="Cancel" variant="secondary" size="small" onPress={() => setCallPending(null)} style={{ flex: 1 }} />
+            <Button label="Call now" size="small" onPress={() => setOutcomeOpen(callPending)} style={{ flex: 1 }} />
+          </View>
+        </Card>
+      )}
+
+      {/* Outcome picker */}
+      {outcomeOpen && (
+        <Card>
+          <AppText weight="semibold" style={{ marginBottom: 8 }}>Call outcome — {outcomeOpen.name}</AppText>
+          <View style={{ gap: 6 }}>
+            {CALL_OUTCOMES.map((outcome) => (
+              <Button key={outcome} label={outcome} variant="secondary" size="small" onPress={() => chooseOutcome(outcome)} />
+            ))}
+          </View>
+        </Card>
+      )}
+    </ManagerPage>
+  );
+}
+
 // ─── Manager Approvals ────────────────────────────────────────────────────────
 
 const APPROVAL_MOCK = {
