@@ -75,5 +75,6 @@ export default function DriverNavigator() {
     <Stack.Screen name="Profile" component={Screens.Profile} />
     <Stack.Screen name="SOS" component={Screens.SosUnavailable} options={{ presentation: 'modal' }} />
     <Stack.Screen name="Site card" component={Screens.SiteCard} />
+    <Stack.Screen name="At-wheel handover" component={Screens.AtWheelHandover} />
   </Stack.Navigator></ExperienceProvider></DriverDataProvider></TelematicsApiProvider>;
 }

@@ -51,9 +51,10 @@ export function DriverHome({ navigation }) {
   const { user } = useAuth();
   const firstName = (preferences.nickname || user?.name || user?.firstName || 'Driver').split(' ')[0];
   const trips = recentTrips(data?.trips);
+  const crewUnknown = data?.vehicle && !data?.crewStatus && data?.vehicle?.crewStatus !== 'DRIVING';
   return <Page navigation={navigation} title={`Hello, ${firstName}.`} subtitle="A clear view of the road ahead." action={<SosAction navigation={navigation} />}>
     {data?.duty && <DutyCard driver={data.driver} />}
-
+    {crewUnknown && <AtWheelPromptCard navigation={navigation} vehicleNumber={data?.vehicle?.registrationNumber} />}
     <DriverCrewCard navigation={navigation} />
     <SectionHeading title="Your truck" caption="Vehicle details and location source." />
     {data?.vehicle ? <VehicleRow vehicle={data.vehicle} onPress={() => navigation.navigate('My truck')} /> : <Empty title="No truck linked" description="Ask your manager, or choose a truck." action={<Button label="Change truck" onPress={() => navigation.navigate('Change truck')} />} />}
@@ -656,6 +657,210 @@ export function SosUnavailable({ navigation }) {
     </Page>
   );
 }
+// ─── At-wheel Handover (WHO_DRIVING) ─────────────────────────────────────────
+
+const CREW_MOCK_MEMBERS = [
+  { id: 'crew-001', name: 'Sunil Patil', role: 'Co-driver' },
+  { id: 'crew-002', name: 'Ajay Singh', role: 'Relief driver' },
+];
+
+/**
+ * Shown on DriverHome when WHO_DRIVING = UNKNOWN (crew state not yet confirmed).
+ * Quick "Yes, I'm driving" / "Not me" actions without full navigation.
+ */
+export function AtWheelPromptCard({ navigation, vehicleNumber, onConfirmed }) {
+  const [busy, setBusy] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  if (dismissed) return null;
+
+  function confirmSelf() {
+    setBusy(true);
+    // Mock: simulate crewAction('START') success
+    setTimeout(() => {
+      setBusy(false);
+      if (onConfirmed) onConfirmed('self');
+      setDismissed(true);
+    }, 700);
+  }
+
+  return (
+    <View
+      style={{
+        borderRadius: radius.md,
+        borderWidth: 1.5,
+        borderColor: colors.warning,
+        backgroundColor: colors.pendingBg,
+        padding: 14,
+        gap: 12,
+        marginBottom: 4,
+      }}
+      accessibilityRole="alert"
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Ionicons name="hand-left-outline" size={22} color={colors.warning} />
+        <View style={{ flex: 1 }}>
+          <AppText weight="semibold" color={colors.warning}>Who is driving?</AppText>
+          <AppText variant="small" muted>
+            {vehicleNumber ? `Truck ${vehicleNumber} is moving without a confirmed driver.` : 'Driving is unconfirmed. Confirm to start your shift.'}
+          </AppText>
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Button
+          label={busy ? 'Confirming…' : 'Yes, I\'m driving'}
+          size="small"
+          disabled={busy}
+          onPress={confirmSelf}
+          style={{ flex: 1 }}
+        />
+        <Button
+          label="Not me"
+          variant="secondary"
+          size="small"
+          disabled={busy}
+          onPress={() => navigation.navigate('At-wheel handover', { vehicleNumber })}
+          style={{ flex: 1 }}
+        />
+      </View>
+    </View>
+  );
+}
+
+export function AtWheelHandover({ navigation, route }) {
+  const vehicleNumber = route?.params?.vehicleNumber ?? 'MH 04 AB 1234';
+  const [step, setStep] = useState('who'); // who | confirm | done
+  const [choice, setChoice] = useState(null); // 'self' | 'someone' | 'parked'
+  const [assignee, setAssignee] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  function submit() {
+    if (choice === 'someone' && !assignee) {
+      setError('Select the driver who is at the wheel.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    // Mock: simulate crew API call
+    setTimeout(() => {
+      setBusy(false);
+      setStep('done');
+    }, 800);
+  }
+
+  if (step === 'done') {
+    const summary = choice === 'self'
+      ? 'Your shift has started. Drive safe.'
+      : choice === 'parked'
+      ? 'Truck marked as parked. No driver confirmed.'
+      : `Driving handover proposed to ${assignee?.name}. They need to confirm.`;
+    return (
+      <Page navigation={navigation} title="Handover recorded" allowEmpty>
+        <View style={{ alignItems: 'center', gap: 20, paddingVertical: 24 }}>
+          <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.validBg, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="checkmark-circle" size={40} color={colors.success} />
+          </View>
+          <AppText weight="semibold" style={{ textAlign: 'center', fontSize: 18 }}>{summary}</AppText>
+          <AppText variant="small" muted style={{ textAlign: 'center' }}>
+            Mock data — will confirm via crew API when wired.
+          </AppText>
+        </View>
+        <Button label="Back to home" onPress={() => navigation.navigate('Driver tabs')} />
+      </Page>
+    );
+  }
+
+  return (
+    <Page
+      navigation={navigation}
+      title="Who is at the wheel?"
+      subtitle={`Truck ${vehicleNumber} is moving without a confirmed driver. Select what applies.`}
+      allowEmpty
+    >
+      {/* Choice cards */}
+      {[
+        { key: 'self', icon: 'person-outline', label: 'I am driving', desc: 'Start my driving shift now' },
+        { key: 'someone', icon: 'people-outline', label: 'Someone else is driving', desc: 'Propose handover to a crew member' },
+        { key: 'parked', icon: 'car-outline', label: 'Truck is parked', desc: 'No one is driving — truck is stationary' },
+      ].map((opt) => (
+        <Pressable
+          key={opt.key}
+          accessibilityRole="radio"
+          accessibilityState={{ selected: choice === opt.key }}
+          onPress={() => { setChoice(opt.key); setAssignee(null); setError(''); }}
+          style={[
+            { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.md, borderWidth: 1.5, marginBottom: 8 },
+            choice === opt.key
+              ? { borderColor: colors.primary, backgroundColor: colors.infoBg }
+              : { borderColor: colors.border, backgroundColor: colors.surface },
+          ]}
+        >
+          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: choice === opt.key ? colors.infoBg : colors.background, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={opt.icon} size={20} color={choice === opt.key ? colors.primary : colors.textMuted} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppText weight="semibold" color={choice === opt.key ? colors.primary : colors.text}>{opt.label}</AppText>
+            <AppText variant="small" muted>{opt.desc}</AppText>
+          </View>
+          {choice === opt.key && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+        </Pressable>
+      ))}
+
+      {/* Crew member picker when "someone else" */}
+      {choice === 'someone' && (
+        <Card>
+          <AppText variant="small" weight="semibold" style={{ marginBottom: 10 }}>Select the driver at the wheel</AppText>
+          {CREW_MOCK_MEMBERS.map((member) => (
+            <Pressable
+              key={member.id}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: assignee?.id === member.id }}
+              onPress={() => setAssignee(member)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                paddingVertical: 10,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
+              }}
+            >
+              <View style={{
+                width: 36, height: 36, borderRadius: 18,
+                backgroundColor: assignee?.id === member.id ? colors.infoBg : colors.background,
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Ionicons name="person" size={18} color={assignee?.id === member.id ? colors.primary : colors.textMuted} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AppText weight={assignee?.id === member.id ? 'semibold' : 'regular'}>{member.name}</AppText>
+                <AppText variant="small" muted>{member.role}</AppText>
+              </View>
+              {assignee?.id === member.id && <Ionicons name="checkmark-circle" size={18} color={colors.primary} />}
+            </Pressable>
+          ))}
+          <AppText variant="small" muted style={{ marginTop: 8 }}>
+            Mock list — real crew loaded from API when wired.
+          </AppText>
+        </Card>
+      )}
+
+      {error ? <AppText color={colors.error} accessibilityRole="alert">{error}</AppText> : null}
+
+      <Button
+        label={busy ? 'Saving…' : choice === 'self' ? 'Start my shift' : choice === 'someone' ? 'Propose handover' : choice === 'parked' ? 'Mark as parked' : 'Select an option'}
+        disabled={!choice || busy}
+        loading={busy}
+        onPress={submit}
+      />
+      <AppText variant="small" muted style={{ textAlign: 'center' }}>
+        WHO_DRIVING — mock data only. Backend: crewAction('START') / crewAction('PROPOSE').
+      </AppText>
+    </Page>
+  );
+}
+
 // ─── Site Card (Plant Gate) ───────────────────────────────────────────────────
 
 const SITE_MOCK = {
