@@ -24,6 +24,31 @@ import { ActionButton, ExperiencePage, PreviewNotice } from './ExperienceUI';
 import { getDriverCopy } from './driverCopy';
 import { getDriveTokens } from '../../theme/driveTokens';
 
+const AHEAD_MOCK = [
+  {
+    id: 'ahead-toll-1', type: 'toll', icon: 'cash-outline',
+    name: 'Dhule Toll Plaza', distanceKm: 18, detail: '₹245 · FASTag',
+    note: 'Busy — avg 8 min wait',
+  },
+  {
+    id: 'ahead-pump-1', type: 'fuel', icon: 'water-outline',
+    name: 'Indian Oil, NH-44', distanceKm: 34, detail: 'Diesel ₹92.4/L',
+    note: 'Open 24h · Tank 40 KL',
+  },
+  {
+    id: 'ahead-rest-1', type: 'rest', icon: 'cafe-outline',
+    name: 'Dhaba & parking, Malegaon', distanceKm: 51, detail: 'Truck parking · Meals',
+    note: 'Popular stop · 12 trucks now',
+  },
+  {
+    id: 'ahead-toll-2', type: 'toll', icon: 'cash-outline',
+    name: 'Chiplun Toll', distanceKm: 88, detail: '₹185 · FASTag',
+    note: null,
+  },
+];
+
+const AHEAD_TYPE_COLOR = { toll: colors.warning, fuel: colors.primary, rest: colors.success };
+
 const DEMO_ROUTES = [
   { id: 'a', distanceKey: 'routeDistanceA', etaKey: 'routeEtaA' },
   { id: 'b', distanceKey: 'routeDistanceB', etaKey: 'routeEtaB' },
@@ -493,10 +518,29 @@ function GuidancePanel({ copy, language, panel, preview, motion, setMotion, sett
       </Card>
       {!settings.simpleMode && degraded !== 'bothDark' ? (
         <View style={styles.aheadCard}>
-          <AppText weight="bold" color={palette.text}>{copy('ahead')}</AppText>
-          <View style={styles.aheadRow}><Ionicons name="water-outline" size={20} color={palette.hazard} /><AppText color={palette.text}>{copy('pumpAhead')}</AppText></View>
-          <View style={styles.aheadRow}><Ionicons name="cash-outline" size={20} color={palette.hazard} /><AppText color={palette.text}>{copy('tollAhead')}</AppText></View>
-          <AppText variant="caption" color={palette.textMuted}>{copy('sampleOnly')}</AppText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <AppText weight="bold" color={palette.text}>{copy('ahead') || 'What\'s ahead'}</AppText>
+            <AppText variant="caption" color={palette.textMuted}>{copy('sampleOnly') || 'Sample'}</AppText>
+          </View>
+          {AHEAD_MOCK.map((item) => (
+            <View key={item.id} style={[styles.aheadItemCard, { backgroundColor: palette.bg, borderColor: palette.border }]}>
+              <View style={[styles.aheadItemIcon, { backgroundColor: palette.surface }]}>
+                <Ionicons name={item.icon} size={18} color={AHEAD_TYPE_COLOR[item.type] || palette.textMuted} />
+              </View>
+              <View style={{ flex: 1, gap: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <AppText variant="small" weight="semibold" color={palette.text} numberOfLines={1} style={{ flex: 1 }}>
+                    {item.name}
+                  </AppText>
+                  <AppText variant="small" weight="semibold" color={AHEAD_TYPE_COLOR[item.type] || palette.textMuted}>
+                    {item.distanceKm} km
+                  </AppText>
+                </View>
+                <AppText variant="small" color={palette.textMuted}>{item.detail}</AppText>
+                {item.note ? <AppText variant="small" color={palette.textMuted}>{item.note}</AppText> : null}
+              </View>
+            </View>
+          ))}
         </View>
       ) : null}
       {stopped ? (
@@ -742,6 +786,8 @@ const styles = StyleSheet.create({
   etaCard: { gap: spacing.xs },
   aheadCard: { gap: spacing.xs },
   aheadRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  aheadItemCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderRadius: radius.md, borderWidth: 1, padding: 10 },
+  aheadItemIcon: { width: 34, height: 34, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   promptCard: { gap: spacing.sm },
   promptTitle: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   promptTrack: { height: 6, borderRadius: radius.full, backgroundColor: colors.fog700, overflow: 'hidden' },
