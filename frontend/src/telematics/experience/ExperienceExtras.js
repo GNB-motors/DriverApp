@@ -66,3 +66,199 @@ export function ConversationPreview({ navigation }) {
 export function JourneySummary({ navigation }) { const c = useExperienceCopy(); const { preview } = useExperience(); return <ExperiencePage title={c('tripSummary')} navigation={navigation}>{preview ? <><AppText muted>{c('tripBody')}</AppText><Panel title={c('sampleRoute')}><AppText>{`${c('distance')}: 176 km`}</AppText><AppText>{`${c('driving')}: 3 h 20 min`}</AppText><AppText color={colors.warning}>{c('unconfirmed')}</AppText><AppText>{`${c('stops')}: 2`}</AppText><AppText muted>{c('diesel')}</AppText></Panel><Row title={c('money')} onPress={() => navigation.navigate('Papers & money')} /></> : <AppText>{c('disconnectedBody')}</AppText>}</ExperiencePage>; }
 export function PreviewActivity({ navigation }) { const c = useExperienceCopy(); const { events } = useExperience(); return <ExperiencePage title={c('previewActivity')} navigation={navigation}>{!events.length && <AppText muted>{c('emptyActivity')}</AppText>}{[...events].reverse().map(event => <Card key={event.id} style={{ gap: 6 }}><AppText variant="small">{event.type}</AppText><AppText variant="caption" muted>{new Date(event.at).toLocaleTimeString()}</AppText></Card>)}</ExperiencePage>; }
 export function DocumentsExpiry({ navigation }) { const c = useExperienceCopy(); return <ExperiencePage title={c('expiry')} navigation={navigation}><Panel title={c('expiry')}><AppText>{c('expiryBody')}</AppText><ActionButton label={c('connectedRecords')} onPress={() => navigation.navigate('Documents')} /></Panel></ExperiencePage>; }
+export function DriverRestHours({ navigation }) {
+  const c = useExperienceCopy();
+  const { preview } = useExperience();
+  // Illustrative mock minutes: 8 h 20 m of a 10 h example limit → 83% → warn.
+  const atWheelMin = 500;
+  const limitMin = 600;
+  const pct = Math.min(100, Math.round((atWheelMin / limitMin) * 100));
+  const nearLimit = pct >= 80;
+  return <ExperiencePage title={c('restHours')} navigation={navigation}>
+    {preview ? <>
+      <AppText muted>{c('restHoursBody')}</AppText>
+      <Panel title={c('restAtWheel')}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <AppText variant="h2">{c('restAtWheelValue')}</AppText>
+          <AppText variant="small" muted>{`/ ${c('restLimitValue')}`}</AppText>
+        </View>
+        <View style={{ height: 12, borderRadius: 8, backgroundColor: colors.border, overflow: 'hidden' }}>
+          <View style={{ width: `${pct}%`, height: '100%', backgroundColor: nearLimit ? colors.warning : colors.success }} />
+        </View>
+        <AppText variant="caption" muted>{`${pct}%`}</AppText>
+      </Panel>
+      <Card style={{ flexDirection: 'row', gap: 16 }}>
+        <View style={{ flex: 1, gap: 4 }}><AppText variant="caption" muted>{c('restTodayLabel')}</AppText><AppText weight="semibold">{c('restTodayValue')}</AppText></View>
+        <View style={{ flex: 1, gap: 4 }}><AppText variant="caption" muted>{c('restLastBreak')}</AppText><AppText weight="semibold">{c('restLastBreakValue')}</AppText></View>
+      </Card>
+      <Card style={{ gap: 8, backgroundColor: colors.blueTint }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Ionicons name={nearLimit ? 'alert-circle-outline' : 'checkmark-circle-outline'} size={20} color={nearLimit ? colors.warning : colors.success} />
+          <AppText weight="bold">{c(nearLimit ? 'restWarnTitle' : 'restOkTitle')}</AppText>
+        </View>
+        <AppText variant="small" muted>{c(nearLimit ? 'restWarnBody' : 'restOkBody')}</AppText>
+      </Card>
+      <Panel title={c('restWeek')}><AppText>{c('restWeekValue')}</AppText></Panel>
+      <AppText variant="caption" muted>{c('restDisclaimer')}</AppText>
+    </> : <AppText>{c('disconnectedBody')}</AppText>}
+  </ExperiencePage>;
+}
+export function DriverEarnings({ navigation }) {
+  const c = useExperienceCopy();
+  const { preview } = useExperience();
+  const items = [
+    { id: 'e1', titleKey: 'earnTripDgpDkn', amount: 3200, statusKey: 'paid', color: colors.success },
+    { id: 'e2', titleKey: 'earnAdvance', amount: 1000, statusKey: 'earnGiven', color: colors.primary },
+    { id: 'e3', titleKey: 'earnBhatta', amount: 1500, statusKey: 'earnPending', color: colors.warning },
+    { id: 'e4', titleKey: 'earnTripDknJsr', amount: 4200, statusKey: 'paid', color: colors.success },
+  ];
+  const money = (n) => `₹${n.toLocaleString('en-IN')}`;
+  const weekTotal = items.filter((i) => i.statusKey === 'paid').reduce((sum, i) => sum + i.amount, 0);
+  const pendingTotal = items.filter((i) => i.statusKey === 'earnPending').reduce((sum, i) => sum + i.amount, 0);
+  return <ExperiencePage title={c('earnings')} navigation={navigation}>
+    {preview ? <>
+      <AppText muted>{c('earningsBody')}</AppText>
+      <Card style={{ flexDirection: 'row', gap: 16 }}>
+        <View style={{ flex: 1, gap: 4 }}><AppText variant="caption" muted>{c('restWeek')}</AppText><AppText variant="h2" color={colors.success}>{money(weekTotal)}</AppText></View>
+        <View style={{ flex: 1, gap: 4 }}><AppText variant="caption" muted>{c('earnPending')}</AppText><AppText variant="h2" color={colors.warning}>{money(pendingTotal)}</AppText></View>
+      </Card>
+      <Panel title={c('earnings')}>
+        {items.map((item) => <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52 }}>
+          <View style={{ flex: 1, gap: 2 }}><AppText weight="semibold">{c(item.titleKey)}</AppText><AppText variant="caption" color={item.color}>{c(item.statusKey)}</AppText></View>
+          <AppText weight="semibold">{money(item.amount)}</AppText>
+        </View>)}
+      </Panel>
+      <AppText variant="caption" muted>{c('earnDisclaimer')}</AppText>
+    </> : <AppText>{c('disconnectedBody')}</AppText>}
+  </ExperiencePage>;
+}
+export function FuelEntry({ navigation }) {
+  const c = useExperienceCopy();
+  const { preview, motion, events, recordEvent } = useExperience();
+  const [litres, setLitres] = useState('');
+  const [amount, setAmount] = useState('');
+  const [odometer, setOdometer] = useState('');
+  const [station, setStation] = useState('');
+  const [photo, setPhoto] = useState(null);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+  useEffect(() => { if (!preview) { setLitres(''); setAmount(''); setOdometer(''); setStation(''); setPhoto(null); setNotice(''); setError(''); } }, [preview]);
+  const stopped = preview && motion === 'stopped';
+  const decimal = /^\d+(\.\d{1,2})?$/;
+  const valid = decimal.test(litres.trim()) && decimal.test(amount.trim()) && /^\d+$/.test(odometer.trim());
+  const entries = events.filter((event) => event.type === 'FUEL_PREVIEW_LOGGED');
+  const attach = async () => {
+    if (!stopped) return;
+    try { const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 }); if (!result.canceled) { setPhoto(result.assets[0].uri); setNotice(''); } } catch { setError(c('captureError')); }
+  };
+  const save = () => {
+    if (!stopped || !valid) { setError(c('fuelInvalid')); return; }
+    recordEvent('FUEL_PREVIEW_LOGGED', { litres: litres.trim(), amount: amount.trim(), odometer: odometer.trim(), station: station.trim() || null, hasPhoto: !!photo });
+    setLitres(''); setAmount(''); setOdometer(''); setStation(''); setPhoto(null); setError(''); setNotice(c('fuelSaved'));
+  };
+  return <ExperiencePage title={c('fuelEntry')} navigation={navigation}>
+    {preview ? <>
+      <AppText muted>{c('fuelEntryBody')}</AppText>
+      {!stopped ? <Card style={{ backgroundColor: colors.blueTint }}><AppText>{c('fuelStoppedOnly')}</AppText></Card> : null}
+      <Panel title={c('fuelEntry')}>
+        <TextField label={c('fuelLitres')} accessibilityLabel={c('fuelLitres')} keyboardType="decimal-pad" editable={stopped} value={litres} onChangeText={setLitres} />
+        <TextField label={c('fuelAmount')} accessibilityLabel={c('fuelAmount')} keyboardType="decimal-pad" editable={stopped} value={amount} onChangeText={setAmount} />
+        <TextField label={c('fuelOdometer')} accessibilityLabel={c('fuelOdometer')} keyboardType="number-pad" editable={stopped} value={odometer} onChangeText={setOdometer} />
+        <TextField label={c('fuelStation')} accessibilityLabel={c('fuelStation')} editable={stopped} value={station} onChangeText={setStation} />
+        {photo ? <><Image source={{ uri: photo }} accessibilityLabel={c('fuelAttached')} style={{ width: '100%', height: 200, resizeMode: 'contain', backgroundColor: colors.background }} /><ActionButton label={c('remove')} tone="secondary" onPress={() => setPhoto(null)} /></> : <ActionButton label={c('fuelAttach')} tone="secondary" disabled={!stopped} onPress={attach} />}
+        <ActionButton label={c('fuelSave')} disabled={!stopped || !valid} onPress={save} />
+        {error ? <AppText color={colors.error}>{error}</AppText> : null}
+        {notice ? <AppText accessibilityLiveRegion="polite" color={colors.success}>{notice}</AppText> : null}
+      </Panel>
+      <Panel title={c('fuelRecent')}>
+        {!entries.length ? <AppText muted>{c('fuelNone')}</AppText> : [...entries].reverse().map((event) => <View key={event.id} style={{ minHeight: 44, gap: 2 }}>
+          <AppText weight="semibold">{`${event.payload.litres} L · ₹${event.payload.amount}`}</AppText>
+          <AppText variant="caption" muted>{`${event.payload.odometer} km${event.payload.station ? ` · ${event.payload.station}` : ''}${event.payload.hasPhoto ? ` · ${c('fuelAttached')}` : ''}`}</AppText>
+        </View>)}
+      </Panel>
+      <AppText variant="caption" muted>{c('fuelDisclaimer')}</AppText>
+    </> : <AppText>{c('disconnectedBody')}</AppText>}
+  </ExperiencePage>;
+}
+export function PreTripInspection({ navigation }) {
+  const c = useExperienceCopy();
+  const { preview, recordEvent } = useExperience();
+  const checklist = [
+    { id: 'tyres', key: 'dvirTyres' }, { id: 'brakes', key: 'dvirBrakes' }, { id: 'lights', key: 'dvirLights' },
+    { id: 'wipers', key: 'dvirWipers' }, { id: 'horn', key: 'dvirHorn' }, { id: 'mirrors', key: 'dvirMirrors' },
+    { id: 'papers', key: 'dvirPapers' }, { id: 'fuel', key: 'dvirFuel' },
+  ];
+  const [status, setStatus] = useState({});
+  const [notes, setNotes] = useState({});
+  const [photos, setPhotos] = useState({});
+  const [notice, setNotice] = useState('');
+  useEffect(() => { if (!preview) { setStatus({}); setNotes({}); setPhotos({}); setNotice(''); } }, [preview]);
+  const done = checklist.filter((item) => status[item.id]).length;
+  const issues = checklist.filter((item) => status[item.id] === 'issue').length;
+  const allChecked = done === checklist.length;
+  const canStart = preview && allChecked && issues === 0;
+  const attach = async (id) => {
+    try { const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 }); if (!result.canceled) setPhotos((current) => ({ ...current, [id]: result.assets[0].uri })); } catch { /* ignore */ }
+  };
+  const start = () => { if (!canStart) return; recordEvent('PRETRIP_PREVIEW_COMPLETED', { items: checklist.length }); setNotice(c('dvirStarted')); };
+  return <ExperiencePage title={c('dvir')} navigation={navigation}>
+    {preview ? <>
+      <AppText muted>{c('dvirBody')}</AppText>
+      <AppText variant="caption" muted>{`${done}/${checklist.length} ${c('dvirChecked')} · ${issues} ${c('dvirIssues')}`}</AppText>
+      {checklist.map((item) => <Card key={item.id} style={{ gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <AppText weight="semibold" style={{ flex: 1 }}>{c(item.key)}</AppText>
+          <ActionButton label={c('dvirOk')} tone="secondary" selected={status[item.id] === 'ok'} onPress={() => setStatus((s) => ({ ...s, [item.id]: 'ok' }))} style={{ minWidth: 76 }} />
+          <ActionButton label={c('dvirIssue')} tone="secondary" selected={status[item.id] === 'issue'} onPress={() => setStatus((s) => ({ ...s, [item.id]: 'issue' }))} style={{ minWidth: 76 }} />
+        </View>
+        {status[item.id] === 'issue' ? <>
+          <TextField label={c('dvirNote')} accessibilityLabel={c('dvirNote')} value={notes[item.id] || ''} onChangeText={(value) => setNotes((current) => ({ ...current, [item.id]: value }))} multiline />
+          {photos[item.id] ? <Image source={{ uri: photos[item.id] }} accessibilityLabel={c('dvirPhotoAdded')} style={{ width: '100%', height: 160, resizeMode: 'contain', backgroundColor: colors.background }} /> : <ActionButton label={c('dvirAddPhoto')} tone="secondary" onPress={() => attach(item.id)} />}
+        </> : null}
+      </Card>)}
+      {issues > 0 ? <Card style={{ backgroundColor: colors.blueTint }}><AppText color={colors.warning}>{c('dvirStartBlocked')}</AppText></Card> : !allChecked ? <AppText variant="caption" muted>{c('dvirIncomplete')}</AppText> : null}
+      <ActionButton label={c('dvirStart')} disabled={!canStart} onPress={start} />
+      {notice ? <AppText accessibilityLiveRegion="polite" color={colors.success}>{notice}</AppText> : null}
+      <AppText variant="caption" muted>{c('dvirDisclaimer')}</AppText>
+    </> : <AppText>{c('disconnectedBody')}</AppText>}
+  </ExperiencePage>;
+}
+export function DeliveryConfirmation({ navigation }) {
+  const c = useExperienceCopy();
+  const { preview, motion, recordEvent } = useExperience();
+  const [receivedBy, setReceivedBy] = useState('');
+  const [note, setNote] = useState('');
+  const [photo, setPhoto] = useState(null);
+  const [delivered, setDelivered] = useState(false);
+  useEffect(() => { if (!preview) { setReceivedBy(''); setNote(''); setPhoto(null); setDelivered(false); } }, [preview]);
+  const stopped = preview && motion === 'stopped';
+  const canMark = stopped && !delivered && !!receivedBy.trim() && !!photo;
+  const attach = async () => {
+    if (!stopped) return;
+    try { const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 }); if (!result.canceled) setPhoto(result.assets[0].uri); } catch { /* ignore */ }
+  };
+  const mark = () => { if (!canMark) return; recordEvent('POD_PREVIEW_CONFIRMED', { receivedBy: receivedBy.trim(), note: note.trim() || null, hasPhoto: true }); setDelivered(true); };
+  return <ExperiencePage title={c('podTitle')} navigation={navigation}>
+    {preview ? <>
+      <AppText muted>{c('podBody')}</AppText>
+      {!stopped ? <Card style={{ backgroundColor: colors.blueTint }}><AppText>{c('podStoppedOnly')}</AppText></Card> : null}
+      <Panel title={c('podDrop')}>
+        <AppText weight="semibold">{c('podDropValue')}</AppText>
+        <AppText variant="caption" muted>{`${c('podTime')}: ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}</AppText>
+      </Panel>
+      {delivered ? <Card style={{ gap: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Ionicons name="checkmark-circle" size={22} color={colors.success} /><AppText weight="bold" color={colors.success}>{c('podDelivered')}</AppText></View>
+        <AppText variant="small" muted>{`${c('podReceivedBy')}: ${receivedBy.trim()}`}</AppText>
+        {photo ? <Image source={{ uri: photo }} accessibilityLabel={c('podPhotoAdded')} style={{ width: '100%', height: 180, resizeMode: 'contain', backgroundColor: colors.background }} /> : null}
+        <AppText accessibilityLiveRegion="polite" color={colors.success}>{c('podDone')}</AppText>
+      </Card> : <Panel title={c('podTitle')}>
+        <TextField label={c('podReceivedBy')} accessibilityLabel={c('podReceivedBy')} editable={stopped} value={receivedBy} onChangeText={setReceivedBy} maxLength={60} />
+        <TextField label={c('podNote')} accessibilityLabel={c('podNote')} editable={stopped} value={note} onChangeText={setNote} multiline maxLength={200} />
+        {photo ? <><Image source={{ uri: photo }} accessibilityLabel={c('podPhotoAdded')} style={{ width: '100%', height: 180, resizeMode: 'contain', backgroundColor: colors.background }} /><ActionButton label={c('remove')} tone="secondary" onPress={() => setPhoto(null)} /></> : <ActionButton label={c('podAddPhoto')} tone="secondary" disabled={!stopped} onPress={attach} />}
+        {!canMark && stopped ? <AppText variant="caption" muted>{c('podNeed')}</AppText> : null}
+        <ActionButton label={c('podMark')} disabled={!canMark} onPress={mark} />
+      </Panel>}
+      <AppText variant="caption" muted>{c('podDisclaimer')}</AppText>
+    </> : <AppText>{c('disconnectedBody')}</AppText>}
+  </ExperiencePage>;
+}

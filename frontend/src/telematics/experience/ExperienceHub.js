@@ -3,7 +3,7 @@ import { AppText, Card, colors } from '../../components/ui';
 import { ExperiencePage, ActionButton, useExperienceCopy } from './ExperienceUI';
 import { useExperience } from './ExperienceContext';
 export function DriverMoreExperience({ navigation }) {
- const c = useExperienceCopy(); const links = [['help','Helpful cards'],['truckCrew','Crew & driving'],['documents','Document reminders'],['money','Papers & money'],['settings','Experience settings'],['crewMessages','Crew messages'],['help','Driver help'],['profile','Profile'],['existingTools','Existing tools']];
+ const c = useExperienceCopy(); const links = [['help','Helpful cards'],['truckCrew','Crew & driving'],['dvir','Pre-trip check'],['podTitle','Confirm delivery'],['restHours','Rest & hours'],['earnings','My earnings'],['fuelEntry','Log diesel'],['documents','Document reminders'],['money','Papers & money'],['settings','Experience settings'],['crewMessages','Crew messages'],['help','Driver help'],['profile','Profile'],['existingTools','Existing tools']];
  return <ExperiencePage title={c('moreLabel')} navigation={navigation}>{links.map(([key, route]) => <Card key={key} onPress={() => navigation.navigate(route)} accessibilityLabel={c(key)}><AppText weight="semibold" color={colors.primaryDeep}>{c(key)} →</AppText></Card>)}</ExperiencePage>;
 }
 export function DriverTripsExperience({ navigation }) {
