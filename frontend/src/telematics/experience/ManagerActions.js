@@ -247,6 +247,7 @@ export function ActionDetail({ navigation, route }) {
   const [escalateOpen, setEscalateOpen] = useState(false);
   const [feedback, setFeedback] = useState('');
   const intentHandled = useRef('');
+  const callIdRef = useRef(null);
   const target = isHelpful ? helpful : action;
   const activityFilter = action?.id;
   const driverId = action?.driver === 'driverRavi' ? 'preview-driver-ravi' : action?.driver === 'driverSunil' ? 'preview-driver-sunil' : route.params?.driverId || 'preview-driver-sunil';
@@ -261,6 +262,11 @@ export function ActionDetail({ navigation, route }) {
   function finishCall(recipient = 'driver') {
     if (!preview) return;
     recordEvent('call_requested', { actionId: action?.id, driverId, label: recipient === 'codriver' ? copy('callCoDriver') : copy('call') });
+    if (action?._id && !String(action._id).startsWith('preview')) {
+      service.ownerStartCall({ driverId, cardId: action._id }, branchId)
+        .then((r) => { callIdRef.current = r?._id || r?.id || null; })
+        .catch(() => {});
+    }
     setCallSafety(false); setOutcomeOpen(true); setOutcome('');
   }
   useEffect(() => {
@@ -278,6 +284,10 @@ export function ActionDetail({ navigation, route }) {
     if (!preview || !action) return;
     const key = { reached: 'outcomeReached', notReached: 'outcomeNotReached', resolved: 'outcomeResolved', followUp: 'outcomeFollowUp' }[value];
     recordEvent('call_outcome', { actionId: action.id, driverId, outcome: value, outcomeLabel: copy(key) });
+    if (callIdRef.current) {
+      const outcomeMap = { reached: 'reached', notReached: 'not_reached', resolved: 'resolved', followUp: 'follow_up' };
+      service.ownerCallOutcome(callIdRef.current, { outcome: outcomeMap[value] || value }, branchId).catch(() => {});
+    }
     setOutcome(copy(key)); setOutcomeOpen(false);
   };
   const saveMessage = (templateKey) => {
@@ -289,17 +299,26 @@ export function ActionDetail({ navigation, route }) {
     if (!preview || !action || !handledReason) return;
     const reasonLabel = copy(({ resolved: 'reasonResolved', wrong: 'reasonWrong', driverContext: 'reasonDriverContext', other: 'reasonOther' })[handledReason]);
     recordEvent('handled', { actionId: action.id, driverId, reason: reasonLabel, label: reasonLabel });
+    if (action?._id && !String(action._id).startsWith('preview')) {
+      service.dismissManagerCard(action._id, { reason: reasonLabel }, branchId).catch(() => {});
+    }
     setHandledOpen(false); setFeedback(copy('handledLocal'));
   };
   const saveSnooze = () => {
     if (!preview || !action || !snoozeChoice) return;
     const label = copy(({ '15': 'snooze15', hour: 'snoozeHour', shift: 'snoozeShift' })[snoozeChoice]);
     recordEvent('snoozed', { actionId: action.id, driverId, until: snoozeChoice, label });
+    if (action?._id && !String(action._id).startsWith('preview')) {
+      service.snoozeManagerCard(action._id, { duration: snoozeChoice }, branchId).catch(() => {});
+    }
     setSnoozeOpen(false); setFeedback(copy('snoozedLocal'));
   };
   const confirmEscalation = () => {
     if (!preview || !action) return;
     recordEvent('escalated', { actionId: action.id, driverId, label: copy('escalatedLocal') });
+    if (action?._id && !String(action._id).startsWith('preview')) {
+      service.managerCardOutcome(action._id, { outcome: 'escalate' }, branchId).catch(() => {});
+    }
     setEscalateOpen(false); setFeedback(copy('escalatedLocal'));
   };
   const saveReply = (reasonKey) => {

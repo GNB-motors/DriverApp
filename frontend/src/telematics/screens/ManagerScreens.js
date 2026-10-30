@@ -1794,7 +1794,7 @@ function DutyDriverCard({ driver, onCall, onTimeline, onViewDetail }) {
 }
 
 export function ManagerDutyBoard({ navigation }) {
-  const { data } = useManagerData();
+  const { data, service, branchId } = useManagerData();
   const dutyRows = React.useMemo(() => {
     if (!data?.drivers?.length) return DUTY_MOCK;
     return data.drivers.map(driver => {
@@ -1818,6 +1818,7 @@ export function ManagerDutyBoard({ navigation }) {
   const [callPending, setCallPending] = useState(null);
   const [outcomeOpen, setOutcomeOpen] = useState(null);
   const [missedCalls, setMissedCalls] = useState({});
+  const [activeCallId, setActiveCallId] = useState(null);
   const [escalateTarget, setEscalateTarget] = useState(null);
   const [escalateStep, setEscalateStep] = useState(null); // 'coDriver' | 'owner' | 'voiceNote' | 'done'
 
@@ -1846,6 +1847,11 @@ export function ManagerDutyBoard({ navigation }) {
     const driver = outcomeOpen;
     setOutcomeOpen(null);
     setCallPending(null);
+    if (activeCallId) {
+      const outcomeMap = { 'Reached': 'reached', 'Not reached': 'not_reached', 'Resolved': 'resolved', 'Follow up': 'follow_up' };
+      service.ownerCallOutcome(activeCallId, { outcome: outcomeMap[outcome] || outcome.toLowerCase().replace(/ /g, '_') }, branchId === 'all' ? undefined : branchId).catch(() => {});
+      setActiveCallId(null);
+    }
     if (outcome === "Not reached" && driver) {
       const prev = missedCalls[driver.id] || 0;
       const next = prev + 1;
@@ -1941,7 +1947,7 @@ export function ManagerDutyBoard({ navigation }) {
           </AppText>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Button label="Cancel" variant="secondary" size="small" onPress={() => setCallPending(null)} style={{ flex: 1 }} />
-            <Button label="Call now" size="small" onPress={() => setOutcomeOpen(callPending)} style={{ flex: 1 }} />
+            <Button label="Call now" size="small" onPress={async () => { setOutcomeOpen(callPending); try { const r = await service.ownerStartCall({ driverId: callPending.id }, branchId === 'all' ? undefined : branchId); setActiveCallId(r?._id || r?.id || null); } catch { setActiveCallId(null); } }} style={{ flex: 1 }} />
           </View>
         </Card>
       )}
