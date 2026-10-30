@@ -1773,6 +1773,11 @@ export function ManagerDutyBoard({ navigation }) {
   const [filter, setFilter] = useState("All");
   const [callPending, setCallPending] = useState(null);
   const [outcomeOpen, setOutcomeOpen] = useState(null);
+  // tracks "Not reached" count per driver id
+  const [missedCalls, setMissedCalls] = useState({});
+  // driver to escalate after 2 missed calls
+  const [escalateTarget, setEscalateTarget] = useState(null);
+  const [escalateStep, setEscalateStep] = useState(null); // 'coDriver' | 'owner' | 'voiceNote' | 'done'
 
   const filterMap = { All: null, Driving: "driving", "At plant": "plant", Resting: "resting", "Off duty": "off" };
   const filtered = DUTY_MOCK.filter((d) => !filterMap[filter] || d.status === filterMap[filter]);
@@ -1783,6 +1788,8 @@ export function ManagerDutyBoard({ navigation }) {
   function handleCall(driver) {
     setCallPending(driver);
     setOutcomeOpen(null);
+    setEscalateTarget(null);
+    setEscalateStep(null);
   }
 
   function handleTimeline(driver) {
@@ -1794,8 +1801,26 @@ export function ManagerDutyBoard({ navigation }) {
   }
 
   function chooseOutcome(outcome) {
+    const driver = outcomeOpen;
     setOutcomeOpen(null);
     setCallPending(null);
+    if (outcome === "Not reached" && driver) {
+      const prev = missedCalls[driver.id] || 0;
+      const next = prev + 1;
+      setMissedCalls((m) => ({ ...m, [driver.id]: next }));
+      if (next >= 2) {
+        setEscalateTarget(driver);
+        setEscalateStep("prompt");
+      }
+    }
+  }
+
+  function dismissEscalation() {
+    if (escalateTarget) {
+      setMissedCalls((m) => ({ ...m, [escalateTarget.id]: 0 }));
+    }
+    setEscalateTarget(null);
+    setEscalateStep(null);
   }
 
   return (
@@ -1846,13 +1871,22 @@ export function ManagerDutyBoard({ navigation }) {
         </Card>
       ) : (
         filtered.map((driver) => (
-          <DutyDriverCard
-            key={driver.id}
-            driver={driver}
-            onCall={handleCall}
-            onTimeline={handleTimeline}
-            onViewDetail={handleViewDetail}
-          />
+          <View key={driver.id}>
+            <DutyDriverCard
+              driver={driver}
+              onCall={handleCall}
+              onTimeline={handleTimeline}
+              onViewDetail={handleViewDetail}
+            />
+            {/* Per-driver missed call count badge */}
+            {(missedCalls[driver.id] || 0) > 0 && (missedCalls[driver.id] || 0) < 2 && (
+              <View style={{ marginTop: -6, marginBottom: 10, marginLeft: 4 }}>
+                <AppText variant="small" color={colors.warning}>
+                  ⚠ Not reached once — call again or escalate after another miss.
+                </AppText>
+              </View>
+            )}
+          </View>
         ))
       )}
 
@@ -1878,6 +1912,96 @@ export function ManagerDutyBoard({ navigation }) {
             {CALL_OUTCOMES.map((outcome) => (
               <Button key={outcome} label={outcome} variant="secondary" size="small" onPress={() => chooseOutcome(outcome)} />
             ))}
+          </View>
+        </Card>
+      )}
+
+      {/* Auto-escalation panel — fires after 2 consecutive "Not reached" */}
+      {escalateTarget && escalateStep === "prompt" && (
+        <Card style={{ borderColor: colors.error, borderWidth: 1.5 }}>
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+            <Ionicons name="alert-circle-outline" size={22} color={colors.error} />
+            <View style={{ flex: 1 }}>
+              <AppText weight="semibold" color={colors.error}>
+                {escalateTarget.name} hasn't picked up twice
+              </AppText>
+              <AppText variant="small" muted style={{ marginTop: 2 }}>
+                {escalateTarget.vehicle} · Last seen {driverLastSeen(escalateTarget.lastSeen)}
+              </AppText>
+            </View>
+          </View>
+          <AppText variant="small" style={{ marginBottom: 12 }}>
+            Choose your next step. After two missed calls, policy requires escalation.
+          </AppText>
+          <View style={{ gap: 8 }}>
+            <Button
+              label="Call co-driver"
+              icon="people-outline"
+              size="small"
+              onPress={() => setEscalateStep("coDriver")}
+            />
+            <Button
+              label="Escalate to owner"
+              icon="arrow-up-circle-outline"
+              size="small"
+              variant="secondary"
+              onPress={() => setEscalateStep("owner")}
+            />
+            <Button
+              label="Leave voice note"
+              icon="mic-outline"
+              size="small"
+              variant="secondary"
+              onPress={() => setEscalateStep("voiceNote")}
+            />
+            <Button
+              label="Dismiss"
+              size="small"
+              variant="secondary"
+              onPress={dismissEscalation}
+            />
+          </View>
+        </Card>
+      )}
+
+      {escalateTarget && escalateStep === "coDriver" && (
+        <Card style={{ borderColor: colors.warning, borderWidth: 1 }}>
+          <AppText weight="semibold" style={{ marginBottom: 6 }}>
+            Call co-driver — {escalateTarget.vehicle}
+          </AppText>
+          <AppText variant="small" muted style={{ marginBottom: 12 }}>
+            Mock: Sunil Patil (co-driver, +91 98765 00001) would be called here.
+          </AppText>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Button label="Back" variant="secondary" size="small" onPress={() => setEscalateStep("prompt")} style={{ flex: 1 }} />
+            <Button label="Done" size="small" onPress={dismissEscalation} style={{ flex: 1 }} />
+          </View>
+        </Card>
+      )}
+
+      {escalateTarget && escalateStep === "owner" && (
+        <Card style={{ borderColor: colors.primary, borderWidth: 1 }}>
+          <AppText weight="semibold" style={{ marginBottom: 6 }}>Escalate to owner</AppText>
+          <AppText variant="small" muted style={{ marginBottom: 12 }}>
+            Mock: Owner would be notified via the alert inbox. callLog.model records this escalation once backend is wired.
+          </AppText>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Button label="Back" variant="secondary" size="small" onPress={() => setEscalateStep("prompt")} style={{ flex: 1 }} />
+            <Button label="Escalate" size="small" onPress={dismissEscalation} style={{ flex: 1 }} />
+          </View>
+        </Card>
+      )}
+
+      {escalateTarget && escalateStep === "voiceNote" && (
+        <Card style={{ borderColor: colors.primary, borderWidth: 1 }}>
+          <AppText weight="semibold" style={{ marginBottom: 6 }}>Voice note — {escalateTarget.name}</AppText>
+          <View style={{ backgroundColor: colors.background, borderRadius: radius.md, padding: 14, alignItems: "center", gap: 8 }}>
+            <Ionicons name="mic-circle-outline" size={44} color={colors.primary} />
+            <AppText variant="small" muted>Hold to record — mock only, audio not wired yet.</AppText>
+          </View>
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
+            <Button label="Back" variant="secondary" size="small" onPress={() => setEscalateStep("prompt")} style={{ flex: 1 }} />
+            <Button label="Done" size="small" onPress={dismissEscalation} style={{ flex: 1 }} />
           </View>
         </Card>
       )}
