@@ -495,6 +495,10 @@ export function createTelematicsApi({
     },
     async messageReceipt(id, messageId, action, branchId) { return (await client.post(`/app/v2/communication/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/receipt`, { action }, { headers: headersFor(branchId) })).data.data; },
     async driverExplain(alertId, body, branchId) { return (await client.post(`/app/v2/escalations/${encodeURIComponent(alertId)}/explain`, body, { headers: headersFor(branchId) })).data.data; },
+    // Realtime SSE stream (N1.13): mint a single-use ticket, then open the
+    // event stream at streamBaseUrl?ticket=... (ticket auth, no header needed).
+    async streamTicket() { const payload = (await client.post('/app/v2/stream/ticket', {})).data; if (!payload?.ticket) throw new Error('Invalid stream ticket response.'); return payload.ticket; },
+    streamBaseUrl: `${apiRoot}/app/v2/stream`,
     async defLedger(branchId) { return (await get('/def-ledger', { headers: headersFor(branchId) })).data; },
     async myStops() { return rows(await get('/place-intelligence/stops/mine', { params: { days: 14, limit: 50 } })); },
     async explainStop(id, purpose, note) { return (await post(`/place-intelligence/stops/${encodeURIComponent(id)}/reason`, { purpose, ...(note?.trim() && { note: note.trim() }) })).data; },

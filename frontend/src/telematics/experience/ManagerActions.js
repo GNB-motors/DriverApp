@@ -1,10 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, PanResponder, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useIsFocused } from '@react-navigation/native';
 import { AppText, Card, colors, radius } from '../../components/ui';
 import { useExperience } from './ExperienceContext';
 import { ActionButton, ExperiencePage } from './ExperienceUI';
 import { useManagerCopy } from './managerCopy';
+import { useManagerData } from '../context/ManagerDataContext';
+import { ALERT_TITLES, alertSeverity } from '../services/alertMetadata';
 
 // These deterministic examples exist only in the explicitly enabled preview.
 // Their ranking is explanatory (severity × confidence × stake × urgency), not
@@ -112,6 +115,97 @@ function ManagerActionCard({ action, expanded, onToggle, onOpen, onSwipe, onInte
   </View>;
 }
 
+// ── N3.8 live feed ────────────────────────────────────────────────────────
+// Real ranked escalations from /app/v2/escalations, refreshed on the SSE `card`
+// push. The preview sandbox above is unchanged; this is the connected path.
+
+const SEVERITY_TONE = { CRITICAL: 'red', WARNING: 'amber', INFO: 'blue' };
+const SEVERITY_COPY = { CRITICAL: 'liveSeverityCritical', WARNING: 'liveSeverityWarning', INFO: 'liveSeverityInfo' };
+
+function escalationSeverity(item) {
+  const fromType = alertSeverity(item.type);
+  if (fromType) return fromType;
+  return { critical: 'CRITICAL', caution: 'WARNING', info: 'INFO' }[item.severity] || 'INFO';
+}
+function escalationTitle(item) {
+  return ALERT_TITLES[item.type] || String(item.type || '').replace(/_/g, ' ') || 'Fleet alert';
+}
+
+function LiveActionCard({ item, copy, onOpen }) {
+  const severity = escalationSeverity(item);
+  const score = item.ranking?.score;
+  const vehicle = item.vehicleNumber || item.registrationNumber;
+  return <Pressable accessibilityRole="button" accessibilityLabel={copy('liveOpenRecord')} onPress={() => onOpen(item)}>
+    <Card style={styles.actionCard}>
+      <View style={styles.cardHeading}>
+        <View style={styles.grow}>
+          <View style={styles.headingMeta}>
+            <StatusPill tone={SEVERITY_TONE[severity] || 'blue'}>{copy(SEVERITY_COPY[severity] || 'liveSeverityInfo')}</StatusPill>
+            {Number.isFinite(score) ? <AppText variant="caption" muted>{`${copy('liveScore')}: ${score}`}</AppText> : null}
+          </View>
+          <AppText variant="h3">{escalationTitle(item)}</AppText>
+          <AppText variant="caption" mono>{vehicle || copy('liveVehicleUnknown')}</AppText>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+      </View>
+      {item.message ? <AppText variant="small" muted style={styles.collapsedFact}>{item.message}</AppText> : null}
+    </Card>
+  </Pressable>;
+}
+
+function LiveEscalations({ navigation, copy }) {
+  const { service, branchId, lastPush, streamConnected } = useManagerData();
+  const focused = useIsFocused();
+  const [state, setState] = useState({ items: [], loading: true, error: null });
+  const sequence = useRef(0);
+  const scope = branchId === 'all' ? undefined : branchId;
+
+  const load = useCallback(async () => {
+    const current = ++sequence.current;
+    setState((old) => ({ ...old, loading: true, error: null }));
+    try {
+      const payload = await service.ownerEscalations(scope);
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      if (current === sequence.current) setState({ items, loading: false, error: null });
+    } catch (error) {
+      if (current === sequence.current) setState({ items: [], loading: false, error: error.message });
+    }
+  }, [service, scope]);
+
+  useEffect(() => { if (focused) load(); }, [focused, load]);
+  // Refetch the instant the server pushes a card change.
+  useEffect(() => { if (focused && lastPush?.event === 'card') load(); }, [focused, lastPush, load]);
+
+  const openRecord = (item) => navigation.navigate('Manager alert', {
+    id: String(item._id),
+    branchId,
+    alert: {
+      id: String(item._id),
+      title: escalationTitle(item),
+      description: item.message,
+      severity: escalationSeverity(item),
+      vehicleNumber: item.vehicleNumber || item.registrationNumber,
+      type: item.type,
+      createdAt: item.lastSeenAt || item.at,
+      acknowledged: item.ownerWorkflow?.state === 'HANDLED',
+    },
+  });
+
+  return <>
+    <View style={styles.stackHeading}>
+      <View style={styles.grow}>
+        <AppText variant="h3">{copy('liveTitleFeed')}</AppText>
+        <AppText variant="caption" muted>{copy('liveSubtitleFeed')}</AppText>
+      </View>
+      <StatusPill tone={streamConnected ? 'green' : 'amber'}>{copy(streamConnected ? 'liveConnectedLabel' : 'liveReconnectingLabel')}</StatusPill>
+    </View>
+    {state.loading && !state.items.length ? <Card style={styles.liveState}><ActivityIndicator color={colors.primary} /><AppText muted>{copy('liveLoading')}</AppText></Card>
+      : state.error ? <Card style={styles.liveState}><Ionicons name="alert-circle-outline" size={24} color={colors.warning} /><AppText muted>{copy('liveError')}</AppText><ActionButton label={copy('liveRetry')} tone="secondary" onPress={load} /></Card>
+      : !state.items.length ? <Card style={styles.liveState}><Ionicons name="checkmark-circle-outline" size={24} color={colors.success} /><AppText muted>{copy('liveEmpty')}</AppText></Card>
+      : state.items.map((item) => <LiveActionCard key={String(item._id)} item={item} copy={copy} onOpen={openRecord} />)}
+  </>;
+}
+
 export function ManagerActionHome({ navigation }) {
   const copy = useManagerCopy();
   const { preview, setPreview, events, motion, setMotion } = useExperience();
@@ -121,7 +215,10 @@ export function ManagerActionHome({ navigation }) {
   const onSwipe = (actionId, intent) => navigation.navigate('Manager action detail', { actionId, intent });
   const onIntent = (action, intent) => navigation.navigate('Manager action detail', { actionId: action.id, intent });
   return <ExperiencePage navigation={navigation} title={copy('titleHome')} subtitle={copy('homeSubtitle')}>
-    {!preview ? <Card style={styles.disconnected}><Ionicons name="notifications-off-outline" size={26} color={colors.textMuted} /><AppText variant="h3">{copy('disconnectedTitle')}</AppText><AppText muted>{copy('disconnectedBody')}</AppText><ActionButton label={copy('enterPreview')} onPress={() => setPreview(true)} tone="secondary" /></Card> : <>
+    {!preview ? <>
+      <LiveEscalations navigation={navigation} copy={copy} />
+      <Card style={styles.disconnected}><Ionicons name="sparkles-outline" size={26} color={colors.textMuted} /><AppText variant="h3">{copy('explorePreviewTitle')}</AppText><AppText muted>{copy('explorePreviewBody')}</AppText><ActionButton label={copy('enterPreview')} onPress={() => setPreview(true)} tone="secondary" /></Card>
+    </> : <>
       <View style={styles.motionPicker}><AppText variant="caption" weight="semibold">{copy('motionForPreview')}</AppText><View style={styles.chips}>{['unknown', 'moving', 'stopped'].map((value) => <ActionButton key={value} tone="secondary" selected={motion === value} label={copy(`motionState${value[0].toUpperCase()}${value.slice(1)}`)} onPress={() => setMotion(value)} style={styles.chipButton} />)}</View></View>
       <View style={styles.stackHeading}><AppText variant="h3">{copy('previewStack')}</AppText><StatusPill>{copy('previewOnly')}</StatusPill></View>
       {ACTION_FIXTURES.map((action) => <ManagerActionCard key={action.id} action={action} expanded={expanded.has(action.id)} onToggle={() => toggle(action.id)} onOpen={openDetail} onSwipe={onSwipe} onIntent={onIntent} copy={copy} events={events} />)}
@@ -399,6 +496,7 @@ function TimelineRow({ time, label, uncertain, copy }) { return <View style={sty
 const styles = StyleSheet.create({
   grow: { flex: 1, minWidth: 0 }, helpfulRoot: { gap: 14 },
   disconnected: { gap: 12, alignItems: 'flex-start' }, stackHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
+  liveState: { gap: 12, alignItems: 'center', paddingVertical: 20 },
   actionCard: { gap: 14 }, cardHeading: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10 }, cardContent: { gap: 14, paddingTop: 8 },
   headingMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }, pill: { minHeight: 28, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.full, justifyContent: 'center' }, pillBlue: { backgroundColor: colors.infoBg }, pillRed: { backgroundColor: colors.expiredBg }, pillAmber: { backgroundColor: colors.pendingBg }, pillGreen: { backgroundColor: colors.validBg },
   cardContentHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }, collapsedFact: { paddingTop: 8 }, factsRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' }, driverSide: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 12, backgroundColor: colors.blueTint, borderRadius: radius.md }, evidenceBlock: { gap: 10, padding: 14, backgroundColor: colors.background, borderRadius: radius.md }, locationLine: { flexDirection: 'row', alignItems: 'center', gap: 8 }, sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 8 }, priorityPanel: { gap: 5, padding: 10, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm },

@@ -15,6 +15,7 @@ const rows = {
  reviewQuality: ['I checked each page is clear and complete','मैंने हर पन्ना साफ़ और पूरा जाँच लिया','প্রতিটি পাতা স্পষ্ট ও সম্পূর্ণ দেখেছি'],
  noFiltered: ['No records match these filters','इन फ़िल्टर में कोई रिकॉर्ड नहीं','এই বাছাইয়ে কোনো রেকর্ড নেই'],
  home: ['Home','होम','হোম'], live: ['Live','लाइव','লাইভ'], drivers: ['Drivers','ड्राइवर','চালক'], truth: ['Sources & benchmarks','स्रोत और मापदंड','উৎস ও পরিমাপ'] ,
+ sampleRoute: ['Dankuni → Durgapur','डानकुनी → दुर्गापुर','ডানকুনি → দুর্গাপুর'], sampleCorridor: ['NH-19 · Dankuni → Durgapur','एनएच-19 · डानकुनी → दुर्गापुर','এনএইচ-১৯ · ডানকুনি → দুর্গাপুর'],
 
  previewTitle: ['Design preview · sample data','डिज़ाइन प्रीव्यू · नमूना डेटा','ডিজাইন প্রিভিউ · নমুনা তথ্য'],
  previewBody: ['Actions change this preview only. Nothing is sent to your fleet. Leaving preview clears its data.','कार्रवाइयाँ केवल इस प्रीव्यू में बदलती हैं। बेड़े को कुछ नहीं भेजा जाता। बाहर आने पर डेटा मिट जाता है।','কাজগুলি শুধু এই প্রিভিউ বদলায়। বহরে কিছু পাঠানো হয় না। প্রিভিউ ছাড়লে তথ্য মুছে যায়।'],
