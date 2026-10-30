@@ -1532,6 +1532,26 @@ function CrewTruckCard({ truck, onAssign, onOpenCrew }) {
 }
 
 export function ManagerCrewManagement({ navigation }) {
+  const { data, service } = useManagerData();
+  const crewFleet = React.useMemo(() => {
+    if (!data?.vehicles?.length) return CREW_FLEET_MOCK;
+    return data.vehicles.map(v => ({
+      id: v.id || v._id,
+      vehicle: v.registrationNumber || '—',
+      vehicleId: v.id || v._id,
+      status: v.status === 'moving' ? 'DRIVING' : 'UNKNOWN',
+      driver: null,
+      driverId: null,
+      coDriver: null,
+      coDriverId: null,
+      atWheelStart: v.lastSeen || null,
+      handover: null,
+    }));
+  }, [data]);
+  const availableDrivers = React.useMemo(
+    () => data?.drivers?.map(d => ({ id: d.id || d._id, name: d.name })) || AVAILABLE_DRIVERS_MOCK,
+    [data],
+  );
   const [filter, setFilter] = useState("All");
   const [assignTarget, setAssignTarget] = useState(null); // { truck, isCoDriver }
   const [selectedDriver, setSelectedDriver] = useState(null);
@@ -1539,9 +1559,9 @@ export function ManagerCrewManagement({ navigation }) {
   const [notice, setNotice] = useState("");
 
   const filterMap = { All: null, Driving: "DRIVING", Unconfirmed: "UNKNOWN", Handover: "PENDING", Disputed: "DISPUTED" };
-  const filtered = CREW_FLEET_MOCK.filter((t) => !filterMap[filter] || t.status === filterMap[filter]);
+  const filtered = crewFleet.filter((t) => !filterMap[filter] || t.status === filterMap[filter]);
 
-  const counts = CREW_FLEET_MOCK.reduce((acc, t) => { acc[t.status] = (acc[t.status] || 0) + 1; return acc; }, {});
+  const counts = crewFleet.reduce((acc, t) => { acc[t.status] = (acc[t.status] || 0) + 1; return acc; }, {});
   const needsAttention = (counts.UNKNOWN || 0) + (counts.DISPUTED || 0) + (counts.PENDING || 0);
 
   function openCrew(truck) {
@@ -1554,15 +1574,19 @@ export function ManagerCrewManagement({ navigation }) {
     setNotice("");
   }
 
-  function confirmAssign() {
+  async function confirmAssign() {
     if (!selectedDriver) return;
     setBusy(true);
-    setTimeout(() => {
+    try {
+      await service.crewAction(assignTarget.truck.vehicleId, { action: 'SET_CREW', driverId: selectedDriver.id, expectedVersion: 0 });
+      setNotice(`${selectedDriver.name} assigned to ${assignTarget.truck.vehicle}.`);
+    } catch (err) {
+      setNotice(`Could not assign: ${err?.message || 'Unknown error'}`);
+    } finally {
       setBusy(false);
-      setNotice(`${selectedDriver.name} assigned to ${assignTarget.truck.vehicle}. Mock — crewAction('SET_CREW') not wired.`);
       setAssignTarget(null);
       setSelectedDriver(null);
-    }, 700);
+    }
   }
 
   return (
@@ -1626,7 +1650,7 @@ export function ManagerCrewManagement({ navigation }) {
           <AppText variant="small" muted style={{ marginBottom: 12 }}>
             Select from available drivers in this branch.
           </AppText>
-          {AVAILABLE_DRIVERS_MOCK.map((d) => (
+          {availableDrivers.map((d) => (
             <Pressable
               key={d.id}
               accessibilityRole="radio"
@@ -1770,19 +1794,37 @@ function DutyDriverCard({ driver, onCall, onTimeline, onViewDetail }) {
 }
 
 export function ManagerDutyBoard({ navigation }) {
+  const { data } = useManagerData();
+  const dutyRows = React.useMemo(() => {
+    if (!data?.drivers?.length) return DUTY_MOCK;
+    return data.drivers.map(driver => {
+      const vehicle = data.vehicles?.find(v => v.id === driver.vehicleId || v._id === driver.vehicleId);
+      const statusMap = { moving: 'driving', idling: 'plant', offline: 'off', unknown: 'off' };
+      return {
+        id: driver.id || driver._id,
+        name: driver.name || 'Unknown driver',
+        vehicle: vehicle?.registrationNumber || '—',
+        status: statusMap[vehicle?.status] || 'off',
+        atWheelMin: driver.drivingMinutes || 0,
+        limitMin: 600,
+        scoreDelta: 0,
+        location: vehicle?.lastLocation || '—',
+        mismatch: false,
+        lastSeen: vehicle?.lastSeen || new Date().toISOString(),
+      };
+    });
+  }, [data]);
   const [filter, setFilter] = useState("All");
   const [callPending, setCallPending] = useState(null);
   const [outcomeOpen, setOutcomeOpen] = useState(null);
-  // tracks "Not reached" count per driver id
   const [missedCalls, setMissedCalls] = useState({});
-  // driver to escalate after 2 missed calls
   const [escalateTarget, setEscalateTarget] = useState(null);
   const [escalateStep, setEscalateStep] = useState(null); // 'coDriver' | 'owner' | 'voiceNote' | 'done'
 
   const filterMap = { All: null, Driving: "driving", "At plant": "plant", Resting: "resting", "Off duty": "off" };
-  const filtered = DUTY_MOCK.filter((d) => !filterMap[filter] || d.status === filterMap[filter]);
+  const filtered = dutyRows.filter((d) => !filterMap[filter] || d.status === filterMap[filter]);
 
-  const counts = DUTY_MOCK.reduce((acc, d) => { acc[d.status] = (acc[d.status] || 0) + 1; return acc; }, {});
+  const counts = dutyRows.reduce((acc, d) => { acc[d.status] = (acc[d.status] || 0) + 1; return acc; }, {});
   const CALL_OUTCOMES = ["Reached", "Not reached", "Resolved", "Follow up"];
 
   function handleCall(driver) {
@@ -1852,11 +1894,11 @@ export function ManagerDutyBoard({ navigation }) {
       />
 
       {/* Mismatch notice */}
-      {(filter === "All" || filter === "Resting") && DUTY_MOCK.some((d) => d.mismatch) && (
+      {(filter === "All" || filter === "Resting") && dutyRows.some((d) => d.mismatch) && (
         <View style={{ backgroundColor: colors.pendingBg, borderRadius: radius.md, padding: 10, flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Ionicons name="warning-outline" size={16} color={colors.warning} />
           <AppText variant="small" color={colors.warning} style={{ flex: 1 }}>
-            {DUTY_MOCK.filter((d) => d.mismatch).length} driver{DUTY_MOCK.filter((d) => d.mismatch).length !== 1 ? "s" : ""} have a GPS mismatch — GPS shows movement but duty says resting.
+            {dutyRows.filter((d) => d.mismatch).length} driver{dutyRows.filter((d) => d.mismatch).length !== 1 ? "s" : ""} have a GPS mismatch — GPS shows movement but duty says resting.
           </AppText>
         </View>
       )}

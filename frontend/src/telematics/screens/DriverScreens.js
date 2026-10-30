@@ -743,6 +743,23 @@ export function AtWheelHandover({ navigation, route }) {
   const [step, setStep] = useState('who'); // who | confirm | done
   const [choice, setChoice] = useState(null); // 'self' | 'someone' | 'parked'
   const [assignee, setAssignee] = useState(null);
+  const [crewMembers, setCrewMembers] = useState(CREW_MOCK_MEMBERS);
+  React.useEffect(() => {
+    let active = true;
+    service.crewMe().then(res => {
+      if (!active) return;
+      const members = res?.data?.members || res?.members || [];
+      if (members.length) {
+        const currentDriverId = res?.data?.currentDriverId || res?.currentDriverId;
+        setCrewMembers(members.map(m => ({
+          id: m.user?._id || m._id,
+          name: [m.user?.firstName, m.user?.lastName].filter(Boolean).join(' ') || 'Unknown',
+          role: m.user?._id === currentDriverId ? 'At wheel' : 'Co-driver',
+        })));
+      }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [service]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -826,7 +843,7 @@ export function AtWheelHandover({ navigation, route }) {
       {choice === 'someone' && (
         <Card>
           <AppText variant="small" weight="semibold" style={{ marginBottom: 10 }}>Select the driver at the wheel</AppText>
-          {CREW_MOCK_MEMBERS.map((member) => (
+          {crewMembers.map((member) => (
             <Pressable
               key={member.id}
               accessibilityRole="radio"
@@ -1163,9 +1180,42 @@ function docDaysLeft(expiry) {
   return `${diff}d left`;
 }
 
+function mapDocStatus(item) {
+  const kindMap = {
+    licence: { label: 'Driving licence', type: 'DL', docType: 'licence', icon: 'card-outline' },
+    rc: { label: 'Vehicle RC', type: 'RC', docType: 'rc', icon: 'document-text-outline' },
+    insurance: { label: 'Insurance certificate', type: 'Insurance', docType: 'insurance', icon: 'shield-checkmark-outline' },
+    fitness: { label: 'Fitness certificate', type: 'Fitness', docType: 'fitness', icon: 'medkit-outline' },
+    puc: { label: 'PUC certificate', type: 'PUC', docType: 'puc', icon: 'leaf-outline' },
+    medical: { label: 'Medical fitness', type: 'Medical', docType: 'medical', icon: 'body-outline' },
+  };
+  const kind = (item.kind || item.docType || item.type || '').toLowerCase();
+  const meta = kindMap[kind] || { label: item.label || kind || 'Document', type: kind.toUpperCase(), docType: kind, icon: 'document-outline' };
+  const expiry = item.expiresAt || item.expiry;
+  let status = 'valid';
+  if (expiry) {
+    const daysLeft = Math.round((new Date(expiry).getTime() - Date.now()) / 86400000);
+    if (daysLeft < 0) status = 'expired';
+    else if (daysLeft < 30) status = 'expiring';
+  }
+  if (item.status === 'rejected') status = 'expired';
+  if (item.status === 'pending') status = 'expiring';
+  return { id: item._id || item.id, label: meta.label, type: meta.type, status, expiry, docType: meta.docType, icon: meta.icon };
+}
+
 export function DriverDocumentStatus({ navigation }) {
-  const expiredCount = DOC_STATUS_MOCK.filter((d) => d.status === 'expired').length;
-  const expiringCount = DOC_STATUS_MOCK.filter((d) => d.status === 'expiring').length;
+  const { service } = useDriverData();
+  const [_docs, setApiDocs] = React.useState(null);
+  React.useEffect(() => {
+    let active = true;
+    service.documents()
+      .then(items => { if (active && items?.length) setApiDocs(items.map(mapDocStatus)); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [service]);
+  const docList = _docs ?? DOC_STATUS_MOCK;
+  const expiredCount = docList.filter((d) => d.status === 'expired').length;
+  const expiringCount = docList.filter((d) => d.status === 'expiring').length;
   const needsAttention = expiredCount + expiringCount;
 
   return (
@@ -1178,7 +1228,7 @@ export function DriverDocumentStatus({ navigation }) {
       {/* Summary bar */}
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {[
-          { label: `${DOC_STATUS_MOCK.filter((d) => d.status === 'valid').length} valid`, ...DOC_STATUS_CFG.valid },
+          { label: `${docList.filter((d) => d.status === 'valid').length} valid`, ...DOC_STATUS_CFG.valid },
           { label: `${expiringCount} expiring`, ...DOC_STATUS_CFG.expiring },
           { label: `${expiredCount} expired`, ...DOC_STATUS_CFG.expired },
         ].map((item) => (
@@ -1198,7 +1248,7 @@ export function DriverDocumentStatus({ navigation }) {
       )}
 
       {/* Document list */}
-      {DOC_STATUS_MOCK.map((doc) => {
+      {docList.map((doc) => {
         const cfg = DOC_STATUS_CFG[doc.status] || DOC_STATUS_CFG.missing;
         const daysLabel = docDaysLeft(doc.expiry);
         return (
