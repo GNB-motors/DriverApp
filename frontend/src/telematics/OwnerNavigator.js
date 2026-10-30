@@ -79,5 +79,6 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Team & access" component={TeamAccessScreen} />
     <Stack.Screen name="Owner settings" component={Screens.Settings} />
     <Stack.Screen name="Owner home" component={Owner.OwnerHomeSummary} />
+    <Stack.Screen name="Aaj ka hisaab" component={Owner.OwnerDailyReport} />
   </Stack.Navigator></ExperienceProvider></ManagerDataProvider></TelematicsApiProvider>;
 }

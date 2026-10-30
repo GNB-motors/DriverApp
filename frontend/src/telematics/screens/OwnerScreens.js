@@ -1,7 +1,7 @@
 import { useExperienceCopy } from '../experience/ExperienceUI';
 import { OwnerScreen, OwnerGroupRow } from '../components/OwnerReportView';
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppText, Card, Button, colors, radius } from '../../components/ui';
@@ -56,7 +56,7 @@ export function More({ navigation }) {
     ['Fleet & people', [['Drivers', 'Driver roster', 'people-outline'], ['Crew & driving', 'Crew & driving', 'swap-horizontal-outline'], ['Fleet trips', 'Trip history', 'navigate-outline'], ['Fuel & AdBlue', 'Fuel & AdBlue', 'water-outline'], ['Maintenance', 'Maintenance', 'construct-outline']]],
     ['Money & records', [['Capture reviews', 'Capture reviews', 'scan-outline'], ['Owner finance', 'Billing & cash flow', 'wallet-outline'], ['Fleet documents', 'Fleet documents', 'document-text-outline']]],
     ['Conversations', [['Messages', 'Messages & broadcasts', 'chatbubbles-outline'], ['Owner calls', 'Calls & follow-ups', 'call-outline'], ['Owner escalations', 'Owner inbox', 'notifications-outline']]],
-    ['Your workspace', [['Owner home', 'Fleet home summary', 'home-outline'], ['Owner trends', 'Reports & trends', 'trending-up-outline'], ['Report settings', 'Morning report', 'sunny-outline'], ['Team & access', 'Team & access', 'person-add-outline'], ['Owner settings', 'Settings & support', 'settings-outline']]],
+    ['Your workspace', [['Owner home', 'Fleet home summary', 'home-outline'], ['Aaj ka hisaab', "Today's business report", 'document-text-outline'], ['Owner trends', 'Reports & trends', 'trending-up-outline'], ['Report settings', 'Morning report', 'sunny-outline'], ['Team & access', 'Team & access', 'person-add-outline'], ['Owner settings', 'Settings & support', 'settings-outline']]],
   ];
   return <OwnerScreen navigation={navigation} title="Your workspace" subtitle="Fleet, finances and your team.">
     {groups.map(([label, links]) => <View key={label} style={{ gap: 10 }}><AppText variant="label" muted>{label}</AppText><Card padding={0}>{links.map(([route, title, icon], index) => <OwnerGroupRow key={route} title={title} icon={icon} last={index === links.length - 1} onPress={() => navigation.navigate(route)} />)}</Card></View>)}
@@ -131,7 +131,7 @@ export function OwnerHomeSummary({ navigation }) {
           <Button
             label="Open report"
             size="small"
-            onPress={() => navigation.navigate("Digest")}
+            onPress={() => navigation.navigate("Aaj ka hisaab")}
             style={{ backgroundColor: "rgba(255,255,255,0.18)", borderColor: "rgba(255,255,255,0.3)" }}
           />
         </LinearGradient>
@@ -166,6 +166,213 @@ export function OwnerHomeSummary({ navigation }) {
 
       <AppText variant="small" muted style={{ textAlign: "center", marginTop: 4 }}>
         Mock data · O-01 backend endpoint not built yet
+      </AppText>
+    </ManagerPage>
+  );
+}
+
+// ─── Owner Daily Report "Aaj ka hisaab" (O-02) ───────────────────────────────
+
+const _yesterday = new Date(Date.now() - 86400000).toLocaleDateString("en-IN", {
+  weekday: "long", day: "numeric", month: "long",
+});
+
+const DAILY_REPORT_MOCK = {
+  generatedAt: "5:30 AM",
+  date: _yesterday,
+  sections: [
+    {
+      id: "fleetNow", title: "Fleet right now", icon: "bus-outline", state: "ok",
+      source: "TruckState · visits · iALERT", freshSince: "2 min ago",
+      rows: [
+        { label: "Driving", value: "7 trucks", tone: colors.primary },
+        { label: "At plant", value: "4 trucks", tone: colors.success },
+        { label: "Parked / resting", value: "3 trucks" },
+        { label: "Engine-on idle (verified)", value: "1 truck", tone: colors.warning },
+        { label: "Dark (no data >2h)", value: "3 trucks", tone: colors.error },
+      ],
+    },
+    {
+      id: "yesterdaysWork", title: "Yesterday's work", icon: "navigate-outline", state: "ok",
+      source: "AutoTrip · ERP · roadArrival", freshSince: "5:30 AM",
+      rows: [
+        { label: "Trips completed", value: "23" },
+        { label: "Kilometres driven", value: "4,120 km" },
+        { label: "On-time arrivals", value: "18 of 23 (78%)", tone: colors.success },
+        { label: "Late arrivals", value: "5", tone: colors.warning },
+        { label: "Avg plant turnaround", value: "47 min" },
+      ],
+    },
+    {
+      id: "moneyOut", title: "Money out", icon: "wallet-outline", state: "ok",
+      source: "fuelLog · register · tollLedger · expense", freshSince: "5:30 AM",
+      rows: [
+        { label: "Diesel (bills)", value: "₹1,42,000 · 1,540 L" },
+        { label: "Diesel (sensor)", value: "1,580 L" },
+        { label: "Gap — bills vs sensor", value: "2.6% (40 L)", tone: colors.warning },
+        { label: "Tolls (crossings × tariff)", value: "₹11,800" },
+        { label: "Expenses submitted", value: "3 · 1 pending" },
+        { label: "Advances given", value: "₹5,000" },
+      ],
+    },
+    {
+      id: "moneyIn", title: "Money in", icon: "cash-outline", state: "empty",
+      source: "ERP/SAP freight — not connected", freshSince: null, rows: [],
+      emptyMsg: "ERP/SAP not yet linked. Connect it in Settings to see freight and margin.",
+    },
+    {
+      id: "people", title: "People", icon: "people-outline", state: "ok",
+      source: "crew · duty · drivingDna", freshSince: "5:30 AM",
+      rows: [
+        { label: "Drivers on duty", value: "12" },
+        { label: "At-wheel hours", value: "98 h" },
+        { label: "Rest compliant", value: "10 of 12", tone: colors.success },
+        { label: "Rest violation (>legal limit)", value: "2 drivers", tone: colors.error },
+        { label: "Most improved this week", value: "Mohan Sharma · Amar Singh", tone: colors.success },
+        { label: "Lowest score (owner only)", value: "Sunil Patil", tone: colors.warning },
+      ],
+    },
+    {
+      id: "exceptions", title: "Exceptions", icon: "alert-circle-outline", state: "ok",
+      source: "fuelIntegrity · routeDeviation · idling · incident · document", freshSince: "5:30 AM",
+      rows: [
+        { label: "SOS", value: "1 — MP 09 IJ 7890", tone: colors.error },
+        { label: "Idle >2h (engine verified)", value: "1 — MH 12 CD 5678 (52 min)", tone: colors.warning },
+        { label: "Insurance expiring", value: "GJ 01 EF 9012 — 6 days", tone: colors.warning },
+        { label: "Trusted-corridor deviation", value: "1 — RJ 14 GH 3456" },
+        { label: "Theft alerts", value: "0", tone: colors.success },
+        { label: "E-way bill at risk", value: "0", tone: colors.success },
+      ],
+    },
+    {
+      id: "trend", title: "Trend (vs last 7 days)", icon: "trending-up-outline", state: "ok",
+      source: "warehouse (7-day rolling)", freshSince: "5:30 AM",
+      sparkline: [19, 21, 18, 23, 22, 20, 23],
+      rows: [
+        { label: "Trips vs same weekday", value: "+2", tone: colors.success },
+        { label: "Kilometres vs avg", value: "−180 km", tone: colors.warning },
+        { label: "Fuel gap vs avg", value: "−0.4% (improving)", tone: colors.success },
+        { label: "On-time rate vs avg", value: "+3%", tone: colors.success },
+      ],
+    },
+    {
+      id: "dataHealth", title: "Data health", icon: "pulse-outline", state: "ok",
+      source: "sink · LEMU readiness · navMetrics", freshSince: "5 min ago",
+      rows: [
+        { label: "Trucks with no data (>2h)", value: "3", tone: colors.warning },
+        { label: "FleetEdge feed", value: "OK", tone: colors.success },
+        { label: "iALERT feed", value: "OK", tone: colors.success },
+        { label: "App navigation share", value: "0% (N2 pending)", tone: colors.textMuted },
+      ],
+    },
+  ],
+};
+
+const REPORT_STATE_CFG = {
+  ok:    { icon: "checkmark-circle-outline", tone: colors.success, label: "Data available" },
+  empty: { icon: "remove-circle-outline",   tone: colors.textMuted, label: "No data" },
+  error: { icon: "alert-circle-outline",    tone: colors.error, label: "Check failed" },
+};
+
+function ReportSection({ section, expanded, onToggle }) {
+  const cfg = REPORT_STATE_CFG[section.state] || REPORT_STATE_CFG.ok;
+  return (
+    <Card style={{ overflow: "hidden", padding: 0 }}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onToggle}
+        style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14 }}
+      >
+        <View style={{ width: 38, height: 38, borderRadius: radius.md, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}>
+          <Ionicons name={section.icon} size={20} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <AppText weight="semibold">{section.title}</AppText>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+            <Ionicons name={cfg.icon} size={13} color={cfg.tone} />
+            <AppText variant="caption" color={cfg.tone}>{cfg.label}</AppText>
+          </View>
+        </View>
+        <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={18} color={colors.textMuted} />
+      </Pressable>
+      {expanded && (
+        <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+          {section.state === "empty" ? (
+            <AppText variant="small" muted style={{ textAlign: "center", paddingVertical: 12 }}>
+              {section.emptyMsg || "No data for this section."}
+            </AppText>
+          ) : section.state === "error" ? (
+            <AppText variant="small" color={colors.error} style={{ textAlign: "center", paddingVertical: 12 }}>
+              Check failed — tap to retry
+            </AppText>
+          ) : (
+            <>
+              {section.sparkline && (
+                <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 3, height: 36, marginTop: 10, marginBottom: 4 }}>
+                  {section.sparkline.map((val, i) => {
+                    const h = Math.round((val / Math.max(...section.sparkline)) * 32);
+                    return (
+                      <View key={i} style={{ flex: 1, alignItems: "center", justifyContent: "flex-end" }}>
+                        <View style={{ width: "100%", height: h, backgroundColor: i === section.sparkline.length - 1 ? colors.primary : colors.border, borderRadius: 2 }} />
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+              {section.rows.map((row, i) => (
+                <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginTop: i === 0 ? 8 : 0 }}>
+                  <AppText variant="small" muted style={{ flex: 1 }}>{row.label}</AppText>
+                  <AppText variant="small" weight="semibold" color={row.tone} style={{ textAlign: "right" }}>{row.value}</AppText>
+                </View>
+              ))}
+            </>
+          )}
+          <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "row", alignItems: "flex-start", gap: 5 }}>
+            <Ionicons name="information-circle-outline" size={13} color={colors.textMuted} style={{ marginTop: 1 }} />
+            <AppText variant="caption" muted style={{ flex: 1 }}>
+              {`Source: ${section.source}${section.freshSince ? ` · As of ${section.freshSince}` : ""}`}
+            </AppText>
+          </View>
+        </View>
+      )}
+    </Card>
+  );
+}
+
+export function OwnerDailyReport({ navigation }) {
+  const [expanded, setExpanded] = React.useState(() => new Set(["fleetNow", "exceptions"]));
+  const toggle = (id) => setExpanded((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+  const { generatedAt, date, sections } = DAILY_REPORT_MOCK;
+
+  return (
+    <ManagerPage navigation={navigation} title="Aaj ka hisaab" subtitle={`${date} · Generated ${generatedAt}`} allowEmpty>
+      <Card style={{ backgroundColor: colors.infoBg, borderColor: colors.border }}>
+        <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+          <Ionicons name="shield-checkmark-outline" size={18} color={colors.primaryDeep} style={{ marginTop: 1 }} />
+          <View style={{ flex: 1 }}>
+            <AppText variant="small" weight="semibold" color={colors.primaryDeep}>Honesty contract</AppText>
+            <AppText variant="small" muted style={{ marginTop: 2 }}>
+              Every number comes from a named source. Missing result = "no data", never a silent zero. Where two sources disagree, both are shown with the gap.
+            </AppText>
+          </View>
+        </View>
+      </Card>
+
+      {sections.map((section) => (
+        <ReportSection
+          key={section.id}
+          section={section}
+          expanded={expanded.has(section.id)}
+          onToggle={() => toggle(section.id)}
+        />
+      ))}
+
+      <AppText variant="small" muted style={{ textAlign: "center", marginTop: 4 }}>
+        Mock data · O-02 backend endpoint not built yet
       </AppText>
     </ManagerPage>
   );
