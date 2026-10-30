@@ -1,6 +1,7 @@
 import React from "react";
 import { View, ScrollView, StyleSheet, Pressable, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { AppText, Card, Loading, EmptyState, colors, radius, spacing } from "../../../components/ui";
@@ -39,12 +40,17 @@ export default function FieldAgentOrgsScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
-      
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <AppText variant="h3" weight="extrabold">My Organisations</AppText>
-        <AppText variant="small" muted>Select an organisation to log fuel for</AppText>
-      </View>
+      <StatusBar style="light" />
+
+      <LinearGradient
+        colors={colors.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + spacing.sm }]}
+      >
+        <AppText variant="h3" weight="extrabold" color={colors.white}>My Organisations</AppText>
+        <AppText variant="small" color={colors.onPrimaryMuted}>Select an organisation to log fuel for</AppText>
+      </LinearGradient>
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 100 }]}
@@ -99,10 +105,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     paddingHorizontal: 22,
-    paddingBottom: 16,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingBottom: 18,
   },
   scroll: { padding: 18 },
   list: { gap: 12 },
@@ -114,7 +117,7 @@ const styles = StyleSheet.create({
   },
   activeCard: {
     borderColor: colors.primary,
-    backgroundColor: colors.tealTint,
+    backgroundColor: colors.infoBg,
   },
   orgRow: {
     flexDirection: "row",
@@ -132,7 +135,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   activeIconBox: {
-    borderColor: colors.primaryLight,
+    borderColor: colors.infoBg,
     backgroundColor: colors.white,
   },
   orgInfo: {
