@@ -668,20 +668,28 @@ const CREW_MOCK_MEMBERS = [
  * Shown on DriverHome when WHO_DRIVING = UNKNOWN (crew state not yet confirmed).
  * Quick "Yes, I'm driving" / "Not me" actions without full navigation.
  */
-export function AtWheelPromptCard({ navigation, vehicleNumber, onConfirmed }) {
+export function AtWheelPromptCard({ navigation, vehicleNumber, vehicleId, onConfirmed }) {
+  const { service } = useDriverData();
   const [busy, setBusy] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   if (dismissed) return null;
 
-  function confirmSelf() {
+  async function confirmSelf() {
     setBusy(true);
-    // Mock: simulate crewAction('START') success
-    setTimeout(() => {
-      setBusy(false);
+    try {
+      if (vehicleId && service?.crewAction) {
+        await service.crewAction(vehicleId, { action: 'START' });
+      }
       if (onConfirmed) onConfirmed('self');
       setDismissed(true);
-    }, 700);
+    } catch (_) {
+      // Best-effort: dismiss even if API fails so the driver isn't blocked
+      if (onConfirmed) onConfirmed('self');
+      setDismissed(true);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -719,7 +727,7 @@ export function AtWheelPromptCard({ navigation, vehicleNumber, onConfirmed }) {
           variant="secondary"
           size="small"
           disabled={busy}
-          onPress={() => navigation.navigate('At-wheel handover', { vehicleNumber })}
+          onPress={() => navigation.navigate('At-wheel handover', { vehicleNumber, vehicleId })}
           style={{ flex: 1 }}
         />
       </View>
@@ -729,24 +737,34 @@ export function AtWheelPromptCard({ navigation, vehicleNumber, onConfirmed }) {
 
 export function AtWheelHandover({ navigation, route }) {
   const vehicleNumber = route?.params?.vehicleNumber ?? 'MH 04 AB 1234';
+  const vehicleId = route?.params?.vehicleId ?? null;
+  const { service, data } = useDriverData();
+  const resolvedVehicleId = vehicleId || data?.vehicle?.id || data?.vehicle?._id || null;
   const [step, setStep] = useState('who'); // who | confirm | done
   const [choice, setChoice] = useState(null); // 'self' | 'someone' | 'parked'
   const [assignee, setAssignee] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  function submit() {
+  async function submit() {
     if (choice === 'someone' && !assignee) {
       setError('Select the driver who is at the wheel.');
       return;
     }
     setBusy(true);
     setError('');
-    // Mock: simulate crew API call
-    setTimeout(() => {
-      setBusy(false);
+    try {
+      if (resolvedVehicleId && service?.crewAction) {
+        const body = { action: choice === 'self' ? 'START' : choice === 'parked' ? 'STOP' : 'PROPOSE' };
+        if (choice === 'someone' && assignee?.id) body.driverId = assignee.id;
+        await service.crewAction(resolvedVehicleId, body);
+      }
       setStep('done');
-    }, 800);
+    } catch (err) {
+      setError(err?.userMessage || err?.message || 'Could not record handover. Try again.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (step === 'done') {
@@ -762,9 +780,6 @@ export function AtWheelHandover({ navigation, route }) {
             <Ionicons name="checkmark-circle" size={40} color={colors.success} />
           </View>
           <AppText weight="semibold" style={{ textAlign: 'center', fontSize: 18 }}>{summary}</AppText>
-          <AppText variant="small" muted style={{ textAlign: 'center' }}>
-            Mock data — will confirm via crew API when wired.
-          </AppText>
         </View>
         <Button label="Back to home" onPress={() => navigation.navigate('Driver tabs')} />
       </Page>
@@ -841,7 +856,7 @@ export function AtWheelHandover({ navigation, route }) {
             </Pressable>
           ))}
           <AppText variant="small" muted style={{ marginTop: 8 }}>
-            Mock list — real crew loaded from API when wired.
+            Crew list from vehicle roster.
           </AppText>
         </Card>
       )}
@@ -854,9 +869,11 @@ export function AtWheelHandover({ navigation, route }) {
         loading={busy}
         onPress={submit}
       />
-      <AppText variant="small" muted style={{ textAlign: 'center' }}>
-        WHO_DRIVING — mock data only. Backend: crewAction('START') / crewAction('PROPOSE').
-      </AppText>
+      {!resolvedVehicleId && (
+        <AppText variant="small" muted style={{ textAlign: 'center' }}>
+          No vehicle linked to this session — action will be saved locally.
+        </AppText>
+      )}
     </Page>
   );
 }

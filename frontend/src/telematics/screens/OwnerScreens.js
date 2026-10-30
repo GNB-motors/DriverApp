@@ -8,6 +8,7 @@ import { AppText, Card, Button, colors, radius } from '../../components/ui';
 import { useManagerData } from '../context/ManagerDataContext';
 import { summarizeOwner } from '../services/ownerSummary';
 import { ManagerPage, RecentTrips } from './ManagerScreens';
+import useOwnerRequest from '../hooks/useOwnerRequest';
 import { MenuRow } from './DriverScreens';
 import { KpiCard, SectionHeading, DataState } from '../components';
 import { formatLitres } from '../../utils/format';
@@ -83,7 +84,17 @@ const ALERT_SEVERITY_CFG = {
 };
 
 export function OwnerHomeSummary({ navigation }) {
-  const { fleet, topAlerts, orgName, date, reportReady } = OWNER_HOME_MOCK;
+  const { data } = useManagerData();
+  const summary = summarizeOwner(data);
+  const hasLiveFleet = typeof summary.trucks === 'number';
+  const fleet = {
+    total: hasLiveFleet ? summary.trucks : OWNER_HOME_MOCK.fleet.total,
+    driving: typeof summary.moving === 'number' ? summary.moving : OWNER_HOME_MOCK.fleet.driving,
+    idle: typeof summary.unknown === 'number' ? summary.unknown : OWNER_HOME_MOCK.fleet.idle,
+    plant: OWNER_HOME_MOCK.fleet.plant,
+    offline: typeof summary.offline === 'number' ? summary.offline : OWNER_HOME_MOCK.fleet.offline,
+  };
+  const { topAlerts, orgName, date, reportReady } = OWNER_HOME_MOCK;
   const insets = { top: 48 }; // fallback — real code should use useSafeAreaInsets
 
   return (
@@ -165,7 +176,7 @@ export function OwnerHomeSummary({ navigation }) {
       </View>
 
       <AppText variant="small" muted style={{ textAlign: "center", marginTop: 4 }}>
-        Mock data · O-01 backend endpoint not built yet
+        {hasLiveFleet ? 'Live fleet counts · alerts are mock' : 'Mock data · O-01 backend endpoint not built yet'}
       </AppText>
     </ManagerPage>
   );
@@ -340,13 +351,26 @@ function ReportSection({ section, expanded, onToggle }) {
 }
 
 export function OwnerDailyReport({ navigation }) {
+  const { service, branchId } = useManagerData();
+  const today = new Date().toISOString().split('T')[0];
+  const report = useOwnerRequest(
+    `owner-daily-report:${branchId}:${today}`,
+    () => service.ownerDaily(today, branchId === 'all' ? undefined : branchId),
+    300000,
+  );
   const [expanded, setExpanded] = React.useState(() => new Set(["fleetNow", "exceptions"]));
   const toggle = (id) => setExpanded((prev) => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
     return next;
   });
-  const { generatedAt, date, sections } = DAILY_REPORT_MOCK;
+  const apiSections = Array.isArray(report.data?.sections) && report.data.sections.length > 0
+    ? report.data.sections
+    : null;
+  const sections = apiSections ?? DAILY_REPORT_MOCK.sections;
+  const generatedAt = report.data?.generatedAt || DAILY_REPORT_MOCK.generatedAt;
+  const date = report.data?.date || DAILY_REPORT_MOCK.date;
+  const isLive = !report.loading && !report.error && apiSections != null;
 
   return (
     <ManagerPage navigation={navigation} title="Aaj ka hisaab" subtitle={`${date} · Generated ${generatedAt}`} allowEmpty>
@@ -362,7 +386,9 @@ export function OwnerDailyReport({ navigation }) {
         </View>
       </Card>
 
-      {sections.map((section) => (
+      {report.loading && <DataState state="loading" />}
+
+      {!report.loading && sections.map((section) => (
         <ReportSection
           key={section.id}
           section={section}
@@ -372,7 +398,7 @@ export function OwnerDailyReport({ navigation }) {
       ))}
 
       <AppText variant="small" muted style={{ textAlign: "center", marginTop: 4 }}>
-        Mock data · O-02 backend endpoint not built yet
+        {isLive ? 'Live report data' : report.error ? 'Showing mock data (could not load report)' : 'Mock data · O-02 backend endpoint not built yet'}
       </AppText>
     </ManagerPage>
   );
