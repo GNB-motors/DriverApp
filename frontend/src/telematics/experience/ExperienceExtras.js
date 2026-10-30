@@ -262,3 +262,53 @@ export function DeliveryConfirmation({ navigation }) {
     </> : <AppText>{c('disconnectedBody')}</AppText>}
   </ExperiencePage>;
 }
+export function ExpenseClaim({ navigation }) {
+  const c = useExperienceCopy();
+  const { preview, motion, events, recordEvent } = useExperience();
+  const types = [
+    { id: 'toll', key: 'expenseToll' }, { id: 'food', key: 'expenseFood' },
+    { id: 'parking', key: 'expenseParking' }, { id: 'other', key: 'other' },
+  ];
+  const [type, setType] = useState('toll');
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const [photo, setPhoto] = useState(null);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+  useEffect(() => { if (!preview) { setType('toll'); setAmount(''); setNote(''); setPhoto(null); setNotice(''); setError(''); } }, [preview]);
+  const stopped = preview && motion === 'stopped';
+  const valid = /^\d+(\.\d{1,2})?$/.test(amount.trim());
+  const entries = events.filter((event) => event.type === 'EXPENSE_PREVIEW_LOGGED');
+  const attach = async () => {
+    if (!stopped) return;
+    try { const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 }); if (!result.canceled) { setPhoto(result.assets[0].uri); setNotice(''); } } catch { setError(c('captureError')); }
+  };
+  const save = () => {
+    if (!stopped || !valid) { setError(c('expenseInvalid')); return; }
+    recordEvent('EXPENSE_PREVIEW_LOGGED', { type, amount: amount.trim(), note: note.trim() || null, hasPhoto: !!photo });
+    setAmount(''); setNote(''); setPhoto(null); setError(''); setNotice(c('expenseSaved'));
+  };
+  const typeLabel = (id) => c(types.find((item) => item.id === id)?.key || 'other');
+  return <ExperiencePage title={c('expenseClaim')} navigation={navigation}>
+    {preview ? <>
+      <AppText muted>{c('expenseBody')}</AppText>
+      {!stopped ? <Card style={{ backgroundColor: colors.blueTint }}><AppText>{c('expenseStoppedOnly')}</AppText></Card> : null}
+      <Panel title={c('expenseClaim')}>
+        <ChoiceRow label={c('expenseType')} value={type} onValueChange={setType} options={types.map((item) => ({ value: item.id, label: c(item.key) }))} />
+        <TextField label={c('fuelAmount')} accessibilityLabel={c('fuelAmount')} keyboardType="decimal-pad" editable={stopped} value={amount} onChangeText={setAmount} />
+        <TextField label={c('podNote')} accessibilityLabel={c('podNote')} editable={stopped} value={note} onChangeText={setNote} multiline maxLength={200} />
+        {photo ? <><Image source={{ uri: photo }} accessibilityLabel={c('expenseAttached')} style={{ width: '100%', height: 180, resizeMode: 'contain', backgroundColor: colors.background }} /><ActionButton label={c('remove')} tone="secondary" onPress={() => setPhoto(null)} /></> : <ActionButton label={c('expenseAttach')} tone="secondary" disabled={!stopped} onPress={attach} />}
+        <ActionButton label={c('fuelSave')} disabled={!stopped || !valid} onPress={save} />
+        {error ? <AppText color={colors.error}>{error}</AppText> : null}
+        {notice ? <AppText accessibilityLiveRegion="polite" color={colors.success}>{notice}</AppText> : null}
+      </Panel>
+      <Panel title={c('expenseRecent')}>
+        {!entries.length ? <AppText muted>{c('expenseNone')}</AppText> : [...entries].reverse().map((event) => <View key={event.id} style={{ minHeight: 44, gap: 2 }}>
+          <AppText weight="semibold">{`${typeLabel(event.payload.type)} · ₹${event.payload.amount}`}</AppText>
+          {event.payload.note || event.payload.hasPhoto ? <AppText variant="caption" muted>{`${event.payload.note || ''}${event.payload.hasPhoto ? `${event.payload.note ? ' · ' : ''}${c('expenseAttached')}` : ''}`}</AppText> : null}
+        </View>)}
+      </Panel>
+      <AppText variant="caption" muted>{c('expenseDisclaimer')}</AppText>
+    </> : <AppText>{c('disconnectedBody')}</AppText>}
+  </ExperiencePage>;
+}
