@@ -6,6 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { AppText, Card, TextField, colors } from '../../components/ui';
 import { useLanguage } from '../../context/LanguageContext';
 import { useExperience } from './ExperienceContext';
+import { useTelematicsApi } from '../context/TelematicsApiContext';
 import { fingerprintPickedAsset } from './captureFingerprint';
 import { VoiceAttachment } from './ReportExperience';
 import { ExperiencePage, ActionButton, ChoiceRow, useExperienceCopy } from './ExperienceUI';
@@ -28,7 +29,56 @@ export function OfflineMaps({ navigation }) {
   return <ExperiencePage title={c('offlineMaps')} navigation={navigation}><Panel title={c('offlineMaps')}><AppText muted>{c('noMaps')}</AppText><Toggle label={c('wifi')} value={settings.wifiOnly !== false} onValueChange={wifiOnly => setSettings({ wifiOnly })} />{preview && <><AppText weight="bold">{c('sampleCorridor')}</AppText><AppText>{c('size')}</AppText>{progress > 0 && !ready && <AppText accessibilityLiveRegion="polite">{progress}%</AppText>}<ActionButton disabled={progress > 0 && !ready} label={c(ready ? 'remove' : 'download')} onPress={() => { recordEvent(ready ? 'PACK_REMOVED' : 'PACK_PREVIEW_STARTED'); setReady(false); setProgress(ready ? 0 : 20); }} />{ready && <AppText color={colors.success}>{c('ready')}</AppText>}</>}</Panel></ExperiencePage>;
 }
 export function BatteryHelp({ navigation }) { const c = useExperienceCopy(); const [error, setError] = useState(''); return <ExperiencePage title={c('battery')} navigation={navigation}><Panel title={c('battery')}><AppText>{c('batterySteps')}</AppText><ActionButton label={c('openSettings')} tone="secondary" onPress={async () => { try { if (Platform.OS === 'web') throw Error(); await Linking.openSettings(); } catch { setError(c('settingsOpenFailed')); } }} />{error ? <AppText color={colors.error}>{error}</AppText> : null}</Panel></ExperiencePage>; }
-export function PrivacyConsent({ navigation }) { const c = useExperienceCopy(); const { preview, consent, setConsent, recordEvent } = useExperience(); return <ExperiencePage title={c('privacy')} navigation={navigation}><Panel title={c('privacy')}><AppText>{c('privacyBody')}</AppText>{consent && <AppText color={colors.success}>{c('accepted')}</AppText>}<ActionButton disabled={!preview} label={c(consent ? 'withdraw' : 'accept')} onPress={() => { setConsent(!consent); recordEvent(consent ? 'PREVIEW_CONSENT_WITHDRAWN' : 'PREVIEW_CONSENT_ACCEPTED'); }} /></Panel></ExperiencePage>; }
+export function PrivacyConsent({ navigation }) {
+  const c = useExperienceCopy();
+  const service = useTelematicsApi();
+  const { preview, consent, setConsent, recordEvent } = useExperience();
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    service.consent()
+      .then((res) => {
+        const granted = res?.data?.granted ?? res?.granted ?? false;
+        if (active) setConsent(granted);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [service]);
+
+  const toggle = async () => {
+    if (!preview || loading) return;
+    setApiError('');
+    setLoading(true);
+    try {
+      if (consent) {
+        await service.withdrawConsent();
+        setConsent(false);
+        recordEvent('CONSENT_WITHDRAWN');
+      } else {
+        await service.grantConsent({ purpose: 'location_tracking', version: '1.0' });
+        setConsent(true);
+        recordEvent('CONSENT_GRANTED');
+      }
+    } catch (err) {
+      setApiError(err?.response?.data?.message || 'Could not update consent. Try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <ExperiencePage title={c('privacy')} navigation={navigation}>
+      <Panel title={c('privacy')}>
+        <AppText>{c('privacyBody')}</AppText>
+        {consent && <AppText color={colors.success}>{c('accepted')}</AppText>}
+        {apiError ? <AppText color={colors.error}>{apiError}</AppText> : null}
+        <ActionButton disabled={!preview || loading} label={loading ? 'Updating…' : c(consent ? 'withdraw' : 'accept')} onPress={toggle} />
+      </Panel>
+    </ExperiencePage>
+  );
+}
 export function DriverHelp({ navigation }) { const c = useExperienceCopy(); const [message, setMessage] = useState(''); return <ExperiencePage title={c('help')} navigation={navigation}><AppText>{c('helpBody')}</AppText><Panel title={c('help')}>{['callManager', 'callOwner', 'messageOffice', 'breakdown'].map(key => <Row key={key} title={c(key)} onPress={() => key === 'messageOffice' ? navigation.navigate('Conversation preview') : setMessage(c(key === 'breakdown' ? 'nearbyUnavailable' : 'noContact'))} icon={key === 'breakdown' ? 'construct-outline' : key === 'messageOffice' ? 'chatbubble-outline' : 'call-outline'} />)}{message ? <AppText accessibilityLiveRegion="polite" color={colors.warning}>{message}</AppText> : null}</Panel><Panel title={c('guide')}><AppText>{c('guideBody')}</AppText><Row title={c('battery')} onPress={() => navigation.navigate('Battery help')} /><Row title={c('privacy')} onPress={() => navigation.navigate('Privacy & consent')} /></Panel></ExperiencePage>; }
 export function ExperienceIntroduction({ navigation }) {
   const c = useExperienceCopy(); const { language, setLanguage } = useLanguage(); const [step, setStep] = useState(0); const steps = ['language', 'welcome', 'locationStep', 'privacy', 'battery', 'offlineMaps'];
@@ -49,9 +99,111 @@ export function PaperDetail({ navigation, route, review = false }) {
 }
 export function PaperReviewDetail(props) { return <PaperDetail {...props} review />; }
 export function UniversalCapture({ navigation, route }) {
-  const c = useExperienceCopy(); const { preview, motion, draftPages, setDraftPages, setPapers, recordEvent } = useExperience(); const [type, setType] = useState(route.params?.hint || 'other'); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [checked, setChecked] = useState(false); const locked = !preview || motion !== 'stopped';
-  const pick = async camera => { if (locked || busy) return; setError(''); setBusy(true); try { if (camera) { const permission = await ImagePicker.requestCameraPermissionsAsync(); if (!permission.granted) { setError(c('cameraDenied')); return; } } const result = await (camera ? ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 }) : ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 1, selectionLimit: 10 })); if (!result.canceled) { const pages = await Promise.all(result.assets.map(async (asset, index) => ({ id: `${Date.now()}-${index}`, uri: asset.uri, width: asset.width, height: asset.height, originalName: asset.fileName || null, fingerprint: await fingerprintPickedAsset(asset) }))); setChecked(false); setDraftPages(current => [...current, ...pages.filter(page => !current.some(old => old.fingerprint === page.fingerprint))].slice(0, 10)); recordEvent('PAPER_PAGES_SELECTED', { count: result.assets.length }); } } catch { setError(c('captureError')); } finally { setBusy(false); } };
-  return <ExperiencePage title={c('capture')} navigation={navigation}><Panel title={c('quality')}><AppText>{c('qualityBody')}</AppText><AppText variant="small" muted>{c('duplicateNote')}</AppText>{locked && <AppText color={colors.warning}>{c('unavailableMotion')}</AppText>}<ActionButton disabled={locked || busy} label={c('takePhoto')} onPress={() => pick(true)} /><ActionButton disabled={locked || busy} label={c('choosePhoto')} tone="secondary" onPress={() => pick(false)} />{error ? <AppText color={colors.error}>{error}</AppText> : null}</Panel>{draftPages.map((p, i) => <Panel key={p.id} title={`${c('page')} ${i + 1}`}><Image accessibilityLabel={`${c('page')} ${i + 1}`} source={{ uri: p.uri }} style={{ height: 300, width: '100%', resizeMode: 'contain' }} /><AppText variant="caption" muted numberOfLines={2}>{c('fingerprint')}: {p.fingerprint}</AppText><ActionButton label={c('removePage')} tone="secondary" onPress={() => { setChecked(false); setDraftPages(current => current.filter(page => page.id !== p.id)); }} /></Panel>)}<ChoiceRow label={c('type')} value={type} onValueChange={setType} options={['other', 'fuel', 'lr', 'pod'].map(value => ({ value, label: c(value) }))} /><Toggle label={c('reviewQuality')} value={checked} onValueChange={setChecked} /><AppText muted>{c('queueBody')}</AppText><ActionButton disabled={locked || !draftPages.length || !checked || busy} label={c('queue')} onPress={() => { const id = `preview-${Date.now()}`; setPapers(current => [...current, { id, type, status: 'queued', amount: null, pages: draftPages, replaces: route.params?.replaces || null, at: new Date().toISOString() }]); recordEvent('CAPTURE_PREVIEW_QUEUED', { id, pageCount: draftPages.length }); setDraftPages([]); navigation.replace('Paper detail', { paperId: id }); }} /></ExperiencePage>;
+  const c = useExperienceCopy();
+  const service = useTelematicsApi();
+  const { preview, motion, draftPages, setDraftPages, setPapers, recordEvent } = useExperience();
+  const [type, setType] = useState(route.params?.hint || 'other');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [checked, setChecked] = useState(false);
+  const locked = !preview || motion !== 'stopped';
+
+  const pick = async (camera) => {
+    if (locked || busy) return;
+    setError('');
+    setBusy(true);
+    try {
+      if (camera) {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) { setError(c('cameraDenied')); return; }
+      }
+      const result = await (camera
+        ? ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 })
+        : ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 1, selectionLimit: 10 }));
+      if (!result.canceled) {
+        const pages = await Promise.all(result.assets.map(async (asset, index) => ({
+          id: `${Date.now()}-${index}`,
+          uri: asset.uri,
+          width: asset.width,
+          height: asset.height,
+          originalName: asset.fileName || null,
+          fingerprint: await fingerprintPickedAsset(asset),
+        })));
+        setChecked(false);
+        setDraftPages((current) =>
+          [...current, ...pages.filter((page) => !current.some((old) => old.fingerprint === page.fingerprint))].slice(0, 10)
+        );
+        recordEvent('PAPER_PAGES_SELECTED', { count: result.assets.length });
+      }
+    } catch {
+      setError(c('captureError'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submit = async () => {
+    if (locked || !draftPages.length || !checked || busy) return;
+    setBusy(true);
+    setError('');
+    const clientId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    try {
+      const formData = new FormData();
+      formData.append('clientId', clientId);
+      formData.append('context', JSON.stringify({ docType: type, hint: route.params?.hint || null }));
+      for (const page of draftPages) {
+        formData.append('pages', { uri: page.uri, name: page.originalName || `page-${clientId}.jpg`, type: 'image/jpeg' });
+      }
+      const result = await service.captureCreate(formData);
+      const id = result?.id || result?._id || clientId;
+      setPapers((current) => [
+        ...current,
+        { id, type: result?.docType || type, status: result?.status || 'queued', amount: null, pages: draftPages, replaces: route.params?.replaces || null, at: new Date().toISOString(), _real: true },
+      ]);
+      recordEvent('CAPTURE_SUBMITTED', { id, pageCount: draftPages.length, docType: result?.docType });
+      setDraftPages([]);
+      navigation.replace('Paper detail', { paperId: id });
+    } catch (err) {
+      if (err?.response?.status === 403 || err?.response?.status === 404 || !err?.response) {
+        const id = `preview-${clientId}`;
+        setPapers((current) => [
+          ...current,
+          { id, type, status: 'queued', amount: null, pages: draftPages, replaces: route.params?.replaces || null, at: new Date().toISOString() },
+        ]);
+        recordEvent('CAPTURE_PREVIEW_QUEUED', { id, pageCount: draftPages.length });
+        setDraftPages([]);
+        navigation.replace('Paper detail', { paperId: id });
+      } else {
+        setError(c('captureError'));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ExperiencePage title={c('capture')} navigation={navigation}>
+      <Panel title={c('quality')}>
+        <AppText>{c('qualityBody')}</AppText>
+        <AppText variant="small" muted>{c('duplicateNote')}</AppText>
+        {locked && <AppText color={colors.warning}>{c('unavailableMotion')}</AppText>}
+        <ActionButton disabled={locked || busy} label={c('takePhoto')} onPress={() => pick(true)} />
+        <ActionButton disabled={locked || busy} label={c('choosePhoto')} tone="secondary" onPress={() => pick(false)} />
+        {error ? <AppText color={colors.error}>{error}</AppText> : null}
+      </Panel>
+      {draftPages.map((p, i) => (
+        <Panel key={p.id} title={`${c('page')} ${i + 1}`}>
+          <Image accessibilityLabel={`${c('page')} ${i + 1}`} source={{ uri: p.uri }} style={{ height: 300, width: '100%', resizeMode: 'contain' }} />
+          <AppText variant="caption" muted numberOfLines={2}>{c('fingerprint')}: {p.fingerprint}</AppText>
+          <ActionButton label={c('removePage')} tone="secondary" onPress={() => { setChecked(false); setDraftPages((current) => current.filter((page) => page.id !== p.id)); }} />
+        </Panel>
+      ))}
+      <ChoiceRow label={c('type')} value={type} onValueChange={setType} options={['other', 'fuel', 'lr', 'pod'].map((value) => ({ value, label: c(value) }))} />
+      <Toggle label={c('reviewQuality')} value={checked} onValueChange={setChecked} />
+      <AppText muted>{c('queueBody')}</AppText>
+      <ActionButton disabled={locked || !draftPages.length || !checked || busy} label={busy ? 'Uploading…' : c('queue')} onPress={submit} />
+    </ExperiencePage>
+  );
 }
 export function ExperienceInbox({ navigation }) {
   const c = useExperienceCopy(); const { preview, motion, recordEvent } = useExperience(); const [answer, setAnswer] = useState(null);
