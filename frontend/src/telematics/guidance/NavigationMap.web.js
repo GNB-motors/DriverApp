@@ -1,3 +1,5 @@
 import React from 'react';
-import { AppText } from '../../components/ui';
-export default function NavigationMap() { return <AppText muted>Open the native DriverApp for the navigation map and turn-by-turn guidance.</AppText>; }
+import { StyleSheet, View } from 'react-native';
+import { driveTokens } from '../../theme/driveTokens';
+export const mapStyleConfigured = () => false;
+export default function NavigationMap() { return <View style={[StyleSheet.absoluteFill, { backgroundColor: driveTokens.day.map }]} />; }

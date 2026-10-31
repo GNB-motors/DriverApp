@@ -280,7 +280,8 @@ export function AlertDetail({ navigation, route }) {
   return <Page navigation={navigation} title="Alert details" allowEmpty>{error ? <AppText color={colors.error}>{error}</AppText> : null}{alert ? <><AlertRow alert={alert} />{alert.description ? <Card><AppText>{alert.description}</AppText></Card> : null}<Button label={alert.acknowledged ? 'Acknowledged' : 'Mark as read'} disabled={alert.acknowledged} loading={busy} onPress={acknowledge} /></> : !error ? <DataState state="loading" /> : <Empty title="Alert unavailable" description="Return to your inbox." />}</Page>;
 }
 export function Navigate({ navigation }) {
-  return <Page navigation={navigation} title="Navigate" subtitle="Turn-by-turn on our truck routes."><NavigateExperience /></Page>;
+  // Full-screen map like any navigation app; quick links live in the planning sheet.
+  return <NavigateExperience navigation={navigation} />;
 }
 export function MyTruck({ navigation }) {
   const { data } = useDriverData();
