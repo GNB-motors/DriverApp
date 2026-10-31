@@ -1,16 +1,10 @@
 import React from 'react';
 import NavigateExperience from '../guidance/NavigateExperience';
-import { AppText, Card } from '../../components/ui';
 import { ActionButton, ExperiencePage, useExperienceCopy } from './ExperienceUI';
 
+// Full-screen map like any navigation app; quick links live in the planning sheet.
 export function NavigateScreen({ navigation }) {
-  const c = useExperienceCopy();
-  return <ExperiencePage title={c('navigationLabel')} navigation={navigation}>
-    <NavigateExperience />
-    <ActionButton label={c('myTruck')} onPress={() => navigation.navigate('My truck')} />
-    <ActionButton label={c('recordedTrips')} tone="secondary" onPress={() => navigation.navigate('Recorded trips')} />
-    <ActionButton label={c('sos')} tone="secondary" onPress={() => navigation.navigate('SOS')} />
-  </ExperiencePage>;
+  return <NavigateExperience navigation={navigation} />;
 }
 export function CaptureScreen({ navigation }) {
   const c = useExperienceCopy();

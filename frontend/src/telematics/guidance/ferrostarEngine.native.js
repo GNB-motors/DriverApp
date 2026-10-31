@@ -1,11 +1,12 @@
 import { FerrostarCore, ManualLocationProvider, CorrectiveAction, NavigationUiState } from '@stadiamaps/ferrostar-core-react-native';
-import { RouteAdapter, WellKnownRouteProvider, UserLocation, WaypointAdvanceMode, RouteDeviationTracking, CourseFiltering, stepAdvanceDistanceEntryAndExit, stepAdvanceDistanceToEndOfStep } from '@stadiamaps/ferrostar-uniffi-react-native';
+import { RouteAdapter, WellKnownRouteProvider, ManeuverType, ManeuverModifier, DrivingSide, UserLocation, WaypointAdvanceMode, RouteDeviationTracking, CourseFiltering, stepAdvanceDistanceEntryAndExit, stepAdvanceDistanceToEndOfStep } from '@stadiamaps/ferrostar-uniffi-react-native';
 import * as Speech from 'expo-speech';
 import { validateBundle } from './navigationCoordinator';
 
 export async function createFerrostarEngine({ language = 'en', onState = () => {}, onDeviation = () => {}, foregroundService } = {}) {
   const voices = await Speech.getAvailableVoicesAsync();
   let voiceSelection = null;
+  let muted = false;
   const provider = new ManualLocationProvider();
   const adapter = RouteAdapter.fromWellKnownRouteProvider(WellKnownRouteProvider.Valhalla.new({ endpointUrl: 'https://unused.invalid', profile: 'truck', optionsJson: undefined }));
   const config = {
@@ -17,8 +18,8 @@ export async function createFerrostarEngine({ language = 'en', onState = () => {
   };
   let deviationPending = false;
   const core = new FerrostarCore(config, provider, { kind: 'custom', getRoutes: async () => [] }, {
-    speak(text, muted) {
-      if (muted) return;
+    speak(text, sdkMuted) {
+      if (sdkMuted || muted) return;
       if (!voiceSelection || Date.parse(voiceSelection.expiresAt) <= Date.now() || (voiceSelection.offlinePolicy && !voiceSelection.offlineVerified)) {
         Speech.stop(); voiceSelection = null; return;
       }
@@ -35,7 +36,13 @@ export async function createFerrostarEngine({ language = 'en', onState = () => {
       return CorrectiveAction.DoNothing;
     },
   }, foregroundService);
-  const listener = core.addStateListener(state => onState({ ...state, ui: NavigationUiState.fromFerrostar(state) }));
+  // The generated enums are numeric; the screen reads their names.
+  const name = (values, value) => (typeof value === 'number' ? values[value] : value);
+  const listener = core.addStateListener(state => {
+    const ui = NavigationUiState.fromFerrostar(state);
+    const content = ui.visualInstruction?.primaryContent;
+    onState({ ...state, ui, maneuver: content && { type: name(ManeuverType, content.maneuverType), modifier: name(ManeuverModifier, content.maneuverModifier), drivingSide: ui.drivingSide === undefined ? undefined : name(DrivingSide, ui.drivingSide)?.toLowerCase() } });
+  });
   await core.connectLocationProvider(provider);
   return {
     core,
@@ -47,6 +54,7 @@ export async function createFerrostarEngine({ language = 'en', onState = () => {
       // Stop an utterance immediately if the server suspends or replaces it.
       if (changed || !voiceSelection) Speech.stop();
     },
+    setMuted(value) { muted = value === true; if (muted) Speech.stop(); },
     parse(bundle) {
       validateBundle(bundle);
       const bytes = new TextEncoder().encode(JSON.stringify(bundle.payload));

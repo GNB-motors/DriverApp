@@ -416,7 +416,7 @@ export function DriverMore({ navigation }) {
     },
     {
       key: 'moreAccount',
-      items: [['Experience settings', 'language-outline'], ['Driver help', 'help-circle-outline'], ['Profile', 'person-outline']],
+      items: [['Experience settings', 'language-outline'], ['Privacy & consent', 'shield-checkmark-outline'], ['Driver help', 'help-circle-outline'], ['Profile', 'person-outline']],
     },
   ];
   return <Page navigation={navigation} title="Everything else" subtitle="Your essentials, in one place.">{groups.map((group) => <React.Fragment key={group.key}><SectionHeading title={t('roleDesign', group.key)} titleStyle={sectionTitleStyle} />{group.items.map(([title, icon]) => <MenuRow key={title} title={title} icon={icon} onPress={() => navigation.navigate(title)} />)}</React.Fragment>)}</Page>;

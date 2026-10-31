@@ -1,7 +1,7 @@
 import { crewActionPayload, crewCard, conversationView, messageSendPayload, messageView } from './approvedDriverContracts';
 import { ALERT_TITLES, alertSeverity } from "./alertMetadata";
 import axios from "axios";
-import { appLoginUrl } from "./authEndpoint";
+import { APP_VERSION, appLoginUrl } from "./authEndpoint";
 
 export const recordId = (value) => {
   const id = value && typeof value === "object" ? value._id || value.id : value;
@@ -182,7 +182,7 @@ export function createTelematicsApi({
   const client = axios.create({
     baseURL: apiRoot,
     timeout: 20000,
-    headers: { Authorization: `Bearer ${token}`, ...(orgId && { 'X-Org-Id': orgId }) },
+    headers: { Authorization: `Bearer ${token}`, 'X-App-Version': APP_VERSION, ...(orgId && { 'X-Org-Id': orgId }) },
   });
   client.interceptors.response.use(
     (response) => response,
