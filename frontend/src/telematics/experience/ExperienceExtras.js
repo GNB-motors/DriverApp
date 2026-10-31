@@ -34,10 +34,6 @@ export function BatteryHelp({ navigation }) {
   const c = useExperienceCopy(); const [error, setError] = useState('');
   return <ExperiencePage title={c('battery')} navigation={navigation}><AppText>{c('batterySteps')}</AppText><ActionButton label={c('openSettings')} disabled={Platform.OS === 'web'} onPress={async () => { try { await Linking.openSettings(); } catch { setError(c('settingsOpenFailed')); } }} />{error ? <AppText accessibilityRole="alert">{error}</AppText> : null}</ExperiencePage>;
 }
-export function DriverHelp({ navigation }) {
-  const c = useExperienceCopy();
-  return <ExperiencePage title={c('help')} navigation={navigation}><AppText>{c('contactOffice')}</AppText><ActionButton label={c('crewMessages')} onPress={() => navigation.navigate('Messages')} /><ActionButton label={c('support')} tone="secondary" onPress={() => navigation.navigate('Support')} /><ActionButton label={c('sos')} tone="secondary" onPress={() => navigation.navigate('SOS')} /></ExperiencePage>;
-}
 // These aliases use the existing authenticated, persisted workflows.
 export function UniversalCapture(props) { return <OperationalForm {...props} route={{ ...props.route, name: 'Upload document', params: { scope: 'personal' } }} />; }
 export function FuelEntry(props) { return <OperationalForm {...props} route={{ ...props.route, name: 'Add fuel' }} />; }

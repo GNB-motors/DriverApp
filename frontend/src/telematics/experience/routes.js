@@ -1,14 +1,15 @@
 import { CommunicationHome } from './CommunicationExperience';
 import { ExperienceTruth } from './TruthExperience';
-import { ExperienceSettings, BatteryHelp, DriverHelp, PaperList, PaperDetail, DriverPapersReview, UniversalCapture, ExperienceInbox, DocumentsExpiry, FuelEntry } from './ExperienceExtras';
+import { ExperienceSettings, BatteryHelp, PaperList, PaperDetail, DriverPapersReview, UniversalCapture, ExperienceInbox, DocumentsExpiry, FuelEntry } from './ExperienceExtras';
 import { UnavailableScreen } from './ExperienceUI';
 import { RoadReport, TruckIssue } from './ReportExperience';
+import { DriverRestHours, PrivacyConsent, DriverHelp } from '../screens/DriverServices';
 export const commonExperienceRoutes = {
   'Crew messages': CommunicationHome,
   'Experience settings': ExperienceSettings,
   'Offline maps': UnavailableScreen,
   'Battery help': BatteryHelp,
-  'Privacy & consent': UnavailableScreen,
+  'Privacy & consent': PrivacyConsent,
 };
 export const driverExperienceRoutes = {
   ...commonExperienceRoutes,
@@ -21,7 +22,7 @@ export const driverExperienceRoutes = {
   'Experience inbox': ExperienceInbox,
   'Journey summary': UnavailableScreen,
   'Document reminders': DocumentsExpiry,
-  'Rest & hours': UnavailableScreen,
+  'Rest & hours': DriverRestHours,
   'My earnings': UnavailableScreen,
   'Log diesel': FuelEntry,
   'Pre-trip check': UnavailableScreen,
