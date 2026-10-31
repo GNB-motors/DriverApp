@@ -34,6 +34,7 @@ export default function DriverNavigator() {
   return <TelematicsApiProvider key={identity} identity={identity}><DriverDataProvider><Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
     <Stack.Screen name="Driver tabs" component={DriverTabs} />
     <Stack.Screen name="Quick add" component={Screens.QuickAdd} options={{ presentation: 'modal' }} />
+    <Stack.Screen name="Navigate" component={Screens.Navigate} />
     <Stack.Screen name="My truck" component={Screens.MyTruck} />
     <Stack.Screen name="Change truck" component={Screens.ChangeTruck} />
     <Stack.Screen name="Trip detail" component={Screens.TripDetail} />

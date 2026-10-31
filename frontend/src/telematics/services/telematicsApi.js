@@ -441,6 +441,14 @@ export function createTelematicsApi({
     ).data.data;
   }
   return {
+    async consent() { return (await get('/app/v2/consent')).data; },
+    async destinationSearch(q) { return (await get('/app/v2/destinations/search', { params: { q } })).data; },
+    async ourRoutes(body) { return post('/app/v2/routes/our', body); },
+    async navSessionStart(body) { return (await client.post('/app/v2/nav/sessions', body)).data.data; },
+    async navSessionPatch(id, body) { return (await client.patch(`/app/v2/nav/sessions/${encodeURIComponent(id)}`, body)).data.data; },
+    async navSessionActive() { return (await get('/app/v2/nav/sessions/active')).data; },
+    async navVoiceResources(language, platform) { return get('/app/v2/nav/voice-resources', { params: { language, platform } }); },
+    async navOfflineManifest(routeId) { return (await get(`/app/v2/nav/offline/${encodeURIComponent(routeId)}`)).data; },
     loadDriver,
     workflowList,
     uploadWorkflow,

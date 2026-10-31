@@ -15,6 +15,7 @@ import { DutyCard, KpiCard, SectionHeading, VehicleRow, AlertRow, DataState } fr
 import FleetMap from '../components/FleetMap';
 import { validCoordinate } from '../components/mapGeometry';
 import { capturePairingFix } from '../tracking/useDriverLocationSharing';
+import NavigateExperience from '../guidance/NavigateExperience';
 import { recentTrips, tripDetail, tripStatusLabel } from '../services/tripSummary';
 import { formatLitres } from '../../utils/format';
 
@@ -278,6 +279,9 @@ export function AlertDetail({ navigation, route }) {
   async function acknowledge() { setBusy(true); setError(''); try { await service.acknowledgeAlert(alert.id); setAlert(await service.driverAlert(alert.id)); mutate(() => Promise.resolve()).catch(() => {}); } catch (err) { setError(err.message); } finally { setBusy(false); } }
   return <Page navigation={navigation} title="Alert details" allowEmpty>{error ? <AppText color={colors.error}>{error}</AppText> : null}{alert ? <><AlertRow alert={alert} />{alert.description ? <Card><AppText>{alert.description}</AppText></Card> : null}<Button label={alert.acknowledged ? 'Acknowledged' : 'Mark as read'} disabled={alert.acknowledged} loading={busy} onPress={acknowledge} /></> : !error ? <DataState state="loading" /> : <Empty title="Alert unavailable" description="Return to your inbox." />}</Page>;
 }
+export function Navigate({ navigation }) {
+  return <Page navigation={navigation} title="Navigate" subtitle="Turn-by-turn on our truck routes."><NavigateExperience /></Page>;
+}
 export function MyTruck({ navigation }) {
   const { data } = useDriverData();
   return <Page navigation={navigation} title="My truck" subtitle="Your vehicle. Your working day.">{data?.vehicle ? <><VehicleRow vehicle={data.vehicle} /><MenuRow title="Odometer" detail={`${data.vehicle.odometerKm == null ? "Unavailable" : `${data.vehicle.odometerKm.toLocaleString('en-IN')} km`}`} icon="speedometer-outline" /><MenuRow title="Location sharing" detail="Understand where this position comes from" icon="location-outline" onPress={() => navigation.navigate('Location sharing')} /></> : <Empty title="No truck linked" description="Ask your manager to update your truck assignment." />}<Button label="Change truck" icon="swap-horizontal" onPress={() => navigation.navigate('Change truck')} /></Page>;
@@ -378,7 +382,7 @@ export function QuickAdd({ navigation }) {
   return <Page navigation={navigation} title="What would you like to add?" subtitle="Simple steps. Back to the road.">{actions.map(([title, icon, detail]) => <MenuRow key={title} title={title} icon={icon} detail={detail} danger={title === 'SOS'} onPress={() => navigation.replace(title)} />)}</Page>;
 }
 export function DriverMore({ navigation }) {
-  const items = [['My truck', 'bus-outline'], ['Location sharing', 'location-outline'], ['Documents', 'document-text-outline'], ['Fuel history', 'water-outline'], ['My issues', 'construct-outline'], ['Workshop bills', 'receipt-outline'], ['Support', 'help-circle-outline'], ['Profile', 'person-outline']];
+  const items = [['Navigate', 'navigate-circle-outline'], ['My truck', 'bus-outline'], ['Location sharing', 'location-outline'], ['Documents', 'document-text-outline'], ['Fuel history', 'water-outline'], ['My issues', 'construct-outline'], ['Workshop bills', 'receipt-outline'], ['Support', 'help-circle-outline'], ['Profile', 'person-outline']];
   return <Page navigation={navigation} title="Everything else" subtitle="Your essentials, in one place.">{items.map(([title, icon]) => <MenuRow key={title} title={title} icon={icon} onPress={() => navigation.navigate(title)} />)}</Page>;
 }
 function Success({ title, description, onDone }) {
