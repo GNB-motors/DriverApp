@@ -3,6 +3,7 @@ import { NavigateScreen, CaptureScreen } from './experience/DriverNavigation';
 import { DriverMoreExperience, DriverTripsExperience } from './experience/ExperienceHub';
 import { ExperienceInbox } from './experience/ExperienceExtras';
 import { driverExperienceRoutes } from './experience/routes';
+import { SiteCard, HelpfulCards } from './screens/DriverServices';
 import { DriverCrewScreen } from "./screens/CrewScreens";
 import { ErpTripsScreen, ErpTripScreen } from './screens/ErpTripsScreen';
 import StopReasonsScreen from './screens/StopReasonsScreen';
@@ -45,7 +46,7 @@ export default function DriverNavigator() {
   return <TelematicsApiProvider key={identity} identity={identity}><DriverDataProvider><Stack.Navigator initialRouteName="Driver tabs" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
     {Object.entries(driverExperienceRoutes).filter(([name]) => name !== 'Experience inbox').map(([name, component]) => <Stack.Screen key={name} name={name} component={component} />)}
     <Stack.Screen name="Capture" component={CaptureScreen} options={{ presentation: 'modal' }} />
-    <Stack.Screen name="Helpful cards" component={UnavailableScreen} />
+    <Stack.Screen name="Helpful cards" component={HelpfulCards} />
     <Stack.Screen name="Manager action detail" component={UnavailableScreen} />
     <Stack.Screen name="Recorded trips" component={Screens.DriverTrips} />
     <Stack.Screen name="Existing tools" component={Screens.DriverMore} />
@@ -73,7 +74,7 @@ export default function DriverNavigator() {
     <Stack.Screen name="Location sharing" component={Screens.LocationSharing} />
     <Stack.Screen name="Profile" component={Screens.Profile} />
     <Stack.Screen name="SOS" component={Screens.SosUnavailable} options={{ presentation: 'modal' }} />
-    <Stack.Screen name="Site card" component={UnavailableScreen} />
+    <Stack.Screen name="Site card" component={SiteCard} />
     <Stack.Screen name="At-wheel handover" component={DriverCrewScreen} />
   </Stack.Navigator></DriverDataProvider></TelematicsApiProvider>;
 }
