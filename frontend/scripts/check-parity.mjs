@@ -4,10 +4,12 @@ const dataModule = (source) => `data:text/javascript;base64,${Buffer.from(source
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
 const endpoint = dataModule(await read('../src/telematics/services/authEndpoint.js'));
 const metadata = dataModule(await read('../src/telematics/services/alertMetadata.js'));
+const driverContracts = dataModule(await read('../src/telematics/services/approvedDriverContracts.js'));
 const source = (await read('../src/telematics/services/telematicsApi.js'))
   .replace(/['"]axios['"]/, JSON.stringify(import.meta.resolve('axios')))
   .replace(/['"]\.\/authEndpoint['"]/, JSON.stringify(endpoint))
-  .replace(/['"]\.\/alertMetadata['"]/, JSON.stringify(metadata));
+  .replace(/['"]\.\/alertMetadata['"]/, JSON.stringify(metadata))
+  .replace(/['"]\.\/approvedDriverContracts['"]/, JSON.stringify(driverContracts));
 const { createTelematicsApi, collectPages } = await import(dataModule(source));
 const { default: axios } = await import('axios');
 const seenPages = [];
@@ -107,8 +109,6 @@ await manager.teamUpdateEmployee('employee', { status: 'ACTIVE' }, 'branch');
 assert.equal(requests.at(-1).url, '/employees/employee');
 assert.equal(requests.at(-1).method, 'patch');
 assert.equal(JSON.parse(requests.at(-1).data).status, 'ACTIVE');
-await manager.ownerCaptures(2, 'branch');
-assert.equal(requests.at(-1).url, '/app/v2/captures');
-assert.equal(requests.at(-1).params.page, 2);
-assert.equal(requests.at(-1).headers['X-Branch-Id'], 'branch');
+// Owner capture review has no approved #313 list contract.
+await assert.rejects(manager.ownerCaptures(2, 'branch'), /not connected/);
 console.log('Passed: multi-page completeness, org membership selection, truck-bound agent scope, Google place mapping, historical tracks, DEF source, stop reasons, ERP ownership path/uploads and access-control contracts.');

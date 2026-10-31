@@ -1,3 +1,4 @@
+import { GuidanceRuntimeProvider } from '../guidance/GuidanceRuntimeContext';
 import { AppState } from "react-native";
 import { useAuth } from "../../context/AuthContext";
 import { useDriverLocationSharing } from "../tracking/useDriverLocationSharing";
@@ -90,7 +91,7 @@ export function DriverDataProvider({ children }) {
         lastPush,
       }}
     >
-      {children}
+      <GuidanceRuntimeProvider identity={`${user._id}:${user.orgId?._id || user.orgId}:${state.data?.vehicle?.id || "none"}:${token}`}>{children}</GuidanceRuntimeProvider>
     </Context.Provider>
   );
 }

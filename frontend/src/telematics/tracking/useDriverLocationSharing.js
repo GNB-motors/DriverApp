@@ -1,3 +1,4 @@
+import { deviceLocationCollector } from './deviceLocationCollector';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import * as Location from "expo-location";
@@ -55,6 +56,7 @@ export function useDriverLocationSharing({ user, token, service }) {
       if (previous) {
         clearInterval(previous.timer);
         previous.listener?.remove();
+        previous.collector?.remove();
       }
       try {
         await stopBackground();
@@ -100,9 +102,7 @@ export function useDriverLocationSharing({ user, token, service }) {
             return;
           running = true;
           try {
-            const location = await Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.Balanced,
-            });
+            const location = deviceLocationCollector.latest() || await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
             if (ticket !== lease.current) return;
             const remaining = await recordAndFlush(queue, [
               locationFix(location, "FOREGROUND"),
@@ -138,7 +138,10 @@ export function useDriverLocationSharing({ user, token, service }) {
           );
           if (ticket !== lease.current) return;
         }
+        const collector = nextMode === 'foreground' ? await deviceLocationCollector.subscribe({ interval: 120000, onLocation: () => send() }) : null;
+        if (ticket !== lease.current) { collector?.remove(); return; }
         current.current = {
+          collector,
           timer: nextMode === "foreground" ? setInterval(send, 120000) : null,
           listener: AppState.addEventListener("change", (state) => {
             if (state === "active") {

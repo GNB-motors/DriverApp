@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTelematicsApi } from "../context/TelematicsApiContext";
 import { useManagerData } from "../context/ManagerDataContext";
+import { useDriverData } from "../context/DriverDataContext";
 import useOwnerRequest from "../hooks/useOwnerRequest";
 import useOwnerWrite from "../hooks/useOwnerWrite";
 import { Screen, Choice, RequestState } from "../components/FormControls";
@@ -88,11 +89,12 @@ function Summary({ data }) {
 }
 export function DriverCrewCard({ navigation }) {
   const { user } = useAuth();
+  const { data: driverData } = useDriverData();
   const { t } = useLanguage();
   const service = useTelematicsApi();
   const request = useOwnerRequest(
-    `${identity(user)}:crew-card`,
-    () => service.crewMe(1),
+    `${identity(user)}:crew-card:${driverData?.vehicle?.id || "none"}`,
+    () => service.crewMe(driverData?.vehicle?.id),
     30000,
   );
   return (
@@ -219,15 +221,17 @@ export function FleetCrewScreen({ navigation, route }) {
 }
 function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
   const { user } = useAuth();
+  const { data: driverData } = useDriverData();
   const service = useTelematicsApi();
   const owner = !driver && user.role === "OWNER";
-  const key = `${identity(user)}:${branch || "all"}:crew:${vehicleId || "mine"}`;
+  const assignedVehicleId = driverData?.vehicle?.id;
+  const key = `${identity(user)}:${branch || "all"}:crew:${driver ? assignedVehicleId || "none" : vehicleId || "none"}`;
   const [page, setPage] = useState(1);
   const request = useOwnerRequest(
     `${key}:${page}`,
     () =>
       driver
-        ? service.crewMe(page)
+        ? service.crewMe(assignedVehicleId)
         : service.crewVehicle(vehicleId, page, branch),
     15000,
   );
@@ -536,13 +540,12 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
                     : "Unconfirmed — owner review needed"}
               </AppText>
               <AppText muted>
-                {row.confirmedBy.length > 1
-                  ? "Handover confirmed by both drivers"
-                  : "Driving declared by this driver"}
+                {row.status || "Driving evidence unavailable"}
               </AppText>
             </Card>
           ))}
           <AppText variant="h3">Crew and handover history</AppText>
+          {data.historyUnavailable && <AppText muted>Detailed handover event history is unavailable on the connected server.</AppText>}
           {data.events.map((event) => (
             <Card key={event._id}>
               <AppText>

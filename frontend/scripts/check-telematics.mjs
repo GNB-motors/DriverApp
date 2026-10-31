@@ -48,6 +48,12 @@ const metadataModule = toModule(
     "utf8",
   ),
 );
+const driverContractsModule = toModule(
+  await readFile(
+    new URL("../src/telematics/services/approvedDriverContracts.js", import.meta.url),
+    "utf8",
+  ),
+);
 const source = (
   await readFile(
     new URL("../src/telematics/services/telematicsApi.js", import.meta.url),
@@ -59,7 +65,8 @@ const source = (
     JSON.stringify(pathToFileURL(require.resolve("axios")).href),
   )
   .replace(/['"]\.\/authEndpoint['"]/, JSON.stringify(endpoint))
-  .replace(/['"]\.\/alertMetadata['"]/, JSON.stringify(metadataModule));
+  .replace(/['"]\.\/alertMetadata['"]/, JSON.stringify(metadataModule))
+  .replace(/['"]\.\/approvedDriverContracts['"]/, JSON.stringify(driverContractsModule));
 const { default: axios } = await import(
   pathToFileURL(require.resolve("axios")).href
 );
@@ -200,6 +207,38 @@ assert.equal(requests.at(-1).params.acknowledged, false);
 await fleetService.acknowledgeAlert("owner-alert", { branchId: "branch-1" });
 assert.equal(requests.at(-1).url, "/owner-alerts/owner-alert/ack");
 assert.equal(requests.at(-1).headers["X-Branch-Id"], "branch-1");
+
+axios.defaults.adapter = async (config) => {
+  requests.push(config);
+  if (config.url === "/app/v2/crew/truck-1") return { data: { success: true, data: { vehicle: { vehicleId: "truck-1", registrationNumber: "REG", branchId: "b" }, crew: { memberIds: [], acceptedIds: [], currentDriverId: null, pending: null, status: "UNKNOWN", version: 3 }, members: [], atWheel: { window: { from: null, to: null }, current: [], intervals: [], confidence: {} } } }, status: 200, config };
+  if (config.url === "/app/v2/crew/truck-1/actions") return { data: { success: true, data: { crew: {}, applied: { action: "JOIN" } } }, status: 200, config };
+  if (config.url.endsWith("/messages")) return { data: { success: true, data: { message: { id: "m", kind: "LOCATION", body: '{"lat":22,"lng":88}', delivery: [] } } }, status: 201, config };
+  if (config.url === "/app/v2/manager/cards") return { data: { success: true, data: { day: "2026-10-30", scope: {}, cards: [] } }, status: 200, config };
+  if (config.url === "/app/v2/nav/voice-resources") return { data: { schemaVersion: 1, language: config.params.language, platform: config.params.platform, resources: [], expiresAt: new Date(Date.now() + 3600000).toISOString(), fallbackLanguage: "en" }, status: 200, config };
+  return { data: { success: true, data: {} }, status: 200, config };
+};
+const approvedService = createTelematicsApi({ baseURL: "https://example.invalid/v1", token: "test-token", user: { _id: "driver" } });
+await assert.rejects(approvedService.ownerDaily("2026-10-30"), /not connected|unavailable/i);
+await assert.rejects(approvedService.ownerRows({ metric: "fuel" }), /not connected|unavailable/i);
+await assert.rejects(approvedService.ownerTrends("2026-10-30"), /not connected|unavailable/i);
+await assert.rejects(approvedService.ownerCaptures(1), /not connected|unavailable/i);
+assert.deepEqual((await approvedService.managerCards()).cards, []);
+await approvedService.ownerPreferences({ reportTimeIst: "08:00" });
+assert.equal(requests.at(-1).url, "/owner-report/preferences");
+await assert.rejects(approvedService.ownerPreferences(), /not connected|unavailable/i);
+assert.equal((await approvedService.crewMe("truck-1")).vehicle._id, "truck-1");
+assert.equal(requests.at(-1).url, "/app/v2/crew/truck-1");
+await approvedService.crewAction("truck-1", { action: "JOIN", clientRequestId: "crew-key", expectedVersion: 7, safelyStopped: true });
+assert.deepEqual(JSON.parse(requests.at(-1).data), { action: "JOIN", clientRequestId: "crew-key" });
+assert.equal(requests.at(-1).headers["Idempotency-Key"], "crew-key");
+const sent = await approvedService.sendMessage("conversation-1", { kind: "LOCATION", location: { lat: 22, lng: 88 }, clientRequestId: "message-key" });
+assert.deepEqual(sent.location, { lat: 22, lng: 88 });
+assert.deepEqual(JSON.parse(requests.at(-1).data), { kind: "LOCATION", clientId: "message-key", body: '{"lat":22,"lng":88}' });
+assert.equal(requests.at(-1).headers["Idempotency-Key"], "message-key");
+const voicePolicy = await approvedService.navVoiceResources("hi", "android");
+assert.equal(voicePolicy.language, "hi");
+assert.equal(requests.at(-1).url, "/app/v2/nav/voice-resources");
+assert.deepEqual(requests.at(-1).params, { language: "hi", platform: "android" });
 axios.defaults.adapter = async (config) => {
   const payload =
     config.url === "/driver/me/vehicle"

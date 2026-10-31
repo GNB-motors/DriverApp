@@ -1,6 +1,6 @@
 {
   "name": "driver-app",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
@@ -12,7 +12,9 @@
     "check:api": "node scripts/check-api-session.mjs",
     "check:parity": "node scripts/check-parity.mjs",
     "check:owner": "node scripts/check-owner.mjs",
-    "check:live-data": "node scripts/check-live-data.mjs"
+    "check:live-data": "node scripts/check-live-data.mjs",
+    "test:guidance": "node --test tests/*.test.mjs",
+    "vendor:ferrostar": "node scripts/vendor-ferrostar.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/dm-mono": "^0.4.2",
@@ -22,14 +24,18 @@
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo/metro-runtime": "~58.0.15",
     "@expo/vector-icons": "^15.1.1",
+    "@maplibre/maplibre-react-native": "11.3.10",
     "@react-google-maps/api": "^2.20.8",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "9.2.1",
+    "@react-native-community/netinfo": "12.0.1",
     "@react-native-picker/picker": "2.11.4",
     "@react-navigation/bottom-tabs": "^7.15.9",
     "@react-navigation/native": "^7.2.2",
     "@react-navigation/native-stack": "^7.14.10",
     "@sentry/react-native": "~8.28.0",
+    "@stadiamaps/ferrostar-core-react-native": "file:vendor/stadiamaps-ferrostar-core-react-native-0.59.0.tgz",
+    "@stadiamaps/ferrostar-uniffi-react-native": "file:vendor/stadiamaps-ferrostar-uniffi-react-native-0.59.0.tgz",
     "axios": "^1.7.9",
     "dayjs": "^1.11.10",
     "expo": "^58.0.0",
@@ -65,6 +71,7 @@
   "private": true,
   "devDependencies": {
     "babel-plugin-transform-remove-console": "^6.9.4",
+    "esbuild": "0.27.7",
     "eslint": "^8.57.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^4.6.2",
