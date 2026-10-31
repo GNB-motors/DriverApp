@@ -21,7 +21,11 @@ jobs:
       run:
         working-directory: frontend
     steps:
+      # The Ferrostar SDK tarballs in frontend/vendor are Git LFS objects;
+      # without them `npm ci` would install a pointer file.
       - uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - uses: actions/setup-node@v4
         with:

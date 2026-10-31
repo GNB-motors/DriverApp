@@ -1,3 +1,4 @@
+import { crewActionPayload, crewCard, conversationView, messageSendPayload, messageView } from './approvedDriverContracts';
 import { ALERT_TITLES, alertSeverity } from "./alertMetadata";
 import axios from "axios";
 import { appLoginUrl } from "./authEndpoint";
@@ -465,10 +466,11 @@ export function createTelematicsApi({
     else body.append(field, { uri: asset.uri, name: asset.name || 'photo.jpg', type: asset.mimeType || asset.type || 'image/jpeg' });
     return (await client.post(path, body, { timeout: 120000 })).data.data;
   }
+  const messageSequences = new Map();
   return {
-    async ownerDaily(date, branchId) { return (await get('/app/v2/reports/daily', { params: { date }, headers: headersFor(branchId) })).data; },
-    async ownerRows(params, branchId) { return (await get('/app/v2/reports/rows', { params, headers: headersFor(branchId) })).data; },
-    async ownerTrends(date, branchId) { return (await get('/app/v2/reports/trends', { params: { date }, headers: headersFor(branchId) })).data; },
+    async ownerDaily() { return unavailable('Owner daily report UI contract'); },
+    async ownerRows() { return unavailable('Owner report detail rows'); },
+    async ownerTrends() { return unavailable('Owner report trends'); },
     async ownerRecord(kind, id, branchId) { return (await get(`/app/v2/records/${kind}/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data; },
     async ownerDecision(kind, id, body, branchId) { return (await client.post(`/app/v2/records/${kind}/${encodeURIComponent(id)}/actions`, body, { headers: headersFor(branchId) })).data.data; },
     async ownerEscalations(branchId, all = false, page = 1) { return (await get('/app/v2/escalations', { params: { all, page }, headers: headersFor(branchId) })).data; },
@@ -476,25 +478,36 @@ export function createTelematicsApi({
     async ownerCalls(branchId, page = 1) { return (await get('/app/v2/calls', { params: { page }, headers: headersFor(branchId) })).data; },
     async ownerStartCall(body, branchId) { return (await client.post('/app/v2/calls', body, { headers: headersFor(branchId) })).data.data; },
     async ownerCallOutcome(id, body, branchId) { return (await client.patch(`/app/v2/calls/${encodeURIComponent(id)}`, body, { headers: headersFor(branchId) })).data.data; },
-    async ownerPreferences(body) { return body ? (await client.put('/app/v2/reports/preferences', body)).data.data : (await get('/app/v2/reports/preferences')).data; },
+    async ownerPreferences(body) { return body ? (await client.put('/owner-report/preferences', body)).data.data : unavailable('Reading owner report preferences'); },
     async ownerAudience(params, branchId) { return (await get('/app/v2/communication/audience', { params, headers: headersFor(branchId) })).data; },
-    async conversations(branchId, page = 1) { return (await get('/app/v2/communication/conversations', { params: { page }, headers: headersFor(branchId) })).data; },
-    async createConversation(body, branchId) { return (await client.post('/app/v2/communication/conversations', body, { headers: headersFor(branchId) })).data.data; },
-    async cancelBroadcast(id, branchId) { return (await client.post(`/app/v2/communication/conversations/${encodeURIComponent(id)}/cancel`, {}, { headers: headersFor(branchId) })).data.data; },
-    async updateConversationMembers(id, body, branchId) { return (await client.patch(`/app/v2/communication/conversations/${encodeURIComponent(id)}/members`, body, { headers: headersFor(branchId) })).data.data; },
-    async conversationMessages(id, params, branchId) { return (await get(`/app/v2/communication/conversations/${encodeURIComponent(id)}/messages`, { params, headers: headersFor(branchId) })).data; },
-    async sendMessage(id, payload, asset, branchId) {
-      let body = payload;
-      if (asset) {
-        body = new FormData();
-        for (const [key, value] of Object.entries(payload)) body.append(key, value);
-        if (typeof document !== 'undefined') body.append('file', asset.file || await (await fetch(asset.uri)).blob(), asset.name || 'message.jpg');
-        else body.append('file', { uri: asset.uri, name: asset.name || 'message.jpg', type: asset.mimeType || 'image/jpeg' });
-      }
-      return (await client.post(`/app/v2/communication/conversations/${encodeURIComponent(id)}/messages`, body, { timeout: 120000, headers: headersFor(branchId) })).data.data;
+    async conversations(branchId) {
+      const result = (await get('/app/v2/messages/conversations')).data;
+      const items = result.conversations.map(c => conversationView(c));
+      return { items, total: items.length, hasMore: false };
     },
-    async messageReceipt(id, messageId, action, branchId) { return (await client.post(`/app/v2/communication/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/receipt`, { action }, { headers: headersFor(branchId) })).data.data; },
-    async driverExplain(alertId, body, branchId) { return (await client.post(`/app/v2/escalations/${encodeURIComponent(alertId)}/explain`, body, { headers: headersFor(branchId) })).data.data; },
+    async createConversation() { return unavailable('Creating conversations'); },
+    async cancelBroadcast() { return unavailable('Cancelling broadcasts'); },
+    async updateConversationMembers() { return unavailable('Changing conversation membership'); },
+    async conversationMessages(id, params = {}, branchId) {
+      if (params.before) return unavailable('Older message pagination');
+      const result = (await get(`/app/v2/messages/conversations/${encodeURIComponent(id)}`, { params: { since: params.since || 0 } })).data;
+      result.messages.forEach(m => messageSequences.set(`${id}:${m.id}`, m.seq));
+      return { thread: conversationView(result.conversation, result.participants), items: result.messages.map(messageView), hasMore: false };
+    },
+    async sendMessage(id, payload, asset, branchId) {
+      if (asset) return unavailable('Message attachment upload');
+      if (!['TEXT', 'LOCATION'].includes(payload.kind)) return unavailable('Sending this message type');
+      const clientRequestId = payload.clientRequestId;
+      const result = (await client.post(`/app/v2/messages/conversations/${encodeURIComponent(id)}/messages`, messageSendPayload(payload), { headers: { 'Idempotency-Key': clientRequestId } })).data.data;
+      return messageView(result.message);
+    },
+    async messageReceipt(id, messageId, action, branchId) {
+      if (action !== 'READ') return unavailable('Message acknowledgement');
+      const uptoSeq = messageSequences.get(`${id}:${messageId}`);
+      if (!Number.isInteger(uptoSeq)) throw new Error('Refresh the conversation before marking it read.');
+      return (await client.post(`/app/v2/messages/conversations/${encodeURIComponent(id)}/read`, { uptoSeq })).data.data;
+    },
+    async driverExplain() { return unavailable('Explaining this alert'); },
     // Realtime SSE stream (N1.13): mint a single-use ticket, then open the
     // event stream at streamBaseUrl?ticket=... (ticket auth, no header needed).
     async streamTicket() { const payload = (await client.post('/app/v2/stream/ticket', {})).data; if (!payload?.ticket) throw new Error('Invalid stream ticket response.'); return payload.ticket; },
@@ -506,12 +519,17 @@ export function createTelematicsApi({
     async erpTrip(id) { return (await get(`/app/v1/trips/${encodeURIComponent(id)}`)).data; },
     uploadBilty: (id, asset) => uploadErp('/erp/consignments/upload-bilty', 'bilty', id, asset),
     uploadPod: (id, asset) => uploadErp('/erp/pods/upload', 'pod', id, asset),
-    async crewMe(page = 1) { return (await get('/app/v2/crew/me', { params: { page } })).data; },
-    async crewVehicle(vehicleId, page = 1, branchId) { return (await get(`/app/v2/crew/vehicles/${encodeURIComponent(vehicleId)}`, { params: { page }, headers: headersFor(branchId) })).data; },
-    async crewAction(vehicleId, body, branchId) { return (await client.post(`/app/v2/crew/vehicles/${encodeURIComponent(vehicleId)}/actions`, body, { headers: headersFor(branchId) })).data.data; },
+    async crewMe(vehicleId) { return vehicleId ? crewCard((await get(`/app/v2/crew/${encodeURIComponent(vehicleId)}`)).data) : null; },
+    async crewVehicle(vehicleId) { return crewCard((await get(`/app/v2/crew/${encodeURIComponent(vehicleId)}`)).data); },
+    async crewAction(vehicleId, body, branchId) {
+      const { clientRequestId } = body;
+      const action = crewActionPayload(body);
+      const result = (await client.post(`/app/v2/crew/${encodeURIComponent(vehicleId)}/actions`, action, { headers: { 'Idempotency-Key': clientRequestId } })).data.data;
+      return { ...result, record: result.applied };
+    },
     async crewConfidence() { return (await get('/app/v2/crew/confidence')).data; },
     async crewAsk(vehicleId, body) { return (await client.post(`/app/v2/crew/${encodeURIComponent(vehicleId)}/ask`, body)).data.data; },
-    async ownerCaptures(page, branchId) { return (await get('/app/v2/captures', { params: { page }, headers: headersFor(branchId) })).data; },
+    async ownerCaptures() { return unavailable('Owner capture review'); },
     async captureDetail(id) { return (await get(`/app/v2/captures/${encodeURIComponent(id)}`)).data; },
     async captureCreate(formData) {
       return (await client.post('/app/v2/captures', formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 })).data.data;
@@ -534,11 +552,13 @@ export function createTelematicsApi({
     async managerCardsActRate(branchId) { return (await get('/app/v2/manager/cards/act-rate', { headers: headersFor(branchId) })).data; },
     async prompts() { return (await get('/app/v2/prompts')).data; },
     async answerPrompt(id, body) { return (await client.post(`/app/v2/prompts/${encodeURIComponent(id)}/answer`, body)).data.data; },
-    async routeOptions(branchId) { return (await get('/app/v2/routes', { headers: headersFor(branchId) })).data; },
-    async ourRoutes(branchId) { return (await get('/app/v2/routes/our', { headers: headersFor(branchId) })).data; },
+    async routeOptions(body) { return post('/app/v2/routes', body); },
+    async ourRoutes(body) { return post('/app/v2/routes/our', body); },
     async navSessionStart(body) { return (await client.post('/app/v2/nav/sessions', body)).data.data; },
     async navSessionPatch(id, body) { return (await client.patch(`/app/v2/nav/sessions/${encodeURIComponent(id)}`, body)).data.data; },
     async navSessionActive() { return (await get('/app/v2/nav/sessions/active')).data; },
+    async navVoiceResources(language, platform) { return get('/app/v2/nav/voice-resources', { params: { language, platform } }); },
+    async navOfflineManifest(routeId) { return (await get(`/app/v2/nav/offline/${encodeURIComponent(routeId)}`)).data; },
     async navMetrics() { return (await get('/app/v2/nav/metrics')).data; },
     async stopQuestions(vehicleId) { return (await get(`/app/v2/stops/${encodeURIComponent(vehicleId)}/questions`)).data; },
     async visitsActive() { return (await get('/app/v2/visits/active')).data; },

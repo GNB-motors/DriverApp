@@ -28,12 +28,12 @@ export default function NotificationRouter({ navigationRef, ready }) {
     (async () => {
       if (data.kind === 'DRIVER_ALERT' && user.role === 'DRIVER' && data.alertId) {
         const alert = await service.driverAlert(data.alertId);
+        // The crew screen loads the assigned vehicle's crew itself.
         if (['CREW_HANDOVER', 'CREW_INVITATION'].includes(alert.kind)) {
-          await service.crewMe(1);
           if (active) navigationRef.navigate('Crew & driving');
         } else if (active) navigationRef.navigate('Alert detail', { id: data.alertId });
       } else if (data.kind === 'OWNER_REPORT' && user.role === 'OWNER' && /^\d{4}-\d{2}-\d{2}$/.test(data.reportDate)) {
-        await service.ownerDaily(data.reportDate, data.branchId || undefined);
+        // The report screen shows its own unavailable state when the server lacks the contract.
         if (active) navigationRef.navigate('Owner report', { date: data.reportDate, branchId: data.branchId || null });
       } else if (data.kind === 'INCIDENT' && ['OWNER', 'MANAGER'].includes(user.role) && data.incidentId) {
         await service.fleetRecord('issues', data.incidentId);

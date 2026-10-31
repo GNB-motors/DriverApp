@@ -102,10 +102,12 @@ const endpoint = moduleUrl(
 const metadata = moduleUrl(
   await read("../src/telematics/services/alertMetadata.js"),
 );
+const driverContracts = moduleUrl(await read("../src/telematics/services/approvedDriverContracts.js"));
 const source = (await read("../src/telematics/services/telematicsApi.js"))
   .replace(/['"]axios['"]/, JSON.stringify(import.meta.resolve("axios")))
   .replace(/['"]\.\/authEndpoint['"]/, JSON.stringify(endpoint))
-  .replace(/['"]\.\/alertMetadata['"]/, JSON.stringify(metadata));
+  .replace(/['"]\.\/alertMetadata['"]/, JSON.stringify(metadata))
+  .replace(/['"]\.\/approvedDriverContracts['"]/, JSON.stringify(driverContracts));
 const { createTelematicsApi } = await import(moduleUrl(source));
 const { default: axios } = await import("axios");
 const calls = [];
@@ -124,26 +126,14 @@ const api = createTelematicsApi({
   user: { _id: "owner", orgId: "org", role: "OWNER" },
   audience: "owner",
 });
-await api.ownerDaily("2026-10-28", "branch-a");
-assert.equal(calls.at(-1).url, "/app/v2/reports/daily");
-assert.equal(calls.at(-1).params.date, "2026-10-28");
-assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-a");
-await api.ownerTrends("2026-10-28", "branch-a");
-assert.equal(calls.at(-1).url, "/app/v2/reports/trends");
-assert.equal(calls.at(-1).params.date, "2026-10-28");
-assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-a");
-await api.ownerRows(
-  { date: "2026-10-28", metric: "diesel", page: 4 },
-  "branch-a",
-);
-assert.equal(calls.at(-1).params.page, 4);
-assert.equal(calls.at(-1).params.metric, "diesel");
-await api.ownerDaily("2026-10-27");
-assert.equal(
-  calls.at(-1).headers["X-Branch-Id"],
-  undefined,
-  "all branches cannot retain a previous selected branch",
-);
+// The approved #313 base has no owner daily/rows/trends contract; the app must say so.
+const unavailableCall = /not connected/;
+await assert.rejects(api.ownerDaily("2026-10-28", "branch-a"), unavailableCall);
+await assert.rejects(api.ownerTrends("2026-10-28", "branch-a"), unavailableCall);
+await assert.rejects(api.ownerRows({ date: "2026-10-28", metric: "diesel", page: 4 }, "branch-a"), unavailableCall);
+const callsBeforeUnavailable = calls.length;
+await assert.rejects(api.ownerDaily("2026-10-27"), unavailableCall);
+assert.equal(calls.length, callsBeforeUnavailable, "an unavailable contract must not send a request");
 const payload = {
   clientRequestId: "same-submission",
   expectedUpdatedAt: "2026-10-28T00:00:00Z",
@@ -178,25 +168,10 @@ for (const action of ["VERIFY", "REJECT"]) {
   );
   assert.deepEqual(JSON.parse(calls.at(-1).data), documentPayload);
 }
-await api.conversationMessages("thread", { before: "cursor" }, "branch-b");
-assert.equal(calls.at(-1).params.before, "cursor");
-await api.messageReceipt("thread", "message", "ACKNOWLEDGE", "branch-b");
-assert.deepEqual(JSON.parse(calls.at(-1).data), { action: "ACKNOWLEDGE" });
-assert.equal(calls.at(-1).headers.Authorization, "Bearer owner-session");
-const explainBody = {
-  clientRequestId: "driver-rid-1",
-  note: "Pump fault confirmed.",
-};
-await api.driverExplain("alert-id-1", explainBody, "branch-b");
-assert.equal(calls.at(-1).url, "/app/v2/escalations/alert-id-1/explain");
-assert.deepEqual(JSON.parse(calls.at(-1).data), explainBody);
-assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-b");
-await api.crewMe(2);
-assert.equal(calls.at(-1).url, "/app/v2/crew/me");
-assert.equal(calls.at(-1).params.page, 2);
-await api.crewVehicle("truck", 3, "branch-b");
-assert.equal(calls.at(-1).url, "/app/v2/crew/vehicles/truck");
-assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-b");
+await assert.rejects(api.conversationMessages("thread", { before: "cursor" }, "branch-b"), unavailableCall);
+await assert.rejects(api.messageReceipt("thread", "message", "ACKNOWLEDGE", "branch-b"), unavailableCall);
+await assert.rejects(api.driverExplain("alert-id-1", { clientRequestId: "driver-rid-1", note: "Pump fault confirmed." }, "branch-b"), unavailableCall);
+assert.equal(await api.crewMe(undefined), null, "a driver without an assigned truck has no crew card");
 const crewBody = {
   clientRequestId: "saved-crew-action",
   expectedVersion: 4,
@@ -205,10 +180,12 @@ const crewBody = {
   safelyStopped: true,
 };
 await api.crewAction("truck", crewBody, "branch-b");
-assert.equal(calls.at(-1).url, "/app/v2/crew/vehicles/truck/actions");
-assert.deepEqual(JSON.parse(calls.at(-1).data), crewBody);
+assert.equal(calls.at(-1).url, "/app/v2/crew/truck/actions");
+assert.equal(calls.at(-1).headers["Idempotency-Key"], "saved-crew-action");
+const sentCrew = JSON.parse(calls.at(-1).data);
+assert.equal("expectedVersion" in sentCrew || "safelyStopped" in sentCrew, false, "local-only crew fields are rejected by the strict backend schema");
 await api.crewAction("truck", crewBody, "branch-b");
-assert.deepEqual(JSON.parse(calls.at(-1).data), crewBody);
+assert.deepEqual(JSON.parse(calls.at(-1).data), sentCrew, "a retried crew action sends the same body");
 const startup = calls.length;
 await api.loadFleet("branch-b");
 assert.equal(
@@ -265,41 +242,14 @@ assert.equal(
   "offline",
   "the Live view must use the server freshness policy",
 );
-const originalFormData = globalThis.FormData;
-globalThis.FormData = class FormData {
-  constructor() {
-    this.parts = [];
-  }
-  append(...part) {
-    this.parts.push(part);
-  }
-  getParts() {
-    return this.parts;
-  }
-  toString() {
-    return "[object FormData]";
-  }
-};
-try {
-  await api.sendMessage(
-    "thread",
-    { clientRequestId: "stable-media-id", kind: "VOICE" },
-    { uri: "file:///voice.m4a", name: "voice.m4a", mimeType: "audio/mp4" },
-    "branch-b",
-  );
-  assert.deepEqual(calls.at(-1).data.getParts(), [
-    ["clientRequestId", "stable-media-id"],
-    ["kind", "VOICE"],
-    [
-      "file",
-      { uri: "file:///voice.m4a", name: "voice.m4a", type: "audio/mp4" },
-    ],
-  ]);
-} finally {
-  globalThis.FormData = originalFormData;
-}
+const callsBeforeAttachment = calls.length;
+await assert.rejects(
+  api.sendMessage("thread", { clientRequestId: "stable-media-id", kind: "VOICE" }, { uri: "file:///voice.m4a", name: "voice.m4a", mimeType: "audio/mp4" }, "branch-b"),
+  unavailableCall,
+);
+assert.equal(calls.length, callsBeforeAttachment, "an unsupported attachment must not be uploaded");
 console.log(
-  "Passed: IST day boundaries, unknown versus zero narration in three languages, trend labels and comparison caveats, retry-key preservation, branch/date/page propagation, review decisions, message receipts, native voice multipart and driver-submitted explanations.",
+  "Passed: unavailable owner report/messaging contracts send nothing, retry-key preservation, review decisions and approved crew action bodies.",
 );
 
 const presentation = await import(

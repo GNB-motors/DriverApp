@@ -509,7 +509,9 @@ function MessageItem({ item, user, acknowledge, onExplain }) {
             item.recipients.map((r) => (
               <AppText key={String(r.userId)} variant="caption" muted>
                 {r.label || "Recipient"}:{" "}
-                {r.skippedReason
+                {r.state === "HELD"
+                  ? `held until ${r.heldUntil || "quiet hours end"}`
+                  : r.skippedReason
                   ? "skipped: no longer active in this scope"
                   : r.acknowledgedAt
                     ? "acknowledged"
@@ -521,7 +523,7 @@ function MessageItem({ item, user, acknowledge, onExplain }) {
               </AppText>
             ))}
         </>
-      ) : (
+      ) : item.acknowledgementUnavailable ? <AppText muted>Acknowledgement is unavailable on the connected server.</AppText> : (
         <Button
           label={
             item.recipients[0]?.acknowledgedAt

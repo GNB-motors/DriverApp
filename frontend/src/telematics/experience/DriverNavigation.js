@@ -1,11 +1,12 @@
 import React from 'react';
+import NavigateExperience from '../guidance/NavigateExperience';
 import { AppText, Card } from '../../components/ui';
 import { ActionButton, ExperiencePage, useExperienceCopy } from './ExperienceUI';
 
 export function NavigateScreen({ navigation }) {
   const c = useExperienceCopy();
   return <ExperiencePage title={c('navigationLabel')} navigation={navigation}>
-    <Card style={{ gap: 12 }}><AppText variant="h3">{c('notConnected')}</AppText><AppText muted>{c('navigationUnavailable')}</AppText></Card>
+    <NavigateExperience />
     <ActionButton label={c('myTruck')} onPress={() => navigation.navigate('My truck')} />
     <ActionButton label={c('recordedTrips')} tone="secondary" onPress={() => navigation.navigate('Recorded trips')} />
     <ActionButton label={c('sos')} tone="secondary" onPress={() => navigation.navigate('SOS')} />
