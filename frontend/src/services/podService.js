@@ -1,4 +1,5 @@
 import { postForm } from './client';
+import { appendFile } from '../utils/appendFile';
 
 /**
  * Proof of delivery upload — driver may upload.
@@ -7,10 +8,7 @@ import { postForm } from './client';
 export async function uploadPod({ tripId, condition, receiver, remarks, file } = {}) {
   const fd = new FormData();
   if (tripId) fd.append('tripId', tripId);
-  if (condition) fd.append('condition', condition);
-  if (receiver) fd.append('receiver', receiver);
-  if (remarks) fd.append('remarks', remarks);
-  if (file) fd.append('file', file);
+  await appendFile(fd, 'pod', file);
   return postForm('/erp/pods/upload', fd);
 }
 

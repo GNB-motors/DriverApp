@@ -39,6 +39,7 @@ export default function Card({
   if (onPress) {
     return (
       <Pressable
+        accessibilityRole="button"
         onPress={onPress}
         style={({ pressed }) => [composed, pressed && styles.pressed]}
         {...rest}

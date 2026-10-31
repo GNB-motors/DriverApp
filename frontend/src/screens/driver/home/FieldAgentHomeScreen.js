@@ -15,22 +15,6 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
 
-// Removed QUICK_ACTIONS to avoid redundant button
-
-/**
- * FieldAgentHomeScreen — dedicated home for the Field Agent role.
- *
- * A field agent:
- *  - Can work for more than one organisation.
- *  - Primary job: capture and upload fuel receipts on behalf of organisations.
- *  - No trip management, no driver khata / advances.
- *
- * Layout:
- *  - Header with hamburger (opens DriverSidebar via DrawerContext).
- *  - "Upload fuel receipt" hero CTA.
- *  - Recent fuel uploads list.
- *  - Quick action grid.
- */
 export default function FieldAgentHomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, organization, token } = useAuth();
@@ -43,7 +27,6 @@ export default function FieldAgentHomeScreen({ navigation }) {
   const initials = (fullName[0] || "A").toUpperCase();
   const company = organization?.companyName || organization?.name || "";
 
-  // Recent fuel uploads
   const { data, loading, error, refetch } = useApi(
     () => fuelService.listFuelLogs({ limit: 8 }),
     [],
@@ -53,57 +36,72 @@ export default function FieldAgentHomeScreen({ navigation }) {
     ? data
     : (data?.results || data?.rows || data?.items || data?.data || []);
 
-  const onQuick = (key) => {
-    if (key === "fuel")    navigation.navigate("FuelCapture");
-    else if (key === "docs")    navigation.navigate("MyDocuments");
-    else if (key === "profile") navigation.navigate("Profile");
-    else if (key === "sos")     navigation.navigate("SOSOptions");
-  };
-
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <View style={{ flex: 1 }}>
-          <AppText variant="small" weight="medium" muted>Field Agent</AppText>
-          <AppText variant="h3" weight="extrabold" numberOfLines={1}>{fullName}</AppText>
+      {/* Gradient header — Nova SpiceKit */}
+      <LinearGradient
+        colors={colors.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + spacing.sm }]}
+      >
+        <View style={styles.headerContent}>
+          <View style={{ flex: 1 }}>
+            <AppText variant="small" color={colors.onPrimaryMuted} weight="medium">
+              Field Agent
+            </AppText>
+            <AppText variant="h3" weight="extrabold" color={colors.white} numberOfLines={1}>
+              {fullName}
+            </AppText>
+            {company ? (
+              <AppText variant="small" color={colors.onPrimaryMuted} numberOfLines={1}>
+                {company}
+              </AppText>
+            ) : null}
+          </View>
+          {/* Avatar — Nova primary gradient ring */}
+          <View style={styles.avatarRing}>
+            <View style={styles.avatar}>
+              <AppText weight="extrabold" color={colors.primary} style={styles.avatarText}>
+                {initials}
+              </AppText>
+            </View>
+          </View>
         </View>
-        <LinearGradient
-          colors={colors.avatarGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.avatar}
-        >
-          <AppText weight="extrabold" color={colors.white} style={styles.avatarText}>{initials}</AppText>
-        </LinearGradient>
-      </View>
+      </LinearGradient>
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />}
       >
-        {/* Hero CTA or Empty State */}
+        {/* Hero CTA or no-org state */}
         {!organization ? (
-          <Card variant="outline" elevated="none" padding={20} style={{ alignItems: "center", borderStyle: "dashed" }}>
-            <View style={[styles.heroIconBg, { backgroundColor: colors.surface }]}>
+          <Card style={{ alignItems: "center", borderStyle: "dashed", borderWidth: 1.5, borderColor: colors.border }}>
+            <View style={styles.heroIconBg}>
               <Ionicons name="business-outline" size={26} color={colors.textMuted} />
             </View>
-            <AppText variant="bodyStrong" weight="bold" center style={{ marginTop: 12 }}>No organisation selected</AppText>
-            <AppText variant="small" muted center style={{ marginTop: 4, marginBottom: 16 }}>
+            <AppText variant="bodyStrong" weight="bold" style={{ marginTop: 12, textAlign: "center" }}>
+              No organisation selected
+            </AppText>
+            <AppText variant="small" muted style={{ marginTop: 4, marginBottom: 16, textAlign: "center" }}>
               Select an organisation from the Orgs tab to log fuel.
             </AppText>
             <Button
-              variant="primary"
               size="sm"
               label="Select Organisation"
               onPress={() => navigation.navigate("Orgs")}
             />
           </Card>
         ) : (
-          <Pressable onPress={() => navigation.navigate("FuelCapture")} style={styles.heroCta}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Upload fuel receipt"
+            onPress={() => navigation.navigate("VehiclePicker")}
+            style={styles.heroCta}
+          >
             <LinearGradient
               colors={colors.gradient}
               start={{ x: 0, y: 0 }}
@@ -124,18 +122,18 @@ export default function FieldAgentHomeScreen({ navigation }) {
           </Pressable>
         )}
 
-        {/* Organisation context badge */}
+        {/* Active org badge */}
         {company ? (
           <View style={styles.orgBadge}>
-            <Ionicons name="business-outline" size={15} color={colors.primary} />
+            <View style={styles.orgBadgeIcon}>
+              <Ionicons name="business-outline" size={14} color={colors.primary} />
+            </View>
             <AppText variant="small" weight="semibold" color={colors.primary} numberOfLines={1} style={{ flex: 1 }}>
-              Active: {company}
+              {company}
             </AppText>
-            <AppText variant="caption" muted>Working for</AppText>
+            <AppText variant="small" muted>Active org</AppText>
           </View>
         ) : null}
-
-        {/* Quick actions removed to avoid redundancy */}
 
         {/* Recent uploads */}
         <AppText variant="label" muted style={styles.sectionLabel}>Recent fuel uploads</AppText>
@@ -144,15 +142,17 @@ export default function FieldAgentHomeScreen({ navigation }) {
         ) : error ? (
           <EmptyState error title="Couldn't load" message="Check your connection and try again." onAction={refetch} />
         ) : rows.length === 0 ? (
-          <Card variant="outline" elevated="none" padding={20} style={styles.emptyCard}>
-            <View style={styles.emptyIcon}><Ionicons name="water-outline" size={26} color={colors.textMuted} /></View>
-            <AppText variant="bodyStrong" weight="bold" center>No uploads yet</AppText>
-            <AppText variant="small" muted center style={styles.emptySub}>
-              Tap &quot;Upload receipt&quot; above to capture your first fuel bill.
+          <Card style={styles.emptyCard}>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="water-outline" size={26} color={colors.textMuted} />
+            </View>
+            <AppText variant="bodyStrong" weight="bold" style={{ textAlign: "center" }}>No uploads yet</AppText>
+            <AppText variant="small" muted style={{ marginTop: 4, textAlign: "center" }}>
+              Tap "Upload receipt" above to capture your first fuel bill.
             </AppText>
           </Card>
         ) : (
-          <Card elevated="sm" padding={0} style={styles.uploadList}>
+          <Card style={styles.uploadList}>
             {rows.map((log, i) => {
               const when = log?.refuelTime || log?.createdAt;
               const litres = log?.litres != null ? `${Number(log.litres).toFixed(1)} L` : "—";
@@ -160,7 +160,10 @@ export default function FieldAgentHomeScreen({ navigation }) {
                 ? `₹${Number(log.totalAmount).toLocaleString("en-IN")}`
                 : "—";
               const loc = log?.location || "Unknown Location";
-              const vehicleNum = log?.vehicleId?.registrationNumber || log?.vehicleId?.vehicleNumber || "Unknown Vehicle";
+              const vehicleNum =
+                log?.vehicleId?.registrationNumber ||
+                log?.vehicleId?.vehicleNumber ||
+                "Unknown Vehicle";
               return (
                 <View key={log?._id || String(i)}>
                   {i > 0 ? <View style={styles.divider} /> : null}
@@ -169,12 +172,14 @@ export default function FieldAgentHomeScreen({ navigation }) {
                       <Ionicons name="water" size={18} color={colors.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <AppText variant="bodyStrong" weight="semibold" numberOfLines={1}>{vehicleNum}</AppText>
-                      <AppText variant="caption" mono muted numberOfLines={1}>
+                      <AppText variant="bodyStrong" weight="semibold" numberOfLines={1}>
+                        {vehicleNum}
+                      </AppText>
+                      <AppText variant="caption" muted numberOfLines={1}>
                         {loc} · {litres} · {when ? dayjs(when).fromNow() : "—"}
                       </AppText>
                     </View>
-                    <AppText mono variant="body" weight="semibold">{amount}</AppText>
+                    <AppText variant="body" weight="semibold">{amount}</AppText>
                   </View>
                 </View>
               );
@@ -188,7 +193,6 @@ export default function FieldAgentHomeScreen({ navigation }) {
             size="sm"
             label="View all fuel logs"
             onPress={() => navigation.navigate("Fuel")}
-            style={styles.viewAll}
           />
         ) : null}
       </ScrollView>
@@ -198,75 +202,101 @@ export default function FieldAgentHomeScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+
   header: {
+    paddingHorizontal: 22,
+    paddingBottom: 18,
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 13,
-    paddingHorizontal: 22,
-    paddingBottom: 12,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    gap: 14,
   },
-  menuBtn: {
-    width: 40, height: 40, borderRadius: radius.md,
-    backgroundColor: colors.background, alignItems: "center", justifyContent: "center",
+  avatarRing: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatar: {
-    width: 40, height: 40, borderRadius: radius.md,
-    alignItems: "center", justifyContent: "center",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.infoBg,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  avatarText: { fontSize: 16 },
+  avatarText: { fontSize: 16, color: colors.primary },
+
   scroll: { paddingHorizontal: 18, paddingTop: 16, gap: 14 },
 
-  heroCta: { borderRadius: 18, overflow: "hidden" },
+  heroCta: { borderRadius: radius.xl, overflow: "hidden" },
   heroGradient: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    padding: 20, gap: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 20,
+    gap: 14,
   },
   heroLeft: { flexDirection: "row", alignItems: "center", gap: 14, flex: 1 },
   heroIconBg: {
-    width: 52, height: 52, borderRadius: radius.lg,
-    backgroundColor: "rgba(255,255,255,0.22)",
-    alignItems: "center", justifyContent: "center",
+    width: 52,
+    height: 52,
+    borderRadius: radius.lg,
+    backgroundColor: colors.onPrimaryFaint,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   orgBadge: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    paddingHorizontal: 14, paddingVertical: 10,
-    backgroundColor: colors.tealTint,
-    borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.primaryLight,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: colors.infoBg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  gridItem: {
-    flexBasis: "47%", flexGrow: 1, minWidth: 0,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    paddingVertical: 16, gap: 8,
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1, borderColor: colors.border,
+  orgBadgeIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  gridPrimary: { backgroundColor: colors.primary, borderColor: colors.primaryDeep },
-  gridDanger: { backgroundColor: colors.expiredBg, borderColor: "#F0CFCB" },
 
   sectionLabel: { marginTop: 4, marginLeft: 2 },
-  emptyCard: { alignItems: "center", borderStyle: "dashed" },
+  emptyCard: { alignItems: "center" },
   emptyIcon: {
-    width: 52, height: 52, borderRadius: radius.lg,
+    width: 52,
+    height: 52,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
-    alignItems: "center", justifyContent: "center", marginBottom: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
   },
-  emptySub: { marginTop: 4 },
 
-  uploadList: { overflow: "hidden" },
-  uploadRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
+  uploadList: { overflow: "hidden", padding: 0 },
+  uploadRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
   uploadIcon: {
-    width: 36, height: 36, borderRadius: radius.md,
-    backgroundColor: colors.tealTint,
-    alignItems: "center", justifyContent: "center",
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    backgroundColor: colors.infoBg,
+    alignItems: "center",
+    justifyContent: "center",
   },
   divider: { height: 1, backgroundColor: colors.border, marginLeft: 62 },
-  viewAll: { marginTop: 0 },
 });

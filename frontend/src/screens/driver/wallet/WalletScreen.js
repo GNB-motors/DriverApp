@@ -28,7 +28,7 @@ export default function WalletScreen({ navigation }) {
   // Balance + Ledger + Bills → REAL only (no mock fallback).
   const { user, token } = useAuth();
   const driverId = user?._id;
-  const useReal = apiConfigured() && !!driverId && !!token && token !== 'demo-token';
+  const useReal = apiConfigured() && !!driverId && !!token;
   const { data: summaryApi, refetch: refetchSummary } = useApi(() => walletService.getDriverSummary(driverId), [driverId], { enabled: useReal, fallback: null });
   const { data: ledgerApi, loading: ledgerLoading, error: ledgerError, refetch: refetchLedger } = useApi(() => walletService.getDriverLedger(driverId), [driverId], { enabled: useReal, fallback: null });
 

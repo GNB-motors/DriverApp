@@ -18,6 +18,7 @@ export default function AttachmentPicker({
   onGallery,
   onFile,
   onRemove,
+  imagesOnly = false,
 }) {
   const [failedUri, setFailedUri] = useState(null);
   if (!asset)
@@ -57,14 +58,14 @@ export default function AttachmentPicker({
             style={styles.flex}
           />
         </View>
-        <Button
+        {!imagesOnly && <Button
           label="Upload a PDF instead"
           icon="document-attach-outline"
           size="sm"
           variant="ghost"
           disabled={disabled}
           onPress={onFile}
-        />
+        />}
       </View>
     );
   const pdf = isPdf(asset);

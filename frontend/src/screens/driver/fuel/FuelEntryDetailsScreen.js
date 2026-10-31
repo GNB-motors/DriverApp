@@ -53,7 +53,7 @@ export default function FuelEntryDetailsScreen({ navigation, route }) {
       litres,
       rate,
       odometerReading: odometer || undefined,
-      refuelTime: new Date().toISOString(),
+      refuelTime: params.refuelTime || new Date().toISOString(),
       photo,
     }),
     {

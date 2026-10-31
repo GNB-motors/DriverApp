@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { appLoginUrl } from '../telematics/services/authEndpoint';
+import { notifySessionExpired } from './sessionEvents';
 
 /**
  * Central API client — the single place base URL, headers and error handling
@@ -17,20 +19,24 @@ if (RAW && !__DEV__ && !/^https:\/\//i.test(RAW)) {
   throw new Error('Insecure API URL: EXPO_PUBLIC_API_URL must use https:// in production builds.');
 }
 
-export const API_BASE = RAW ? `${RAW}/api` : '';
+export const API_BASE = RAW ? appLoginUrl(RAW).replace(/\/app\/v1\/auth\/login$/, '') : '';
 
-/** True when a backend URL is configured; false → app runs on demo fallback. */
+/** True when a backend URL is configured; false means server data is unavailable. */
 export const apiConfigured = () => !!RAW;
 
 // In-memory session used by the request interceptor (set by AuthContext on
 // login / session-restore / logout). Kept in sync with persisted storage there.
-let session = { token: null, orgId: null, branchId: null };
+let session = { token: null, orgId: null, branchId: null, refreshToken: null };
 export const setSession = (patch) => { session = { ...session, ...patch }; };
-export const clearSession = () => { session = { token: null, orgId: null, branchId: null }; };
+export const clearSession = () => { session = { token: null, orgId: null, branchId: null, refreshToken: null }; };
 
 let onUnauthorized = null;
 /** Register a callback fired on any 401 (AuthContext wires this to logout). */
 export const setOnUnauthorized = (fn) => { onUnauthorized = fn; };
+
+// Refresh-token state: one in-flight refresh, queued retries for concurrent 401s.
+let isRefreshing = false;
+let refreshQueue = [];
 
 const client = axios.create({
   baseURL: API_BASE || undefined,
@@ -50,8 +56,49 @@ client.interceptors.request.use((config) => {
 // the 401 hook.
 client.interceptors.response.use(
   (res) => res,
-  (error) => {
+  async (error) => {
     const status = error.response?.status;
+
+    // Attempt a token refresh on 401, once per original request.
+    if (status === 401 && session.refreshToken && !error.config?._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          refreshQueue.push((newToken) => {
+            if (!newToken) { reject(error); return; }
+            error.config.headers.Authorization = `Bearer ${newToken}`;
+            error.config._retry = true;
+            resolve(client(error.config));
+          });
+        });
+      }
+      isRefreshing = true;
+      error.config._retry = true;
+      try {
+        const res = await axios.post(
+          `${API_BASE}/app/v2/auth/refresh`,
+          { refreshToken: session.refreshToken },
+        );
+        const newToken = res.data?.data?.token || res.data?.token;
+        if (!newToken) throw new Error('No token in refresh response');
+        setSession({ token: newToken });
+        isRefreshing = false;
+        refreshQueue.forEach((cb) => cb(newToken));
+        refreshQueue = [];
+        error.config.headers.Authorization = `Bearer ${newToken}`;
+        return client(error.config);
+      } catch (_refreshErr) {
+        isRefreshing = false;
+        refreshQueue.forEach((cb) => cb(null));
+        refreshQueue = [];
+        // Fall through to normal 401 handling below.
+      }
+    }
+
+    if (status === 401) {
+      const authorization = error.config?.headers?.Authorization;
+      if (typeof authorization === 'string' && authorization.startsWith('Bearer '))
+        notifySessionExpired(authorization.slice(7));
+    }
     if (status === 401 && onUnauthorized) onUnauthorized();
 
     // No response at all, or an axios network/timeout code → the request never

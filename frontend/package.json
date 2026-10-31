@@ -8,7 +8,11 @@
     "ios": "expo run:ios",
     "web": "expo start --web --port 5173",
     "check:telematics": "node scripts/check-telematics.mjs",
-    "check:push": "node scripts/check-push.mjs"
+    "check:push": "node scripts/check-push.mjs",
+    "check:api": "node scripts/check-api-session.mjs",
+    "check:parity": "node scripts/check-parity.mjs",
+    "check:owner": "node scripts/check-owner.mjs",
+    "check:live-data": "node scripts/check-live-data.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/dm-mono": "^0.4.2",
@@ -29,11 +33,13 @@
     "axios": "^1.7.9",
     "dayjs": "^1.11.10",
     "expo": "^58.0.0",
+    "expo-audio": "~58.0.10",
     "expo-camera": "~58.0.12",
     "expo-constants": "~58.0.13",
     "expo-crypto": "~58.0.7",
     "expo-device": "~58.0.5",
     "expo-document-picker": "~58.0.4",
+    "expo-file-system": "~58.0.11",
     "expo-font": "~58.0.10",
     "expo-image-manipulator": "~58.0.15",
     "expo-image-picker": "~58.0.10",
@@ -41,6 +47,7 @@
     "expo-location": "~58.0.19",
     "expo-notifications": "~58.1.6",
     "expo-secure-store": "~58.0.2",
+    "expo-speech": "~58.0.3",
     "expo-splash-screen": "~58.0.11",
     "expo-status-bar": "~58.0.4",
     "expo-task-manager": "~58.0.12",
@@ -62,6 +69,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^4.6.2",
     "jest": "~30.5.2",
-    "jest-expo": "~58.0.12"
+    "jest-expo": "~58.0.12",
+    "jsdom": "26.1.0"
   }
 }

@@ -134,9 +134,9 @@ export async function loginWithPassword(emailOrMobile, password) {
   return res.data?.data ?? res.data;
 }
 
-export async function fetchAppSession(token) {
+export async function fetchAppSession(token, orgId = null) {
   const url = appLoginUrl(API_BASE_URL).replace(/\/login$/, '/me');
-  const result = await apiClient.get(url, { token, timeout: 20000 });
+  const result = await apiClient.get(url, { token, timeout: 20000, headers: orgId ? { 'X-Org-Id': orgId } : {} });
   const session = result.data?.data;
   if (!session?.user?._id) throw new Error('Invalid account response from server.');
   return session;
@@ -145,6 +145,11 @@ export async function fetchAppSession(token) {
 export async function revokeAppSession(token) {
   const url = appLoginUrl(API_BASE_URL).replace(/\/login$/, '/logout');
   await apiClient.post(url, {}, { token, timeout: 20000 });
+}
+
+export async function fetchAgentOrgs(token) {
+  const url = appLoginUrl(API_BASE_URL).replace(/\/app\/v1\/auth\/login$/, '/me/orgs');
+  return (await apiClient.get(url, { token, timeout: 20000 })).data.data;
 }
 
 // ── Vehicles ───────────────────────────────────────────────────────────

@@ -24,8 +24,8 @@ export function FreshnessChip({ updatedAt, now = Date.now() }) {
   const minutes = Math.max(0, Math.floor(elapsed / 60000));
   return <View style={s.inline}><Ionicons name="time-outline" color={colors.textMuted} size={13} /><AppText variant="caption" muted>{valid ? `Updated ${minutes < 1 ? 'just now' : `${minutes} min ago`}` : 'Update time unavailable'}</AppText></View>;
 }
-export function SectionHeading({ title, caption }) {
-  return <View style={s.section}><AppText variant="h3">{title}</AppText>{caption && <AppText variant="small" muted>{caption}</AppText>}</View>;
+export function SectionHeading({ title, caption, titleStyle }) {
+  return <View style={s.section}><AppText variant="h3" style={titleStyle}>{title}</AppText>{caption && <AppText variant="small" muted>{caption}</AppText>}</View>;
 }
 export function KpiCard({ label, value, unit, icon = 'analytics-outline', caption }) {
   return <Card style={s.kpi} padding={spacing.md}><View style={s.kpiIcon}><Ionicons name={icon} size={19} color={colors.primary} /></View><View style={s.number}><AppText variant="h1" mono>{value}</AppText>{unit && <AppText variant="small" muted style={s.unit}>{unit}</AppText>}</View><AppText variant="small" weight="semibold">{label}</AppText>{caption && <AppText variant="caption" muted>{caption}</AppText>}</Card>;

@@ -1,0 +1,53 @@
+# Manager and Driver UI alignment audit
+
+Review date: 30 October 2026. Repository: `/Users/dev/GNB/DriverApp`, existing `feat/owner-experience-completion`, baseline `0e2608d`. This review covers UI changes against the existing operational implementation. It does not establish production behavior or delivery of the navigation roadmap.
+
+## Sources and decision boundary
+
+- `DriverApp/DESIGN_IMPLEMENTATION_PLAN.md`: §0/§3 selects Nova blue, Inter/DM Sans/DM Mono and shared tokens; §2.3 requires responsive layouts rather than the 412×892 canvas; §2.4 defines capture layout; §6–§10 describe the Driver surfaces; §11 maps M1–M10 operations references; §13 describes shared cards, pills, lists and controls.
+- `DriverApp/design/bill-confirmation-wallet-loop/Highway Sahayak All Screens.dc.html`: visual reference for Driver Home/Trips/Inbox/More, records and account surfaces, and M1–M10 operations. Visual references do not prove API support.
+- PR306 is documentation-only: `DRIVER_NAV_MASTER_PLAN_2026-10-28.md`, §1.3 identifies the existing role shells; §3.3 proposes future Navigate/Trips/Capture/Inbox/More; §3.7 explicitly retains Nova for records screens; §3.8 requires every new string in en/hi/bn; §17.5 and Appendix E.2 describe future ranked Manager action cards; §17.5.5 describes the rest of the Manager shell; §17.6 covers Driver helpful cards.
+- `driver-owner-gap-analysis-2026-10-29.md`, “Navigation (Driver only)”, “Alerts & Escalation Cards”, and “Communication (Messages & Calls)” are dated roadmap/gap context. They are not treated as authoritative current availability where the inspected application has newer source.
+
+## Active screen mapping
+
+| Design intent | Active implementation and change | Boundary |
+| --- | --- | --- |
+| Nova header, overlapping surface, readable hierarchy | `DriverScreens.Page` now uses new `components/DriverScreenShell.js`; `ManagerScreens.ManagerPage` supplies its role-local shell. Existing Nova tokens, responsive width limits, top/side/bottom insets, keyboard handling and refresh are retained. | Existing navigation and data contexts remain in place. No driving-mode palette or navigation state machine is added. |
+| Driver Home and Trips (plan §5/§7; references 01–05) | Existing Home/Trips/Trip detail routes retain their data/actions. Trip cards use semantic status pills and unavailable date/amount presentation. | GPS-detected records remain GPS-detected records; no active guidance, fabricated destinations, new trip stages or earnings claims. |
+| Driver Inbox and More (plan §9; references 14/16) | Inbox errors now offer retry. More groups all 11 original links under Truck & trips, Messages & records, and Account; item names and targets remain unchanged. | Existing alert feeds are not represented as the future prompt engine or ranked helpful cards. |
+| Driver records, truck, profile and SOS | All existing `Page` consumers inherit the shell. Existing SOS draft/idempotency, submission, status polling and honest notification wording are preserved. | No new wallet lifecycle, dispatch acknowledgement or emergency recipient claim. Existing receipt/OCR/save implementation is untouched. |
+| Driver home crew density | `CrewScreens.DriverCrewCard` now shows a compact truck/status summary while retaining current-driver evidence and membership/owner-review/handover warnings, plus full Crew & driving access. | Status comes from the crew service, not pairing. Every existing CrewScreens function other than DriverCrewCard is byte-for-byte unchanged, including full Summary, history and mutations. |
+| Manager M1–M3 visual patterns | Existing Home, Live, Fleet, vehicle/driver detail, Fleet trips and historical trip routing receive the Manager shell. Home labels loaded records, resolves branch names without displaying IDs, masks failed-source counts and shows unknown-status observations separately from offline. | Totals are not promoted into fleet-wide business analytics. Current tabs remain Home/Live/Drivers/Alerts/More. |
+| Manager reviews and More (M4 and operational references) | Pending metric is explicitly fuel-only; existing Maintenance/workshop access remains. All nine More destinations remain grouped under Fleet & people, Records & reviews, and Administration. | `loadFleet` requests fuel but has no bills job, so a workshop pending count would be unsupported. Missing ERP Advances/Placements/Delivery-order screens are not invented. |
+| Honest loading/empty/error states | Existing data gates and source-error cards remain. Manager list emptiness is suppressed when the backing source failed; unavailable duty hours are not formatted as zero. | Legacy `ManagerScreens.Drivers` is not the active Drivers tab: `ManagerNavigator` registers `Operations.DriverRoster`. No claim that its cosmetic changes implement live duty/timeline data. |
+
+## Shared operational inheritance
+
+- `workflows/OperationalScreens.js` imports Driver `Page` and `MenuRow`: existing Driver support, issues, bills, document and operational form/list/detail surfaces inherit the role shell/row design without modifying their request or mutation code. The separate fuel capture implementation remains intact.
+- `workflows/FleetOperationalScreens.js` imports `ManagerPage` and Driver `MenuRow`: active Manager Drivers/Duty board, truck handover, fleet records and review forms inherit the role shell. Source queries, pagination, assignments, review actions and scope are unchanged.
+- Root changed `components/FormControls.Screen` from a scroll-contained Back button/title into a fixed shared `BackHeader` plus responsive keyboard-aware scrolling. Consumers include Crew & driving, Historical trip, ERP trips, Stop reasons, DEF and Team access. This does not mean each consumer was otherwise redesigned or interactively validated.
+
+## Preservation and integration review
+
+Neither role navigator changed. No API/service, authentication, organization/branch authorization, provider, backend, OCR, upload, mutation or SOS lifecycle source was changed by the role agents. Existing Manager branch filters still call `selectBranch`; role/organization keyed providers and server-side permissions remain authoritative. More grouping retains all original destinations.
+
+Independent Babel parsing passed for DriverScreens, ManagerScreens and DriverScreenShell. AST inspection against HEAD found the same service/storage/tracking method-call inventory (Driver 19, Manager 2); this is supporting source evidence, not an end-to-end proof. Driver route calls were preserved; Manager navigation additions are the local back-header behavior and grouping of the same destinations. Agent targeted diff checks passed. Broad build/export and native interactions remain root integration checks.
+
+`FormControls.Screen` review: removing its outer top padding is correct because `BackHeader` owns the top safe-area inset. Body side/bottom insets, max-width, keyboard avoidance and persistent taps are present. Its request-state hooks are unchanged. BackHeader has a 40pt button plus 10pt hit slop, satisfying the effective 44pt touch target. Root also added header side insets and an optional `active` prop, with focused-state wiring in FormControls.Screen and existing OwnerScreen. These resolve the source-level landscape inset/status-bar issues found during review; interactive landscape behavior remains a native check.
+
+## Localization and remaining checks
+
+PR306 §3.8 says every new string needs all three languages before merge. The existing role screens contain substantial English-first copy. Added role-design labels now use the existing `LanguageContext`/`src/i18n/translations.js` en/hi/bn structure: 28 matching nonempty keys per language, covering Driver unavailable values/More sections/back label/new membership warning and Manager new headings/captions/count/failure/duty/branch copy. Independent key-parity and Babel checks passed; `{count}` interpolation is wired. Existing route names and older labels are not broadly rewritten. Native review providers supply the language context. Full shell localization, language-owner review, and Hindi/Bengali large-text/device readability remain open; this is not full §3.8 compliance for the preexisting app.
+
+The initial Hindi heading clipping concern was addressed through an optional SectionHeading title style used only for the new More headings in hi/bn (30pt leading plus 2pt vertical padding). Default/English styles are unchanged. Independent inspection of the two 03:00 locale recaptures found no obvious glyph clipping in these fixture frames; see visual QA for remaining limits.
+
+Root captured 16 actual iOS simulator screenshots using real role navigators with controlled fixture providers in a separate scratch Expo entry (`screenshots.json` and `screenshots/`). Earlier native screenshots exposed the Manager hero branch ObjectId, an orphaned unavailable-status count and an overlong Driver home crew summary; these are corrected in source. The Manager count now has its own caption; the compact Driver card retains warnings and full detail access. Role source is frozen for visual QA/tests. Screenshots are fixture-backed native emulator evidence: rendering/layout, not live authentication, API permissions, production data, GPS freshness, receipt persistence or field usability. See `visual-qa.md` for per-screen review; root integration validation is tracked separately.
+
+Outstanding roadmap: map-first Navigate, truck routing/guidance, movement-gated capture, drive tokens/day-night/voice behavior, learned ETA/fusion, ranked Manager cards with evidence/call/message/handled/snooze, attribution timelines and unbuilt M5–M10 ERP routes. No mock operational values or claims were added to imply these capabilities exist.
+
+## Final integration validation
+
+All five `check:*` scripts (telematics, api, parity, push and owner) passed after the final source change. Expo export passed for web, Android and iOS. Targeted ESLint reported zero errors and three existing hook dependency warnings. The standalone HTML artifact passed offline Chrome checks for all 16 embedded native images, Driver/Manager filters, screenshot zoom/next/escape, density/notes controls and a 390px viewport without horizontal overflow. This validation does not exercise native taps, scrolling, submissions or live services.
+
+The generated HTML board and fixture capture harness are local handoff artifacts, kept outside the app bundle and source commit. The board includes screenshot provenance, per-screen visual notes and clearly marked future wireframes. Delegation used one Sol coordinator and two Luna implementation/review workhorses; exact spend was not measured.

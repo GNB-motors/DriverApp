@@ -10,13 +10,19 @@ import React, {
   useState,
 } from "react";
 import { useTelematicsApi } from "./TelematicsApiContext";
+import { useDriverStream } from "../realtime/useDriverStream";
 const Context = createContext(null);
+// Server pushes that mean the driver's own data changed and a refresh is worth
+// it. freshness/hello/position are handled without a full reload.
+const REFRESHING_EVENTS = new Set(["card", "message", "prompt", "visit", "eta", "alert"]);
 export function DriverDataProvider({ children }) {
   const service = useTelematicsApi();
   const { user, token } = useAuth();
   const tracking = useDriverLocationSharing({ user, token, service });
   const sequence = useRef(0);
   const mounted = useRef(true);
+  const refreshDebounce = useRef(null);
+  const [lastPush, setLastPush] = useState(null);
   const [preferences, setPreferences] = useState({ nickname: "" });
   const [state, setState] = useState({
     data: null,
@@ -56,6 +62,15 @@ export function DriverDataProvider({ children }) {
       sequence.current += 1;
     };
   }, [refresh]);
+  const onStreamEvent = useCallback((frame) => {
+    setLastPush({ event: frame.event, data: frame.data, at: Date.now() });
+    if (!REFRESHING_EVENTS.has(frame.event)) return;
+    // Coalesce a burst of pushes into a single reload.
+    if (refreshDebounce.current) clearTimeout(refreshDebounce.current);
+    refreshDebounce.current = setTimeout(() => { refresh(); }, 800);
+  }, [refresh]);
+  const { connected: streamConnected } = useDriverStream({ service, onEvent: onStreamEvent });
+  useEffect(() => () => { if (refreshDebounce.current) clearTimeout(refreshDebounce.current); }, []);
   const mutate = async (action) => {
     const result = await action(service);
     await refresh();
@@ -71,6 +86,8 @@ export function DriverDataProvider({ children }) {
         tracking,
         preferences,
         setPreferences,
+        streamConnected,
+        lastPush,
       }}
     >
       {children}
