@@ -1,13 +1,14 @@
-import { OfflineManager } from '@maplibre/maplibre-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { corridorPackBounds, packReady } from './corridorPacks';
 import { navigationCacheKey } from './navigationCoordinator';
+import { requireNavigationNative } from './nativeNavigation';
+const offlineManager = () => requireNavigationNative(() => require('@maplibre/maplibre-react-native')).OfflineManager;
 function key(identity, bundle) { return `${navigationCacheKey(identity)}:maps:${bundle.routeId}:${bundle.geometryHash}`; }
 export async function inspectOfflineMaps({ identity, bundle, mapStyle }) {
   const manifest = JSON.parse(await AsyncStorage.getItem(key(identity, bundle)) || 'null');
   if (!manifest || manifest.mapStyle !== mapStyle || !manifest.ids?.length || manifest.expected !== manifest.ids.length) return { ready: false, reason: 'Map download incomplete or unavailable for this route and style.' };
   try {
-    const states = await Promise.all(manifest.ids.map(async id => (await OfflineManager.getPack(id)).status()));
+    const states = await Promise.all(manifest.ids.map(async id => (await offlineManager().getPack(id)).status()));
     return { ready: states.every(packReady), completed: states.filter(packReady).length, total: states.length, bytes: states.reduce((n,s) => n + s.completedResourceSize, 0), minZoom: manifest.minZoom, maxZoom: manifest.maxZoom };
   } catch { return { ready: false, reason: 'A downloaded map region is missing. Download the route again.' }; }
 }
@@ -28,14 +29,14 @@ export async function downloadOfflineMaps({ identity, bundle, coordinates, mapSt
         if (pack?.id && !manifest.ids.includes(pack.id)) manifest.ids.push(pack.id);
       };
       timeout = setTimeout(() => { current?.pause(); finish(new Error('Map download timed out. Partial maps remain unavailable.')); }, 180000);
-      OfflineManager.createPack({ mapStyle, bounds: bounds[index], minZoom: manifest.minZoom, maxZoom: manifest.maxZoom, metadata: { routeId: bundle.routeId, geometryHash: bundle.geometryHash, identity: navigationCacheKey(identity) } }, (_pack, status) => {
+      offlineManager().createPack({ mapStyle, bounds: bounds[index], minZoom: manifest.minZoom, maxZoom: manifest.maxZoom, metadata: { routeId: bundle.routeId, geometryHash: bundle.geometryHash, identity: navigationCacheKey(identity) } }, (_pack, status) => {
         remember(_pack);
         if (!isActive()) { _pack.pause(); finish(new Error('Map download cancelled after identity change.')); return; }
         onProgress({ completed: index, total: bounds.length, percentage: status.percentage });
         if (packReady(status)) finish();
       }, (_pack, error) => finish(new Error(error.message))).then(async pack => {
         remember(pack);
-        if (outcome === 'error' || !isActive()) { await OfflineManager.deletePack(pack.id).catch(() => {}); finish(new Error('Map download cancelled.')); return; }
+        if (outcome === 'error' || !isActive()) { await offlineManager().deletePack(pack.id).catch(() => {}); finish(new Error('Map download cancelled.')); return; }
         if (outcome === 'success') return;
         await AsyncStorage.setItem(`${cacheKey}:staging`, JSON.stringify(manifest.ids));
         if (!isActive()) { await pack.pause(); finish(new Error('Map download cancelled.')); } else await pack.resume();
@@ -48,11 +49,11 @@ export async function downloadOfflineMaps({ identity, bundle, coordinates, mapSt
     // installed generation intact until this point so interrupted downloads stay usable.
     await AsyncStorage.setItem(cacheKey, JSON.stringify(manifest));
   } catch (error) {
-    await Promise.all(manifest.ids.map(id => OfflineManager.deletePack(id).catch(() => {})));
+    await Promise.all(manifest.ids.map(id => offlineManager().deletePack(id).catch(() => {})));
     await AsyncStorage.removeItem(`${cacheKey}:staging`).catch(() => {});
     throw error;
   }
   await AsyncStorage.removeItem(`${cacheKey}:staging`).catch(() => {});
-  for (const id of old?.ids || []) if (!manifest.ids.includes(id)) await OfflineManager.deletePack(id).catch(() => {});
+  for (const id of old?.ids || []) if (!manifest.ids.includes(id)) await offlineManager().deletePack(id).catch(() => {});
   const state = await inspectOfflineMaps({ identity, bundle, mapStyle }); onProgress(state); return state;
 }

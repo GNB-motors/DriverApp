@@ -1,18 +1,23 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import { Map, Camera, GeoJSONSource, Layer } from '@maplibre/maplibre-react-native';
+import { StyleSheet, View } from 'react-native';
 import { driveTokens } from '../../theme/driveTokens';
 import { boundsOf } from './navigationFormat';
+import { nativeNavigationAvailable, requireNavigationNative } from './nativeNavigation';
+
+let maplibre = null;
+const loadMapLibre = () => (maplibre ||= requireNavigationNative(() => require('@maplibre/maplibre-react-native')));
 
 // Without the fleet's style the route and truck still draw, on a plain ground with no tiles.
 const BLANK_STYLE = { version: 8, sources: {}, layers: [{ id: 'ground', type: 'background', paint: { 'background-color': driveTokens.day.map } }] };
 const line = coordinates => ({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates } });
 const point = coordinates => ({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates } });
 
-export const mapStyleConfigured = () => !!process.env.EXPO_PUBLIC_MAP_STYLE_URL;
+export const mapStyleConfigured = () => !!process.env.EXPO_PUBLIC_MAP_STYLE_URL && nativeNavigationAvailable;
 
 // routes: [{ id, coordinates, selected }]. follow: chase the truck; otherwise frame every route.
 export default function NavigationMap({ routes = [], position, course, destination, follow = false, padding, onUserPan }) {
+  if (!nativeNavigationAvailable) return <View style={[StyleSheet.absoluteFill, { backgroundColor: driveTokens.day.map }]} />;
+  const { Map, Camera, GeoJSONSource, Layer } = loadMapLibre();
   const style = process.env.EXPO_PUBLIC_MAP_STYLE_URL || BLANK_STYLE;
   const drawn = routes.filter(r => r.coordinates?.length > 1);
   const selected = drawn.find(r => r.selected) || drawn[0];

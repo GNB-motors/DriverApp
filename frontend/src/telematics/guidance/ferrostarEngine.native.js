@@ -1,9 +1,10 @@
-import { FerrostarCore, ManualLocationProvider, CorrectiveAction, NavigationUiState } from '@stadiamaps/ferrostar-core-react-native';
-import { RouteAdapter, WellKnownRouteProvider, ManeuverType, ManeuverModifier, DrivingSide, UserLocation, WaypointAdvanceMode, RouteDeviationTracking, CourseFiltering, stepAdvanceDistanceEntryAndExit, stepAdvanceDistanceToEndOfStep } from '@stadiamaps/ferrostar-uniffi-react-native';
 import * as Speech from 'expo-speech';
 import { validateBundle } from './navigationCoordinator';
+import { requireNavigationNative } from './nativeNavigation';
 
 export async function createFerrostarEngine({ language = 'en', onState = () => {}, onDeviation = () => {}, foregroundService } = {}) {
+  const { FerrostarCore, ManualLocationProvider, CorrectiveAction, NavigationUiState } = requireNavigationNative(() => require('@stadiamaps/ferrostar-core-react-native'));
+  const { RouteAdapter, WellKnownRouteProvider, ManeuverType, ManeuverModifier, DrivingSide, UserLocation, WaypointAdvanceMode, RouteDeviationTracking, CourseFiltering, stepAdvanceDistanceEntryAndExit, stepAdvanceDistanceToEndOfStep } = requireNavigationNative(() => require('@stadiamaps/ferrostar-uniffi-react-native'));
   const voices = await Speech.getAvailableVoicesAsync();
   let voiceSelection = null;
   let muted = false;

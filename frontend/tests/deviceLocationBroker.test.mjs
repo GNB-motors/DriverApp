@@ -61,6 +61,7 @@ test('failed offline map replacement preserves the installed generation and remo
       return pack;
     },
   };
+  globalThis.requireNavigationNative = () => ({ OfflineManager: globalThis.OfflineManager });
   const stripped = source.replace(/^import .*;\s*$/gm, '');
   const { downloadOfflineMaps } = await import(`data:text/javascript;base64,${Buffer.from(stripped).toString('base64')}`);
   const identity = { orgId: 'o', userId: 'u', vehicleId: 'v' };

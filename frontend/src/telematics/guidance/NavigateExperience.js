@@ -13,6 +13,7 @@ import { driveTokens } from '../../theme/driveTokens';
 import { NavigationCoordinator } from './navigationCoordinator';
 import { createFerrostarEngine } from './ferrostarEngine';
 import NavigationMap, { mapStyleConfigured } from './NavigationMap';
+import { NATIVE_NAVIGATION_MISSING, nativeNavigationAvailable } from './nativeNavigation';
 import { decodePolyline6, formatClock, formatDistance, formatDuration, maneuverIcon, routeOptionFacts } from './navigationFormat';
 import { deviceLocationCollector } from '../tracking/deviceLocationCollector';
 import { startNavigationBackground, stopNavigationBackground } from '../tracking/driverBackground';
@@ -318,7 +319,8 @@ export default function NavigateExperience({ navigation }) {
           <Chip icon="alert-circle-outline" label="SOS" danger onPress={() => navigation?.navigate('SOS')} />
         </View>
       </>}
-      {!mapStyleConfigured() && <AppText muted variant="caption">Map background is not set up yet, so only the route line is drawn.</AppText>}
+      {!nativeNavigationAvailable ? <AppText color={colors.warning} variant="caption">{NATIVE_NAVIGATION_MISSING}</AppText>
+        : !mapStyleConfigured() && <AppText muted variant="caption">Map background is not set up yet, so only the route line is drawn.</AppText>}
     </View>
   </View>;
 }
