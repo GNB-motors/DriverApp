@@ -94,6 +94,9 @@ The app is built for drivers — not managers. Key constraints:
 
 ## Running Locally
 
+> Turn-by-turn navigation uses vendored native libraries (Git LFS, no Expo Go). See
+> [NAVIGATION_BUILD_README.md](NAVIGATION_BUILD_README.md) for production builds.
+
 ```bash
 cd frontend
 npm install
