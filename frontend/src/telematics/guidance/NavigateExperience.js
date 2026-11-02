@@ -13,6 +13,7 @@ import { driveTokens } from '../../theme/driveTokens';
 import { NavigationCoordinator } from './navigationCoordinator';
 import { createFerrostarEngine } from './ferrostarEngine';
 import NavigationMap, { mapStyleConfigured } from './NavigationMap';
+import { mapStyleUrl } from './mapStyle';
 import { NATIVE_NAVIGATION_MISSING, nativeNavigationAvailable } from './nativeNavigation';
 import { decodePolyline6, formatClock, formatDistance, formatDuration, maneuverIcon, routeOptionFacts } from './navigationFormat';
 import { deviceLocationCollector } from '../tracking/deviceLocationCollector';
@@ -211,7 +212,7 @@ export default function NavigateExperience({ navigation }) {
   function downloadMaps() {
     run(async () => {
       const coordinator = owner.current; const lease = generation.current;
-      const result = await downloadOfflineMaps({ identity: coordinator.identity, bundle: coordinator.session.navigation, coordinates: geometry, mapStyle: process.env.EXPO_PUBLIC_MAP_STYLE_URL, isActive: () => lease === generation.current, onProgress: progress => { if (mounted.current) setMapDownload(`Map regions: ${progress.completed || 0}/${progress.total || 0}`); } });
+      const result = await downloadOfflineMaps({ identity: coordinator.identity, bundle: coordinator.session.navigation, coordinates: geometry, mapStyle: mapStyleUrl(), isActive: () => lease === generation.current, onProgress: progress => { if (mounted.current) setMapDownload(`Map regions: ${progress.completed || 0}/${progress.total || 0}`); } });
       if (mounted.current) setMapDownload(result.ready ? `Map resources downloaded · zoom ${result.minZoom}–${result.maxZoom}. Airplane-mode device verification pending.` : result.reason || 'Map download incomplete');
     });
   }
@@ -219,7 +220,7 @@ export default function NavigateExperience({ navigation }) {
   function continueOffline() {
     run(async () => {
       const c = await initialize({ offline: true }); await c.recover({ consent: true, online: false });
-      const maps = await inspectOfflineMaps({ identity: c.identity, bundle: c.session.navigation, mapStyle: process.env.EXPO_PUBLIC_MAP_STYLE_URL });
+      const maps = await inspectOfflineMaps({ identity: c.identity, bundle: c.session.navigation, mapStyle: mapStyleUrl() });
       setMapDownload(maps.ready ? 'Native map regions complete. Offline voice unverified.' : maps.reason || 'Map regions incomplete. Route guidance continues without verified maps.');
       setFollowing(true);
     });
