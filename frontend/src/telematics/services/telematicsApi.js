@@ -446,14 +446,20 @@ export function createTelematicsApi({
     ).data.data;
   }
   return {
-    async consent() { return (await get('/app/v2/consent')).data; },
+    async consent(language) { return (await get('/app/v2/consent', { params: { language } })).data; },
+    async grantConsent(body, operationId) {
+      return (await client.post('/app/v2/consent', body, { headers: { 'Idempotency-Key': idempotencyKey(operationId) } })).data.data;
+    },
+    async withdrawConsent(operationId) {
+      return (await client.post('/app/v2/consent/withdraw', {}, { headers: { 'Idempotency-Key': idempotencyKey(operationId) } })).data.data;
+    },
     async destinationSearch(q) { return (await get('/app/v2/destinations/search', { params: { q } })).data; },
     async ourRoutes(body) { return post('/app/v2/routes/our', body); },
     async navSessionStart(body) { return (await client.post('/app/v2/nav/sessions', body, { headers: { 'Idempotency-Key': idempotencyKey() } })).data.data; },
     async navSessionPatch(id, body) { return (await client.patch(`/app/v2/nav/sessions/${encodeURIComponent(id)}`, body, { headers: { 'Idempotency-Key': idempotencyKey(body?.operationId) } })).data.data; },
     async navSessionActive() { return (await get('/app/v2/nav/sessions/active')).data; },
     async navVoiceResources(language, platform) { return get('/app/v2/nav/voice-resources', { params: { language, platform } }); },
-    async navOfflineManifest(routeId) { return (await get(`/app/v2/nav/offline/${encodeURIComponent(routeId)}`)).data; },
+    async navOfflineManifest(routeId) { return get(`/app/v2/nav/offline/${encodeURIComponent(routeId)}`); },
     loadDriver,
     workflowList,
     uploadWorkflow,

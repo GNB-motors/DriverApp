@@ -100,19 +100,28 @@ export class NavigationCoordinator {
     validateFix(this.fix, this.now());
     const epoch = ++this.epoch;
     const raw = await this.storage.getItem(navigationCacheKey(this.identity));
-    if (!raw || epoch !== this.epoch) return;
+    if (epoch !== this.epoch) return;
+    if (!raw) throw new Error('No saved navigation route on this phone. Connect and plan a route.');
     const cached = JSON.parse(raw);
     if (!online && (!Number.isFinite(cached.recoveryLeaseUntil) || cached.recoveryLeaseUntil <= this.now() || cached.recoveryLeaseUntil > this.now() + 86400000 || !Number.isFinite(cached.savedAt) || cached.savedAt > this.now())) throw new Error('The cached navigation recovery lease expired. Reconnect to confirm the active route.');
     if (JSON.stringify(cached.identity) !== JSON.stringify(this.identity)) throw new Error('Cached route belongs to another assignment.');
     const active = online ? await this.api.navSessionActive() : cached.session;
     if (epoch !== this.epoch) return;
     const server = active?.session || active;
-    if (!server || server.state === 'PAUSED' || (server.sessionId || server.id || server._id) !== (cached.session.sessionId || cached.session.id || cached.session._id) || server.routeVersion !== cached.session.routeVersion || ['ENDED', 'ABANDONED', 'ARRIVED'].includes(server.state))
+    if (!server || (server.sessionId || server.id || server._id) !== (cached.session.sessionId || cached.session.id || cached.session._id) || server.routeVersion !== cached.session.routeVersion || ['ENDED', 'ABANDONED', 'ARRIVED'].includes(server.state))
       throw new Error('The cached route is no longer the active session.');
     const bundle = validateBundle(cached.session.navigation);
+    const recovered = { ...cached.session, ...server, navigation: bundle };
+    if (server.state === 'PAUSED') {
+      this.session = recovered;
+      this.engine.stop();
+      if (online) await this.persist(epoch);
+      if (epoch === this.epoch) this.publish('paused', { offline: !online });
+      return this.session;
+    }
     const route = await this.engine.parse(bundle);
     if (epoch !== this.epoch) return;
-    validateFix(this.fix, this.now()); this.session = cached.session;
+    validateFix(this.fix, this.now()); this.session = recovered;
     this.engine.location(this.fix); this.engine.start(route);
     if (online) { this.session = { ...this.session, recoveryLeaseUntil: server.recoveryLeaseUntil }; await this.persist(epoch); }
     this.publish(online ? 'navigating' : 'offline-continuation', { offline: !online, mapsVerified: false });

@@ -383,7 +383,7 @@ export function QuickAdd({ navigation }) {
   return <Page navigation={navigation} title="What would you like to add?" subtitle="Simple steps. Back to the road.">{actions.map(([title, icon, detail]) => <MenuRow key={title} title={title} icon={icon} detail={detail} danger={title === 'SOS'} onPress={() => navigation.replace(title)} />)}</Page>;
 }
 export function DriverMore({ navigation }) {
-  const items = [['Navigate', 'navigate-circle-outline'], ['My truck', 'bus-outline'], ['Location sharing', 'location-outline'], ['Documents', 'document-text-outline'], ['Fuel history', 'water-outline'], ['My issues', 'construct-outline'], ['Workshop bills', 'receipt-outline'], ['Support', 'help-circle-outline'], ['Profile', 'person-outline']];
+  const items = [['Navigate', 'navigate-circle-outline'], ['My truck', 'bus-outline'], ['Location sharing', 'location-outline'], ['Privacy & consent', 'shield-checkmark-outline'], ['Documents', 'document-text-outline'], ['Fuel history', 'water-outline'], ['My issues', 'construct-outline'], ['Workshop bills', 'receipt-outline'], ['Support', 'help-circle-outline'], ['Profile', 'person-outline']];
   return <Page navigation={navigation} title="Everything else" subtitle="Your essentials, in one place.">{items.map(([title, icon]) => <MenuRow key={title} title={title} icon={icon} onPress={() => navigation.navigate(title)} />)}</Page>;
 }
 function Success({ title, description, onDone }) {

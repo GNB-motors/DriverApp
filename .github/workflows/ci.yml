@@ -52,3 +52,6 @@ jobs:
       # failure mode that a testless project actually hits in the field.
       - name: parse-check
         run: node scripts/parse-check.js
+
+      - name: Navigation and consent regression tests
+        run: npm run test:guidance

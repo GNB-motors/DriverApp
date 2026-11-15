@@ -69,8 +69,11 @@ The `REPLACE-WITH-...` placeholders in `eas.json` must be replaced before any re
 - `VALHALLA_BASE_URL` must point at a reachable Valhalla instance. Without it,
   `POST /api/app/v2/routes/our` returns 503 and the app cannot plan routes.
 - The driver needs an open truck assignment and granted location consent, or navigation won't start.
+- Drivers can read the published notice and grant or withdraw consent in **More → Privacy & consent**. The notice version/language and the driver's choice are sent to the v2 consent endpoints. Withdrawal stops this phone's guidance and location sharing.
 - `POST /api/app/v2/nav/sessions` and `PATCH /api/app/v2/nav/sessions/:id` require an
   `Idempotency-Key` header. The app sends it; keep it if you touch `telematicsApi.js`.
+
+Refresh failures keep guidance on the last confirmed truck; a confirmed reassignment or expired authentication tears it down. Recovering a paused session restores Resume/End controls without starting guidance automatically. `npm run test:guidance` covers these lifecycle failures, consent decisions, GPS validation and offline resource response handling, and runs in CI.
 
 ## 5. Build
 

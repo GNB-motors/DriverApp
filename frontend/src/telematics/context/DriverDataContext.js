@@ -35,7 +35,9 @@ export function DriverDataProvider({ children }) {
       if (mounted.current && current === sequence.current)
         setState((old) => ({
           ...old,
-          data: null,
+          // An unavailable refresh does not confirm that the truck was removed.
+          // Keep guidance on the last confirmed assignment through an outage.
+          data: [401, 403].includes(error.response?.status) ? null : old.data,
           loading: false,
           error: error.message,
         }));

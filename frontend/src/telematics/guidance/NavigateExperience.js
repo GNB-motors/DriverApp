@@ -10,7 +10,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useDriverData } from '../context/DriverDataContext';
 import { AppText, colors } from '../../components/ui';
 import { driveTokens } from '../../theme/driveTokens';
-import { NavigationCoordinator } from './navigationCoordinator';
+import { NavigationCoordinator, validateFix } from './navigationCoordinator';
 import { createFerrostarEngine } from './ferrostarEngine';
 import NavigationMap, { mapStyleConfigured } from './NavigationMap';
 import { mapStyleUrl } from './mapStyle';
@@ -98,7 +98,8 @@ export default function NavigateExperience({ navigation }) {
       if (!current?.session || !dest || Date.now() - lastReroute.current < 15000) return;
       lastReroute.current = Date.now();
       try {
-        const response = await service.ourRoutes({ origin: { lat: current.fix.latitude, lng: current.fix.longitude }, destination: { lat: dest.lat, lng: dest.lng }, language: language || 'en' });
+        const fix = validateFix(current.fix);
+        const response = await service.ourRoutes({ origin: { lat: fix.latitude, lng: fix.longitude }, destination: { lat: dest.lat, lng: dest.lng }, language: language || 'en' });
         const selected = response.default === 'OURS' ? response.ours : response.fastest;
         if (!selected?.navigation) throw new Error('No safe truck reroute is available.');
         await current.replace(selected.navigation, { reason: 'OFF_ROUTE' });
@@ -139,7 +140,8 @@ export default function NavigateExperience({ navigation }) {
   async function plan() {
     const coordinator = await initialize();
     if (!destination) throw new Error('Choose a destination first.');
-    const response = await service.ourRoutes({ origin: { lat: coordinator.fix.latitude, lng: coordinator.fix.longitude }, destination: { lat: destination.lat, lng: destination.lng }, language: language || 'en' });
+    const fix = validateFix(coordinator.fix);
+    const response = await service.ourRoutes({ origin: { lat: fix.latitude, lng: fix.longitude }, destination: { lat: destination.lat, lng: destination.lng }, language: language || 'en' });
     const choices = [response.ours && { ...response.ours, title: 'Fleet route' }, response.fastest && { ...response.fastest, title: 'Truck route' }].filter(Boolean);
     if (!choices.length) throw new Error(response.reason?.text || 'No navigable truck route was returned.');
     const unique = choices.filter((choice, i) => choices.findIndex(other => other.routeId === choice.routeId) === i);

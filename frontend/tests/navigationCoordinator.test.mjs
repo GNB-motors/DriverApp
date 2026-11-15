@@ -59,3 +59,39 @@ test('a delayed write cannot repopulate cache after generation cancellation', as
   const activation = c.activate({ bundle, consent: true }); await entering; c.stop(); release(); await activation;
   assert.equal(saved.size, 0);
 });
+
+test('paused recovery restores controls without starting guidance, then can resume and end', async () => {
+  let server;
+  const { c, calls } = setup({
+    navSessionPatch: async (_id, body) => {
+      server = { ...c.session, state: body.action === 'PAUSE' ? 'PAUSED' : body.action === 'RESUME' ? 'ACTIVE' : 'ENDED' };
+      return { session: server };
+    },
+    navSessionActive: async () => ({ session: server }),
+  });
+  await c.activate({ bundle, consent: true });
+  await c.lifecycle('PAUSE'); c.stop();
+  const starts = calls.filter(name => name === 'start').length;
+  const recovered = await c.recover({ consent: true });
+  assert.equal(recovered.state, 'PAUSED');
+  assert.equal(calls.filter(name => name === 'start').length, starts);
+  await c.lifecycle('RESUME');
+  assert.equal(c.session.state, 'ACTIVE');
+  assert.equal(calls.filter(name => name === 'start').length, starts + 1);
+  await c.lifecycle('END');
+  assert.equal(c.session, null);
+});
+
+test('the server paused state wins over an older active cache', async () => {
+  const { c, calls } = setup({ navSessionActive: async () => ({ session: { id: 's', routeVersion: 1, state: 'PAUSED' } }) });
+  await c.activate({ bundle, consent: true }); c.stop();
+  const starts = calls.filter(name => name === 'start').length;
+  await c.recover({ consent: true });
+  assert.equal(c.session.state, 'PAUSED');
+  assert.equal(calls.filter(name => name === 'start').length, starts);
+});
+
+test('recovery without a cache gives an actionable error', async () => {
+  const { c } = setup();
+  await assert.rejects(c.recover({ consent: true }), /No saved navigation route/);
+});
