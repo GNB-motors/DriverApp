@@ -75,6 +75,8 @@ The `REPLACE-WITH-...` placeholders in `eas.json` must be replaced before any re
 
 Refresh failures keep guidance on the last confirmed truck; a confirmed reassignment or expired authentication tears it down. Recovering a paused session restores Resume/End controls without starting guidance automatically. `npm run test:guidance` covers these lifecycle failures, consent decisions, GPS validation and offline resource response handling, and runs in CI.
 
+The 15 November 2026 update was checked against current `main`: 37 regression tests, Android/iOS/web Expo exports, and the exported app's consent grant/withdrawal flow in Chrome. The browser used local API fixtures and produced no page errors. These checks do not replace the native device and release checks below.
+
 ## 5. Build
 
 ### Cloud builds (recommended)
