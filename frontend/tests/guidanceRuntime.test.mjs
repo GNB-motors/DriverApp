@@ -76,6 +76,29 @@ test('planning without a valid first GPS fix reports the GPS error before any re
   assert.equal(requested, false);
 });
 
+test('ending a route releases the runtime so the next route initializes fresh GPS and guidance', async () => {
+  const { stopGuidanceRuntime } = evaluate('guidance/GuidanceRuntimeContext.js');
+  const screen = readFileSync(new URL('guidance/NavigateExperience.js', root), 'utf8');
+  const finishSource = screen.match(/function finish\(action\) \{[\s\S]*?\n  \}/)[0];
+  let action, disposed = 0, removed = 0, voiceStopped = 0;
+  const runtime = {
+    generation: { current: 0 },
+    owner: { current: { lifecycle: async value => { action = value; }, stop() {}, engine: { dispose() { disposed++; } } } },
+    watcher: { current: { remove() { removed++; } } },
+    voicePolicyController: { dispose() { voiceStopped++; } },
+  };
+  const finish = new Function('run', 'owner', 'runtime', 'watcher', 'stopGuidanceRuntime', 'setMenuOpen', 'setArrived', 'setProgress', 'setGeometry', 'clearDestination', `${finishSource}; return finish;`)(
+    fn => fn(), runtime.owner, runtime, runtime.watcher, stopGuidanceRuntime, () => {}, () => {}, () => {}, () => {}, () => {},
+  );
+  await finish('END');
+  assert.equal(action, 'END');
+  assert.equal(runtime.owner.current, null);
+  assert.equal(runtime.watcher.current, null);
+  assert.equal(runtime.voicePolicyController, null);
+  assert.equal(runtime.generation.current, 1);
+  assert.equal(disposed, 1); assert.equal(removed, 1); assert.equal(voiceStopped, 1);
+});
+
 test('consent requires a deliberate choice, retries the same decision and stops guidance on withdrawal', async () => {
   const guidance = evaluate('guidance/GuidanceRuntimeContext.js');
   const runtime = { generation: { current: 0 }, owner: { current: null }, watcher: { current: null } };

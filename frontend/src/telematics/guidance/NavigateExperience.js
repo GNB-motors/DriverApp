@@ -21,7 +21,7 @@ import { startNavigationBackground, stopNavigationBackground } from '../tracking
 import { downloadOfflineMaps, inspectOfflineMaps } from './offlinePacks';
 import { downloadSourceResources } from './resourceDownloads';
 import { navigationCacheKey } from './navigationCoordinator';
-import { useGuidanceRuntime } from './GuidanceRuntimeContext';
+import { stopGuidanceRuntime, useGuidanceRuntime } from './GuidanceRuntimeContext';
 import { createVoicePolicyController, voiceSelectionLabel } from './voiceResourcePolicy';
 
 export default function NavigateExperience({ navigation }) {
@@ -185,7 +185,7 @@ export default function NavigateExperience({ navigation }) {
   function finish(action) {
     run(async () => {
       await owner.current.lifecycle(action);
-      watcher.current?.remove(); watcher.current = null;
+      stopGuidanceRuntime(runtime);
       setMenuOpen(false); setArrived(false); setProgress(null); setGeometry([]); clearDestination();
     });
   }
@@ -196,7 +196,7 @@ export default function NavigateExperience({ navigation }) {
     ]);
   }
   function stopLocal() {
-    owner.current?.stop(); owner.current?.engine.dispose(); owner.current = null; watcher.current?.remove(); watcher.current = null;
+    stopGuidanceRuntime(runtime);
     setMenuOpen(false); setPhase('stopped');
   }
   function toggleMute() { const next = !muted; owner.current?.engine.setMuted?.(next); setMuted(next); }
