@@ -21,7 +21,11 @@ jobs:
       run:
         working-directory: frontend
     steps:
+      # The Ferrostar SDK tarballs in frontend/vendor are Git LFS objects;
+      # without them `npm ci` would install a pointer file.
       - uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - uses: actions/setup-node@v4
         with:
@@ -48,3 +52,6 @@ jobs:
       # failure mode that a testless project actually hits in the field.
       - name: parse-check
         run: node scripts/parse-check.js
+
+      - name: Navigation and consent regression tests
+        run: npm run test:guidance

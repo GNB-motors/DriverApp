@@ -1,6 +1,11 @@
 import { ALERT_TITLES, alertSeverity } from "./alertMetadata";
 import axios from "axios";
-import { appLoginUrl } from "./authEndpoint";
+import { APP_VERSION, appLoginUrl } from "./authEndpoint";
+
+// The nav write endpoints demand an Idempotency-Key so a retried request cannot be applied twice.
+const idempotencyKey = (seed) =>
+  seed ||
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}-${Math.random().toString(36).slice(2, 12)}`;
 
 export const recordId = (value) => {
   const id = value && typeof value === "object" ? value._id || value.id : value;
@@ -159,7 +164,7 @@ export function createTelematicsApi({
   const client = axios.create({
     baseURL: apiRoot,
     timeout: 20000,
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, 'X-App-Version': APP_VERSION },
   });
   client.interceptors.response.use(
     (response) => response,
@@ -441,6 +446,20 @@ export function createTelematicsApi({
     ).data.data;
   }
   return {
+    async consent(language) { return (await get('/app/v2/consent', { params: { language } })).data; },
+    async grantConsent(body, operationId) {
+      return (await client.post('/app/v2/consent', body, { headers: { 'Idempotency-Key': idempotencyKey(operationId) } })).data.data;
+    },
+    async withdrawConsent(operationId) {
+      return (await client.post('/app/v2/consent/withdraw', {}, { headers: { 'Idempotency-Key': idempotencyKey(operationId) } })).data.data;
+    },
+    async destinationSearch(q) { return (await get('/app/v2/destinations/search', { params: { q } })).data; },
+    async ourRoutes(body) { return post('/app/v2/routes/our', body); },
+    async navSessionStart(body) { return (await client.post('/app/v2/nav/sessions', body, { headers: { 'Idempotency-Key': idempotencyKey() } })).data.data; },
+    async navSessionPatch(id, body) { return (await client.patch(`/app/v2/nav/sessions/${encodeURIComponent(id)}`, body, { headers: { 'Idempotency-Key': idempotencyKey(body?.operationId) } })).data.data; },
+    async navSessionActive() { return (await get('/app/v2/nav/sessions/active')).data; },
+    async navVoiceResources(language, platform) { return get('/app/v2/nav/voice-resources', { params: { language, platform } }); },
+    async navOfflineManifest(routeId) { return get(`/app/v2/nav/offline/${encodeURIComponent(routeId)}`); },
     loadDriver,
     workflowList,
     uploadWorkflow,

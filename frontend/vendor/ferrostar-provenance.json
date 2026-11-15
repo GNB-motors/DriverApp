@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "source": "https://github.com/stadiamaps/ferrostar",
+  "sourceCommit": "a499f24389554f2420c927f2aa29623221474087",
+  "version": "0.59.0",
+  "generatedSymbols": 218,
+  "sourceNativeArtifacts": [
+    {
+      "path": "android/src/main/jniLibs/arm64-v8a/libferrostar.a",
+      "bytes": 70850072,
+      "sha256": "373430eadf5697458717724d669ed25a3759754fe95e98f517010c2f3197bec5"
+    },
+    {
+      "path": "android/src/main/jniLibs/armeabi-v7a/libferrostar.a",
+      "bytes": 65980042,
+      "sha256": "2ca5326618546215bb8b84e181b3180fa74cc567586f5998e6e55643ee87317e"
+    },
+    {
+      "path": "android/src/main/jniLibs/x86/libferrostar.a",
+      "bytes": 63061242,
+      "sha256": "2b8aeab2b9083407f989ffcebfd5556b11dffcf153519e36a123ae2639524395"
+    },
+    {
+      "path": "android/src/main/jniLibs/x86_64/libferrostar.a",
+      "bytes": 70820850,
+      "sha256": "de0da63e969bcfbe6eb85d210bd09f59886433c3ff40da9eba89e0cb711bd054"
+    },
+    {
+      "path": "FerrostarRN.xcframework/ios-arm64/libferrostar.a",
+      "bytes": 53836240,
+      "sha256": "5e9c9ccc88565c3187e926258375616563a296363a9fee2075ad2135de91e3b6"
+    },
+    {
+      "path": "FerrostarRN.xcframework/ios-arm64_x86_64-simulator/libferrostar.a",
+      "bytes": 107227928,
+      "sha256": "1536fc940ede8434619893239f5ada4bcce7cfefc6898a2805b7be9cb271f8eb"
+    }
+  ],
+  "nativeArtifacts": [
+    {
+      "path": "android/src/main/jniLibs/arm64-v8a/libferrostar.a",
+      "bytes": 59966048,
+      "sha256": "4387855411d6bb50bd593a5ae12c28258b3fdc753f0ba41373fbdf2a125c85b5"
+    },
+    {
+      "path": "android/src/main/jniLibs/armeabi-v7a/libferrostar.a",
+      "bytes": 59084110,
+      "sha256": "ddd0d782f71ea1e4b3b67f86e1a6176a0175179bb942dad670a9ba772db0c9ac"
+    },
+    {
+      "path": "android/src/main/jniLibs/x86/libferrostar.a",
+      "bytes": 56599858,
+      "sha256": "a99e48357cd6cbd92e82aae7ba3c89b044e2fc369fd4c4358c11b48f0fa46a48"
+    },
+    {
+      "path": "android/src/main/jniLibs/x86_64/libferrostar.a",
+      "bytes": 60316282,
+      "sha256": "1c5b621d1c07ecf604cf9e9eed70a64c428e60020c2c4fbbd9228e0b1debd9cd"
+    },
+    {
+      "path": "FerrostarRN.xcframework/ios-arm64/libferrostar.a",
+      "bytes": 47544416,
+      "sha256": "4775b789a0a1bfa3210baa84d8f200764fcbbfb35231fd269cd79a3bcc983129"
+    },
+    {
+      "path": "FerrostarRN.xcframework/ios-arm64_x86_64-simulator/libferrostar.a",
+      "bytes": 94506888,
+      "sha256": "c09b42d0797d1ef1a443c8f23c805b93aa38a72ec65db2035b46aa0bf199977d"
+    }
+  ],
+  "packages": [
+    {
+      "name": "@stadiamaps/ferrostar-uniffi-react-native",
+      "version": "0.59.0",
+      "filename": "stadiamaps-ferrostar-uniffi-react-native-0.59.0.tgz",
+      "bytes": 96700397,
+      "sha256": "89235a0c8fb8bf0c120ea00d9a8a7a1fdbe129d487102fcb87e5f811ed59173b",
+      "integrity": "sha512-jfThFz4rSONrkTv9oHkIS3oRw7vDNFtFaxJ0300+oJrRSjfRazzAptrYZXw+o6gYaFqPuS7gmEjArqnjXIrblg=="
+    },
+    {
+      "name": "@stadiamaps/ferrostar-core-react-native",
+      "version": "0.59.0",
+      "filename": "stadiamaps-ferrostar-core-react-native-0.59.0.tgz",
+      "bytes": 44923,
+      "sha256": "3df8c2751f412bfa01930b934247b3e2badedc7c95fcdeae7e4cd31a2626bfa5",
+      "integrity": "sha512-XuxiB5QC2dZXAWO4yx01nJn9jQjxUyqbP+hqs6EMiBoJZV3cxmK+p6jURrWUyA7yD5KTqx6UV8kqr3NOcHr6EQ=="
+    }
+  ],
+  "patches": [
+    "RN 0.88 codegen Java namespace normalization",
+    "Exact inter-package dependency versions; prebuilt JS entrypoints",
+    "Removed native debug sections; all FFI symbols verified afterward"
+  ]
+}

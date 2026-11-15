@@ -64,6 +64,9 @@ const { default: axios } = await import(
   pathToFileURL(require.resolve("axios")).href
 );
 const { createTelematicsApi } = await import(toModule(source));
+const { APP_VERSION } = await import(endpoint);
+const appJson = JSON.parse(await readFile(new URL("../app.json", import.meta.url), "utf8"));
+assert.equal(APP_VERSION, appJson.expo.version, "authEndpoint APP_VERSION must match app.json version");
 const requests = [];
 axios.defaults.adapter = async (config) => {
   requests.push(config);
@@ -151,6 +154,7 @@ assert.ok(
     (request) => request.headers.Authorization === "Bearer test-token",
   ),
 );
+assert.ok(requests.every((request) => request.headers["X-App-Version"] === APP_VERSION));
 assert.ok(!requests.some((request) => request.url === "/vehicles"));
 assert.throws(() => service.assignTruck(), /not connected/);
 await service.submit("fuel", {
@@ -198,6 +202,17 @@ assert.equal(requests.at(-1).params.acknowledged, false);
 await fleetService.acknowledgeAlert("owner-alert", { branchId: "branch-1" });
 assert.equal(requests.at(-1).url, "/owner-alerts/owner-alert/ack");
 assert.equal(requests.at(-1).headers["X-Branch-Id"], "branch-1");
+
+axios.defaults.adapter = async (config) => {
+  requests.push(config);
+  if (config.url === "/app/v2/nav/voice-resources") return { data: { schemaVersion: 1, language: config.params.language, platform: config.params.platform, resources: [], expiresAt: new Date(Date.now() + 3600000).toISOString(), fallbackLanguage: "en" }, status: 200, config };
+  return { data: { success: true, data: {} }, status: 200, config };
+};
+const navService = createTelematicsApi({ baseURL: "https://example.invalid/v1", token: "test-token", user: { _id: "driver" } });
+const voicePolicy = await navService.navVoiceResources("hi", "android");
+assert.equal(voicePolicy.language, "hi");
+assert.equal(requests.at(-1).url, "/app/v2/nav/voice-resources");
+assert.deepEqual(requests.at(-1).params, { language: "hi", platform: "android" });
 axios.defaults.adapter = async (config) => {
   const payload =
     config.url === "/driver/me/vehicle"

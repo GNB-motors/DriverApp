@@ -10,6 +10,7 @@ import { TelematicsApiProvider } from './context/TelematicsApiContext';
 import { DriverDataProvider, useDriverData } from './context/DriverDataContext';
 import * as Screens from './screens/DriverScreens';
 import * as Operations from './workflows/OperationalScreens';
+import PrivacyConsentScreen from './screens/PrivacyConsentScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -34,6 +35,7 @@ export default function DriverNavigator() {
   return <TelematicsApiProvider key={identity} identity={identity}><DriverDataProvider><Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
     <Stack.Screen name="Driver tabs" component={DriverTabs} />
     <Stack.Screen name="Quick add" component={Screens.QuickAdd} options={{ presentation: 'modal' }} />
+    <Stack.Screen name="Navigate" component={Screens.Navigate} />
     <Stack.Screen name="My truck" component={Screens.MyTruck} />
     <Stack.Screen name="Change truck" component={Screens.ChangeTruck} />
     <Stack.Screen name="Trip detail" component={Screens.TripDetail} />
@@ -46,6 +48,7 @@ export default function DriverNavigator() {
     <Stack.Screen name="Documents" component={Operations.RecordList} />
     <Stack.Screen name="Document detail" component={Operations.RecordDetail} />
     <Stack.Screen name="Location sharing" component={Screens.LocationSharing} />
+    <Stack.Screen name="Privacy & consent" component={PrivacyConsentScreen} />
     <Stack.Screen name="Profile" component={Screens.Profile} />
     <Stack.Screen name="SOS" component={Screens.SosUnavailable} options={{ presentation: 'modal' }} />
   </Stack.Navigator></DriverDataProvider></TelematicsApiProvider>;

@@ -2,8 +2,12 @@
   "expo": {
     "name": "driver-app",
     "slug": "driver-app",
-    "version": "1.0.0",
-    "scheme": ["gnbedge", "digilockerapp"],
+    "version": "2.0.0",
+    "newArchEnabled": true,
+    "scheme": [
+      "gnbedge",
+      "digilockerapp"
+    ],
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -13,6 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
+        "UIBackgroundModes": ["location", "audio"],
         "NSLocationWhenInUseUsageDescription": "GNBEdge needs your location while you are on duty so managers can see your live driver position.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "GNBEdge needs Always location access only when you choose Always sharing for on-duty driver tracking.",
         "NSCameraUsageDescription": "GNBEdge needs the camera to photograph bills, fuel receipts, consignment notes and proof-of-delivery.",
@@ -48,6 +53,7 @@
       "package": "com.gnbedge.driverapp"
     },
     "plugins": [
+      "@maplibre/maplibre-react-native",
       [
         "expo-location",
         {

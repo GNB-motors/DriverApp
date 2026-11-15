@@ -7,3 +7,6 @@ export async function startBackground() {
   );
 }
 export async function stopBackground() {}
+
+export async function startNavigationBackground() { throw new Error('Background guidance requires the native DriverApp.'); }
+export async function stopNavigationBackground() {}
