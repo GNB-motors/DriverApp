@@ -61,6 +61,7 @@ export default function TextField({
         ) : null}
 
         <TextInput
+          accessibilityLabel={label}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}

@@ -1,5 +1,7 @@
 # Telematics API integration
 
+> Current consolidated developer handoff: [DEVELOPER_HANDOFF.md](../../../DEVELOPER_HANDOFF.md). The sections below preserve the chronological implementation record; early unavailable/initial-slice statements may be superseded by later phases.
+
 The authenticated Driver, Manager and Owner shells use `services/telematicsApi.js`.
 Runtime fixtures, scenario controls, mock service, hard-coded driver identity and
 preview/legacy data switches have been removed. Failed requests are displayed;

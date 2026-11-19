@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -8,6 +8,8 @@ import { pickFromCamera, pickFromGallery } from '../../../utils/pickImage';
 import Picker from '../../../components/ui/SelectField';
 import { useAuth } from '../../../context/AuthContext';
 import { useDriverVehicle } from '../../../hooks/useDriverVehicle';
+import { scanDocument } from '../../../services/api';
+import { receiptFields, receiptRefuelTime } from '../../../telematics/services/fuelReceipt';
 
 /**
  * 17 · Fuel capture — the three photos. Captures the real bill photo.
@@ -15,25 +17,46 @@ import { useDriverVehicle } from '../../../hooks/useDriverVehicle';
 export default function FuelCaptureScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const [photo, setPhoto] = useState(null); // fuel bill photo { uri, name, type }
+  const [receipt, setReceipt] = useState({});
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState('');
+  const scanVersion = useRef(0);
   const [odometerPhoto, setOdometerPhoto] = useState(null); // optional odometer photo
   // Odometer + pump readings are confirmed on the next step; route params carry
   // any values forwarded from an earlier OCR pass — nothing is prefilled.
   const odometer = route.params?.odometer;
-  const litres = route.params?.litres;
+  const litres = receipt.litres || route.params?.litres;
   const billCaptured = !!photo;
   const odoCaptured = !!odometerPhoto || odometer != null;
   const captured = (billCaptured ? 1 : 0) + (odoCaptured ? 1 : 0) + (litres != null ? 1 : 0);
-  const captureBill = async () => { const f = await pickFromCamera(); if (f) setPhoto(f); };
-  const pickBill = async () => { const f = await pickFromGallery(); if (f) setPhoto(f); };
+  async function selectBill(picker) {
+    try {
+      const file = await picker();
+      if (!file) return;
+      const version = ++scanVersion.current;
+      const uploadedAt = new Date().toISOString();
+      setPhoto(file); setReceipt({ refuelTime: uploadedAt }); setScanError(''); setScanning(true);
+      try {
+        const result = await scanDocument(token, file, 'FUEL_RECEIPT');
+        if (version === scanVersion.current) setReceipt({ ...receiptFields({}, result), refuelTime: receiptRefuelTime(result?.datetime, uploadedAt) });
+      } catch (error) {
+        if (version === scanVersion.current) setScanError(`Could not read receipt: ${error.message}. Enter the details manually.`);
+      } finally {
+        if (version === scanVersion.current) setScanning(false);
+      }
+    } catch (error) { setScanError(error.message); }
+  }
+  const captureBill = () => selectBill(pickFromCamera);
+  const pickBill = () => selectBill(pickFromGallery);
   const captureOdo = async () => { const f = await pickFromCamera(); if (f) setOdometerPhoto(f); };
   const pickOdo = async () => { const f = await pickFromGallery(); if (f) setOdometerPhoto(f); };
 
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { vehicles } = useDriverVehicle();
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const isAgent = user?.role === 'FIELD_AGENT';
 
-  const canContinue = isAgent ? (billCaptured && selectedVehicleId) : billCaptured;
+  const canContinue = !scanning && (isAgent ? (billCaptured && selectedVehicleId) : billCaptured);
 
   return (
     <View style={styles.container}>
@@ -78,7 +101,7 @@ export default function FuelCaptureScreen({ navigation, route }) {
         )}
 
         {billCaptured ? (
-          <CaptureRow icon="receipt-outline" title="Fuel bill" value={photo.name} hint="Amount and litres read from bill" captured onRetake={() => setPhoto(null)} />
+          <CaptureRow icon="receipt-outline" title="Fuel bill" value={photo.name} hint={scanning ? 'Reading receipt…' : 'Review the bill details on the next step.'} captured onRetake={() => { ++scanVersion.current; setPhoto(null); setReceipt({}); setScanning(false); setScanError(''); }} />
         ) : (
           <View style={styles.dropzone}>
             <View style={styles.dropIcon}><Ionicons name="camera" size={22} color={colors.primary} /></View>
@@ -107,11 +130,12 @@ export default function FuelCaptureScreen({ navigation, route }) {
           )
         ) : null}
 
+        {scanError ? <WarningBanner tone="warning" message={scanError} /> : null}
         <WarningBanner tone="warning" message="Fuel entries without a bill photo are held for owner review." style={styles.gap} />
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Button size="lg" label="Continue" iconRight="arrow-forward" disabled={!canContinue} onPress={() => navigation.navigate('FuelEntryDetails', { photo, odometerPhoto, odometer, litres, selectedVehicleId })} />
+        <Button size="lg" label="Continue" iconRight="arrow-forward" disabled={!canContinue} onPress={() => navigation.navigate('FuelEntryDetails', { photo, odometerPhoto, odometer, litres, refuelTime: receipt.refuelTime, total: receipt.amountInr, rate: receipt.litres && receipt.amountInr ? String(Number(receipt.amountInr) / Number(receipt.litres)) : undefined, pump: receipt.station, selectedVehicleId })} />
       </View>
     </View>
   );

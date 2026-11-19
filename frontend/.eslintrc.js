@@ -25,6 +25,7 @@ module.exports = {
     FormData: 'readonly',
     Blob: 'readonly',
     AbortController: 'readonly',
+    XMLHttpRequest: 'readonly',
     alert: 'readonly',
   },
   rules: {
@@ -41,6 +42,21 @@ module.exports = {
       // Scripts run in node, not in the RN runtime.
       files: ['scripts/**/*.js'],
       env: { node: true },
+    },
+    {
+      // N1.15 — the owner/driver experience shells must be fully localized
+      // (Hindi / Bengali / English). Any user-facing text goes through a copy()
+      // helper, never a bare JSX string. This rule catches a hard-coded English
+      // sentence that would ship untranslated. Punctuation/symbol-only nodes are
+      // allowlisted so separators like "·" or ":" need no copy key.
+      files: ['src/telematics/experience/**/*.js'],
+      rules: {
+        'react/jsx-no-literals': ['warn', {
+          noStrings: false,
+          allowedStrings: ['·', ':', '×', '—', '–', '-', '→', '/', '|', '%', '₹', '•'],
+          ignoreProps: true,
+        }],
+      },
     },
   ],
 };

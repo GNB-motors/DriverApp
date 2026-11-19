@@ -8,9 +8,11 @@ import React, {
   useState,
 } from "react";
 import { useTelematicsApi } from "./TelematicsApiContext";
+import { useDriverStream } from "../realtime/useDriverStream";
 const Context = createContext(null);
 export function ManagerDataProvider({ children, audience = "manager" }) {
   const service = useTelematicsApi();
+  const [lastPush, setLastPush] = useState(null);
   const [branches, setBranches] = useState([
     { id: "all", name: "Authorized branches" },
   ]);
@@ -125,6 +127,10 @@ export function ManagerDataProvider({ children, audience = "manager" }) {
       listener.remove();
     };
   }, [service, branchId]);
+  const onStreamEvent = useCallback((frame) => {
+    setLastPush({ event: frame.event, data: frame.data, at: Date.now() });
+  }, []);
+  const { connected: streamConnected } = useDriverStream({ service, onEvent: onStreamEvent });
   const mutate = async (action) => {
     const result = await action(
       service,
@@ -147,6 +153,8 @@ export function ManagerDataProvider({ children, audience = "manager" }) {
         refresh,
         mutate,
         service,
+        streamConnected,
+        lastPush,
       }}
     >
       {children}

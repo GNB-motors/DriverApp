@@ -148,14 +148,14 @@ export function FilterChips({ options, value, onChange, style }) {
 }
 
 /** Back-header for Owner/Ops detail screens (no sidebar). */
-export function BackHeader({ title, subtitle, right, onBack }) {
+export function BackHeader({ title, subtitle, right, onBack, active = true }) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.backHeader, { paddingTop: insets.top + spacing.sm }]}>
-      <StatusBar style="dark" />
-      <Pressable onPress={onBack} hitSlop={10} style={styles.backBtn}>
+    <View style={[styles.backHeader, { paddingTop: insets.top + spacing.sm, paddingLeft: 18 + insets.left, paddingRight: 18 + insets.right }]}>
+      {active && <StatusBar style="dark" />}
+      {onBack && <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back" hitSlop={10} style={styles.backBtn}>
         <Ionicons name="chevron-back" size={22} color={colors.text} />
-      </Pressable>
+      </Pressable>}
       <View style={{ flex: 1 }}>
         <AppText variant="h3" weight="extrabold" numberOfLines={1}>{title}</AppText>
         {subtitle ? <AppText variant="caption" mono muted numberOfLines={1}>{subtitle}</AppText> : null}

@@ -1,4 +1,5 @@
 import client, { postForm } from './client';
+import { appendFile } from '../utils/appendFile';
 
 /**
  * Fuel + mileage. Backend: /api/fuel-logs, /api/mileage/*, /api/ocr/scan/*.
@@ -37,8 +38,8 @@ export async function submitFuelLog({ photo, odometerPhoto, ...fields } = {}) {
   FUEL_LOG_FIELDS.forEach((k) => {
     if (fields[k] != null && fields[k] !== '') fd.append(k, String(fields[k]));
   });
-  if (photo) fd.append('fuelPhoto', photo);
-  if (odometerPhoto) fd.append('odometerPhoto', odometerPhoto);
+  await appendFile(fd, 'fuelPhoto', photo);
+  await appendFile(fd, 'odometerPhoto', odometerPhoto);
   return postForm('/mileage/fuel-log', fd);
 }
 

@@ -1,4 +1,5 @@
 import { postForm } from './client';
+import { appendFile } from '../utils/appendFile';
 
 /**
  * Consignment note (bilty) upload — driver may upload.
@@ -13,7 +14,7 @@ import { postForm } from './client';
 export async function uploadBilty({ tripId, file } = {}) {
   const fd = new FormData();
   if (tripId) fd.append('tripId', tripId);
-  if (file) fd.append('bilty', file);
+  await appendFile(fd, 'bilty', file);
   return postForm('/erp/consignments/upload-bilty', fd);
 }
 

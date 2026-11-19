@@ -31,6 +31,27 @@ const normalize = (row) => ({
   driverId: recordId(row.driverId),
   branchId: recordId(row.branchId),
 });
+export async function collectPages(fetchPage, limit = 100) {
+  const result = [];
+  const seen = new Set();
+  for (let page = 1; page <= 1000; page++) {
+    const payload = await fetchPage(page, limit);
+    const batch = rows(payload);
+    const value = payload?.data ?? payload;
+    const meta = payload?.meta || value?.meta || value?.pagination || {};
+    const total = value?.total ?? meta.total;
+    if (!batch.length) {
+      if (Number.isFinite(total) && result.length < total) throw new Error('The list changed while loading. Please refresh.');
+      return result;
+    }
+    const signature = JSON.stringify(batch.map((row) => recordId(row) || row));
+    if (seen.has(signature)) throw new Error('The server repeated a page. Please refresh.');
+    seen.add(signature); result.push(...batch);
+    if (Number.isFinite(total) ? result.length >= total : batch.length < limit) return result;
+    if (meta.totalPages && page >= meta.totalPages) return result;
+  }
+  throw new Error('This list is too large to load. Narrow the view.');
+}
 function vehicleView(row, position = row.position, rule = row.locationRule) {
   const age = position?.eventDateTime
     ? (Date.now() - new Date(position.eventDateTime).getTime()) / 60000
@@ -41,20 +62,20 @@ function vehicleView(row, position = row.position, rule = row.locationRule) {
     Math.abs(position.latitude) <= 90 &&
     Math.abs(position.longitude) <= 180;
   const stale =
-    !!position?.isStale || !Number.isFinite(age) || age > 15 || age < -2;
+    position?.isStale === true || !Number.isFinite(age) || age > (position?.freshMinutes ?? 15) || age < -2;
   return {
     ...normalize(row),
     plate: row.registrationNumber,
     model: row.model || row.make || "Model unavailable",
-    status: !position
+    status: !position || !Number.isFinite(age) || age < -2
       ? "unknown"
       : stale || position.state === "OFFLINE"
         ? "offline"
-        : position.speed > 0
+        : !Number.isFinite(position.speed) ? 'unknown' : position.speed > 0
           ? "moving"
           : position.ignition === true
             ? "idling"
-            : "stopped",
+            : position.ignition === false ? 'stopped' : 'unknown',
     telemetryRegistration:
       position?.registrationNumber ||
       row.fleetEdgeRegistration ||
@@ -134,7 +155,7 @@ export function describeApiError(error) {
       "The current location or assignment no longer qualifies. Try again."
     );
   if (status === 400)
-    return "The request could not be processed. Refresh and try again.";
+    return error.response?.data?.message || "The request could not be processed. Refresh and try again.";
   if (status === 413) return "Choose a file smaller than 10 MB.";
   if (status === 415)
     return "Choose a JPEG, PNG, WebP, HEIC image or PDF file.";
@@ -151,6 +172,7 @@ export function createTelematicsApi({
   user,
   audience,
   onUnauthorized,
+  orgId,
 }) {
   if (!baseURL || !token || !user?._id)
     throw new Error("Sign in again to connect to the server.");
@@ -159,7 +181,7 @@ export function createTelematicsApi({
   const client = axios.create({
     baseURL: apiRoot,
     timeout: 20000,
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, ...(orgId && { 'X-Org-Id': orgId }) },
   });
   client.interceptors.response.use(
     (response) => response,
@@ -189,12 +211,10 @@ export function createTelematicsApi({
   const get = async (path, config) => (await client.get(path, config)).data;
   const post = async (path, body) => (await client.post(path, body)).data;
   const mapList = async (path, convert = normalize, branchId) =>
-    rows(
-      await get(path, {
-        params: queries[path],
+    (await collectPages((page, limit) => get(path, {
+        params: { ...queries[path], page, limit },
         headers: branchId ? { "X-Branch-Id": branchId } : {},
-      }),
-    ).map(convert);
+      }))).map(convert);
   async function loadDriver() {
     const linked = (await get("/driver/me/vehicle")).data;
     if (!linked || !Object.prototype.hasOwnProperty.call(linked, "vehicle"))
@@ -360,17 +380,15 @@ export function createTelematicsApi({
     const data = Object.fromEntries(resources.map((key) => [key, []]));
     const errors = {};
     const jobs = {
-      summary: async () => (await get("/fleet/workflows/summary", { headers: headersFor(branchId) })).data,
+      ...(audience !== 'owner' && { summary: async () => (await get("/fleet/workflows/summary", { headers: headersFor(branchId) })).data }),
       vehicles: () => mapList("/vehicles", normalize, branchId),
-      trips: () => mapList("/auto-trips", tripView, branchId),
-      fuel: () => mapList("/fuel-logs", fuelView, branchId),
+      trips: async () => audience === 'owner' ? rows(await get('/auto-trips', { params: { page: 1, limit: 30 }, headers: headersFor(branchId) })).map(tripView) : mapList('/auto-trips', tripView, branchId),
+      fuel: () => audience === 'owner' ? Promise.resolve([]) : mapList('/fuel-logs', fuelView, branchId),
       drivers: async () =>
-        (
-          await get("/fleet/workflows/drivers", {
-            params: { page: 1, limit: 100 },
+        (await collectPages((page, limit) => get("/fleet/workflows/drivers", {
+            params: { page, limit },
             headers: headersFor(branchId),
-          })
-        ).data.items.map((row) => ({
+          }))).map((row) => ({
           ...normalize(row),
           name: [row.firstName, row.lastName].filter(Boolean).join(" "),
           vehicleId: recordId(row.assignment?.vehicleId),
@@ -440,7 +458,168 @@ export function createTelematicsApi({
       )
     ).data.data;
   }
+  async function uploadErp(path, field, tripId, asset) {
+    if (!tripId || !asset) throw new Error('Select a trip and image.');
+    const body = new FormData(); body.append('tripId', tripId);
+    if (typeof document !== 'undefined') body.append(field, asset.file || await (await fetch(asset.uri)).blob(), asset.name || 'photo.jpg');
+    else body.append(field, { uri: asset.uri, name: asset.name || 'photo.jpg', type: asset.mimeType || asset.type || 'image/jpeg' });
+    return (await client.post(path, body, { timeout: 120000 })).data.data;
+  }
   return {
+    async ownerDaily(date, branchId) { return (await get('/app/v2/reports/daily', { params: { date }, headers: headersFor(branchId) })).data; },
+    async ownerRows(params, branchId) { return (await get('/app/v2/reports/rows', { params, headers: headersFor(branchId) })).data; },
+    async ownerTrends(date, branchId) { return (await get('/app/v2/reports/trends', { params: { date }, headers: headersFor(branchId) })).data; },
+    async ownerRecord(kind, id, branchId) { return (await get(`/app/v2/records/${kind}/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data; },
+    async ownerDecision(kind, id, body, branchId) { return (await client.post(`/app/v2/records/${kind}/${encodeURIComponent(id)}/actions`, body, { headers: headersFor(branchId) })).data.data; },
+    async ownerEscalations(branchId, all = false, page = 1) { return (await get('/app/v2/escalations', { params: { all, page }, headers: headersFor(branchId) })).data; },
+    async ownerEscalation(id, branchId, historyPage = 1) { return (await get(`/app/v2/escalations/${encodeURIComponent(id)}`, { params: { historyPage }, headers: headersFor(branchId) })).data; },
+    async ownerCalls(branchId, page = 1) { return (await get('/app/v2/calls', { params: { page }, headers: headersFor(branchId) })).data; },
+    async ownerStartCall(body, branchId) { return (await client.post('/app/v2/calls', body, { headers: headersFor(branchId) })).data.data; },
+    async ownerCallOutcome(id, body, branchId) { return (await client.patch(`/app/v2/calls/${encodeURIComponent(id)}`, body, { headers: headersFor(branchId) })).data.data; },
+    async ownerPreferences(body) { return body ? (await client.put('/app/v2/reports/preferences', body)).data.data : (await get('/app/v2/reports/preferences')).data; },
+    async ownerAudience(params, branchId) { return (await get('/app/v2/communication/audience', { params, headers: headersFor(branchId) })).data; },
+    async conversations(branchId, page = 1) { return (await get('/app/v2/communication/conversations', { params: { page }, headers: headersFor(branchId) })).data; },
+    async createConversation(body, branchId) { return (await client.post('/app/v2/communication/conversations', body, { headers: headersFor(branchId) })).data.data; },
+    async cancelBroadcast(id, branchId) { return (await client.post(`/app/v2/communication/conversations/${encodeURIComponent(id)}/cancel`, {}, { headers: headersFor(branchId) })).data.data; },
+    async updateConversationMembers(id, body, branchId) { return (await client.patch(`/app/v2/communication/conversations/${encodeURIComponent(id)}/members`, body, { headers: headersFor(branchId) })).data.data; },
+    async conversationMessages(id, params, branchId) { return (await get(`/app/v2/communication/conversations/${encodeURIComponent(id)}/messages`, { params, headers: headersFor(branchId) })).data; },
+    async sendMessage(id, payload, asset, branchId) {
+      let body = payload;
+      if (asset) {
+        body = new FormData();
+        for (const [key, value] of Object.entries(payload)) body.append(key, value);
+        if (typeof document !== 'undefined') body.append('file', asset.file || await (await fetch(asset.uri)).blob(), asset.name || 'message.jpg');
+        else body.append('file', { uri: asset.uri, name: asset.name || 'message.jpg', type: asset.mimeType || 'image/jpeg' });
+      }
+      return (await client.post(`/app/v2/communication/conversations/${encodeURIComponent(id)}/messages`, body, { timeout: 120000, headers: headersFor(branchId) })).data.data;
+    },
+    async messageReceipt(id, messageId, action, branchId) { return (await client.post(`/app/v2/communication/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/receipt`, { action }, { headers: headersFor(branchId) })).data.data; },
+    async driverExplain(alertId, body, branchId) { return (await client.post(`/app/v2/escalations/${encodeURIComponent(alertId)}/explain`, body, { headers: headersFor(branchId) })).data.data; },
+    // Realtime SSE stream (N1.13): mint a single-use ticket, then open the
+    // event stream at streamBaseUrl?ticket=... (ticket auth, no header needed).
+    async streamTicket() { const payload = (await client.post('/app/v2/stream/ticket', {})).data; if (!payload?.ticket) throw new Error('Invalid stream ticket response.'); return payload.ticket; },
+    streamBaseUrl: `${apiRoot}/app/v2/stream`,
+    async defLedger(branchId) { return (await get('/def-ledger', { headers: headersFor(branchId) })).data; },
+    async myStops() { return rows(await get('/place-intelligence/stops/mine', { params: { days: 14, limit: 50 } })); },
+    async explainStop(id, purpose, note) { return (await post(`/place-intelligence/stops/${encodeURIComponent(id)}/reason`, { purpose, ...(note?.trim() && { note: note.trim() }) })).data; },
+    async erpTrips(page = 1) { return get('/app/v1/trips', { params: { page, limit: 30 } }); },
+    async erpTrip(id) { return (await get(`/app/v1/trips/${encodeURIComponent(id)}`)).data; },
+    uploadBilty: (id, asset) => uploadErp('/erp/consignments/upload-bilty', 'bilty', id, asset),
+    uploadPod: (id, asset) => uploadErp('/erp/pods/upload', 'pod', id, asset),
+    async crewMe(page = 1) { return (await get('/app/v2/crew/me', { params: { page } })).data; },
+    async crewVehicle(vehicleId, page = 1, branchId) { return (await get(`/app/v2/crew/vehicles/${encodeURIComponent(vehicleId)}`, { params: { page }, headers: headersFor(branchId) })).data; },
+    async crewAction(vehicleId, body, branchId) { return (await client.post(`/app/v2/crew/vehicles/${encodeURIComponent(vehicleId)}/actions`, body, { headers: headersFor(branchId) })).data.data; },
+    async crewConfidence() { return (await get('/app/v2/crew/confidence')).data; },
+    async crewAsk(vehicleId, body) { return (await client.post(`/app/v2/crew/${encodeURIComponent(vehicleId)}/ask`, body)).data.data; },
+    async ownerCaptures(page, branchId) { return (await get('/app/v2/captures', { params: { page }, headers: headersFor(branchId) })).data; },
+    async captureDetail(id) { return (await get(`/app/v2/captures/${encodeURIComponent(id)}`)).data; },
+    async captureCreate(formData) {
+      return (await client.post('/app/v2/captures', formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 })).data.data;
+    },
+    async captureRetake(id, formData) {
+      return (await client.post(`/app/v2/captures/${encodeURIComponent(id)}/retake`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 })).data.data;
+    },
+    async consent() { return (await get('/app/v2/consent')).data; },
+    async grantConsent(body) { return (await client.post('/app/v2/consent', body)).data.data; },
+    async withdrawConsent() { return (await client.post('/app/v2/consent/withdraw', {})).data.data; },
+    async destinationSearch(q) { return (await get('/app/v2/destinations/search', { params: { q } })).data; },
+    async destinationSuggestions() { return (await get('/app/v2/destinations/suggestions')).data; },
+    async destinationClick(id) { return (await client.post(`/app/v2/destinations/suggestions/${encodeURIComponent(id)}/click`, {})).data.data; },
+    async dutyToday() { return (await get('/app/v2/duty/today')).data; },
+    async dutyBreakPlan() { return (await get('/app/v2/duty/break-plan')).data; },
+    async managerCards(branchId) { return (await get('/app/v2/manager/cards', { headers: headersFor(branchId) })).data; },
+    async dismissManagerCard(id, branchId) { return (await client.post(`/app/v2/manager/cards/${encodeURIComponent(id)}/dismiss`, {}, { headers: headersFor(branchId) })).data.data; },
+    async managerCardOutcome(id, body, branchId) { return (await client.post(`/app/v2/manager/cards/${encodeURIComponent(id)}/outcome`, body, { headers: headersFor(branchId) })).data.data; },
+    async snoozeManagerCard(id, body, branchId) { return (await client.post(`/app/v2/manager/cards/${encodeURIComponent(id)}/snooze`, body, { headers: headersFor(branchId) })).data.data; },
+    async managerCardsActRate(branchId) { return (await get('/app/v2/manager/cards/act-rate', { headers: headersFor(branchId) })).data; },
+    async prompts() { return (await get('/app/v2/prompts')).data; },
+    async answerPrompt(id, body) { return (await client.post(`/app/v2/prompts/${encodeURIComponent(id)}/answer`, body)).data.data; },
+    async routeOptions(branchId) { return (await get('/app/v2/routes', { headers: headersFor(branchId) })).data; },
+    async ourRoutes(branchId) { return (await get('/app/v2/routes/our', { headers: headersFor(branchId) })).data; },
+    async navSessionStart(body) { return (await client.post('/app/v2/nav/sessions', body)).data.data; },
+    async navSessionPatch(id, body) { return (await client.patch(`/app/v2/nav/sessions/${encodeURIComponent(id)}`, body)).data.data; },
+    async navSessionActive() { return (await get('/app/v2/nav/sessions/active')).data; },
+    async navMetrics() { return (await get('/app/v2/nav/metrics')).data; },
+    async stopQuestions(vehicleId) { return (await get(`/app/v2/stops/${encodeURIComponent(vehicleId)}/questions`)).data; },
+    async visitsActive() { return (await get('/app/v2/visits/active')).data; },
+    async siteCard(siteId) { return (await get(`/app/v2/sites/${encodeURIComponent(siteId)}/card`)).data; },
+    async helpMenu() { return (await get('/app/v2/help')).data; },
+    async helpBreakdown(body) { return (await client.post('/app/v2/help/breakdown', body || {})).data.data; },
+    async createRoadReport(body) { return (await client.post('/app/v2/reports', body)).data.data; },
+    async voicePhrases() { return (await get('/app/v2/voice/phrases')).data; },
+    async teamCreateEmployee(body, branchId) { return (await client.post('/employees', body, { headers: headersFor(branchId) })).data.data; },
+    async teamUpdateEmployee(id, body, branchId) { return (await client.patch(`/employees/${encodeURIComponent(id)}`, body, { headers: headersFor(branchId) })).data.data; },
+    async teamRoles(branchId) { return (await get('/access-control/roles', { headers: headersFor(branchId) })).data; },
+    async teamEmployees(branchId) { return mapList('/employees', normalize, branchId); },
+    async teamAssignments(userId) { return (await get('/access-control/assignments', { params: { userId } })).data; },
+    async teamBranchRoles(branchId) { return (await get(`/access-control/branches/${encodeURIComponent(branchId)}/roles`)).data; },
+    async teamWrite(path, method, body, branchId) {
+      return (await client.request({ url: `/access-control/${path}`, method, data: body, headers: headersFor(branchId) })).data.data;
+    },
+    async createSavedLocation(body) { return (await post('/locations', body)).data; },
+    async fuelVehicles() {
+      if (user.role === "DRIVER") {
+        const linked = (await get("/driver/me/vehicle")).data;
+        return linked?.vehicle ? [normalize(linked.vehicle)] : [];
+      }
+      return mapList('/vehicles');
+    },
+    async fuelDrivers() {
+      if (user.role === "FIELD_AGENT") {
+        const activeOn = new Date().toISOString();
+        const assignments = await collectPages((page, limit) => get("/driver-vehicle-assignments", { params: { activeOn, page, limit } }));
+        return [...new Map(assignments.filter((row) => row.driverId && typeof row.driverId === "object").map((row) => [recordId(row.driverId), row.driverId])).values()];
+      }
+      return collectPages((page, limit) => get("/employees", { params: { role: "DRIVER", page, limit } }));
+    },
+    async fuelAssignment(vehicleId) {
+      const result = rows(await get("/driver-vehicle-assignments", { params: { vehicleId, activeOn: new Date().toISOString() } }));
+      return result[0] || null;
+    },
+    async fuelLocations(search) {
+      return rows(await get("/locations", { params: { search, limit: 10 } }));
+    },
+    async fuelLastOdometer(vehicleId) {
+      return (await get(`/mileage/last-odometer/${encodeURIComponent(vehicleId)}`)).data;
+    },
+    async fuelScan(asset, docType) {
+      const body = new FormData();
+      body.append("docType", docType);
+      if (typeof document !== "undefined") {
+        body.append("file", asset.file || await (await fetch(asset.uri)).blob(), asset.name || "photo.jpg");
+      } else body.append("file", { uri: asset.uri, name: asset.name || "photo.jpg", type: asset.mimeType || asset.type || "image/jpeg" });
+      return (await client.post("/ocr/scan", body, { timeout: 120000 })).data.data;
+    },
+    async fuelUploadDocument(vehicleId, asset, docType, ocrData, onUploadProgress) {
+      const body = new FormData();
+      body.append("entityType", "VEHICLE");
+      body.append("entityId", vehicleId);
+      body.append("docType", docType);
+      if (ocrData) body.append("ocrData", JSON.stringify(ocrData));
+      if (typeof document !== "undefined") {
+        body.append("file", asset.file || await (await fetch(asset.uri)).blob(), asset.name || "photo.jpg");
+      } else body.append("file", { uri: asset.uri, name: asset.name || "photo.jpg", type: asset.mimeType || asset.type || "image/jpeg" });
+      const result = (await client.post("/documents", body, { timeout: 120000, onUploadProgress })).data;
+      return result.data || result;
+    },
+    async fuelSave(payload) {
+      return (await client.post("/mileage/fuel-log", payload, { timeout: 60000 })).data.data;
+    },
+    async scanFuelReceipt(asset) {
+      if (!asset?.uri && !asset?.file) throw new Error("Select a fuel receipt first.");
+      const body = new FormData();
+      if (typeof document !== "undefined") {
+        const blob = asset.file || await (await fetch(asset.uri)).blob();
+        body.append("file", blob, asset.name || asset.fileName || "receipt.jpg");
+      } else {
+        body.append("file", {
+          uri: asset.uri,
+          name: asset.name || asset.fileName || "receipt.jpg",
+          type: asset.mimeType || asset.type || "image/jpeg",
+        });
+      }
+      return (await client.post("/ocr/scan/receipt", body, { timeout: 120000 })).data.data;
+    },
     loadDriver,
     workflowList,
     uploadWorkflow,
@@ -547,15 +726,16 @@ export function createTelematicsApi({
       return (await get("/driver/me/trail", { params: { before, limit: 100 } }))
         .data;
     },
-    async getTrip(id) {
+    async getTrip(id, branchId) {
       return tripView(
-        (await get(`/auto-trips/${encodeURIComponent(id)}`)).data,
+        (await get(`/auto-trips/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data,
       );
     },
-    async getTripTrack(id) {
+    async getTripTrack(id, branchId) {
       const track = (
         await get(`/auto-trips/${encodeURIComponent(id)}/track`, {
           params: { limit: 2000 },
+          headers: headersFor(branchId),
         })
       ).data;
       if (!Array.isArray(track?.points))
@@ -569,9 +749,9 @@ export function createTelematicsApi({
         })),
       };
     },
-    async listTrips(page = 1) {
+    async listTrips(page = 1, branchId, vehicleId) {
       const payload = (
-        await get("/auto-trips", { params: { page, limit: 30 } })
+        await get("/auto-trips", { params: { page, limit: 30, ...(vehicleId && { vehicleId }) }, headers: headersFor(branchId) })
       ).data;
       if (!Array.isArray(payload?.items) || !Number.isFinite(payload.total))
         throw new Error("Invalid trips response.");

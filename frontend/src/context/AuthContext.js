@@ -2,13 +2,16 @@ import { AppState } from 'react-native';
 import { stopBackground } from '../telematics/tracking/driverBackground';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { requestDriverOtp, verifyDriverOtp, loginWithPassword, fetchAppSession, revokeAppSession, registerPushDevice, unregisterPushDevice } from '../services/api';
+import { requestDriverOtp, verifyDriverOtp, loginWithPassword, fetchAppSession, fetchAgentOrgs, revokeAppSession, registerPushDevice, unregisterPushDevice } from '../services/api';
 import { registerForPush, unregisterFromPush } from '../services/pushNotifications';
 import { subscribeSessionExpiry } from '../services/sessionEvents';
+import { setSession, clearSession } from '../services/client';
 import logger from '../utils/logger';
+import { resolveAgentSession } from '../services/agentSession';
 const AuthContext = createContext();
 const USER = 'fleetedge_user';
 const TOKEN = 'fleetedge_token';
+const orgKey = (id) => `field-agent-org:${id}`;
 const IDENTITY = 'fleetedge_last_identity';
 const PER_ACCOUNT = ['fleetedge_selected_vehicle'];
 const identityOf = (user) => `${user._id}:${typeof user.orgId === 'object' ? user.orgId?._id : user.orgId}`;
@@ -17,6 +20,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [organization, setOrg] = useState(null);
+  const [activeOrgId, setActiveOrgId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sessionError, setSessionError] = useState('');
   const [isNewLogin, setIsNewLogin] = useState(false);
@@ -26,9 +30,10 @@ export function AuthProvider({ children }) {
     if (typeof expectedToken === 'string' && activeToken.current !== expectedToken) return;
     const previousToken = activeToken.current;
     activeToken.current = null;
+    clearSession();
     if (previousToken) unregisterFromPush(previousToken, { unregisterDevice: unregisterPushDevice }).catch(() => {});
     ++generation.current;
-    setUser(null); setToken(null); setOrg(null); setIsNewLogin(false); setSessionError('');
+    setUser(null); setToken(null); setOrg(null); setActiveOrgId(null); setIsNewLogin(false); setSessionError('');
     await Promise.all([AsyncStorage.multiRemove([USER, TOKEN, IDENTITY, ...PER_ACCOUNT]), stopBackground()]);
   }, []);
   useEffect(() => subscribeSessionExpiry((expiredToken) => {
@@ -41,7 +46,19 @@ export function AuthProvider({ children }) {
     try {
       const storedToken = await AsyncStorage.getItem(TOKEN);
       if (!storedToken) { await stopBackground(); return; }
-      const session = await fetchAppSession(storedToken);
+      const cachedUser = JSON.parse(await AsyncStorage.getItem(USER) || 'null');
+      const preferred = cachedUser?._id ? await AsyncStorage.getItem(orgKey(cachedUser._id)) : null;
+      let verified;
+      try { verified = await fetchAppSession(storedToken, preferred); }
+      catch (error) {
+        if (![400, 403].includes(error.statusCode)) throw error;
+        const orgs = await fetchAgentOrgs(storedToken);
+        const selected = orgs.find((row) => String(row.orgId) === preferred) || orgs[0];
+        if (!selected) throw new Error('No active organisation membership.');
+        verified = await fetchAppSession(storedToken, String(selected.orgId));
+      }
+      const session = await resolveAgentSession({ ...verified, token: storedToken }, preferred, fetchAgentOrgs, fetchAppSession);
+      if (session.activeOrgId) await AsyncStorage.setItem(orgKey(session.user._id), session.activeOrgId);
       if (generation.current !== current) return;
       if (session.user.role !== 'DRIVER') await stopBackground();
       const identity = identityOf(session.user);
@@ -51,6 +68,8 @@ export function AuthProvider({ children }) {
       await AsyncStorage.multiSet([[USER, JSON.stringify(session.user)], [IDENTITY, identity]]);
       if (generation.current !== current) return;
       activeToken.current = storedToken;
+      setSession({ token: storedToken, orgId: session.activeOrgId, branchId: null });
+      setActiveOrgId(session.activeOrgId);
       setUser(session.user); setToken(storedToken); setOrg(session.organization || null);
     } catch (error) {
       if (generation.current !== current) return;
@@ -64,6 +83,9 @@ export function AuthProvider({ children }) {
     if (generation.current !== current) return false;
     if (!result?.user?._id || !result.token) throw new Error('Invalid login response.');
     await stopBackground();
+    result = await resolveAgentSession(result, await AsyncStorage.getItem(orgKey(result.user._id)), fetchAgentOrgs, fetchAppSession);
+    if (generation.current !== current) return false;
+    if (result.activeOrgId) await AsyncStorage.setItem(orgKey(result.user._id), result.activeOrgId);
     const identity = identityOf(result.user);
     const previous = await AsyncStorage.getItem(IDENTITY);
     if (generation.current !== current) return false;
@@ -71,10 +93,29 @@ export function AuthProvider({ children }) {
     await AsyncStorage.multiSet([[USER, JSON.stringify(result.user)], [TOKEN, result.token], [IDENTITY, identity]]);
     if (generation.current !== current) return false;
     activeToken.current = result.token;
+    setSession({ token: result.token, orgId: result.activeOrgId, branchId: null });
+    setActiveOrgId(result.activeOrgId);
     setUser(result.user); setToken(result.token); setOrg(result.organization || null);
     setSessionError(''); setIsNewLogin(true);
 
     return true;
+  };
+  const setActiveOrg = async (requested) => {
+    if (user?.role !== 'FIELD_AGENT') throw new Error('Only field agents can switch organisations.');
+    const expectedToken = token;
+    const requestedId = String(requested?.orgId || requested?._id || '');
+    const boundOrg = typeof user.orgId === 'object' ? user.orgId?._id : user.orgId;
+    if (boundOrg && String(boundOrg) !== requestedId) throw new Error('Your account belongs to a single organisation.');
+    const orgs = await fetchAgentOrgs(expectedToken);
+    const selected = orgs.find((row) => String(row.orgId) === requestedId);
+    if (!selected) throw new Error('You are not an active member of this organisation.');
+    await fetchAppSession(expectedToken, requestedId);
+    if (activeToken.current !== expectedToken) return;
+    await AsyncStorage.setItem(orgKey(user._id), requestedId);
+    if (activeToken.current !== expectedToken) return;
+    setSession({ token: expectedToken, orgId: requestedId, branchId: null });
+    setActiveOrgId(requestedId);
+    setOrg({ _id: requestedId, companyName: selected.companyName });
   };
   const login = async (identifier, password) => {
     const current = ++generation.current;
@@ -117,6 +158,6 @@ export function AuthProvider({ children }) {
       catch (error) { logger.warn('Auth', `Local sign-out complete; server revocation failed: ${error.message}`); }
     }
   };
-  return <AuthContext.Provider value={{ user, token, organization, loading, sessionError, retrySession: restoreSession, invalidateSession, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, login, logout, enableNotifications }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, token, organization, activeOrgId, setActiveOrg, loading, sessionError, retrySession: restoreSession, invalidateSession, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, login, logout, enableNotifications }}>{children}</AuthContext.Provider>;
 }
 export const useAuth = () => useContext(AuthContext);

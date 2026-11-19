@@ -1,3 +1,4 @@
+import { OwnerScreen, OwnerGroupRow } from '../components/OwnerReportView';
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,6 +7,8 @@ import { AppText, Card, Button, colors, radius } from '../../components/ui';
 import { useManagerData } from '../context/ManagerDataContext';
 import { summarizeOwner } from '../services/ownerSummary';
 import { ManagerPage, RecentTrips } from './ManagerScreens';
+import { OwnerReport } from './OwnerReportScreens';
+import { ManagerHome } from './ManagerScreens';
 import { MenuRow } from './DriverScreens';
 import { KpiCard, SectionHeading, DataState } from '../components';
 import { formatLitres } from '../../utils/format';
@@ -48,9 +51,18 @@ export function BranchOverview({ navigation, route }) {
   return <ManagerPage navigation={navigation} title={branch?.name || 'Branch overview'} subtitle="Loaded branch records.">{visible ? <><View style={s.metrics}><KpiCard label="Trucks" value={vehicles.length} icon="bus-outline" /><KpiCard label="Drivers" value={data?.drivers.filter((d) => d.branchId === branch.id).length || 0} icon="people-outline" /></View>{vehicles.map((v) => <MenuRow key={v.id} title={v.plate} detail={`${v.model} · ${v.status}`} icon="bus-outline" onPress={() => navigation.navigate('Vehicle detail', { id: v.id })} />)}{!vehicles.length && <DataState state="empty" />}<Button label={`Filter to ${branch.name}`} variant="secondary" onPress={() => selectBranch(branch.id)} /></> : <Card><AppText muted>This branch is outside the selected view. Choose All branches above to see its records.</AppText></Card>}</ManagerPage>;
 }
 export function More({ navigation }) {
-  return <ManagerPage navigation={navigation} title="Owner essentials" subtitle="The tools behind the bigger picture.">{[['Drivers', 'people-outline'], ['Digest', 'sparkles-outline'], ['Fuel & AdBlue', 'water-outline'], ['Duty board', 'time-outline'], ['Fleet trips', 'navigate-outline'], ['Maintenance', 'construct-outline'], ['Fleet documents', 'document-text-outline'], ['Team & access', 'person-add-outline'], ['Owner settings', 'settings-outline']].map(([title, icon]) => <MenuRow key={title} title={title === 'Owner settings' ? 'Settings & support' : title} icon={icon} onPress={() => navigation.navigate(title)} />)}</ManagerPage>;
+  const groups = [
+    ['App', [['Experience settings', 'Language & voice', 'settings-outline']]],
+    ['Fleet & people', [['Drivers', 'Driver roster', 'people-outline'], ['Crew & driving', 'Crew & driving', 'swap-horizontal-outline'], ['Fleet trips', 'Trip history', 'navigate-outline'], ['Fuel & AdBlue', 'Fuel & AdBlue', 'water-outline'], ['Maintenance', 'Maintenance', 'construct-outline']]],
+    ['Money & records', [['Capture reviews', 'Capture reviews', 'scan-outline'], ['Owner finance', 'Billing & cash flow', 'wallet-outline'], ['Fleet documents', 'Fleet documents', 'document-text-outline']]],
+    ['Conversations', [['Messages', 'Messages & broadcasts', 'chatbubbles-outline'], ['Owner calls', 'Calls & follow-ups', 'call-outline'], ['Owner escalations', 'Owner inbox', 'notifications-outline']]],
+    ['Your workspace', [['Owner home', 'Fleet home summary', 'home-outline'], ['Aaj ka hisaab', "Today's business report", 'document-text-outline'], ['Owner trends', 'Reports & trends', 'trending-up-outline'], ['Report settings', 'Morning report', 'sunny-outline'], ['Team & access', 'Team & access', 'person-add-outline'], ['Owner settings', 'Settings & support', 'settings-outline']]],
+  ];
+  return <OwnerScreen navigation={navigation} title="Your workspace" subtitle="Fleet, finances and your team.">
+    {groups.map(([label, links]) => <View key={label} style={{ gap: 10 }}><AppText variant="label" muted>{label}</AppText><Card padding={0}>{links.map(([route, title, icon], index) => <OwnerGroupRow key={route} title={title} icon={icon} last={index === links.length - 1} onPress={() => navigation.navigate(route)} />)}</Card></View>)}
+  </OwnerScreen>;
 }
-export function DeferredTeam({ navigation }) {
-  return <ManagerPage navigation={navigation} title="Team & access" subtitle="Planned for a later integration."><Card style={s.digest}><Ionicons name="people-outline" size={42} color={colors.primary} /><AppText variant="h2">Team management is coming later.</AppText><AppText muted>Creating users, invitations and permission changes are not available in this build. You can explore driver profiles from More → Drivers.</AppText></Card><Button label="View drivers" variant="secondary" onPress={() => navigation.navigate('Drivers')} /></ManagerPage>;
-}
+// Keep these existing entry points on the connected report/fleet surfaces.
+export function OwnerHomeSummary(props) { return <ManagerHome {...props} />; }
+export function OwnerDailyReport(props) { return <OwnerReport {...props} />; }
 const s = StyleSheet.create({ hero: { padding: 24, gap: 12, borderRadius: radius.xl }, heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }, metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, cost: { padding: 24, gap: 12, borderColor: colors.border }, digest: { padding: 24, gap: 16, borderColor: colors.border }, digestIcon: { backgroundColor: colors.blueTint, width: 56, height: 56, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' } });
