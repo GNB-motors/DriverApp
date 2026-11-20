@@ -19,8 +19,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, AppText, Card, BackHeader } from '../../components/ui';
+import { Card, BackHeader } from '../../components/ui';
 import { useManagerData } from '../context/ManagerDataContext';
+import { useAuth } from '../../context/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -32,8 +33,86 @@ const FILTER_OPTIONS = [
   { key: 'TRIPS', label: 'Trip Approvals', icon: 'navigate-outline' },
 ];
 
+const API_BASE = (process.env.EXPO_PUBLIC_API_URL || 'https://api.app.gnbedge.in/v1').replace(/\/+$/, '');
+
+function resolveImageUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  const clean = url.trim();
+  if (
+    clean.startsWith('http://') ||
+    clean.startsWith('https://') ||
+    clean.startsWith('file://') ||
+    clean.startsWith('data:')
+  ) {
+    return clean;
+  }
+  const root = API_BASE.replace(/\/v1$/, '');
+  const path = clean.startsWith('/') ? clean : `/${clean}`;
+  return `${root}${path}`;
+}
+
+function extractPhotos(item) {
+  const photos = [];
+  const add = (url, label, type) => {
+    if (!url || typeof url !== 'string') return;
+    const resolved = resolveImageUrl(url);
+    if (resolved && !photos.some((p) => p.url === resolved)) {
+      photos.push({ url: resolved, label, type });
+    }
+  };
+
+  // 1. WhatsApp Drafts
+  if (item.fuelImageUrl) add(item.fuelImageUrl, 'Fuel Bill', 'BILL');
+  if (item.receiptPhotoUrl) add(item.receiptPhotoUrl, 'Fuel Bill', 'BILL');
+  if (item.imageUrl) add(item.imageUrl, 'Fuel Bill', 'BILL');
+  if (item.photoUrl) add(item.photoUrl, 'Fuel Bill', 'BILL');
+  if (item.odometerImageUrl) add(item.odometerImageUrl, 'Odometer Photo', 'ODOMETER');
+  if (item.meterPhotoUrl) add(item.meterPhotoUrl, 'Odometer Photo', 'ODOMETER');
+  if (item.odometerPhotoUrl) add(item.odometerPhotoUrl, 'Odometer Photo', 'ODOMETER');
+
+  // 2. Field Agent Uploads
+  if (item.fuelSlipUrl) add(item.fuelSlipUrl, 'Fuel Bill', 'BILL');
+  if (item.odometerUrl) add(item.odometerUrl, 'Odometer Photo', 'ODOMETER');
+
+  // 3. Owner & Manager (Office) Captures
+  if (item.thumbnailUrl) add(item.thumbnailUrl, 'Bill Photo', 'BILL');
+
+  // 4. Photos Array (used in WhatsApp chat and general payloads)
+  if (Array.isArray(item.photos)) {
+    item.photos.forEach((p, idx) => {
+      const pUrl = typeof p === 'string' ? p : p?.url || p?.path;
+      const isOdo = p?.kind === 'odometer' || p?.kind === 'meter' || String(p?.kind || '').toLowerCase().includes('odo');
+      add(pUrl, isOdo ? 'Odometer Photo' : `Bill Photo ${idx + 1}`, isOdo ? 'ODOMETER' : 'BILL');
+    });
+  }
+
+  // 5. Images Array
+  if (Array.isArray(item.images)) {
+    item.images.forEach((img, idx) => {
+      const iUrl = typeof img === 'string' ? img : img?.url || img?.path;
+      add(iUrl, `Photo ${idx + 1}`, 'BILL');
+    });
+  }
+
+  // 6. Pages Array (Office bill pages)
+  if (Array.isArray(item.pages)) {
+    item.pages.forEach((page, idx) => {
+      const pUrl = typeof page === 'string' ? page : page?.url || page?.path;
+      add(pUrl, `Bill Page ${idx + 1}`, 'BILL');
+    });
+  }
+
+  // Fallback for office capture
+  if (item.approvalCategory === 'OFFICE' && photos.length === 0 && (item.id || item._id)) {
+    add(`/api/fleet-view/bills/${encodeURIComponent(item.id || item._id)}/pages/0`, 'Bill Photo', 'BILL');
+  }
+
+  return photos;
+}
+
 export default function ApprovalsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { token } = useAuth();
   const { service, branchId, data: managerData } = useManagerData();
 
   // Active filter
@@ -58,8 +137,15 @@ export default function ApprovalsScreen({ navigation }) {
     total: 0,
   });
 
+  // Photo Viewer Lightbox state
+  const [photoViewer, setPhotoViewer] = useState({
+    open: false,
+    item: null,
+    photos: [],
+    activeIndex: 0,
+  });
+
   // Modals
-  const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
   const [rejectModal, setRejectModal] = useState({ open: false, type: null, id: null, reason: '' });
   const [linkTruckModal, setLinkTruckModal] = useState({ open: false, captureId: null, vehicleId: '', currentTruck: '' });
   const [uploadBillModal, setUploadBillModal] = useState(false);
@@ -147,6 +233,8 @@ export default function ApprovalsScreen({ navigation }) {
 
     if (filter === 'ALL' || filter === 'WHATSAPP') {
       whatsappItems.forEach((item) => {
+        const photos = extractPhotos({ ...item, approvalCategory: 'WHATSAPP' });
+        const odo = item.odometerReading ?? item.predictedOdometer ?? item.odometer ?? null;
         list.push({
           ...item,
           approvalCategory: 'WHATSAPP',
@@ -160,9 +248,13 @@ export default function ApprovalsScreen({ navigation }) {
           amount: item.amount ?? item.predictedAmount ?? null,
           date: item.refuelDate || item.capturedAt || item.createdAt,
           driverOrAgent: item.driverName || item.senderPhone || item.senderName || 'Driver via WhatsApp',
-          photoUrl: item.receiptPhotoUrl || item.meterPhotoUrl || item.imageUrl || item.photoUrl || (item.images && item.images[0]) || null,
           statusLabel: 'Waiting Approval',
           fuelType: item.fuelType || 'DIESEL',
+          odometer: odo,
+          photos,
+          billPhoto: photos.find((p) => p.type === 'BILL') || null,
+          odometerPhoto: photos.find((p) => p.type === 'ODOMETER') || null,
+          hasPhotos: photos.length > 0,
         });
       });
     }
@@ -170,6 +262,7 @@ export default function ApprovalsScreen({ navigation }) {
     if (filter === 'ALL' || filter === 'OFFICE') {
       officeItems.forEach((item) => {
         const ocr = item.ocr || {};
+        const photos = extractPhotos({ ...item, approvalCategory: 'OFFICE' });
         list.push({
           ...item,
           approvalCategory: 'OFFICE',
@@ -183,9 +276,13 @@ export default function ApprovalsScreen({ navigation }) {
           amount: ocr.totalCost ?? item.amount ?? null,
           date: item.createdAt,
           driverOrAgent: 'Uploaded by Manager/Owner',
-          photoUrl: item.thumbnailUrl || item.photoUrl || (item.pages && item.pages[0]?.url) || null,
           statusLabel: 'Confirm Link',
           fuelType: ocr.fuelType || item.kind || 'DIESEL',
+          odometer: ocr.odometerReading ?? null,
+          photos,
+          billPhoto: photos.find((p) => p.type === 'BILL') || null,
+          odometerPhoto: photos.find((p) => p.type === 'ODOMETER') || null,
+          hasPhotos: photos.length > 0,
         });
       });
     }
@@ -194,6 +291,7 @@ export default function ApprovalsScreen({ navigation }) {
       fieldAgentItems.forEach((item) => {
         const agent = item.agentId || {};
         const agentName = [agent.firstName, agent.lastName].filter(Boolean).join(' ') || agent.name || 'Field Agent';
+        const photos = extractPhotos({ ...item, approvalCategory: 'FIELD_AGENT' });
         list.push({
           ...item,
           approvalCategory: 'FIELD_AGENT',
@@ -207,10 +305,13 @@ export default function ApprovalsScreen({ navigation }) {
           amount: item.amount ?? item.totalAmount ?? null,
           date: item.refuelTime || item.createdAt,
           driverOrAgent: `Agent: ${agentName}`,
-          photoUrl: item.receiptPhotoUrl || item.meterPhotoUrl || item.photoUrl || null,
           statusLabel: 'Pending Approval',
           fuelType: item.fuelType || 'DIESEL',
-          odometer: item.odometerReading || null,
+          odometer: item.odometerReading ?? null,
+          photos,
+          billPhoto: photos.find((p) => p.type === 'BILL') || null,
+          odometerPhoto: photos.find((p) => p.type === 'ODOMETER') || null,
+          hasPhotos: photos.length > 0,
         });
       });
     }
@@ -232,9 +333,12 @@ export default function ApprovalsScreen({ navigation }) {
           amount: null,
           date: item.createdAt || item.window?.from,
           driverOrAgent: `Visit: ${dName}`,
-          photoUrl: null,
           statusLabel: item.status || 'Active',
           tripSpec: item.placeSpec?.kind || item.type || 'Detour Authorised',
+          photos: [],
+          billPhoto: null,
+          odometerPhoto: null,
+          hasPhotos: false,
         });
       });
     }
@@ -242,6 +346,27 @@ export default function ApprovalsScreen({ navigation }) {
     // Sort newest first
     return list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
   }, [filter, whatsappItems, officeItems, fieldAgentItems, tripItems]);
+
+  // Open photo viewer on specific photo type or index
+  const openPhotoViewer = (item, preferredTypeOrIndex = 0) => {
+    const photos = item.photos || [];
+    if (!photos.length) return;
+
+    let index = 0;
+    if (preferredTypeOrIndex === 'ODOMETER') {
+      const odoIdx = photos.findIndex((p) => p.type === 'ODOMETER');
+      if (odoIdx >= 0) index = odoIdx;
+    } else if (typeof preferredTypeOrIndex === 'number' && preferredTypeOrIndex >= 0 && preferredTypeOrIndex < photos.length) {
+      index = preferredTypeOrIndex;
+    }
+
+    setPhotoViewer({
+      open: true,
+      item,
+      photos,
+      activeIndex: index,
+    });
+  };
 
   // Action handlers
   const handleApprove = async (item) => {
@@ -255,6 +380,9 @@ export default function ApprovalsScreen({ navigation }) {
         await service.fieldAgentApprove([item.id], bId);
         Alert.alert('Approved', `Field agent fuel log for ${item.plate} approved.`);
       }
+      if (photoViewer.open) {
+        setPhotoViewer({ open: false, item: null, photos: [], activeIndex: 0 });
+      }
       loadApprovals(true);
     } catch (e) {
       Alert.alert('Error', e?.message || 'Could not approve item.');
@@ -264,6 +392,9 @@ export default function ApprovalsScreen({ navigation }) {
   };
 
   const handleOpenReject = (item) => {
+    if (photoViewer.open) {
+      setPhotoViewer({ open: false, item: null, photos: [], activeIndex: 0 });
+    }
     setRejectModal({
       open: true,
       type: item.approvalCategory,
@@ -295,6 +426,9 @@ export default function ApprovalsScreen({ navigation }) {
   };
 
   const handleOpenLinkTruck = (item) => {
+    if (photoViewer.open) {
+      setPhotoViewer({ open: false, item: null, photos: [], activeIndex: 0 });
+    }
     setLinkTruckModal({
       open: true,
       captureId: item.id,
@@ -511,6 +645,8 @@ export default function ApprovalsScreen({ navigation }) {
     }
   };
 
+  const activePhoto = photoViewer.photos[photoViewer.activeIndex] || null;
+
   return (
     <View style={s.container}>
       <BackHeader
@@ -596,7 +732,7 @@ export default function ApprovalsScreen({ navigation }) {
             const isBusy = actionBusyId === item.id;
             return (
               <Card key={`${item.approvalCategory}-${item.id}-${index}`} style={s.card}>
-                {/* Header row: category badge + plate + date */}
+                {/* Header row: category badge + plate */}
                 <View style={s.cardHeader}>
                   <View style={[s.categoryBadge, { backgroundColor: item.categoryBg }]}>
                     <Ionicons name={item.categoryIcon} size={14} color={item.categoryColor} />
@@ -609,7 +745,7 @@ export default function ApprovalsScreen({ navigation }) {
                   </View>
                 </View>
 
-                {/* Body Row: Details + optional thumbnail */}
+                {/* Body Row: Details + Side Thumbnails */}
                 <View style={s.cardBody}>
                   <View style={s.detailsColumn}>
                     {item.amount != null || item.litres != null ? (
@@ -642,23 +778,96 @@ export default function ApprovalsScreen({ navigation }) {
                       </Text>
                     ) : null}
 
-                    {item.odometer ? (
-                      <Text style={s.odometerText}>Odo: {item.odometer} km</Text>
+                    {item.odometer != null ? (
+                      <View style={s.odoRow}>
+                        <Ionicons name="speedometer-outline" size={13} color="#D97706" />
+                        <Text style={s.odometerText}>
+                          Odometer: {Number(item.odometer).toLocaleString('en-IN')} km
+                        </Text>
+                      </View>
                     ) : null}
                   </View>
 
-                  {item.photoUrl ? (
-                    <TouchableOpacity
-                      onPress={() => setImagePreviewUrl(item.photoUrl)}
-                      style={s.thumbWrapper}
-                    >
-                      <Image source={{ uri: item.photoUrl }} style={s.thumbImage} resizeMode="cover" />
-                      <View style={s.zoomIconBadge}>
-                        <Ionicons name="expand" size={12} color="#FFFFFF" />
-                      </View>
-                    </TouchableOpacity>
-                  ) : null}
+                  {/* Thumbnail Previews on Card */}
+                  {item.hasPhotos && (
+                    <View style={s.cardThumbsContainer}>
+                      {item.billPhoto && (
+                        <TouchableOpacity
+                          onPress={() => openPhotoViewer(item, 'BILL')}
+                          style={s.thumbWrapper}
+                        >
+                          <Image
+                            source={{
+                              uri: item.billPhoto.url,
+                              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                            }}
+                            style={s.thumbImage}
+                            resizeMode="cover"
+                          />
+                          <View style={s.thumbTagBadge}>
+                            <Text style={s.thumbTagText}>BILL</Text>
+                          </View>
+                        </TouchableOpacity>
+                      )}
+
+                      {item.odometerPhoto && (
+                        <TouchableOpacity
+                          onPress={() => openPhotoViewer(item, 'ODOMETER')}
+                          style={[s.thumbWrapper, s.thumbWrapperOdo]}
+                        >
+                          <Image
+                            source={{
+                              uri: item.odometerPhoto.url,
+                              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                            }}
+                            style={s.thumbImage}
+                            resizeMode="cover"
+                          />
+                          <View style={[s.thumbTagBadge, s.thumbTagOdo]}>
+                            <Text style={s.thumbTagText}>ODO</Text>
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
                 </View>
+
+                {/* Explicit "View Attached Photos" buttons bar */}
+                {item.hasPhotos && (
+                  <View style={s.photoButtonsRow}>
+                    {item.billPhoto && (
+                      <TouchableOpacity
+                        style={[s.photoPillBtn, s.photoPillBill]}
+                        onPress={() => openPhotoViewer(item, 'BILL')}
+                      >
+                        <Ionicons name="receipt-outline" size={14} color="#1A56DB" />
+                        <Text style={s.photoPillBillText}>View Bill Photo</Text>
+                        <Ionicons name="eye-outline" size={13} color="#1A56DB" />
+                      </TouchableOpacity>
+                    )}
+
+                    {item.odometerPhoto && (
+                      <TouchableOpacity
+                        style={[s.photoPillBtn, s.photoPillOdo]}
+                        onPress={() => openPhotoViewer(item, 'ODOMETER')}
+                      >
+                        <Ionicons name="speedometer-outline" size={14} color="#B45309" />
+                        <Text style={s.photoPillOdoText}>View Odometer Photo</Text>
+                        <Ionicons name="eye-outline" size={13} color="#B45309" />
+                      </TouchableOpacity>
+                    )}
+
+                    {item.photos.length > (item.billPhoto ? 1 : 0) + (item.odometerPhoto ? 1 : 0) && (
+                      <TouchableOpacity
+                        style={[s.photoPillBtn, s.photoPillMore]}
+                        onPress={() => openPhotoViewer(item, 0)}
+                      >
+                        <Ionicons name="images-outline" size={14} color="#475569" />
+                        <Text style={s.photoPillMoreText}>+{item.photos.length - ((item.billPhoto ? 1 : 0) + (item.odometerPhoto ? 1 : 0))} More</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
 
                 {/* Actions Row */}
                 <View style={s.actionsRow}>
@@ -775,6 +984,143 @@ export default function ApprovalsScreen({ navigation }) {
             ))}
           </View>
         </Pressable>
+      </Modal>
+
+      {/* FULLSCREEN PHOTO INSPECTION LIGHTBOX MODAL */}
+      <Modal visible={photoViewer.open} transparent animationType="slide">
+        <View style={s.lightboxOverlay}>
+          {/* Top Bar */}
+          <View style={[s.viewerTopBar, { paddingTop: Math.max(insets.top, 16) }]}>
+            <TouchableOpacity
+              style={s.viewerCloseBtn}
+              onPress={() => setPhotoViewer({ open: false, item: null, photos: [], activeIndex: 0 })}
+            >
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <View style={s.viewerHeaderCenter}>
+              <Text style={s.viewerHeaderTitle}>
+                {activePhoto?.label || 'Attached Photo'} {photoViewer.photos.length > 1 ? `(${photoViewer.activeIndex + 1}/${photoViewer.photos.length})` : ''}
+              </Text>
+              {photoViewer.item && (
+                <Text style={s.viewerHeaderPlate}>{photoViewer.item.plate}</Text>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={s.viewerCloseBtn}
+              onPress={() => setPhotoViewer({ open: false, item: null, photos: [], activeIndex: 0 })}
+            >
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Switcher Tabs Bar (if multiple photos attached) */}
+          {photoViewer.photos.length > 1 && (
+            <View style={s.viewerTabsRow}>
+              {photoViewer.photos.map((p, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={[s.viewerTab, photoViewer.activeIndex === idx && s.viewerTabActive]}
+                  onPress={() => setPhotoViewer((prev) => ({ ...prev, activeIndex: idx }))}
+                >
+                  <Ionicons
+                    name={p.type === 'ODOMETER' ? 'speedometer-outline' : 'receipt-outline'}
+                    size={14}
+                    color={photoViewer.activeIndex === idx ? '#FFFFFF' : '#94A3B8'}
+                  />
+                  <Text style={[s.viewerTabText, photoViewer.activeIndex === idx && s.viewerTabTextActive]}>
+                    {p.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Main Photo Area */}
+          <View style={s.viewerImageContainer}>
+            {activePhoto ? (
+              <Image
+                source={{
+                  uri: activePhoto.url,
+                  headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                }}
+                style={s.viewerImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <Text style={{ color: '#FFFFFF' }}>Photo unavailable</Text>
+            )}
+          </View>
+
+          {/* Bottom Inspection Card & Decision Buttons */}
+          {photoViewer.item && (
+            <View style={[s.viewerBottomPanel, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              {/* Metrics summary */}
+              <View style={s.viewerMetricsBar}>
+                <View style={s.viewerMetricItem}>
+                  <Text style={s.viewerMetricLabel}>PLATE</Text>
+                  <Text style={s.viewerMetricVal}>{photoViewer.item.plate}</Text>
+                </View>
+                {photoViewer.item.amount != null && (
+                  <View style={s.viewerMetricItem}>
+                    <Text style={s.viewerMetricLabel}>AMOUNT</Text>
+                    <Text style={[s.viewerMetricVal, { color: '#16A34A' }]}>
+                      ₹{Number(photoViewer.item.amount).toLocaleString('en-IN')}
+                    </Text>
+                  </View>
+                )}
+                {photoViewer.item.litres != null && (
+                  <View style={s.viewerMetricItem}>
+                    <Text style={s.viewerMetricLabel}>LITRES</Text>
+                    <Text style={s.viewerMetricVal}>{photoViewer.item.litres} L</Text>
+                  </View>
+                )}
+                {photoViewer.item.odometer != null && (
+                  <View style={s.viewerMetricItem}>
+                    <Text style={s.viewerMetricLabel}>ODOMETER</Text>
+                    <Text style={[s.viewerMetricVal, { color: '#D97706' }]}>
+                      {Number(photoViewer.item.odometer).toLocaleString('en-IN')} km
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Direct Decision Buttons inside Photo Viewer */}
+              <View style={s.viewerActionRow}>
+                {(photoViewer.item.approvalCategory === 'WHATSAPP' || photoViewer.item.approvalCategory === 'FIELD_AGENT') && (
+                  <>
+                    <TouchableOpacity
+                      style={[s.viewerActionBtn, s.viewerRejectBtn]}
+                      onPress={() => handleOpenReject(photoViewer.item)}
+                    >
+                      <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
+                      <Text style={s.viewerRejectText}>Reject Bill</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[s.viewerActionBtn, s.viewerApproveBtn]}
+                      onPress={() => handleApprove(photoViewer.item)}
+                    >
+                      <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
+                      <Text style={s.viewerApproveText}>Approve & Save</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {photoViewer.item.approvalCategory === 'OFFICE' && (
+                  <TouchableOpacity
+                    style={[s.viewerActionBtn, s.viewerApproveBtn, { flex: 1 }]}
+                    onPress={() => handleOpenLinkTruck(photoViewer.item)}
+                  >
+                    <Ionicons name="link-outline" size={18} color="#FFFFFF" />
+                    <Text style={s.viewerApproveText}>Confirm & Link Truck</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
+        </View>
       </Modal>
 
       {/* REJECTION REASON MODAL */}
@@ -1040,21 +1386,6 @@ export default function ApprovalsScreen({ navigation }) {
           </View>
         </View>
       </Modal>
-
-      {/* FULLSCREEN IMAGE LIGHTBOX MODAL */}
-      <Modal visible={Boolean(imagePreviewUrl)} transparent animationType="fade">
-        <View style={s.lightboxOverlay}>
-          <TouchableOpacity
-            style={[s.lightboxCloseBtn, { top: insets.top + 16 }]}
-            onPress={() => setImagePreviewUrl(null)}
-          >
-            <Ionicons name="close" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
-          {imagePreviewUrl ? (
-            <Image source={{ uri: imagePreviewUrl }} style={s.lightboxImage} resizeMode="contain" />
-          ) : null}
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -1164,7 +1495,7 @@ const s = StyleSheet.create({
   card: {
     padding: 14,
     borderRadius: 14,
-    gap: 12,
+    gap: 10,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1202,8 +1533,8 @@ const s = StyleSheet.create({
   cardBody: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
+    alignItems: 'flex-start',
+    gap: 10,
   },
   detailsColumn: {
     flex: 1,
@@ -1237,31 +1568,102 @@ const s = StyleSheet.create({
     fontSize: 11,
     color: '#94A3B8',
   },
+  odoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
   odometerText: {
-    fontSize: 11,
-    color: '#0284C7',
-    fontWeight: '600',
+    fontSize: 12,
+    color: '#B45309',
+    fontWeight: '700',
+  },
+  cardThumbsContainer: {
+    flexDirection: 'row',
+    gap: 6,
   },
   thumbWrapper: {
-    width: 60,
-    height: 60,
+    width: 58,
+    height: 58,
     borderRadius: 8,
     overflow: 'hidden',
     position: 'relative',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderWidth: 1.5,
+    borderColor: '#93C5FD',
+    backgroundColor: '#F1F5F9',
+  },
+  thumbWrapperOdo: {
+    borderColor: '#FCD34D',
   },
   thumbImage: {
     width: '100%',
     height: '100%',
   },
-  zoomIconBadge: {
+  thumbTagBadge: {
     position: 'absolute',
-    bottom: 2,
-    right: 2,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 4,
-    padding: 2,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(26,86,219,0.85)',
+    paddingVertical: 1,
+    alignItems: 'center',
+  },
+  thumbTagOdo: {
+    backgroundColor: 'rgba(217,119,6,0.88)',
+  },
+  thumbTagText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  photoButtonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    padding: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  photoPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  photoPillBill: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  photoPillBillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1A56DB',
+  },
+  photoPillOdo: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  photoPillOdoText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  photoPillMore: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  photoPillMoreText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
   },
   actionsRow: {
     flexDirection: 'row',
@@ -1634,20 +2036,138 @@ const s = StyleSheet.create({
     fontWeight: '800',
     color: '#1A56DB',
   },
+
+  // Fullscreen Viewer Styles
   lightboxOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(5, 10, 25, 0.96)',
+  },
+  viewerTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  viewerCloseBtn: {
+    padding: 6,
+  },
+  viewerHeaderCenter: {
     alignItems: 'center',
   },
-  lightboxCloseBtn: {
-    position: 'absolute',
-    right: 20,
-    zIndex: 10,
-    padding: 8,
+  viewerHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  lightboxImage: {
+  viewerHeaderPlate: {
+    fontSize: 12,
+    color: '#93C5FD',
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  viewerTabsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  viewerTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  viewerTabActive: {
+    backgroundColor: '#1A56DB',
+    borderColor: '#3B82F6',
+  },
+  viewerTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  viewerTabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  viewerImageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+  },
+  viewerImage: {
     width: SCREEN_WIDTH * 0.95,
-    height: '80%',
+    height: '100%',
+  },
+  viewerBottomPanel: {
+    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 12,
+  },
+  viewerMetricsBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+  },
+  viewerMetricItem: {
+    alignItems: 'center',
+  },
+  viewerMetricLabel: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '700',
+  },
+  viewerMetricVal: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  viewerActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  viewerActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  viewerRejectBtn: {
+    backgroundColor: 'rgba(220, 38, 38, 0.15)',
+    borderWidth: 1.5,
+    borderColor: '#DC2626',
+  },
+  viewerRejectText: {
+    color: '#EF4444',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  viewerApproveBtn: {
+    backgroundColor: '#16A34A',
+  },
+  viewerApproveText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
