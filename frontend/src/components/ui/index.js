@@ -38,6 +38,7 @@ export { default as PhotoUploader } from './PhotoUploader';
 export { default as BottomSheet } from './BottomSheet';
 export { default as Loading } from './Loading';
 export { default as EmptyState } from './EmptyState';
+export { default as Skeleton, SkeletonCard } from './Skeleton';
 
 // Owner + Manager back-office primitives
 export { TONE, toneColor, Pill, Monogram, SectionHeader, StatTile, Eyebrow, KpiTile, RouteLine, LedgerRow, FilterChips, BackHeader } from './BackOfficeBits';

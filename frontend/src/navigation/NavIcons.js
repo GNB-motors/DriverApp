@@ -72,11 +72,27 @@ export function ProfileIcon(props) {
   );
 }
 
-// Droplet — Refuel (center FAB)
+// Droplet — Refuel / Fuel Log
 export function FuelIcon(props) {
   return (
     <Base {...props}>
       <Path d="M12 2.7l5.66 5.66a8 8 0 1 1-11.31 0z" />
+    </Base>
+  );
+}
+
+// Building — Organisations
+export function OrgsIcon(props) {
+  return (
+    <Base {...props}>
+      <Path d="M3 21h18" />
+      <Path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16" />
+      <Path d="M9 8h2" />
+      <Path d="M9 12h2" />
+      <Path d="M9 16h2" />
+      <Path d="M13 8h2" />
+      <Path d="M13 12h2" />
+      <Path d="M13 16h2" />
     </Base>
   );
 }
@@ -86,4 +102,6 @@ export const NAV_ICONS = {
   Repairs: RepairsIcon,
   Documents: DocumentsIcon,
   Profile: ProfileIcon,
+  Fuel: FuelIcon,
+  Orgs: OrgsIcon,
 };

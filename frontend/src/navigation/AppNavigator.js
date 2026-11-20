@@ -2,9 +2,11 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { NAV_ICONS } from './NavIcons';
+import { NAV_ICONS, QuickAddIcon } from './NavIcons';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
+import { colors } from '../components/ui';
+import CurvedTabBar from './CurvedTabBar';
 import FloatingTabBar from './FloatingTabBar';
 import DriverNavigator from '../telematics/DriverNavigator';
 import ManagerNavigator from '../telematics/ManagerNavigator';
@@ -40,16 +42,31 @@ function AuthStack({ initialRoute }) {
   );
 }
 
+function FieldAgentTabBar(props) {
+  const { t } = useLanguage();
+  return (
+    <CurvedTabBar
+      {...props}
+      centerAction={{
+        label: t('fieldAgent', 'capture') || 'Refuel',
+        onPress: () => props.navigation.navigate('VehiclePicker'),
+        icon: <QuickAddIcon size={26} color={colors.white} />,
+      }}
+    />
+  );
+}
+
 function FieldAgentTabs() {
+  const { t } = useLanguage();
   return (
     <Tab.Navigator
-      tabBar={(props) => <FloatingTabBar {...props} />}
+      tabBar={(props) => <FieldAgentTabBar {...props} />}
       screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: tabIcon(route.name) })}
     >
-      <Tab.Screen name="Home" component={FieldAgentHomeScreen} options={{ tabBarLabel: 'Home' }} />
-      <Tab.Screen name="Fuel" component={FuelLogScreen} options={{ tabBarLabel: 'Fuel' }} />
-      <Tab.Screen name="Orgs" component={FieldAgentOrgsScreen} options={{ tabBarLabel: 'Orgs' }} />
-      <Tab.Screen name="Profile" component={FieldAgentProfileScreen} options={{ tabBarLabel: 'Profile' }} />
+      <Tab.Screen name="Home" component={FieldAgentHomeScreen} options={{ tabBarLabel: t('fieldAgent', 'home') || 'Home' }} />
+      <Tab.Screen name="Fuel" component={FuelLogScreen} options={{ tabBarLabel: t('fieldAgent', 'fuelLogs') || 'Fuel Logs' }} />
+      <Tab.Screen name="Orgs" component={FieldAgentOrgsScreen} options={{ tabBarLabel: t('fieldAgent', 'orgs') || 'Orgs' }} />
+      <Tab.Screen name="Profile" component={FieldAgentProfileScreen} options={{ tabBarLabel: t('fieldAgent', 'profile') || 'Profile' }} />
     </Tab.Navigator>
   );
 }

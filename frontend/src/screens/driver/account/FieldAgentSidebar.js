@@ -8,49 +8,54 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { AppText, colors, spacing, radius } from "../../../components/ui";
 import { useAuth } from "../../../context/AuthContext";
+import { useLanguage } from "../../../context/LanguageContext";
 import { useDrawer, DRAWER_WIDTH_EXPORT } from "../../../context/DrawerContext";
-
-const FIELD_AGENT_SIDEBAR_ITEMS = [
-  {
-    group: "My Work",
-    items: [
-      { key: "Fuel",          label: "Fuel log",        icon: "water-outline" },
-    ],
-  },
-  {
-    group: "Settings",
-    items: [
-      { key: "LanguageScreen", label: "Language",       icon: "language-outline" },
-      { key: "SOSOptions",     label: "Emergency SOS",  icon: "alert-circle-outline", danger: true },
-      { key: "Profile",        label: "Profile",        icon: "person-outline" },
-    ],
-  },
-];
 
 export default function FieldAgentSidebar() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { user, organization, logout } = useAuth();
+  const { t } = useLanguage();
   const { isOpen, translateX, scrimOpacity, closeDrawer } = useDrawer();
 
   if (!isOpen) return null;
+
+  const c = (key, fallback) => t("fieldAgent", key) || fallback;
+
+  const sidebarItems = [
+    {
+      group: c("home", "My Work"),
+      items: [
+        { key: "Fuel", label: c("fuelLogs", "Fuel log"), icon: "water-outline" },
+        { key: "Orgs", label: c("orgs", "Organisations"), icon: "business-outline" },
+      ],
+    },
+    {
+      group: "Settings",
+      items: [
+        { key: "LanguageScreen", label: c("language", "Language"), icon: "language-outline" },
+        { key: "SOSOptions", label: "Emergency SOS", icon: "alert-circle-outline", danger: true },
+        { key: "Profile", label: c("profile", "Profile"), icon: "person-outline" },
+      ],
+    },
+  ];
 
   const fullName =
     user?.name ||
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
     "—";
-  const roleLabel = "Field Agent";
+  const roleLabel = c("role", "Field Agent");
   const company = organization?.companyName || organization?.name || "";
 
   const confirmLogout = () => {
     closeDrawer();
     setTimeout(() =>
       Alert.alert(
-        "Log out?",
-        "You will need to sign in again.",
+        c("logoutConfirm", "Log out?"),
+        c("logoutMessage", "You will need to sign in again."),
         [
-          { text: "Cancel", style: "cancel" },
-          { text: "Log out", style: "destructive", onPress: logout },
+          { text: c("cancel", "Cancel"), style: "cancel" },
+          { text: c("logout", "Log out"), style: "destructive", onPress: logout },
         ],
       ), 250);
   };
@@ -84,7 +89,7 @@ export default function FieldAgentSidebar() {
         </LinearGradient>
 
         <ScrollView contentContainerStyle={[styles.navScroll, { paddingBottom: spacing.lg }]} showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-          {FIELD_AGENT_SIDEBAR_ITEMS.map((section) => (
+          {sidebarItems.map((section) => (
             <View key={section.group} style={styles.section}>
               <AppText variant="label" muted style={styles.sectionLabel}>{section.group}</AppText>
               {section.items.map((item) => (
@@ -103,7 +108,7 @@ export default function FieldAgentSidebar() {
         <View style={[styles.logoutFooter, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
           <Pressable onPress={confirmLogout} style={styles.logoutBtn} android_ripple={{ color: colors.expiredBg }}>
             <Ionicons name="log-out-outline" size={19} color={colors.error} />
-            <AppText variant="bodyStrong" weight="semibold" color={colors.error}>Log out</AppText>
+            <AppText variant="bodyStrong" weight="semibold" color={colors.error}>{c("logout", "Log out")}</AppText>
           </Pressable>
         </View>
       </Animated.View>
