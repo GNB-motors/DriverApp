@@ -361,16 +361,13 @@ export function ManagerLive({ navigation }) {
         onSelect={setFilter}
         counts={counts}
       />
-      {vehicles.map((v, i) => (
-        <View key={v.id} style={s.content}>
-          <AppText variant="caption" muted>
-            MARKER {i + 1}
-          </AppText>
-          <VehicleRow
-            vehicle={v}
-            onPress={() => navigation.navigate("Vehicle detail", { id: v.id })}
-          />
-        </View>
+      {vehicles.map((v) => (
+        <VehicleRow
+          key={v.id}
+          vehicle={v}
+          onPress={() => navigation.navigate("Vehicle detail", { id: v.id })}
+          navigation={navigation}
+        />
       ))}
       {!vehicles.length && !data?.errors?.vehicles && !data?.errors?.positions && <Empty />}
     </ManagerPage>
