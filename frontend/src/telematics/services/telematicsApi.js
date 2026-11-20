@@ -776,8 +776,37 @@ export function createTelematicsApi({
     async whatsappBulkPublish(ids, branchId) {
       return (await client.post('/whatsapp/admin/drafts/bulk-publish', { ids }, { headers: headersFor(branchId) })).data.data;
     },
+    // Documents & Compliance
+    async listDocuments(params = {}, branchId) {
+      return (await get('/documents', { params, headers: headersFor(branchId) }));
+    },
+    async uploadVehicleDocument(vehicleId, asset, docType, expiryDate, branchId) {
+      const body = new FormData();
+      body.append('entityType', 'VEHICLE');
+      body.append('entityId', vehicleId);
+      body.append('docType', docType);
+      if (expiryDate) body.append('expiryDate', expiryDate);
+      if (typeof document !== 'undefined') {
+        body.append('file', asset.file || await (await fetch(asset.uri)).blob(), asset.name || asset.fileName || 'document.jpg');
+      } else {
+        body.append('file', {
+          uri: asset.uri,
+          name: asset.name || asset.fileName || 'document.jpg',
+          type: asset.mimeType || asset.type || 'image/jpeg',
+        });
+      }
+      return (await client.post('/documents', body, { headers: { 'Content-Type': 'multipart/form-data', ...headersFor(branchId) }, timeout: 120000 })).data;
+    },
     async documentDetail(id, branchId) {
       return (await get(`/documents/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data;
+    },
+
+    // Fuel Logs & Mileage
+    async unifiedFuelLogs(params = {}, branchId) {
+      return (await get('/fuel-logs/unified', { params: { limit: 50, ...params }, headers: headersFor(branchId) }));
+    },
+    async fuelLogs(params = {}, branchId) {
+      return (await get('/fuel-logs', { params: { limit: 50, ...params }, headers: headersFor(branchId) }));
     },
 
     // Approvals: Owner & Manager (Office bills)
