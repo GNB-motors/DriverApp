@@ -23,6 +23,7 @@ import { managerCardsFromResponse } from '../services/liveData';
 import { DriverDetail, ManagerLive } from '../screens/ManagerScreens';
 import FleetMap from '../components/FleetMap';
 import { ActionButton, ExperiencePage, UnavailableScreen, useExperienceCopy } from './ExperienceUI';
+import { GNB_LOGO_URI } from './gnbLogoUri';
 
 function useCards() {
   const { service, branchId, lastPush } = useManagerData();
@@ -242,10 +243,10 @@ export function ManagerActionHome({ navigation }) {
   return (
     <View style={s.container}>
       {/* Top Header */}
-      <View style={[s.topBar, { paddingTop: insets.top + spacing.sm }]}>
+      <View style={[s.topBar, { paddingTop: insets.top + 6 }]}>
         <View style={s.headerLeftLogo}>
           <Image
-            source={require('../../../assets/gnb-logo.png')}
+            source={{ uri: GNB_LOGO_URI }}
             style={s.headerLogo}
             resizeMode="contain"
             accessibilityLabel="GNB Motors"
@@ -253,10 +254,10 @@ export function ManagerActionHome({ navigation }) {
         </View>
 
         <View style={s.headerRightUser}>
-          <AppText variant="h2" weight="extrabold" color={colors.text} numberOfLines={1} style={s.textRight}>
+          <AppText weight="extrabold" color={colors.text} numberOfLines={1} style={s.userNameText}>
             {userName}
           </AppText>
-          <AppText variant="caption" weight="bold" color={colors.textMuted} style={[s.roleText, s.textRight]}>
+          <AppText weight="semibold" color={colors.textMuted} numberOfLines={1} style={s.userRoleText}>
             {userRole}
           </AppText>
           <Pressable
@@ -265,11 +266,11 @@ export function ManagerActionHome({ navigation }) {
             accessibilityRole="button"
             accessibilityLabel={c('branchFilter')}
           >
-            <Ionicons name="business-outline" size={12} color={colors.primary} />
-            <AppText variant="caption" weight="bold" color={colors.primaryDeep} numberOfLines={1} style={s.branchPillText}>
+            <Ionicons name="business-outline" size={11} color={colors.primary} />
+            <AppText weight="bold" color={colors.primaryDeep} numberOfLines={1} style={s.branchPillText}>
               {currentBranchName}
             </AppText>
-            <Ionicons name="chevron-down" size={11} color={colors.primary} />
+            <Ionicons name="chevron-down" size={10} color={colors.primary} />
           </Pressable>
         </View>
       </View>
@@ -484,6 +485,190 @@ export function ManagerActionHome({ navigation }) {
               </AppText>
             </View>
           </View>
+        )}
+
+        {/* Quick Operational Launchpad */}
+        <View style={s.launchpadSection}>
+          <View style={s.launchpadHeader}>
+            <AppText variant="label" weight="extrabold" color={colors.text}>
+              OPERATIONAL HUB
+            </AppText>
+            <AppText variant="caption" color={colors.textMuted}>
+              Everyday Tools & Workflows
+            </AppText>
+          </View>
+
+          <View style={s.launchpadGrid}>
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Fleet map')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#EFF6FF' }]}>
+                <Ionicons name="map" size={20} color={colors.primary} />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Live Fleet
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Map & Tracking
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Duty board')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#F0FDF4' }]}>
+                <Ionicons name="people" size={20} color={colors.success} />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Duty Board
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Drivers & Hours
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Manager approvals')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FAF5FF' }]}>
+                <Ionicons name="checkmark-done-circle" size={20} color="#9333EA" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Approvals
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Bills & Advances
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Fleet documents', { kind: 'documents' })}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FFFBEB' }]}>
+                <Ionicons name="document-text" size={20} color="#D97706" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Documents
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Permit, Tax, PUC
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Fuel review', { kind: 'fuel' })}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FEF2F2' }]}>
+                <Ionicons name="speedometer" size={20} color="#EF4444" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Fuel Logs
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Diesel & Mileage
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Alerts')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FFF1F2' }]}>
+                <Ionicons name="notifications" size={20} color="#E11D48" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Alerts
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Alarms & Geofence
+              </AppText>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Recent Critical Alerts Ticker */}
+        {recentAlerts.length > 0 && (
+          <View style={s.recentAlertsSection}>
+            <View style={s.recentAlertsHeader}>
+              <View style={s.inlineCenter}>
+                <Ionicons name="notifications-circle" size={18} color={colors.error} />
+                <AppText variant="label" weight="extrabold" color={colors.text}>
+                  RECENT EXCEPTIONS
+                </AppText>
+              </View>
+              <Pressable onPress={() => navigation.navigate('Alerts')} hitSlop={8}>
+                <AppText variant="small" weight="bold" color={colors.primary}>
+                  View All ({data?.alertFeed?.unacknowledgedCount || recentAlerts.length}) →
+                </AppText>
+              </Pressable>
+            </View>
+
+            <Card padding={0} style={s.recentAlertsCard}>
+              {recentAlerts.map((alert, idx) => {
+                const isUrgent = alert.severity === 'CRITICAL' || alert.severity === 'HIGH' || alert.type?.includes('SPEED') || alert.type?.includes('THEFT');
+                return (
+                  <Pressable
+                    key={alert.id || alert._id || idx}
+                    style={[s.recentAlertRow, idx > 0 && s.recentAlertBorder]}
+                    onPress={() => navigation.navigate('Alerts')}
+                  >
+                    <View style={[s.recentAlertDot, { backgroundColor: isUrgent ? colors.error : colors.warning }]} />
+                    <View style={s.recentAlertMain}>
+                      <View style={s.recentAlertTitleRow}>
+                        <AppText variant="body" weight="bold" numberOfLines={1} color={colors.text}>
+                          {alert.title || alert.type?.replace(/_/g, ' ') || 'Fleet Exception'}
+                        </AppText>
+                        <AppText variant="caption" mono color={colors.textMuted}>
+                          {alert.plate || alert.vehicle?.registrationNumber || ''}
+                        </AppText>
+                      </View>
+                      <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                        {alert.message || alert.description || 'Action recommended'}
+                      </AppText>
+                    </View>
+                    <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+                  </Pressable>
+                );
+              })}
+            </Card>
+          </View>
+        )}
+
+        {/* Compliance Warning Banner */}
+        {complianceIssuesCount > 0 && (
+          <Pressable
+            style={s.complianceBanner}
+            onPress={() => navigation.navigate('Fleet documents', { kind: 'documents' })}
+            accessibilityRole="button"
+          >
+            <View style={s.complianceBannerIconWrap}>
+              <Ionicons name="alert-circle" size={22} color="#D97706" />
+            </View>
+            <View style={s.complianceBannerContent}>
+              <AppText variant="small" weight="extrabold" color="#92400E">
+                {complianceIssuesCount} {complianceIssuesCount === 1 ? 'Truck has' : 'Trucks have'} Expired Documents
+              </AppText>
+              <AppText variant="caption" color="#B45309">
+                National Permit, Fitness or Insurance renewal required
+              </AppText>
+            </View>
+            <View style={s.complianceBannerAction}>
+              <AppText variant="caption" weight="bold" color="#92400E">
+                Review →
+              </AppText>
+            </View>
+          </Pressable>
         )}
 
         {/* Action Cards Header & Filters */}
@@ -1027,6 +1212,190 @@ function RenderExpandedCard({
           </View>
         )}
 
+        {/* Quick Operational Launchpad */}
+        <View style={s.launchpadSection}>
+          <View style={s.launchpadHeader}>
+            <AppText variant="label" weight="extrabold" color={colors.text}>
+              OPERATIONAL HUB
+            </AppText>
+            <AppText variant="caption" color={colors.textMuted}>
+              Everyday Tools & Workflows
+            </AppText>
+          </View>
+
+          <View style={s.launchpadGrid}>
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Fleet map')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#EFF6FF' }]}>
+                <Ionicons name="map" size={20} color={colors.primary} />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Live Fleet
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Map & Tracking
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Duty board')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#F0FDF4' }]}>
+                <Ionicons name="people" size={20} color={colors.success} />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Duty Board
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Drivers & Hours
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Manager approvals')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FAF5FF' }]}>
+                <Ionicons name="checkmark-done-circle" size={20} color="#9333EA" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Approvals
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Bills & Advances
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Fleet documents', { kind: 'documents' })}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FFFBEB' }]}>
+                <Ionicons name="document-text" size={20} color="#D97706" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Documents
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Permit, Tax, PUC
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Fuel review', { kind: 'fuel' })}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FEF2F2' }]}>
+                <Ionicons name="speedometer" size={20} color="#EF4444" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Fuel Logs
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Diesel & Mileage
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Alerts')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FFF1F2' }]}>
+                <Ionicons name="notifications" size={20} color="#E11D48" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Alerts
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Alarms & Geofence
+              </AppText>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Recent Critical Alerts Ticker */}
+        {recentAlerts.length > 0 && (
+          <View style={s.recentAlertsSection}>
+            <View style={s.recentAlertsHeader}>
+              <View style={s.inlineCenter}>
+                <Ionicons name="notifications-circle" size={18} color={colors.error} />
+                <AppText variant="label" weight="extrabold" color={colors.text}>
+                  RECENT EXCEPTIONS
+                </AppText>
+              </View>
+              <Pressable onPress={() => navigation.navigate('Alerts')} hitSlop={8}>
+                <AppText variant="small" weight="bold" color={colors.primary}>
+                  View All ({data?.alertFeed?.unacknowledgedCount || recentAlerts.length}) →
+                </AppText>
+              </Pressable>
+            </View>
+
+            <Card padding={0} style={s.recentAlertsCard}>
+              {recentAlerts.map((alert, idx) => {
+                const isUrgent = alert.severity === 'CRITICAL' || alert.severity === 'HIGH' || alert.type?.includes('SPEED') || alert.type?.includes('THEFT');
+                return (
+                  <Pressable
+                    key={alert.id || alert._id || idx}
+                    style={[s.recentAlertRow, idx > 0 && s.recentAlertBorder]}
+                    onPress={() => navigation.navigate('Alerts')}
+                  >
+                    <View style={[s.recentAlertDot, { backgroundColor: isUrgent ? colors.error : colors.warning }]} />
+                    <View style={s.recentAlertMain}>
+                      <View style={s.recentAlertTitleRow}>
+                        <AppText variant="body" weight="bold" numberOfLines={1} color={colors.text}>
+                          {alert.title || alert.type?.replace(/_/g, ' ') || 'Fleet Exception'}
+                        </AppText>
+                        <AppText variant="caption" mono color={colors.textMuted}>
+                          {alert.plate || alert.vehicle?.registrationNumber || ''}
+                        </AppText>
+                      </View>
+                      <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                        {alert.message || alert.description || 'Action recommended'}
+                      </AppText>
+                    </View>
+                    <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+                  </Pressable>
+                );
+              })}
+            </Card>
+          </View>
+        )}
+
+        {/* Compliance Warning Banner */}
+        {complianceIssuesCount > 0 && (
+          <Pressable
+            style={s.complianceBanner}
+            onPress={() => navigation.navigate('Fleet documents', { kind: 'documents' })}
+            accessibilityRole="button"
+          >
+            <View style={s.complianceBannerIconWrap}>
+              <Ionicons name="alert-circle" size={22} color="#D97706" />
+            </View>
+            <View style={s.complianceBannerContent}>
+              <AppText variant="small" weight="extrabold" color="#92400E">
+                {complianceIssuesCount} {complianceIssuesCount === 1 ? 'Truck has' : 'Trucks have'} Expired Documents
+              </AppText>
+              <AppText variant="caption" color="#B45309">
+                National Permit, Fitness or Insurance renewal required
+              </AppText>
+            </View>
+            <View style={s.complianceBannerAction}>
+              <AppText variant="caption" weight="bold" color="#92400E">
+                Review →
+              </AppText>
+            </View>
+          </Pressable>
+        )}
+
         {card.driverSide?.atWheel?.status && (
           <View style={s.telemetryItem}>
             <Ionicons name="disc-outline" size={13} color={colors.primary} />
@@ -1034,6 +1403,190 @@ function RenderExpandedCard({
               {card.driverSide.atWheel.status}
             </AppText>
           </View>
+        )}
+
+        {/* Quick Operational Launchpad */}
+        <View style={s.launchpadSection}>
+          <View style={s.launchpadHeader}>
+            <AppText variant="label" weight="extrabold" color={colors.text}>
+              OPERATIONAL HUB
+            </AppText>
+            <AppText variant="caption" color={colors.textMuted}>
+              Everyday Tools & Workflows
+            </AppText>
+          </View>
+
+          <View style={s.launchpadGrid}>
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Fleet map')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#EFF6FF' }]}>
+                <Ionicons name="map" size={20} color={colors.primary} />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Live Fleet
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Map & Tracking
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Duty board')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#F0FDF4' }]}>
+                <Ionicons name="people" size={20} color={colors.success} />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Duty Board
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Drivers & Hours
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Manager approvals')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FAF5FF' }]}>
+                <Ionicons name="checkmark-done-circle" size={20} color="#9333EA" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Approvals
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Bills & Advances
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Fleet documents', { kind: 'documents' })}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FFFBEB' }]}>
+                <Ionicons name="document-text" size={20} color="#D97706" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Documents
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Permit, Tax, PUC
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Fuel review', { kind: 'fuel' })}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FEF2F2' }]}>
+                <Ionicons name="speedometer" size={20} color="#EF4444" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Fuel Logs
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Diesel & Mileage
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Alerts')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FFF1F2' }]}>
+                <Ionicons name="notifications" size={20} color="#E11D48" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Alerts
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Alarms & Geofence
+              </AppText>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Recent Critical Alerts Ticker */}
+        {recentAlerts.length > 0 && (
+          <View style={s.recentAlertsSection}>
+            <View style={s.recentAlertsHeader}>
+              <View style={s.inlineCenter}>
+                <Ionicons name="notifications-circle" size={18} color={colors.error} />
+                <AppText variant="label" weight="extrabold" color={colors.text}>
+                  RECENT EXCEPTIONS
+                </AppText>
+              </View>
+              <Pressable onPress={() => navigation.navigate('Alerts')} hitSlop={8}>
+                <AppText variant="small" weight="bold" color={colors.primary}>
+                  View All ({data?.alertFeed?.unacknowledgedCount || recentAlerts.length}) →
+                </AppText>
+              </Pressable>
+            </View>
+
+            <Card padding={0} style={s.recentAlertsCard}>
+              {recentAlerts.map((alert, idx) => {
+                const isUrgent = alert.severity === 'CRITICAL' || alert.severity === 'HIGH' || alert.type?.includes('SPEED') || alert.type?.includes('THEFT');
+                return (
+                  <Pressable
+                    key={alert.id || alert._id || idx}
+                    style={[s.recentAlertRow, idx > 0 && s.recentAlertBorder]}
+                    onPress={() => navigation.navigate('Alerts')}
+                  >
+                    <View style={[s.recentAlertDot, { backgroundColor: isUrgent ? colors.error : colors.warning }]} />
+                    <View style={s.recentAlertMain}>
+                      <View style={s.recentAlertTitleRow}>
+                        <AppText variant="body" weight="bold" numberOfLines={1} color={colors.text}>
+                          {alert.title || alert.type?.replace(/_/g, ' ') || 'Fleet Exception'}
+                        </AppText>
+                        <AppText variant="caption" mono color={colors.textMuted}>
+                          {alert.plate || alert.vehicle?.registrationNumber || ''}
+                        </AppText>
+                      </View>
+                      <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                        {alert.message || alert.description || 'Action recommended'}
+                      </AppText>
+                    </View>
+                    <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+                  </Pressable>
+                );
+              })}
+            </Card>
+          </View>
+        )}
+
+        {/* Compliance Warning Banner */}
+        {complianceIssuesCount > 0 && (
+          <Pressable
+            style={s.complianceBanner}
+            onPress={() => navigation.navigate('Fleet documents', { kind: 'documents' })}
+            accessibilityRole="button"
+          >
+            <View style={s.complianceBannerIconWrap}>
+              <Ionicons name="alert-circle" size={22} color="#D97706" />
+            </View>
+            <View style={s.complianceBannerContent}>
+              <AppText variant="small" weight="extrabold" color="#92400E">
+                {complianceIssuesCount} {complianceIssuesCount === 1 ? 'Truck has' : 'Trucks have'} Expired Documents
+              </AppText>
+              <AppText variant="caption" color="#B45309">
+                National Permit, Fitness or Insurance renewal required
+              </AppText>
+            </View>
+            <View style={s.complianceBannerAction}>
+              <AppText variant="caption" weight="bold" color="#92400E">
+                Review →
+              </AppText>
+            </View>
+          </Pressable>
         )}
       </View>
 
@@ -1586,8 +2139,9 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingBottom: 12,
+    paddingLeft: 8,
+    paddingRight: 12,
+    paddingBottom: 8,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -1595,42 +2149,46 @@ const s = StyleSheet.create({
   headerLeftLogo: {
     justifyContent: 'center',
     alignItems: 'flex-start',
+    paddingLeft: 2,
   },
   headerLogo: {
-    width: 108,
-    height: 38,
+    width: 88,
+    height: 46,
   },
   headerRightUser: {
     flex: 1,
     alignItems: 'flex-end',
     justifyContent: 'center',
-    gap: 2,
-    paddingLeft: 12,
+    gap: 1.5,
+    paddingLeft: 10,
   },
-  textRight: {
+  userNameText: {
+    fontSize: 15,
+    lineHeight: 19,
     textAlign: 'right',
   },
-  roleText: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  branchPillText: {
-    fontSize: 11,
-    lineHeight: 14,
-    maxWidth: 140,
+  userRoleText: {
+    fontSize: 11.5,
+    lineHeight: 15,
+    textAlign: 'right',
   },
   branchPillRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.tealTint,
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: radius.full,
+    borderRadius: 12,
     alignSelf: 'flex-end',
     marginTop: 2,
     borderWidth: 1,
-    borderColor: '#CCFBF1',
+    borderColor: '#BFDBFE',
+  },
+  branchPillText: {
+    fontSize: 10.5,
+    lineHeight: 14,
+    maxWidth: 145,
   },
   scrollContent: {
     padding: 16,
