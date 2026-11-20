@@ -66,15 +66,16 @@ function LocationChoice({ label, value, onChange, api, disabled }) {
   </View>;
 }
 
-export default function FuelLogFormScreen({ navigation }) {
+export default function FuelLogFormScreen({ navigation, route }) {
   const { user, token, organization, invalidateSession } = useAuth();
   const insets = useSafeAreaInsets();
   const org = recordId(organization) || recordId(user.orgId);
+  const initialVehicleId = route?.params?.vehicleId || '';
   const api = useMemo(() => createTelematicsApi({ baseURL: process.env.EXPO_PUBLIC_API_URL, token, user, orgId: org, onUnauthorized: () => invalidateSession(token) }), [token, user, org, invalidateSession]);
   const draftKey = `fuel-web-flow:${org}:${user._id}`;
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
-  const [vehicleId, setVehicleId] = useState('');
+  const [vehicleId, setVehicleId] = useState(initialVehicleId);
   const [driverId, setDriverId] = useState(user.role === 'DRIVER' ? user._id : '');
   const [previous, setPrevious] = useState(null);
   const [loadingPrevious, setLoadingPrevious] = useState(false);
@@ -104,6 +105,8 @@ export default function FuelLogFormScreen({ navigation }) {
           const restored = JSON.parse(saved);
           setDraft(restored); setFields(restored.fields); setDocs({ fuel: restored.fuel, odometer: restored.odometer });
           setVehicleId(restored.payload.vehicleId); setDriverId(restored.payload.driverId);
+        } else if (initialVehicleId) {
+          setVehicleId(initialVehicleId);
         } else if (user.role === 'DRIVER') setVehicleId(list[0]?.id || '');
         if (user.role !== 'DRIVER') setDrivers(await api.fuelDrivers());
         if (active) setReady(true);
