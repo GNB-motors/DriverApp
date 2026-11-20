@@ -64,10 +64,66 @@ function vehicleView(row, position = row.position, rule = row.locationRule) {
     Math.abs(position.longitude) <= 180;
   const stale =
     position?.isStale === true || !Number.isFinite(age) || age > (position?.freshMinutes ?? 15) || age < -2;
+
+  const fuelLitres =
+    position?.primaryFuelLevel ??
+    position?.fuel?.value ??
+    position?.readings?.fuelLitres?.value ??
+    row.primaryFuelLevel ??
+    row.fuelLitres ??
+    null;
+  const fuelUnit =
+    position?.fuelLevelUnit ||
+    position?.fuel?.unit ||
+    (position?.primaryFuelLevel != null ? 'L' : null);
+  const fuelPercent =
+    position?.fuelPercent ??
+    (row.tankCapacityLitres && fuelLitres != null
+      ? Math.min(100, Math.round((fuelLitres / row.tankCapacityLitres) * 100))
+      : null);
+
+  const odometerKm =
+    position?.odometer ??
+    position?.readings?.odometerKm?.value ??
+    row.odometerReading ??
+    row.odometerKm ??
+    null;
+  const todayKm =
+    position?.todayKm ??
+    position?.dailyKm ??
+    row.todayKm ??
+    null;
+
+  const silentForMin =
+    position?.silentForMin ??
+    (position?.eventDateTime
+      ? Math.max(0, Math.floor((Date.now() - new Date(position.eventDateTime).getTime()) / 60000))
+      : null);
+
+  const address =
+    position?.address ||
+    rule?.label ||
+    row.address ||
+    null;
+
+  const isSubscriptionExpired = Boolean(
+    position?.isSubscriptionExpired ||
+    row.isSubscriptionExpired ||
+    row.subscriptionExpired ||
+    row.subscriptionStatus === 'expired' ||
+    row.subscriptionStatus === 'EXPIRED' ||
+    (row.subscriptionExpiresAt && new Date(row.subscriptionExpiresAt).getTime() < Date.now())
+  );
+
+  const missingDocTypes = row.missingDocTypes || [];
+  const documents = row.documents || [];
+  const documentsCount = documents.length;
+
   return {
     ...normalize(row),
-    plate: row.registrationNumber,
-    model: row.model || row.make || "Model unavailable",
+    plate: row.registrationNumber || position?.registrationNumber,
+    model: row.model || row.make || position?.vehicle?.model || "Model unavailable",
+    manufacturer: row.manufacturer || position?.vehicle?.manufacturer || null,
     status: !position || !Number.isFinite(age) || age < -2
       ? "unknown"
       : stale || position.state === "OFFLINE"
@@ -81,7 +137,7 @@ function vehicleView(row, position = row.position, rule = row.locationRule) {
       position?.registrationNumber ||
       row.fleetEdgeRegistration ||
       row.registrationNumber,
-    courseDegrees: position?.courseDegrees ?? null,
+    courseDegrees: position?.headingDeg ?? position?.courseDegrees ?? null,
     speed: position?.speed ?? null,
     isStale: stale,
     source:
@@ -92,16 +148,32 @@ function vehicleView(row, position = row.position, rule = row.locationRule) {
           : position
             ? "truck"
             : null,
-    updatedAt: position?.eventDateTime || null,
+    updatedAt: position?.eventDateTime || row.updatedAt || null,
+    eventDateTime: position?.eventDateTime || null,
     coordinates: valid
       ? { latitude: position.latitude, longitude: position.longitude }
       : null,
+    address,
+    detailedAddress: address,
     location:
+      address ||
       rule?.label ||
       (valid
-        ? `${position.latitude.toFixed(5)}, ${position.longitude.toFixed(5)}`
+        ? `${position.latitude.toFixed(4)}, ${position.longitude.toFixed(4)}`
         : "Location unavailable"),
-    odometerKm: row.odometerReading ?? null,
+    odometerKm,
+    todayKm,
+    fuelLitres,
+    fuelUnit,
+    fuelPercent,
+    silentForMin,
+    driver: position?.driver || row.driver || null,
+    driverId: position?.driver?.id || row.driverId || null,
+    isSubscriptionExpired,
+    missingDocTypes,
+    documents,
+    documentsCount,
+    rawPosition: position || null,
   };
 }
 function tripView(row) {
@@ -459,6 +531,63 @@ export function createTelematicsApi({
       }),
     );
     data.vehicles = mergePositions(data.vehicles, data.positions || []);
+
+    // 1. Compute today's km from trips for each vehicle if todayKm not directly on telemetry
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartTime = todayStart.getTime();
+    for (const v of data.vehicles) {
+      if (v.todayKm == null && Array.isArray(data.trips)) {
+        const vehicleTripsToday = data.trips.filter((t) => {
+          const tripVehicleId = t.vehicleId || t.vehicle?._id || t.vehicle;
+          const tripPlate = t.registrationNumber || t.plate;
+          const matches =
+            tripVehicleId === v.id ||
+            (tripPlate && plateKey(tripPlate) === plateKey(v.plate));
+          const tTime = t.startedAt ? new Date(t.startedAt).getTime() : 0;
+          return matches && tTime >= todayStartTime;
+        });
+        if (vehicleTripsToday.length > 0) {
+          v.todayKm = vehicleTripsToday.reduce(
+            (sum, t) => sum + (Number(t.distanceKm) || 0),
+            0,
+          );
+        }
+      }
+    }
+
+    // 2. Batch-resolve place names for all vehicles with coordinates
+    const pointsToResolve = data.vehicles
+      .filter((v) => v.coordinates && !v.address)
+      .map((v) => ({
+        key: `${v.coordinates.latitude.toFixed(4)},${v.coordinates.longitude.toFixed(4)}`,
+        lat: v.coordinates.latitude,
+        lng: v.coordinates.longitude,
+      }));
+    if (pointsToResolve.length > 0) {
+      try {
+        const res = await post("/places/resolve", {
+          points: pointsToResolve.slice(0, 100),
+        });
+        const places = res.data?.places || res.data?.data?.places || {};
+        for (const v of data.vehicles) {
+          if (v.coordinates && !v.address) {
+            const k = `${v.coordinates.latitude.toFixed(4)},${v.coordinates.longitude.toFixed(4)}`;
+            const p = places[k];
+            if (p) {
+              const addr = [p.label, p.sub].filter(Boolean).join(", ");
+              if (addr) {
+                v.address = addr;
+                v.location = addr;
+                v.detailedAddress = addr;
+              }
+            }
+          }
+        }
+      } catch {
+        // network or server error graceful fallback
+      }
+    }
     if (data.summary?.analyticsError) errors.analytics = data.summary.analyticsError;
     data.adblue = data.fuel.filter((row) => row.fuelType === "ADBLUE");
     data.fuel = data.fuel.filter((row) => row.fuelType !== "ADBLUE");
@@ -834,6 +963,9 @@ export function createTelematicsApi({
     },
     async branches() {
       return mapList("/branches");
+    },
+    async resolvePlaces(points) {
+      return (await post("/places/resolve", { points })).data;
     },
     async acknowledgeAlert(id, { branchId } = {}) {
       if (audience === "driver") {

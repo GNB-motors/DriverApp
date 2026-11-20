@@ -4,7 +4,8 @@ export function managerCardsFromResponse(payload) {
   if (!Array.isArray(cards) || cards.some(card => !card || typeof (card.id || card._id) !== 'string')) {
     throw new Error('Action cards are unavailable. Please retry.');
   }
-  return cards.map(c => ({ ...c, id: c.id || c._id }));
+  const needsNorm = cards.some(c => !c.id && c._id);
+  return needsNorm ? cards.map(c => ({ ...c, id: c.id || c._id })) : cards;
 }
 
 export function vehicleOptionsFromResponse(payload) {

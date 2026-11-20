@@ -33,10 +33,10 @@ export function KpiCard({ label, value, unit, icon = 'analytics-outline', captio
   return <Card style={s.kpi} padding={spacing.md}><View style={s.kpiIcon}><Ionicons name={icon} size={19} color={colors.primary} /></View><View style={s.number}><AppText variant="h1" mono>{value}</AppText>{unit && <AppText variant="small" muted style={s.unit}>{unit}</AppText>}</View><AppText variant="small" weight="semibold">{label}</AppText>{caption && <AppText variant="caption" muted>{caption}</AppText>}</Card>;
 }
 function formatStatusTime(isoString) {
-  if (!isoString) return 'Today, 11:20 PM';
+  if (!isoString) return 'Time unavailable';
   try {
     const d = dayjs(isoString);
-    if (!d.isValid()) return 'Today, 11:20 PM';
+    if (!d.isValid()) return 'Time unavailable';
     const now = dayjs();
     if (d.isSame(now, 'day')) {
       return `Today, ${d.format('h:mm A')}`;
@@ -46,37 +46,67 @@ function formatStatusTime(isoString) {
     }
     return d.format('DD MMM YY, h:mm A');
   } catch {
-    return 'Today, 11:20 PM';
+    return 'Time unavailable';
   }
 }
 
+function formatDuration(mins) {
+  if (mins == null || !Number.isFinite(mins)) return null;
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${Math.round(mins)} mins`;
+  const hrs = Math.floor(mins / 60);
+  const remMins = Math.round(mins % 60);
+  if (hrs < 24) {
+    return remMins > 0 ? `${hrs}h ${remMins}m` : `${hrs} hrs`;
+  }
+  const days = Math.floor(hrs / 24);
+  const remHrs = Math.floor(hrs % 24);
+  return remHrs > 0 ? `${days}d ${remHrs}h` : `${days} days`;
+}
+
 function formatDetailedAddress(vehicle) {
-  if (vehicle.detailedAddress) return vehicle.detailedAddress;
-  if (vehicle.address && vehicle.address.length > 20) return vehicle.address;
+  if (vehicle.detailedAddress && vehicle.detailedAddress.length > 5) {
+    return vehicle.detailedAddress;
+  }
+  if (vehicle.address && vehicle.address.length > 5) {
+    return vehicle.address;
+  }
   const loc = vehicle.location || '';
   if (loc && !loc.includes('unavailable') && !loc.match(/^[\d\.,\s-]+$/)) {
-    return `${loc}, India`;
+    return loc;
   }
   const coords = vehicle.coordinates;
   if (coords?.latitude && coords?.longitude) {
-    return `Near Transport Hub, Nh-39, Sonbhadra District, Uttar Pradesh, 231224, India`;
+    const lat = Number(coords.latitude);
+    const lng = Number(coords.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+      return `Near ${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lng).toFixed(4)}° ${lng >= 0 ? 'E' : 'W'}`;
+    }
   }
-  return 'Near Highway NH-39, Dudhi, Sonbhadra District, Uttar Pradesh, 231224, India';
+  return 'Location unavailable';
 }
 
 function getStatusSinceText(vehicle) {
   const status = (vehicle.status || '').toLowerCase();
   const speed = Number.isFinite(vehicle.speed) ? Math.round(vehicle.speed) : 0;
+  const lastTime = vehicle.updatedAt || vehicle.eventDateTime || vehicle.lastFixAt;
+  const diffMs = lastTime ? Math.max(0, Date.now() - new Date(lastTime).getTime()) : null;
+  const mins = vehicle.silentForMin != null ? vehicle.silentForMin : diffMs != null ? Math.floor(diffMs / 60000) : null;
+  const duration = formatDuration(mins);
+
   if (status === 'moving') {
-    return `Moving at ${speed || 38} kmph`;
+    return speed > 0 ? (duration ? `Moving at ${speed} kmph · ${duration}` : `Moving at ${speed} kmph`) : 'Moving';
   }
   if (status === 'idling') {
-    return 'Idling since 18 mins';
+    return duration ? `Idling since ${duration}` : 'Idling (Ignition ON)';
   }
   if (status === 'offline') {
-    return 'Offline since 1 hr';
+    return duration ? `Offline since ${duration}` : 'Offline (No telemetry)';
   }
-  return 'Stopped since 26 mins';
+  if (status === 'stopped') {
+    return duration ? `Stopped since ${duration}` : 'Stopped (Ignition OFF)';
+  }
+  return duration ? `Last seen ${duration}` : 'Status pending';
 }
 
 export function VehicleRow({ vehicle, onPress, now, navigation }) {
@@ -95,18 +125,36 @@ export function VehicleRow({ vehicle, onPress, now, navigation }) {
   const speed = Number.isFinite(vehicle.speed) ? Math.round(vehicle.speed) : 0;
   const isIgnitionOn = vehicle.status === 'moving' || vehicle.status === 'idling' || vehicle.ignition === true || speed > 0;
   
-  const formattedTime = formatStatusTime(vehicle.updatedAt);
+  const formattedTime = formatStatusTime(vehicle.updatedAt || vehicle.eventDateTime);
   const detailedAddress = formatDetailedAddress(vehicle);
-  const kmToday = vehicle.kmToday ?? vehicle.todayKm ?? Math.round(((vehicle.odometerKm || 1200) % 95) + 14);
+
+  // Dynamic km today from live telemetry, today's trips, or odometer reading
+  const kmTodayVal = vehicle.todayKm ?? vehicle.kmToday ?? null;
+  const kmTodayText = kmTodayVal != null
+    ? `${Math.round(kmTodayVal)} km today`
+    : vehicle.odometerKm != null
+      ? `${vehicle.odometerKm.toLocaleString('en-IN')} km odo`
+      : '0 km today';
   const statusSinceText = getStatusSinceText(vehicle);
-  const fuelLiters = vehicle.dieselLitres ?? vehicle.fuelLiters ?? (vehicle.fuelPercent ? Math.round(vehicle.fuelPercent * 3.5) : 340);
-  const docsCount = vehicle.documentsCount ?? vehicle.documents?.length ?? 4;
+
+  // Dynamic diesel level from telemetry
+  const fuelLitres = vehicle.fuelLitres ?? vehicle.dieselLitres ?? vehicle.fuelLiters ?? null;
+  const fuelPercent = vehicle.fuelPercent ?? null;
+  const fuelDisplay = fuelLitres != null
+    ? `${Math.round(fuelLitres)} L`
+    : fuelPercent != null
+      ? `${Math.round(fuelPercent)}%`
+      : 'Sensor pending';
+
+  // Dynamic compliance and documents count
+  const missingCount = vehicle.missingDocTypes?.length || 0;
+  const docsCount = vehicle.documentsCount ?? vehicle.documents?.length ?? (missingCount > 0 ? 7 - missingCount : 0);
 
   const handleSaveToPlaces = (e) => {
     e?.stopPropagation?.();
     Alert.alert(
       "Save to Places",
-      `Add current location of ${vehicle.plate} to your organization's saved Places?`,
+      `Save current location (${detailedAddress}) of ${vehicle.plate} to your organization's Places?`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -122,11 +170,14 @@ export function VehicleRow({ vehicle, onPress, now, navigation }) {
   const handleShare = async (e) => {
     e?.stopPropagation?.();
     try {
-      const lat = vehicle.coordinates?.latitude || 26.9124;
-      const lng = vehicle.coordinates?.longitude || 75.7873;
+      const lat = vehicle.coordinates?.latitude;
+      const lng = vehicle.coordinates?.longitude;
+      const msg = lat && lng
+        ? `Tracking ${vehicle.plate} (${vehicle.status || 'Active'})\nSpeed: ${speed} km/h\nLocation: ${detailedAddress}\nhttps://maps.google.com/?q=${lat},${lng}\nShared via GNB Edge Fleet`
+        : `Vehicle ${vehicle.plate} (${vehicle.status || 'Active'})\nStatus: ${statusSinceText}\nShared via GNB Edge Fleet`;
       await Share.share({
         title: `Live location of ${vehicle.plate}`,
-        message: `Tracking ${vehicle.plate} (${vehicle.status || 'Active'})\nLocation: https://maps.google.com/?q=${lat},${lng}\nShared via GNB Edge Fleet`,
+        message: msg,
       });
     } catch {
       // ignore
@@ -145,7 +196,11 @@ export function VehicleRow({ vehicle, onPress, now, navigation }) {
 
   const handlePlayRoute = (e) => {
     e?.stopPropagation?.();
-    nav?.navigate?.('Manager trip', { vehicleId: vehicle.id, vehicle });
+    if (vehicle.activeTripId) {
+      nav?.navigate?.('Manager trip', { id: vehicle.activeTripId, vehicleId: vehicle.id });
+    } else {
+      nav?.navigate?.('Fleet trips', { vehicleId: vehicle.id, plate: vehicle.plate });
+    }
   };
 
   const handleRouteHistory = (e) => {
@@ -155,7 +210,7 @@ export function VehicleRow({ vehicle, onPress, now, navigation }) {
 
   const handleDocuments = (e) => {
     e?.stopPropagation?.();
-    nav?.navigate?.('Fleet documents', { vehicleId: vehicle.id });
+    nav?.navigate?.('Fleet documents', { vehicleId: vehicle.id, plate: vehicle.plate });
   };
 
   const handleViewPlans = (e) => {
@@ -264,7 +319,7 @@ export function VehicleRow({ vehicle, onPress, now, navigation }) {
       {/* 3. Movement & Status Metric row */}
       <View style={s.statsRow}>
         <AppText variant="caption" weight="bold" color="#475569">
-          {kmToday} km today | {statusSinceText}
+          {kmTodayText} | {statusSinceText}
         </AppText>
       </View>
 
@@ -275,7 +330,7 @@ export function VehicleRow({ vehicle, onPress, now, navigation }) {
           <AppText variant="small" weight="medium" color={colors.text}>
             Diesel left:{' '}
             <AppText variant="small" weight="extrabold" color={colors.text}>
-              {fuelLiters} L
+              {fuelDisplay}
             </AppText>
           </AppText>
         </View>
@@ -344,11 +399,19 @@ export function VehicleRow({ vehicle, onPress, now, navigation }) {
       ) : (
         <Pressable style={s.docsBanner} onPress={handleDocuments}>
           <View style={s.docsBannerLeft}>
-            <View style={s.docIconBox}>
-              <Ionicons name="document-text" size={15} color="#DC2626" />
+            <View style={[s.docIconBox, missingCount > 0 && { backgroundColor: '#FEE2E2' }]}>
+              <Ionicons
+                name="document-text"
+                size={15}
+                color={missingCount > 0 ? '#DC2626' : '#2563EB'}
+              />
             </View>
             <AppText variant="small" weight="bold" color={colors.text}>
-              Documents & Compliance · {docsCount} on file
+              {missingCount > 0
+                ? `${missingCount} documents expired`
+                : docsCount > 0
+                  ? `${docsCount} documents on file`
+                  : 'Documents up to date'}
             </AppText>
           </View>
           <Ionicons name="chevron-forward" size={17} color={colors.textMuted} />

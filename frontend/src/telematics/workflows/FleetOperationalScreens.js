@@ -21,6 +21,9 @@ export function DriverRoster({ navigation }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  const vehicleId = route.params?.vehicleId;
+  const plate = route.params?.plate;
+  const [activeFilterPlate, setActiveFilterPlate] = useState(plate || null);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
 
@@ -678,7 +681,18 @@ export function FleetRecords({ navigation, route }) {
           <AppText muted>
             {result.total} records · Page {page}
           </AppText>
-          {result.items.map((row) => (
+          {activeFilterPlate && (
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#EFF6FF", padding: 10, borderRadius: 8, marginBottom: 10 }}>
+              <AppText variant="caption" weight="bold" color={colors.primary}>Showing records for {activeFilterPlate}</AppText>
+              <Pressable onPress={() => setActiveFilterPlate(null)}><AppText variant="caption" color={colors.textMuted}>Clear</AppText></Pressable>
+            </View>
+          )}
+          {result.items.filter((row) => {
+            if (!activeFilterPlate) return true;
+            const p = row.registrationNumber || row.vehicleNumber || row.plate;
+            const v = row.vehicleId || row.vehicle?._id || row.vehicle;
+            return (p && p.toUpperCase().replace(/\s+/g, "") === activeFilterPlate.toUpperCase().replace(/\s+/g, "")) || (vehicleId && v === vehicleId);
+          }).map((row) => (
             <MenuRow
               key={row._id}
               title={

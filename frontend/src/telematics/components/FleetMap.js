@@ -167,7 +167,7 @@ export default function FleetMap({
               onPress={() => onSelectVehicle?.(vehicle)}
             >
               <View style={styles.markerContainer}>
-                <SvgXml xml={xml} width={48} height={48} />
+                <SvgXml xml={xml} width={54} height={54} />
                 <View style={styles.plateTag}>
                   <AppText
                     variant="caption"
