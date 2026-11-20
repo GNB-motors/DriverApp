@@ -26,6 +26,12 @@ const actions = {
   CANCEL: "Handover cancelled",
   RESET: "Owner cleared driving state",
 };
+const stintLabels = {
+  CONFIRMED: "Driving confirmed by the crew",
+  AGREED: "Both phones named this driver",
+  INFERRED: "Named by one phone only",
+  DISPUTED: "Phones disagree — owner review needed",
+};
 const time = (at) =>
   at
     ? `${new Date(at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST`
@@ -46,7 +52,7 @@ function nameFor(data, id) {
     (row) => String(row._id) === String(id),
   );
   return person
-    ? [person.firstName, person.lastName].filter(Boolean).join(" ")
+    ? person.name || [person.firstName, person.lastName].filter(Boolean).join(" ")
     : "Former crew member";
 }
 function Summary({ data }) {
@@ -69,18 +75,11 @@ function Summary({ data }) {
         </AppText>
       ))}
       {!data.members.length && <AppText muted>No crew assigned.</AppText>}
-      {data.requiresOwnerReview && (
-        <AppText>
-          Owner review needed: crew membership or account access changed.
-        </AppText>
-      )}
       {data.pending && (
         <AppText>
-          {data.pending.invalidated
-            ? "Handover unavailable because crew membership changed."
-            : data.pending.expired
-              ? "Handover expired without confirmation."
-              : `Waiting for ${nameFor(data, data.pending.targetDriverId)} until ${time(data.pending.expiresAt)}.`}
+          {data.pending.expired
+            ? "Handover expired without confirmation."
+            : `Waiting for ${nameFor(data, data.pending.targetDriverId)} until ${time(data.pending.expiresAt)}.`}
         </AppText>
       )}
     </>
@@ -92,7 +91,7 @@ export function DriverCrewCard({ navigation }) {
   const service = useTelematicsApi();
   const request = useOwnerRequest(
     `${identity(user)}:crew-card`,
-    () => service.crewMe(1),
+    () => service.crewMine(),
     30000,
   );
   return (
@@ -134,18 +133,11 @@ export function DriverCrewCard({ navigation }) {
               {t("roleDesign", "crewMembershipNeedsAttention")}
             </AppText>
           ) : null}
-          {request.data.requiresOwnerReview ? (
-            <AppText color={colors.warning}>
-              Owner review needed: crew membership or account access changed.
-            </AppText>
-          ) : null}
           {request.data.pending ? (
             <AppText color={colors.warning}>
-              {request.data.pending.invalidated
-                ? "Handover unavailable because crew membership changed."
-                : request.data.pending.expired
-                  ? "Handover expired without confirmation."
-                  : `Waiting for ${nameFor(request.data, request.data.pending.targetDriverId)} until ${time(request.data.pending.expiresAt)}.`}
+              {request.data.pending.expired
+                ? "Handover expired without confirmation."
+                : `Waiting for ${nameFor(request.data, request.data.pending.targetDriverId)} until ${time(request.data.pending.expiresAt)}.`}
             </AppText>
           ) : null}
         </>
@@ -179,7 +171,7 @@ export function VehicleCrewCard({ navigation, vehicleId }) {
   const branch = branchId === "all" ? undefined : branchId;
   const request = useOwnerRequest(
     `${identity(user)}:${branch || "all"}:crew-card:${vehicleId}`,
-    () => service.crewVehicle(vehicleId, 1, branch),
+    () => service.crewVehicle(vehicleId, branch),
     30000,
   );
   return (
@@ -222,13 +214,9 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
   const service = useTelematicsApi();
   const owner = !driver && user.role === "OWNER";
   const key = `${identity(user)}:${branch || "all"}:crew:${vehicleId || "mine"}`;
-  const [page, setPage] = useState(1);
   const request = useOwnerRequest(
-    `${key}:${page}`,
-    () =>
-      driver
-        ? service.crewMe(page)
-        : service.crewVehicle(vehicleId, page, branch),
+    key,
+    () => (driver ? service.crewMine() : service.crewVehicle(vehicleId, branch)),
     15000,
   );
   const data = request.data;
@@ -251,7 +239,6 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
         : Promise.resolve({ items: [] }),
   );
   useEffect(() => {
-    setPage(1);
     setNote("");
     setTarget("");
     setSafe(false);
@@ -273,16 +260,13 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
     (row) => String(row._id) === String(user._id),
   );
   const pending =
-    data?.pending && !data.pending.expired && !data.pending.invalidated
-      ? data.pending
-      : null;
+    data?.pending && !data.pending.expired ? data.pending : null;
   async function act(action, extra = {}) {
     if (!data || (!write.draft && driver && !safe)) return;
+    // "Safely stopped" is confirmed on this screen; the action contract has no field for it.
     const result = await write.execute(
       {
         action,
-        expectedVersion: data.version,
-        ...(driver && { safelyStopped: true }),
         ...(note.trim() && { note: note.trim() }),
         ...extra,
       },
@@ -291,9 +275,7 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
     if (result) {
       setNote("");
       setSafe(false);
-      setNotice(
-        result.warning || actions[result.record.action] || "Action saved.",
-      );
+      setNotice(actions[result.applied?.action] || "Action saved.");
     }
     request.reload();
   }
@@ -350,8 +332,7 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
                   ) : (
                     <>
                       {data.status === "UNKNOWN" &&
-                        !pending &&
-                        !data.requiresOwnerReview && (
+                        !pending && (
                           <Button
                             label="I am starting driving"
                             disabled={locked || !safe}
@@ -520,9 +501,7 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
           )}
           <AppText variant="h3">Driving timeline</AppText>
           {!data.intervals.length && (
-            <AppText muted>
-              No confirmed driving intervals on this page.
-            </AppText>
+            <AppText muted>No driving intervals recorded yet.</AppText>
           )}
           {data.intervals.map((row) => (
             <Card key={row._id}>
@@ -536,37 +515,10 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
                     : "Unconfirmed — owner review needed"}
               </AppText>
               <AppText muted>
-                {row.confirmedBy.length > 1
-                  ? "Handover confirmed by both drivers"
-                  : "Driving declared by this driver"}
+                {stintLabels[row.status] || "Unconfirmed"}
               </AppText>
             </Card>
           ))}
-          <AppText variant="h3">Crew and handover history</AppText>
-          {data.events.map((event) => (
-            <Card key={event._id}>
-              <AppText>
-                {actions[event.action] || event.action} ·{" "}
-                {nameFor(data, event.actorId)}
-              </AppText>
-              <AppText muted>{time(event.at)}</AppText>
-              {event.data?.note ? <AppText>{event.data.note}</AppText> : null}
-            </Card>
-          ))}
-          <Button
-            label="Newer history"
-            variant="secondary"
-            disabled={page === 1}
-            onPress={() => setPage(page - 1)}
-          />
-          <Button
-            label="Earlier history"
-            variant="secondary"
-            disabled={
-              page * 30 >= Math.max(data.intervalTotal, data.eventTotal)
-            }
-            onPress={() => setPage(page + 1)}
-          />
         </>
       )}
       {write.error ? (

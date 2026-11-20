@@ -433,6 +433,8 @@ export function OwnerReportDashboard({
 }) {
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
+  // The Today tab has the tab bar; opened from More it is a stack screen and needs a way back.
+  const back = navigation.getState().type === "stack" && navigation.canGoBack();
   const [tab, setTab] = useState("Summary");
   const [branchOpen, setBranchOpen] = useState(false);
   const [audioOpen, setAudioOpen] = useState(false);
@@ -499,6 +501,13 @@ export function OwnerReportDashboard({
         }
       >
         <View style={s.spread}>
+          {back ? (
+            <IconAction
+              icon="arrow-back"
+              label="Back"
+              onPress={() => navigation.goBack()}
+            />
+          ) : null}
           <View style={s.grow}>
             <AppText variant="caption" color={colors.primary} weight="semibold">
               {user?.firstName

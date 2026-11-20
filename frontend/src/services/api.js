@@ -166,9 +166,10 @@ export async function fetchAppSession(token, orgId = null) {
   return session;
 }
 
-export async function revokeAppSession(token) {
+export async function revokeAppSession(token, orgId = null) {
   const url = appLoginUrl(API_BASE_URL).replace(/\/login$/, "/logout");
-  await apiClient.post(url, {}, { token, timeout: 20000 });
+  // A Field Agent's logout is refused (400) without the org it is signed in to.
+  await apiClient.post(url, {}, { token, timeout: 20000, headers: orgId ? { "X-Org-Id": orgId } : {} });
 }
 
 export async function fetchAgentOrgs(token) {

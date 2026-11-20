@@ -149,12 +149,14 @@ export function AuthProvider({ children }) {
   const enableNotifications = () => registerForPush(token, { registerDevice: registerPushDevice, unregisterDevice: unregisterPushDevice, requestPermission: true, isCurrent: () => activeToken.current === token });
   const logout = async () => {
     const currentToken = token;
+    // Captured before the session is cleared: revocation still needs the org.
+    const currentOrgId = activeOrgId;
     // Remove push token before clearing session so the request can still authenticate.
     unregisterFromPush(currentToken, { unregisterDevice: unregisterPushDevice }).catch(() => {});
     // Remove local identity immediately, even if revocation cannot reach the server.
     await invalidateSession();
     if (currentToken) {
-      try { await revokeAppSession(currentToken); }
+      try { await revokeAppSession(currentToken, currentOrgId); }
       catch (error) { logger.warn('Auth', `Local sign-out complete; server revocation failed: ${error.message}`); }
     }
   };

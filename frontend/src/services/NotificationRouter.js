@@ -29,7 +29,7 @@ export default function NotificationRouter({ navigationRef, ready }) {
       if (data.kind === 'DRIVER_ALERT' && user.role === 'DRIVER' && data.alertId) {
         const alert = await service.driverAlert(data.alertId);
         if (['CREW_HANDOVER', 'CREW_INVITATION'].includes(alert.kind)) {
-          await service.crewMe(1);
+          await service.crewMine();
           if (active) navigationRef.navigate('Crew & driving');
         } else if (active) navigationRef.navigate('Alert detail', { id: data.alertId });
       } else if (data.kind === 'OWNER_REPORT' && user.role === 'OWNER' && /^\d{4}-\d{2}-\d{2}$/.test(data.reportDate)) {

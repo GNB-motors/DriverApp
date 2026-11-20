@@ -102,15 +102,60 @@ const endpoint = moduleUrl(
 const metadata = moduleUrl(
   await read("../src/telematics/services/alertMetadata.js"),
 );
+const appIdentity = moduleUrl(
+  'export const APP_VERSION = "2.0.0"; let next = 0; export const newIdempotencyKey = () => `generated-key-${++next}`;',
+);
 const source = (await read("../src/telematics/services/telematicsApi.js"))
   .replace(/['"]axios['"]/, JSON.stringify(import.meta.resolve("axios")))
   .replace(/['"]\.\/authEndpoint['"]/, JSON.stringify(endpoint))
-  .replace(/['"]\.\/alertMetadata['"]/, JSON.stringify(metadata));
-const { createTelematicsApi } = await import(moduleUrl(source));
+  .replace(/['"]\.\/alertMetadata['"]/, JSON.stringify(metadata))
+  .replace(/['"]\.\/appIdentity['"]/, JSON.stringify(appIdentity));
+const { createTelematicsApi, describeApiError } = await import(moduleUrl(source));
 const { default: axios } = await import("axios");
 const calls = [];
+// GET /app/v2/crew/:vehicleId as the backend's crew contract returns it.
+const crewDetail = {
+  vehicle: { vehicleId: "truck", registrationNumber: "AUD20NOV01", branchId: "branch-b" },
+  crew: {
+    memberIds: ["driver-1", "driver-2"],
+    acceptedIds: ["driver-1"],
+    currentDriverId: "driver-1",
+    pending: {
+      id: "proposal",
+      fromDriverId: "driver-1",
+      targetDriverId: "driver-2",
+      proposedAt: "2026-11-20T05:00:00.000Z",
+      expiresAt: "2000-01-01T00:00:00.000Z",
+    },
+    status: "PENDING",
+    version: 4,
+  },
+  members: [
+    { driverId: "driver-1", name: "Asha Driver", role: "DRIVER", status: "ACTIVE" },
+    { driverId: "driver-2", name: "Bala Driver", role: "DRIVER", status: "INACTIVE" },
+  ],
+  atWheel: {
+    window: { from: null, to: null },
+    current: [],
+    intervals: [
+      { driverId: "driver-1", start: "2026-11-20T04:00:00.000Z", end: null, status: "AGREED", evidence: [] },
+    ],
+    confidence: {},
+  },
+};
+let linkedTruck = "my-truck";
 axios.defaults.adapter = async (config) => {
   calls.push(config);
+  if (config.url === "/driver/me/vehicle")
+    return { status: 200, config, data: { data: { vehicle: { _id: linkedTruck } } } };
+  if (config.url === "/app/v2/crew/not-on-crew") {
+    const error = new Error("You are not on this truck.");
+    error.config = config;
+    error.response = { status: 403, data: { message: "You are not on this truck." } };
+    throw error;
+  }
+  if (config.url === "/app/v2/crew/my-truck" || config.url === "/app/v2/crew/truck")
+    return { status: 200, config, data: { success: true, data: crewDetail } };
   if (
     config.url === "/livetracking/positions" ||
     config.url === "/owner-alerts"
@@ -191,12 +236,50 @@ await api.driverExplain("alert-id-1", explainBody, "branch-b");
 assert.equal(calls.at(-1).url, "/app/v2/escalations/alert-id-1/explain");
 assert.deepEqual(JSON.parse(calls.at(-1).data), explainBody);
 assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-b");
-await api.crewMe(2);
-assert.equal(calls.at(-1).url, "/app/v2/crew/me");
-assert.equal(calls.at(-1).params.page, 2);
-await api.crewVehicle("truck", 3, "branch-b");
-assert.equal(calls.at(-1).url, "/app/v2/crew/vehicles/truck");
+// Audit I01: every v2 call names the app build the version gate compares.
+assert.equal(calls.at(-1).headers["X-App-Version"], "2.0.0");
+assert.match(
+  describeApiError({ response: { status: 426, data: { data: { minAppVersion: "2.0.0" } } } }),
+  /^Update DriverApp to use this screen \(version 2\.0\.0 or newer is needed\)/,
+);
+// Audit I03: the driver's crew is GET /crew/:vehicleId of the linked truck,
+// and the nested contract is adapted to the one flat card the screens read.
+const mine = await api.crewMine();
+assert.equal(calls.at(-2).url, "/driver/me/vehicle");
+assert.equal(calls.at(-1).url, "/app/v2/crew/my-truck");
+assert.equal(mine.vehicle._id, "truck");
+assert.equal(mine.vehicle.registrationNumber, "AUD20NOV01");
+assert.equal(mine.status, "PENDING");
+assert.equal(mine.currentDriverId, "driver-1");
+assert.equal(mine.version, 4);
+assert.deepEqual(
+  mine.members.map((member) => [member._id, member.name, member.accepted, member.status]),
+  [
+    ["driver-1", "Asha Driver", true, "ACTIVE"],
+    ["driver-2", "Bala Driver", false, "INACTIVE"],
+  ],
+);
+assert.equal(mine.pending.targetDriverId, "driver-2");
+assert.equal(mine.pending.expired, true);
+assert.deepEqual(mine.intervals, [
+  {
+    _id: "driver-1:2026-11-20T04:00:00.000Z",
+    driverId: "driver-1",
+    startAt: "2026-11-20T04:00:00.000Z",
+    endAt: null,
+    status: "AGREED",
+  },
+]);
+// Not on the linked truck's crew (403) is "no crew yet", not an error.
+linkedTruck = "not-on-crew";
+assert.equal(await api.crewMine(), null);
+linkedTruck = "my-truck";
+const fleetCrew = await api.crewVehicle("truck", "branch-b");
+assert.equal(calls.at(-1).url, "/app/v2/crew/truck");
 assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-b");
+assert.equal(fleetCrew.vehicle._id, "truck");
+// A draft saved before this fix still carries fields the strict action schema
+// rejects; only the contract's fields are sent.
 const crewBody = {
   clientRequestId: "saved-crew-action",
   expectedVersion: 4,
@@ -205,10 +288,25 @@ const crewBody = {
   safelyStopped: true,
 };
 await api.crewAction("truck", crewBody, "branch-b");
-assert.equal(calls.at(-1).url, "/app/v2/crew/vehicles/truck/actions");
-assert.deepEqual(JSON.parse(calls.at(-1).data), crewBody);
+assert.equal(calls.at(-1).url, "/app/v2/crew/truck/actions");
+assert.deepEqual(JSON.parse(calls.at(-1).data), {
+  action: "ACCEPT",
+  proposalId: "saved-proposal",
+  clientRequestId: "saved-crew-action",
+});
+// Audit I20: the saved draft's id is the Idempotency-Key, so a retry replays.
+assert.equal(calls.at(-1).headers["Idempotency-Key"], "saved-crew-action");
+assert.equal(calls.at(-1).headers["X-Branch-Id"], "branch-b");
 await api.crewAction("truck", crewBody, "branch-b");
-assert.deepEqual(JSON.parse(calls.at(-1).data), crewBody);
+assert.equal(calls.at(-1).headers["Idempotency-Key"], "saved-crew-action");
+await api.grantConsent({ noticeVersion: "v1", language: "en" });
+assert.equal(calls.at(-1).url, "/app/v2/consent");
+assert.match(calls.at(-1).headers["Idempotency-Key"], /^generated-key-\d+$/);
+await api.withdrawConsent("withdraw-key");
+assert.equal(calls.at(-1).url, "/app/v2/consent/withdraw");
+assert.equal(calls.at(-1).headers["Idempotency-Key"], "withdraw-key");
+await api.answerPrompt("prompt", { answer: "YES" }, "prompt-key");
+assert.equal(calls.at(-1).headers["Idempotency-Key"], "prompt-key");
 const startup = calls.length;
 await api.loadFleet("branch-b");
 assert.equal(

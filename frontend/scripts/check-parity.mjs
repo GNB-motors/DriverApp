@@ -7,7 +7,8 @@ const metadata = dataModule(await read('../src/telematics/services/alertMetadata
 const source = (await read('../src/telematics/services/telematicsApi.js'))
   .replace(/['"]axios['"]/, JSON.stringify(import.meta.resolve('axios')))
   .replace(/['"]\.\/authEndpoint['"]/, JSON.stringify(endpoint))
-  .replace(/['"]\.\/alertMetadata['"]/, JSON.stringify(metadata));
+  .replace(/['"]\.\/alertMetadata['"]/, JSON.stringify(metadata))
+  .replace(/['"]\.\/appIdentity['"]/, JSON.stringify(dataModule('export const APP_VERSION = "2.0.0"; export const newIdempotencyKey = () => "parity-key";')));
 const { createTelematicsApi, collectPages } = await import(dataModule(source));
 const { default: axios } = await import('axios');
 const seenPages = [];
@@ -108,7 +109,8 @@ assert.equal(requests.at(-1).url, '/employees/employee');
 assert.equal(requests.at(-1).method, 'patch');
 assert.equal(JSON.parse(requests.at(-1).data).status, 'ACTIVE');
 await manager.ownerCaptures(2, 'branch');
-assert.equal(requests.at(-1).url, '/app/v2/captures');
+// Audit I02: the owner queue is the review endpoint; /captures is the driver's own list.
+assert.equal(requests.at(-1).url, '/app/v2/captures/review');
 assert.equal(requests.at(-1).params.page, 2);
 assert.equal(requests.at(-1).headers['X-Branch-Id'], 'branch');
 console.log('Passed: multi-page completeness, org membership selection, truck-bound agent scope, Google place mapping, historical tracks, DEF source, stop reasons, ERP ownership path/uploads and access-control contracts.');

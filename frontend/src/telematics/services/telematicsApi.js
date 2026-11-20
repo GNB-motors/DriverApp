@@ -1,6 +1,7 @@
 import { ALERT_TITLES, alertSeverity } from "./alertMetadata";
 import axios from "axios";
 import { appLoginUrl } from "./authEndpoint";
+import { APP_VERSION, newIdempotencyKey } from "./appIdentity";
 
 export const recordId = (value) => {
   const id = value && typeof value === "object" ? value._id || value.id : value;
@@ -145,6 +146,10 @@ const unavailable = (name) => {
 export function describeApiError(error) {
   const status = error.response?.status;
   if (status === 401) return "Your session has expired. Please sign in again.";
+  if (status === 426) {
+    const min = error.response?.data?.data?.minAppVersion;
+    return `Update DriverApp to use this screen${min ? ` (version ${min} or newer is needed)` : ""}. Nothing was saved.`;
+  }
   if (status === 403)
     return "You do not have access to this data in the selected branch.";
   if (status === 404)
@@ -166,6 +171,47 @@ export function describeApiError(error) {
   return error.message || "Could not connect to the server. Please retry.";
 }
 
+// v2 writes are refused without this header. A saved draft passes its own
+// clientRequestId so a retry of the same submission replays instead of repeating.
+const idempotent = (key) => ({ "Idempotency-Key": key || newIdempotencyKey() });
+
+const CREW_ACTION_FIELDS = ["action", "targetDriverId", "proposalId", "clientRequestId", "note", "memberIds"];
+
+// GET /app/v2/crew/:vehicleId nests the card ({ vehicle, crew, members, atWheel });
+// the crew screens read one flat card, so the API shape is adapted here only.
+export function crewCard(detail, now = Date.now()) {
+  if (!detail?.vehicle) return null;
+  const crew = detail.crew || {};
+  const accepted = new Set((crew.acceptedIds || []).map(String));
+  const pending = crew.pending;
+  return {
+    vehicle: {
+      _id: detail.vehicle.vehicleId,
+      registrationNumber: detail.vehicle.registrationNumber,
+      branchId: detail.vehicle.branchId,
+    },
+    status: crew.status || "UNKNOWN",
+    currentDriverId: crew.currentDriverId || null,
+    version: crew.version ?? null,
+    pending: pending
+      ? { ...pending, expired: !!pending.expiresAt && new Date(pending.expiresAt).getTime() < now }
+      : null,
+    members: (detail.members || []).map((member) => ({
+      _id: member.driverId,
+      name: member.name,
+      status: member.status,
+      accepted: accepted.has(String(member.driverId)),
+    })),
+    intervals: (detail.atWheel?.intervals || []).map((row) => ({
+      _id: `${row.driverId}:${row.start}`,
+      driverId: row.driverId,
+      startAt: row.start,
+      endAt: row.end,
+      status: row.status,
+    })),
+  };
+}
+
 export function createTelematicsApi({
   baseURL,
   token,
@@ -181,7 +227,11 @@ export function createTelematicsApi({
   const client = axios.create({
     baseURL: apiRoot,
     timeout: 20000,
-    headers: { Authorization: `Bearer ${token}`, ...(orgId && { 'X-Org-Id': orgId }) },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(orgId && { 'X-Org-Id': orgId }),
+      ...(APP_VERSION && { 'X-App-Version': APP_VERSION }),
+    },
   });
   client.interceptors.response.use(
     (response) => response,
@@ -506,25 +556,39 @@ export function createTelematicsApi({
     async erpTrip(id) { return (await get(`/app/v1/trips/${encodeURIComponent(id)}`)).data; },
     uploadBilty: (id, asset) => uploadErp('/erp/consignments/upload-bilty', 'bilty', id, asset),
     uploadPod: (id, asset) => uploadErp('/erp/pods/upload', 'pod', id, asset),
-    async crewMe(page = 1) { return (await get('/app/v2/crew/me', { params: { page } })).data; },
-    async crewVehicle(vehicleId, page = 1, branchId) { return (await get(`/app/v2/crew/vehicles/${encodeURIComponent(vehicleId)}`, { params: { page }, headers: headersFor(branchId) })).data; },
-    async crewAction(vehicleId, body, branchId) { return (await client.post(`/app/v2/crew/vehicles/${encodeURIComponent(vehicleId)}/actions`, body, { headers: headersFor(branchId) })).data.data; },
+    async crewMine() {
+      // A driver reads the card of the truck they are linked to. Not being on
+      // that truck's crew (403) means there is no crew card yet, not a failure.
+      const vehicleId = recordId((await get('/driver/me/vehicle')).data?.vehicle);
+      if (!vehicleId) return null;
+      try {
+        return crewCard((await get(`/app/v2/crew/${encodeURIComponent(vehicleId)}`)).data);
+      } catch (error) {
+        if (error.response?.status === 403) return null;
+        throw error;
+      }
+    },
+    async crewVehicle(vehicleId, branchId) { return crewCard((await get(`/app/v2/crew/${encodeURIComponent(vehicleId)}`, { headers: headersFor(branchId) })).data); },
+    async crewAction(vehicleId, body, branchId) {
+      const payload = Object.fromEntries(CREW_ACTION_FIELDS.filter((field) => body[field] !== undefined).map((field) => [field, body[field]]));
+      return (await client.post(`/app/v2/crew/${encodeURIComponent(vehicleId)}/actions`, payload, { headers: { ...headersFor(branchId), ...idempotent(body.clientRequestId) } })).data.data;
+    },
     async crewConfidence() { return (await get('/app/v2/crew/confidence')).data; },
     async crewAsk(vehicleId, body) { return (await client.post(`/app/v2/crew/${encodeURIComponent(vehicleId)}/ask`, body)).data.data; },
-    async ownerCaptures(page, branchId) { return (await get('/app/v2/captures', { params: { page }, headers: headersFor(branchId) })).data; },
+    async ownerCaptures(page, branchId) { return (await get('/app/v2/captures/review', { params: { page }, headers: headersFor(branchId) })).data; },
     async captureDetail(id) { return (await get(`/app/v2/captures/${encodeURIComponent(id)}`)).data; },
-    async captureCreate(formData) {
-      return (await client.post('/app/v2/captures', formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 })).data.data;
+    async captureCreate(formData, idempotencyKey) {
+      return (await client.post('/app/v2/captures', formData, { headers: { 'Content-Type': 'multipart/form-data', ...idempotent(idempotencyKey) }, timeout: 60000 })).data.data;
     },
-    async captureRetake(id, formData) {
-      return (await client.post(`/app/v2/captures/${encodeURIComponent(id)}/retake`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 })).data.data;
+    async captureRetake(id, formData, idempotencyKey) {
+      return (await client.post(`/app/v2/captures/${encodeURIComponent(id)}/retake`, formData, { headers: { 'Content-Type': 'multipart/form-data', ...idempotent(idempotencyKey) }, timeout: 60000 })).data.data;
     },
     async consent() { return (await get('/app/v2/consent')).data; },
-    async grantConsent(body) { return (await client.post('/app/v2/consent', body)).data.data; },
-    async withdrawConsent() { return (await client.post('/app/v2/consent/withdraw', {})).data.data; },
+    async grantConsent(body, idempotencyKey) { return (await client.post('/app/v2/consent', body, { headers: idempotent(idempotencyKey) })).data.data; },
+    async withdrawConsent(idempotencyKey) { return (await client.post('/app/v2/consent/withdraw', {}, { headers: idempotent(idempotencyKey) })).data.data; },
     async destinationSearch(q) { return (await get('/app/v2/destinations/search', { params: { q } })).data; },
     async destinationSuggestions() { return (await get('/app/v2/destinations/suggestions')).data; },
-    async destinationClick(id) { return (await client.post(`/app/v2/destinations/suggestions/${encodeURIComponent(id)}/click`, {})).data.data; },
+    async destinationClick(id, idempotencyKey) { return (await client.post(`/app/v2/destinations/suggestions/${encodeURIComponent(id)}/click`, {}, { headers: idempotent(idempotencyKey) })).data.data; },
     async dutyToday() { return (await get('/app/v2/duty/today')).data; },
     async dutyBreakPlan() { return (await get('/app/v2/duty/break-plan')).data; },
     async managerCards(branchId) { return (await get('/app/v2/manager/cards', { headers: headersFor(branchId) })).data; },
@@ -533,11 +597,11 @@ export function createTelematicsApi({
     async snoozeManagerCard(id, body, branchId) { return (await client.post(`/app/v2/manager/cards/${encodeURIComponent(id)}/snooze`, body, { headers: headersFor(branchId) })).data.data; },
     async managerCardsActRate(branchId) { return (await get('/app/v2/manager/cards/act-rate', { headers: headersFor(branchId) })).data; },
     async prompts() { return (await get('/app/v2/prompts')).data; },
-    async answerPrompt(id, body) { return (await client.post(`/app/v2/prompts/${encodeURIComponent(id)}/answer`, body)).data.data; },
+    async answerPrompt(id, body, idempotencyKey) { return (await client.post(`/app/v2/prompts/${encodeURIComponent(id)}/answer`, body, { headers: idempotent(idempotencyKey) })).data.data; },
     async routeOptions(branchId) { return (await get('/app/v2/routes', { headers: headersFor(branchId) })).data; },
     async ourRoutes(branchId) { return (await get('/app/v2/routes/our', { headers: headersFor(branchId) })).data; },
-    async navSessionStart(body) { return (await client.post('/app/v2/nav/sessions', body)).data.data; },
-    async navSessionPatch(id, body) { return (await client.patch(`/app/v2/nav/sessions/${encodeURIComponent(id)}`, body)).data.data; },
+    async navSessionStart(body, idempotencyKey) { return (await client.post('/app/v2/nav/sessions', body, { headers: idempotent(idempotencyKey) })).data.data; },
+    async navSessionPatch(id, body, idempotencyKey) { return (await client.patch(`/app/v2/nav/sessions/${encodeURIComponent(id)}`, body, { headers: idempotent(idempotencyKey) })).data.data; },
     async navSessionActive() { return (await get('/app/v2/nav/sessions/active')).data; },
     async navMetrics() { return (await get('/app/v2/nav/metrics')).data; },
     async stopQuestions(vehicleId) { return (await get(`/app/v2/stops/${encodeURIComponent(vehicleId)}/questions`)).data; },

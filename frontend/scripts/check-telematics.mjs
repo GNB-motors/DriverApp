@@ -59,7 +59,13 @@ const source = (
     JSON.stringify(pathToFileURL(require.resolve("axios")).href),
   )
   .replace(/['"]\.\/authEndpoint['"]/, JSON.stringify(endpoint))
-  .replace(/['"]\.\/alertMetadata['"]/, JSON.stringify(metadataModule));
+  .replace(/['"]\.\/alertMetadata['"]/, JSON.stringify(metadataModule))
+  .replace(
+    /['"]\.\/appIdentity['"]/,
+    JSON.stringify(
+      toModule('export const APP_VERSION = "2.0.0"; export const newIdempotencyKey = () => "telematics-key";'),
+    ),
+  );
 const { default: axios } = await import(
   pathToFileURL(require.resolve("axios")).href
 );
