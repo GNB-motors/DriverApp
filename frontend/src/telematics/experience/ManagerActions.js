@@ -250,82 +250,100 @@ export function ManagerActionHome({ navigation }) {
             </Pressable>
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pulseScroll}>
+          <Card style={s.pulseCardRow} padding={0}>
             <Pressable
-              style={[s.pulseTile, { borderLeftColor: colors.success }]}
-              onPress={() => navigation.navigate('Fleet map')}
+              style={s.pulseCol}
+              onPress={() => navigation.navigate('Fleet map', { filter: 'moving' })}
+              accessibilityRole="button"
+              accessibilityLabel={`${c('moving')}: ${movingVehicles}`}
             >
-              <View style={s.tileDotRow}>
-                <View style={[s.statusDot, { backgroundColor: colors.success }]} />
-                <AppText variant="caption" weight="bold" color={colors.textMuted}>
+              <View style={s.pulseColTop}>
+                <View style={[s.statusDot, { backgroundColor: '#0C9F41' }]} />
+                <AppText variant="caption" weight="bold" color={colors.textMuted} numberOfLines={1} style={s.pulseColLabel}>
                   {c('moving')}
                 </AppText>
               </View>
-              <AppText variant="h3" weight="extrabold" color={colors.text}>
+              <AppText variant="h3" weight="extrabold" color={colors.text} style={s.pulseColNumber}>
                 {movingVehicles}
               </AppText>
             </Pressable>
 
+            <View style={s.pulseDivider} />
+
             <Pressable
-              style={[s.pulseTile, { borderLeftColor: colors.warning }]}
-              onPress={() => navigation.navigate('Fleet map')}
+              style={s.pulseCol}
+              onPress={() => navigation.navigate('Fleet map', { filter: 'idling' })}
+              accessibilityRole="button"
+              accessibilityLabel={`${c('idling')}: ${idlingVehicles}`}
             >
-              <View style={s.tileDotRow}>
-                <View style={[s.statusDot, { backgroundColor: colors.warning }]} />
-                <AppText variant="caption" weight="bold" color={colors.textMuted}>
+              <View style={s.pulseColTop}>
+                <View style={[s.statusDot, { backgroundColor: '#F97316' }]} />
+                <AppText variant="caption" weight="bold" color={colors.textMuted} numberOfLines={1} style={s.pulseColLabel}>
                   {c('idling')}
                 </AppText>
               </View>
-              <AppText variant="h3" weight="extrabold" color={colors.text}>
+              <AppText variant="h3" weight="extrabold" color={colors.text} style={s.pulseColNumber}>
                 {idlingVehicles}
               </AppText>
             </Pressable>
 
+            <View style={s.pulseDivider} />
+
             <Pressable
-              style={[s.pulseTile, { borderLeftColor: '#6B7280' }]}
-              onPress={() => navigation.navigate('Fleet map')}
+              style={s.pulseCol}
+              onPress={() => navigation.navigate('Fleet map', { filter: 'stopped' })}
+              accessibilityRole="button"
+              accessibilityLabel={`${c('stopped')}: ${stoppedVehicles}`}
             >
-              <View style={s.tileDotRow}>
-                <View style={[s.statusDot, { backgroundColor: '#6B7280' }]} />
-                <AppText variant="caption" weight="bold" color={colors.textMuted}>
+              <View style={s.pulseColTop}>
+                <View style={[s.statusDot, { backgroundColor: '#9333EA' }]} />
+                <AppText variant="caption" weight="bold" color={colors.textMuted} numberOfLines={1} style={s.pulseColLabel}>
                   {c('stopped')}
                 </AppText>
               </View>
-              <AppText variant="h3" weight="extrabold" color={colors.text}>
+              <AppText variant="h3" weight="extrabold" color={colors.text} style={s.pulseColNumber}>
                 {stoppedVehicles}
               </AppText>
             </Pressable>
 
+            <View style={s.pulseDivider} />
+
             <Pressable
-              style={[s.pulseTile, { borderLeftColor: colors.error }]}
-              onPress={() => navigation.navigate('Fleet map')}
+              style={s.pulseCol}
+              onPress={() => navigation.navigate('Fleet map', { filter: 'offline' })}
+              accessibilityRole="button"
+              accessibilityLabel={`${c('offline')}: ${offlineVehicles}`}
             >
-              <View style={s.tileDotRow}>
-                <View style={[s.statusDot, { backgroundColor: colors.error }]} />
-                <AppText variant="caption" weight="bold" color={colors.textMuted}>
+              <View style={s.pulseColTop}>
+                <View style={[s.statusDot, { backgroundColor: '#9CA3AF' }]} />
+                <AppText variant="caption" weight="bold" color={colors.textMuted} numberOfLines={1} style={s.pulseColLabel}>
                   {c('offline')}
                 </AppText>
               </View>
-              <AppText variant="h3" weight="extrabold" color={colors.text}>
+              <AppText variant="h3" weight="extrabold" color={colors.text} style={s.pulseColNumber}>
                 {offlineVehicles}
               </AppText>
             </Pressable>
 
+            <View style={s.pulseDivider} />
+
             <Pressable
-              style={[s.pulseTile, { borderLeftColor: colors.primary }]}
+              style={s.pulseCol}
               onPress={() => navigation.navigate('Duty board')}
+              accessibilityRole="button"
+              accessibilityLabel={`${c('onDuty')}: ${driversOnDuty}`}
             >
-              <View style={s.tileDotRow}>
-                <Ionicons name="people-outline" size={12} color={colors.primary} />
-                <AppText variant="caption" weight="bold" color={colors.textMuted}>
+              <View style={s.pulseColTop}>
+                <Ionicons name="people-outline" size={11} color={colors.primary} />
+                <AppText variant="caption" weight="bold" color={colors.primary} numberOfLines={1} style={s.pulseColLabel}>
                   {c('onDuty')}
                 </AppText>
               </View>
-              <AppText variant="h3" weight="extrabold" color={colors.text}>
+              <AppText variant="h3" weight="extrabold" color={colors.primaryDeep} style={s.pulseColNumber}>
                 {driversOnDuty}
               </AppText>
             </Pressable>
-          </ScrollView>
+          </Card>
         </View>
 
         {/* Act-Rate Performance Tile (M17) */}
@@ -1368,6 +1386,46 @@ const s = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.success,
+  },
+  pulseCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    ...elevation.sm,
+  },
+  pulseCol: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 1,
+  },
+  pulseColTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  pulseColLabel: {
+    fontSize: 10,
+    lineHeight: 13,
+  },
+  pulseColNumber: {
+    fontSize: 18,
+    lineHeight: 22,
+    marginTop: 3,
+  },
+  pulseDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: colors.hairline,
   },
   pulseScroll: {
     gap: 10,

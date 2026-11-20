@@ -1,7 +1,7 @@
 import { VehicleCrewCard } from "./CrewScreens";
 import HistoricalTripScreen from './HistoricalTripScreen';
 import PushSettings from '../../components/PushSettings';
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   ScrollView,
@@ -301,14 +301,29 @@ export function ManagerLive({ navigation }) {
   const { data } = useManagerData();
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const vehicles =
-    data?.vehicles.filter(
-      (v) =>
-        (filter === "all" || v.status === filter) &&
+  const allVehicles = data?.vehicles || [];
+  const counts = useMemo(
+    () => ({
+      all: allVehicles.length,
+      moving: allVehicles.filter((v) => v.status === "moving").length,
+      stopped: allVehicles.filter((v) => v.status === "stopped").length,
+      idling: allVehicles.filter((v) => v.status === "idling").length,
+      offline: allVehicles.filter((v) => v.status === "offline").length,
+    }),
+    [allVehicles],
+  );
+
+  const vehicles = useMemo(() => {
+    return allVehicles.filter((v) => {
+      const matchStatus = filter === "all" || v.status === filter;
+      const matchQuery =
+        !search.trim() ||
         `${v.plate} ${v.model}`
           .toLowerCase()
-          .includes(search.trim().toLowerCase()),
-    ) || [];
+          .includes(search.trim().toLowerCase());
+      return matchStatus && matchQuery;
+    });
+  }, [allVehicles, filter, search]);
   const openMap = () => navigation.navigate("Fleet map", { filter });
   return (
     <ManagerPage
@@ -344,6 +359,7 @@ export function ManagerLive({ navigation }) {
         values={["all", "moving", "stopped", "idling", "offline"]}
         selected={filter}
         onSelect={setFilter}
+        counts={counts}
       />
       {vehicles.map((v, i) => (
         <View key={v.id} style={s.content}>
@@ -1282,32 +1298,84 @@ function Unavailable() {
 }
 
 
-function Filters({ values, selected, onSelect }) {
+function Filters({ values, selected, onSelect, counts }) {
+  const isSegmented = values.length <= 5;
+  const hasCounts = Boolean(counts);
+
+  const getDotColor = (val) => {
+    const v = String(val).toLowerCase();
+    if (v === "moving" || v === "driving") return "#0C9F41";
+    if (v === "stopped") return "#9333EA";
+    if (v === "idling") return "#F97316";
+    if (v === "offline" || v === "unassigned") return "#9CA3AF";
+    if (v === "at plant") return "#2563EB";
+    if (v === "resting") return "#F59E0B";
+    return null;
+  };
+
+  const content = values.map((value) => {
+    const isSelected = selected === value;
+    const dotColor = getDotColor(value);
+    const countVal = counts ? counts[value] ?? counts[value.toLowerCase()] : null;
+
+    return (
+      <Pressable
+        key={value}
+        accessibilityRole="button"
+        accessibilityLabel={`Filter: ${value}${countVal !== null && countVal !== undefined ? ` (${countVal})` : ""}`}
+        accessibilityState={{ selected: isSelected }}
+        style={[
+          s.filterChip,
+          isSegmented && s.filterChipSegmented,
+          hasCounts && s.filterChipWithCounts,
+          isSelected && s.filterChipSelected,
+        ]}
+        onPress={() => onSelect(value)}
+      >
+        <View style={s.filterInnerRow}>
+          {dotColor && (
+            <View
+              style={[
+                s.filterDot,
+                { backgroundColor: isSelected ? colors.white : dotColor },
+              ]}
+            />
+          )}
+          <AppText
+            variant="caption"
+            weight={isSelected ? "bold" : "semibold"}
+            color={isSelected ? colors.white : colors.textMuted}
+            style={s.filterText}
+            numberOfLines={1}
+          >
+            {value}
+          </AppText>
+        </View>
+        {countVal !== null && countVal !== undefined && (
+          <AppText
+            variant="small"
+            weight="extrabold"
+            color={isSelected ? colors.white : colors.text}
+            style={s.filterCountText}
+          >
+            {countVal}
+          </AppText>
+        )}
+      </Pressable>
+    );
+  });
+
+  if (isSegmented) {
+    return <View style={s.filtersSegmentedContainer}>{content}</View>;
+  }
+
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={s.filters}
+      contentContainerStyle={s.filtersScrollContainer}
     >
-      {values.map((value) => (
-        <Pressable
-          key={value}
-          accessibilityRole="button"
-          accessibilityLabel={`Filter: ${value}`}
-          accessibilityState={{ selected: selected === value }}
-          style={[s.branch, selected === value && s.branchSelected]}
-          onPress={() => onSelect(value)}
-        >
-          <AppText
-            variant="small"
-            weight="semibold"
-            color={selected === value ? colors.white : colors.textMuted}
-            style={{ textTransform: "capitalize" }}
-          >
-            {value}
-          </AppText>
-        </Pressable>
-      ))}
+      {content}
     </ScrollView>
   );
 }
@@ -1354,5 +1422,63 @@ const s = StyleSheet.create({
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   empty: { padding: 24, alignItems: "center", gap: 14 },
   filters: { flexDirection: "row", gap: 8, paddingBottom: 4 },
+  filtersSegmentedContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 4,
+    width: "100%",
+    paddingBottom: 4,
+  },
+  filtersScrollContainer: {
+    flexDirection: "row",
+    gap: 6,
+    paddingBottom: 4,
+  },
+  filterChip: {
+    minHeight: 38,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  filterChipSegmented: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 2,
+    paddingVertical: 6,
+  },
+  filterChipWithCounts: {
+    paddingVertical: 5,
+    minHeight: 44,
+  },
+  filterChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryDeep,
+  },
+  filterInnerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+  },
+  filterDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  filterText: {
+    fontSize: 10.5,
+    lineHeight: 14,
+    textTransform: "capitalize",
+  },
+  filterCountText: {
+    fontSize: 13,
+    lineHeight: 16,
+    marginTop: 1,
+  },
   dutyCaption: { marginTop: 6, marginLeft: 16 },
 });

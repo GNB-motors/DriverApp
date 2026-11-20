@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import { View, Pressable, ScrollView, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -42,6 +42,11 @@ export default function FleetMapScreen({ navigation, route }) {
   const { data } = useManagerData();
   const map = useRef(null);
   const [filter, setFilter] = useState(route.params?.filter || "all");
+  useEffect(() => {
+    if (route.params?.filter) {
+      setFilter(route.params.filter);
+    }
+  }, [route.params?.filter]);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const [satellite, setSatellite] = useState(false);
@@ -121,52 +126,51 @@ export default function FleetMapScreen({ navigation, route }) {
             returnKeyType="search"
           />
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.chips}
-        >
+        <View style={styles.chipsRow}>
           {STATUSES.map((status) => {
             const active = filter === status;
+            const count = counts[status] ?? 0;
+            const sColor = status !== "all" ? statusColor(status) : colors.primary;
             return (
               <Pressable
                 key={status}
                 accessibilityRole="button"
-                accessibilityLabel={`${status}: ${counts[status]} trucks`}
+                accessibilityLabel={`${status}: ${count} trucks`}
                 accessibilityState={{ selected: active }}
                 onPress={() => setFilter(status)}
                 style={[styles.chip, active && styles.chipActive]}
               >
-                {status !== "all" && (
-                  <View
-                    style={[
-                      styles.dot,
-                      { backgroundColor: statusColor(status) },
-                      active && styles.dotActive,
-                    ]}
-                  />
-                )}
+                <View style={styles.chipTopRow}>
+                  {status !== "all" && (
+                    <View
+                      style={[
+                        styles.dot,
+                        { backgroundColor: active ? colors.white : sColor },
+                      ]}
+                    />
+                  )}
+                  <AppText
+                    variant="caption"
+                    weight={active ? "bold" : "semibold"}
+                    color={active ? colors.white : colors.textMuted}
+                    style={styles.chipLabel}
+                    numberOfLines={1}
+                  >
+                    {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}
+                  </AppText>
+                </View>
                 <AppText
                   variant="small"
-                  weight="semibold"
+                  weight="extrabold"
                   color={active ? colors.white : colors.text}
-                  style={styles.capitalize}
+                  style={styles.chipCount}
                 >
-                  {status}
-                </AppText>
-                <AppText
-                  variant="small"
-                  weight="semibold"
-                  mono
-                  color={active ? colors.onPrimaryMuted : colors.textMuted}
-                >
-                  {counts[status]}
+                  {count}
                 </AppText>
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
       </View>
       <View
         pointerEvents="box-none"
@@ -277,20 +281,48 @@ const styles = StyleSheet.create({
   header: { position: "absolute", top: 0, left: 0, right: 0, gap: spacing.sm },
   searchRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   search: elevation.md,
-  chips: { flexDirection: "row", gap: spacing.sm, paddingBottom: spacing.sm },
-  chip: {
+  chipsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    minHeight: 40,
-    paddingHorizontal: 14,
-    borderRadius: radius.full,
+    justifyContent: "space-between",
+    gap: 4,
+    paddingBottom: spacing.xs,
+    width: "100%",
+  },
+  chip: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+    borderRadius: radius.md,
     backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     ...elevation.sm,
   },
-  chipActive: { backgroundColor: colors.primary },
-  dot: { width: 8, height: 8, borderRadius: radius.full },
-  dotActive: { borderWidth: 1.5, borderColor: colors.white },
+  chipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryDeep,
+    ...elevation.md,
+  },
+  chipTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+  },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  chipLabel: {
+    fontSize: 10,
+    lineHeight: 13,
+  },
+  chipCount: {
+    fontSize: 13,
+    lineHeight: 16,
+    marginTop: 1,
+  },
   capitalize: { textTransform: "capitalize" },
   controls: { position: "absolute", gap: spacing.sm },
   mapButton: {
