@@ -2,9 +2,14 @@ import React, { useEffect, useRef } from "react";
 import { View, Pressable, StyleSheet } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
+import { SvgXml } from "react-native-svg";
 import { AppText, Card, colors, elevation, radius } from "../../components/ui";
 import { mapPoints, trailCoordinates, trailSegments } from "./mapGeometry";
+import { truckSvg } from "./truckIcon";
+import { markerHeading } from "./liveMap";
+
 const EMPTY_TRAIL = [];
+
 export default function FleetMap({
   vehicles,
   trailPoints = EMPTY_TRAIL,
@@ -15,6 +20,7 @@ export default function FleetMap({
   const map = useRef(null);
   const points = mapPoints(vehicles);
   const selection = points.map((point) => point.id).join("|");
+
   const fit = () => {
     const coordinates = [
       ...points.map((point) => point.coordinates),
@@ -26,9 +32,11 @@ export default function FleetMap({
         animated: true,
       });
   };
+
   useEffect(() => {
     fit();
   }, [selection, trailPoints]);
+
   if (!points.length)
     return (
       <Card>
@@ -37,6 +45,7 @@ export default function FleetMap({
         </AppText>
       </Card>
     );
+
   return (
     <View style={styles.frame}>
       <MapView
@@ -49,16 +58,35 @@ export default function FleetMap({
           longitudeDelta: 0.1,
         }}
       >
-        {points.map((vehicle) => (
-          <Marker
-            key={vehicle.id}
-            coordinate={vehicle.coordinates}
-            title={vehicle.plate}
-            description={vehicle.status}
-            pinColor={vehicle.isStale ? "#8E94A0" : colors.primary}
-            onCalloutPress={() => onSelectVehicle?.(vehicle)}
-          />
-        ))}
+        {points.map((vehicle) => {
+          const heading = markerHeading(vehicle);
+          const xml = truckSvg({ status: vehicle.status, heading: heading ?? 0 });
+          return (
+            <Marker
+              key={vehicle.id}
+              coordinate={vehicle.coordinates}
+              title={vehicle.plate}
+              description={vehicle.status}
+              anchor={{ x: 0.5, y: 0.5 }}
+              onPress={() => onSelectVehicle?.(vehicle)}
+            >
+              <View style={styles.markerContainer}>
+                <SvgXml xml={xml} width={48} height={48} />
+                <View style={styles.plateTag}>
+                  <AppText
+                    variant="caption"
+                    mono
+                    weight="bold"
+                    color={colors.white}
+                    style={styles.plateText}
+                  >
+                    {vehicle.plate}
+                  </AppText>
+                </View>
+              </View>
+            </Marker>
+          );
+        })}
         {trailSegments(trailPoints).map((segment, index) => (
           <Polyline
             key={index}
@@ -85,6 +113,7 @@ export default function FleetMap({
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   frame: {
     borderRadius: 22,
@@ -104,5 +133,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     ...elevation.md,
+  },
+  markerContainer: {
+    alignItems: "center",
+  },
+  plateTag: {
+    backgroundColor: "#172033",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: -4,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+  plateText: {
+    fontSize: 10,
+    lineHeight: 12,
   },
 });

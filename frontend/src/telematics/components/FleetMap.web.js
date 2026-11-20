@@ -10,7 +10,29 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { AppText, Card, colors, elevation, radius } from "../../components/ui";
 import { mapPoints, trailCoordinates, trailSegments } from "./mapGeometry";
+import { truckSvg } from "./truckIcon";
+import { markerHeading, MARKER_SIZE } from "./liveMap";
+
 const mapStyle = { width: "100%", height: 340 };
+
+function markerIcon(vehicle, selected = false) {
+  const svg = truckSvg({
+    status: vehicle.status,
+    heading: markerHeading(vehicle),
+    selected,
+    shadow: true,
+  });
+  const half = MARKER_SIZE / 2;
+  const maps = window.google?.maps;
+  if (!maps) return undefined;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new maps.Size(MARKER_SIZE, MARKER_SIZE),
+    anchor: new maps.Point(half, half),
+    labelOrigin: new maps.Point(half, MARKER_SIZE + 6),
+  };
+}
+
 function MapCanvas({
   points,
   trailPoints,
@@ -25,6 +47,7 @@ function MapCanvas({
   });
   const map = useRef(null);
   const selection = points.map((point) => point.id).join("|");
+
   const fit = () => {
     if (!map.current || !window.google) return;
     const bounds = new window.google.maps.LatLngBounds();
@@ -37,9 +60,11 @@ function MapCanvas({
     map.current.fitBounds(bounds, 45);
     if (points.length === 1 && !trailPoints.length) map.current.setZoom(14);
   };
+
   useEffect(() => {
     fit();
   }, [selection, isLoaded, trailPoints]);
+
   if (!key)
     return (
       <Card>
@@ -48,6 +73,7 @@ function MapCanvas({
         </AppText>
       </Card>
     );
+
   if (loadError)
     return (
       <Card>
@@ -57,6 +83,7 @@ function MapCanvas({
         </AppText>
       </Card>
     );
+
   if (!isLoaded)
     return (
       <Card>
@@ -90,11 +117,13 @@ function MapCanvas({
               lng: vehicle.coordinates.longitude,
             }}
             title={`${vehicle.plate}${vehicle.status ? ` · ${vehicle.status}` : ""}`}
+            icon={markerIcon(vehicle)}
             label={{
               text: vehicle.plate,
-              color: "#25314C",
+              color: "#172033",
               fontSize: "11px",
-              fontWeight: "600",
+              fontWeight: "bold",
+              className: "map-truck-label",
             }}
             opacity={vehicle.isStale ? 0.65 : 1}
             onClick={() => onSelectVehicle?.(vehicle)}
@@ -133,31 +162,11 @@ function MapCanvas({
     </View>
   );
 }
-const EMPTY_TRAIL = [];
-export default function FleetMap({
-  vehicles,
-  trailPoints = EMPTY_TRAIL,
-  onSelectVehicle,
-  onExpand,
-  caption,
-}) {
-  const points = mapPoints(vehicles);
-  return points.length ? (
-    <MapCanvas
-      points={points}
-      trailPoints={trailPoints}
-      onSelectVehicle={onSelectVehicle}
-      onExpand={onExpand}
-      caption={caption}
-    />
-  ) : (
-    <Card>
-      <AppText muted>
-        No reported coordinates are available in this view.
-      </AppText>
-    </Card>
-  );
+
+export default function FleetMap(props) {
+  return <MapCanvas {...props} />;
 }
+
 const styles = StyleSheet.create({
   frame: {
     borderRadius: 22,
