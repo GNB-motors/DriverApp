@@ -70,8 +70,8 @@ export default function FieldAgentProfileScreen({ navigation }) {
   ];
 
   const handleCall = () => {
-    Linking.openURL('tel:18008890120').catch(() => {
-      Alert.alert('Phone dialer unavailable', 'Call Highway Sahayak Support at 1800-889-0120.');
+    Linking.openURL('tel:+918319353177').catch(() => {
+      Alert.alert('Phone dialer unavailable', 'Call Support at +91 831 935 3177.');
     });
   };
 
@@ -79,15 +79,15 @@ export default function FieldAgentProfileScreen({ navigation }) {
     const text = encodeURIComponent(
       `Hello Highway Sahayak Support, I am Field Agent ${fullName} (${user?.mobileNumber || ''}) needing assistance.`
     );
-    Linking.openURL(`https://wa.me/918000000000?text=${text}`).catch(() => {
+    Linking.openURL(`https://wa.me/918319353177?text=${text}`).catch(() => {
       Alert.alert('WhatsApp unavailable', 'Please contact support via phone or email.');
     });
   };
 
   const handleEmail = () => {
     const subject = encodeURIComponent(`Field Agent Support - ${fullName}`);
-    Linking.openURL(`mailto:support@gnbedge.in?subject=${subject}`).catch(() => {
-      Alert.alert('Email client unavailable', 'Please email support@gnbedge.in');
+    Linking.openURL(`mailto:gnbmotors60@gmail.com?subject=${subject}`).catch(() => {
+      Alert.alert('Email client unavailable', 'Please email gnbmotors60@gmail.com');
     });
   };
 
@@ -192,7 +192,7 @@ export default function FieldAgentProfileScreen({ navigation }) {
                   {c('callSupport', 'Call Support (24/7)')}
                 </AppText>
                 <AppText variant="caption" muted>
-                  1800-889-0120 · Toll-free
+                  +91 831 935 3177
                 </AppText>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
@@ -207,7 +207,7 @@ export default function FieldAgentProfileScreen({ navigation }) {
                   {c('chatWhatsapp', 'WhatsApp Support')}
                 </AppText>
                 <AppText variant="caption" muted>
-                  Quick chat with operations executive
+                  +91 831 935 3177
                 </AppText>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
@@ -222,7 +222,7 @@ export default function FieldAgentProfileScreen({ navigation }) {
                   {c('emailSupport', 'Email Support')}
                 </AppText>
                 <AppText variant="caption" muted>
-                  support@gnbedge.in
+                  gnbmotors60@gmail.com
                 </AppText>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
