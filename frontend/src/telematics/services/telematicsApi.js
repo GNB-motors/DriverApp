@@ -761,6 +761,9 @@ export function createTelematicsApi({
     async whatsappDrafts(params = {}, branchId) {
       return (await get('/whatsapp/admin/drafts', { params: { status: 'READY', limit: 50, ...params }, headers: headersFor(branchId) })).data;
     },
+    async whatsappDraft(id, branchId) {
+      return (await get(`/whatsapp/admin/drafts/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data;
+    },
     async whatsappDraftCounts(branchId) {
       return (await get('/whatsapp/admin/drafts/counts', { headers: headersFor(branchId) })).data;
     },
@@ -772,6 +775,9 @@ export function createTelematicsApi({
     },
     async whatsappBulkPublish(ids, branchId) {
       return (await client.post('/whatsapp/admin/drafts/bulk-publish', { ids }, { headers: headersFor(branchId) })).data.data;
+    },
+    async documentDetail(id, branchId) {
+      return (await get(`/documents/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data;
     },
 
     // Approvals: Owner & Manager (Office bills)
