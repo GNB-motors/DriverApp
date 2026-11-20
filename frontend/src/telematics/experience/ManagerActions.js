@@ -14,6 +14,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Card, Skeleton, SkeletonCard, BottomSheet, colors, spacing, radius, elevation } from '../../components/ui';
+import { useAuth } from '../../context/AuthContext';
 import { useManagerData } from '../context/ManagerDataContext';
 import useOwnerRequest from '../hooks/useOwnerRequest';
 import { RequestState } from '../components/FormControls';
@@ -72,6 +73,10 @@ function formatRelativeTime(isoString) {
 
 export function ManagerActionHome({ navigation }) {
   const c = useExperienceCopy();
+  const { user } = useAuth();
+  const userName = user?.name || user?.firstName || (user?.phone ? `+${user.phone}` : 'Manager');
+  const rawRole = (user?.role || '').toLowerCase();
+  const userRole = rawRole === 'owner' ? 'Owner' : rawRole === 'manager' ? 'Branch Manager' : rawRole ? (rawRole.charAt(0).toUpperCase() + rawRole.slice(1)) : 'Branch Manager';
   const insets = useSafeAreaInsets();
   const { service, branchId, setBranchId, branches, data, refresh, loading: fleetLoading } = useManagerData();
   const request = useCards();
@@ -202,21 +207,27 @@ export function ManagerActionHome({ navigation }) {
       {/* Top Header */}
       <View style={[s.topBar, { paddingTop: insets.top + spacing.sm }]}>
         <View style={s.headerLeft}>
-          <AppText variant="h2" weight="extrabold" color={colors.text}>
-            {c('managerCards')}
+          <AppText variant="h2" weight="extrabold" color={colors.text} numberOfLines={1}>
+            {userName}
           </AppText>
-          <Pressable
-            style={s.branchPill}
-            onPress={() => setBranchSheetOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel={c('branchFilter')}
-          >
-            <Ionicons name="business-outline" size={14} color={colors.primary} />
-            <AppText variant="caption" weight="bold" color={colors.primaryDeep} numberOfLines={1}>
-              {currentBranchName}
+          <View style={s.headerSubRow}>
+            <AppText variant="caption" weight="bold" color={colors.textMuted} style={s.roleText}>
+              {userRole}
             </AppText>
-            <Ionicons name="chevron-down" size={13} color={colors.primary} />
-          </Pressable>
+            <View style={s.headerDotDivider} />
+            <Pressable
+              style={s.branchPill}
+              onPress={() => setBranchSheetOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={c('branchFilter')}
+            >
+              <Ionicons name="business-outline" size={12} color={colors.primary} />
+              <AppText variant="caption" weight="bold" color={colors.primaryDeep} numberOfLines={1} style={s.branchPillText}>
+                {currentBranchName}
+              </AppText>
+              <Ionicons name="chevron-down" size={11} color={colors.primary} />
+            </Pressable>
+          </View>
         </View>
 
         <Pressable
@@ -1339,6 +1350,29 @@ const s = StyleSheet.create({
   },
   headerLeft: {
     gap: 4,
+    flex: 1,
+    marginRight: 8,
+  },
+  headerSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    flexWrap: 'wrap',
+  },
+  roleText: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  headerDotDivider: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: colors.textMuted,
+  },
+  branchPillText: {
+    fontSize: 11,
+    lineHeight: 14,
+    maxWidth: 140,
   },
   branchPill: {
     flexDirection: 'row',

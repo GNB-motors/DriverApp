@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { View, Pressable, StyleSheet } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,8 +7,52 @@ import { AppText, Card, colors, elevation, radius } from "../../components/ui";
 import { mapPoints, trailCoordinates, trailSegments } from "./mapGeometry";
 import { truckSvg } from "./truckIcon";
 import { markerHeading } from "./liveMap";
+import { clusterVehicles } from "./clustering";
 
 const EMPTY_TRAIL = [];
+
+function ClusterMarker({ cluster, onPress }) {
+  const [tracking, setTracking] = useState(true);
+  useEffect(() => {
+    setTracking(true);
+    const timer = setTimeout(() => setTracking(false), 500);
+    return () => clearTimeout(timer);
+  }, [cluster.count]);
+
+  const size = cluster.count >= 100 ? 50 : cluster.count >= 10 ? 44 : 38;
+  const rad = size / 2;
+
+  return (
+    <Marker
+      coordinate={cluster.coordinates}
+      anchor={{ x: 0.5, y: 0.5 }}
+      onPress={() => onPress(cluster)}
+      tracksViewChanges={tracking}
+      zIndex={2000 + cluster.count}
+    >
+      <View
+        style={[
+          styles.clusterCircle,
+          {
+            width: size,
+            height: size,
+            borderRadius: rad,
+            backgroundColor: cluster.statusColor || colors.primary,
+          },
+        ]}
+      >
+        <AppText
+          variant="small"
+          weight="extrabold"
+          color={colors.white}
+          style={styles.clusterText}
+        >
+          {cluster.count > 999 ? "999+" : cluster.count}
+        </AppText>
+      </View>
+    </Marker>
+  );
+}
 
 export default function FleetMap({
   vehicles,
@@ -20,6 +64,12 @@ export default function FleetMap({
   const map = useRef(null);
   const points = mapPoints(vehicles);
   const selection = points.map((point) => point.id).join("|");
+  const [region, setRegion] = useState({
+    latitude: points[0]?.coordinates?.latitude || 20.5937,
+    longitude: points[0]?.coordinates?.longitude || 78.9629,
+    latitudeDelta: 0.1,
+    longitudeDelta: 0.1,
+  });
 
   const fit = () => {
     const coordinates = [
@@ -36,6 +86,41 @@ export default function FleetMap({
   useEffect(() => {
     fit();
   }, [selection, trailPoints]);
+
+  const clusteredItems = useMemo(
+    () => clusterVehicles(points, region),
+    [points, region],
+  );
+
+  const handleClusterPress = (cluster) => {
+    const lats = cluster.vehicles.map((v) => v.coordinates.latitude);
+    const lngs = cluster.vehicles.map((v) => v.coordinates.longitude);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const latSpan = maxLat - minLat;
+    const lngSpan = maxLng - minLng;
+
+    const currentLatDelta = region?.latitudeDelta || 0.1;
+    const currentLngDelta = region?.longitudeDelta || 0.1;
+
+    map.current?.animateToRegion(
+      {
+        latitude: cluster.coordinates.latitude,
+        longitude: cluster.coordinates.longitude,
+        latitudeDelta: Math.max(
+          0.01,
+          latSpan > 0 ? latSpan * 1.8 : currentLatDelta / 2.8,
+        ),
+        longitudeDelta: Math.max(
+          0.01,
+          lngSpan > 0 ? lngSpan * 1.8 : currentLngDelta / 2.8,
+        ),
+      },
+      450,
+    );
+  };
 
   if (!points.length)
     return (
@@ -57,8 +142,19 @@ export default function FleetMap({
           latitudeDelta: 0.1,
           longitudeDelta: 0.1,
         }}
+        onRegionChangeComplete={(next) => setRegion(next)}
       >
-        {points.map((vehicle) => {
+        {clusteredItems.map((item) => {
+          if (item.isCluster) {
+            return (
+              <ClusterMarker
+                key={item.id}
+                cluster={item}
+                onPress={handleClusterPress}
+              />
+            );
+          }
+          const vehicle = item.vehicle;
           const heading = markerHeading(vehicle);
           const xml = truckSvg({ status: vehicle.status, heading: heading ?? 0 });
           return (
@@ -138,16 +234,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   plateTag: {
-    backgroundColor: "#172033",
+    marginTop: 2,
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: 1,
     borderRadius: 4,
-    marginTop: -4,
+    backgroundColor: "#172033",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+    borderColor: "#334155",
   },
   plateText: {
-    fontSize: 10,
+    fontSize: 9,
     lineHeight: 12,
+  },
+  clusterCircle: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2.5,
+    borderColor: colors.white,
+    ...elevation.md,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+  },
+  clusterText: {
+    fontSize: 14,
+    lineHeight: 18,
+    textAlign: "center",
   },
 });
