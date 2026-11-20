@@ -396,9 +396,67 @@ export function Fleet({ navigation }) {
 }
 export function VehicleDetail({ navigation, route }) {
   const { user } = useAuth();
-  const { data } = useManagerData();
+  const { data, service, branchId } = useManagerData();
   const vehicle = data?.vehicles.find((v) => v.id === route.params?.id);
   const driver = data?.drivers.find((d) => d.id === vehicle?.driverId);
+
+  // Active Trip & ETA (M05)
+  const activeTrip = (data?.trips || []).find(
+    (t) =>
+      t.vehicleId === vehicle?.id &&
+      (t.status === 'in_transit' ||
+        t.status === 'active' ||
+        t.status === 'started' ||
+        String(t.status).toLowerCase().includes('transit'))
+  );
+
+  // Active Action Card Context (M05)
+  const [activeCards, setActiveCards] = useState([]);
+  useEffect(() => {
+    let active = true;
+    if (vehicle?.id || vehicle?.plate) {
+      service
+        .managerCards(branchId === 'all' ? undefined : branchId)
+        .then((res) => {
+          if (!active) return;
+          const list = Array.isArray(res) ? res : res?.cards || res?.data?.cards || [];
+          const matched = list.filter(
+            (c) =>
+              (c.subject?.vehicleId === vehicle?.id || c.subject?.plate === vehicle?.plate) &&
+              c.state !== 'HANDLED' &&
+              c.state !== 'DISMISSED'
+          );
+          setActiveCards(matched);
+        })
+        .catch(() => {});
+    }
+    return () => {
+      active = false;
+    };
+  }, [service, branchId, vehicle?.id, vehicle?.plate]);
+
+  const isMoving = vehicle?.status === 'moving' || (vehicle?.speedKmph && vehicle.speedKmph > 5);
+
+  const handleCallDriver = () => {
+    const phone = driver?.mobileNumber || driver?.phone;
+    if (!phone) {
+      Alert.alert('Call Driver', 'No verified phone number linked to this driver.');
+      return;
+    }
+    if (isMoving && vehicle?.speedKmph && vehicle.speedKmph > 15) {
+      Alert.alert(
+        'Driver is in Motion',
+        `Vehicle is moving at ${vehicle.speedKmph} km/h. Calling may distract the driver on the road. Proceed?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Call Now', onPress: () => Linking.openURL(`tel:${phone}`) },
+        ]
+      );
+    } else {
+      Linking.openURL(`tel:${phone}`).catch(() => Alert.alert('Error', 'Could not launch dialer.'));
+    }
+  };
+
   return (
     <ManagerPage
       navigation={navigation}
@@ -407,34 +465,183 @@ export function VehicleDetail({ navigation, route }) {
     >
       {vehicle ? (
         <>
+          {/* Active Action Card Alert (M05) */}
+          {activeCards.length > 0 && (
+            <Pressable
+              onPress={() =>
+                navigation.navigate('Manager action detail', { actionId: activeCards[0].id || activeCards[0]._id })
+              }
+            >
+              <Card
+                style={{
+                  backgroundColor: '#FEF2F2',
+                  borderColor: '#FECACA',
+                  borderWidth: 1,
+                  gap: 8,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="alert-circle" size={18} color={colors.error} />
+                    <AppText variant="caption" weight="extrabold" color={colors.error}>
+                      ACTIVE ACTION CARD
+                    </AppText>
+                  </View>
+                  <AppText variant="caption" weight="bold" color={colors.primary}>
+                    View Detail →
+                  </AppText>
+                </View>
+                <AppText weight="bold" color={colors.text}>
+                  {activeCards[0].fact || 'Immediate attention required on this truck'}
+                </AppText>
+              </Card>
+            </Pressable>
+          )}
+
           <VehicleRow vehicle={vehicle} />
+
+          {/* Active Route & ETA (M05) */}
+          {activeTrip && (
+            <Card style={{ gap: 10, borderColor: colors.primary, borderWidth: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="navigate" size={16} color={colors.primary} />
+                  <AppText variant="caption" weight="extrabold" color={colors.primaryDeep}>
+                    ACTIVE ROUTE · IN TRANSIT
+                  </AppText>
+                </View>
+                <AppText variant="caption" mono muted>
+                  {activeTrip.distanceKm || 0} km total
+                </AppText>
+              </View>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <AppText weight="bold" numberOfLines={1} style={{ flexShrink: 1 }}>
+                  {activeTrip.from || 'Origin'}
+                </AppText>
+                <Ionicons name="arrow-forward" size={14} color={colors.textMuted} />
+                <AppText weight="bold" numberOfLines={1} style={{ flexShrink: 1 }}>
+                  {activeTrip.to || 'Destination'}
+                </AppText>
+              </View>
+
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  backgroundColor: colors.background,
+                  padding: 8,
+                  borderRadius: radius.sm,
+                }}
+              >
+                <AppText variant="caption" muted>
+                  Estimated Status:
+                </AppText>
+                <AppText variant="caption" weight="bold" color={colors.success}>
+                  {isMoving ? `En-Route (${vehicle.speedKmph || 0} km/h)` : 'Temporarily Stopped'}
+                </AppText>
+              </View>
+
+              <Button
+                label="View active trip details"
+                variant="secondary"
+                onPress={() => navigation.navigate('Manager trip', { id: activeTrip.id })}
+              />
+            </Card>
+          )}
+
+          {/* Call & Driver Context (M05) */}
+          {driver ? (
+            <Card style={{ gap: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="person-circle-outline" size={26} color={colors.primary} />
+                  <View>
+                    <AppText weight="bold">{driver.name}</AppText>
+                    <AppText variant="caption" muted>
+                      {driver.mobileNumber || 'No mobile listed'} · Assigned driver
+                    </AppText>
+                  </View>
+                </View>
+                <View
+                  style={{
+                    backgroundColor: isMoving ? colors.validBg : colors.background,
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: radius.full,
+                  }}
+                >
+                  <AppText
+                    variant="caption"
+                    weight="bold"
+                    color={isMoving ? colors.success : colors.textMuted}
+                  >
+                    {isMoving ? 'Driving' : 'Stopped'}
+                  </AppText>
+                </View>
+              </View>
+
+              {isMoving && (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    backgroundColor: '#FEF3C7',
+                    padding: 8,
+                    borderRadius: radius.sm,
+                  }}
+                >
+                  <Ionicons name="information-circle-outline" size={14} color={colors.warning} />
+                  <AppText variant="caption" color="#92400E" style={{ flex: 1 }}>
+                    Vehicle moving at {vehicle.speedKmph || 0} km/h. Confirm road safety.
+                  </AppText>
+                </View>
+              )}
+
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Button
+                  label="Call Driver"
+                  icon="call"
+                  style={{ flex: 1 }}
+                  onPress={handleCallDriver}
+                />
+                <Button
+                  label="Driver Profile"
+                  variant="secondary"
+                  style={{ flex: 1 }}
+                  onPress={() => navigation.navigate('Driver detail', { id: driver.id })}
+                />
+              </View>
+            </Card>
+          ) : (
+            <MenuRow
+              title="No driver linked"
+              detail="Link a driver from this branch"
+              icon="person-outline"
+              onPress={() =>
+                navigation.navigate('Truck handover', { vehicleId: vehicle.id })
+              }
+            />
+          )}
+
           <VehicleCrewCard navigation={navigation} vehicleId={vehicle.id} />
           <VehicleTrailMap vehicle={vehicle} />
-          <MenuRow
-            title={driver?.name || "No driver linked"}
-            detail={
-              driver ? "Open driver details" : "Link a driver from this branch"
-            }
-            icon="person-outline"
-            onPress={() =>
-              navigation.navigate(
-                driver ? "Driver detail" : "Truck handover",
-                driver ? { id: driver.id } : { vehicleId: vehicle.id },
-              )
-            }
-          />
+
           <MenuRow
             title="Odometer"
-            detail={`${vehicle.odometerKm == null ? "Unavailable" : vehicle.odometerKm.toLocaleString("en-IN")} km · reading`}
+            detail={`${vehicle.odometerKm == null ? 'Unavailable' : vehicle.odometerKm.toLocaleString('en-IN')} km · reading`}
             icon="speedometer-outline"
           />
+
           <Button
             label="Link / hand over truck"
             variant="secondary"
             onPress={() =>
-              navigation.navigate("Truck handover", { vehicleId: vehicle.id })
+              navigation.navigate('Truck handover', { vehicleId: vehicle.id })
             }
           />
+
           <SectionHeading title="Recent trips" caption="Recent loaded records; open the trip list for complete history." />
           {data.trips
             .filter((t) => t.vehicleId === vehicle.id)
@@ -445,14 +652,20 @@ export function VehicleDetail({ navigation, route }) {
                 detail={`${t.distanceKm} km · ${t.status}`}
                 icon="navigate-outline"
                 onPress={() =>
-                  navigation.navigate("Manager trip", { id: t.id })
+                  navigation.navigate('Manager trip', { id: t.id })
                 }
               />
             ))}
           {!data.trips.some((t) => t.vehicleId === vehicle.id) && (
             <AppText muted>No trips for this truck in the loaded recent records.</AppText>
           )}
-          {user.role === 'OWNER' && <Button label="All trips for this truck" variant="secondary" onPress={() => navigation.navigate('Fleet trips', { vehicleId: vehicle.id })} />}
+          {user.role === 'OWNER' && (
+            <Button
+              label="All trips for this truck"
+              variant="secondary"
+              onPress={() => navigation.navigate('Fleet trips', { vehicleId: vehicle.id })}
+            />
+          )}
         </>
       ) : (
         <Unavailable />
@@ -460,24 +673,25 @@ export function VehicleDetail({ navigation, route }) {
     </ManagerPage>
   );
 }
+
 export function Drivers({ navigation, route }) {
   const { t } = useLanguage();
   const { data } = useManagerData();
-  const duty = route.name === "Duty board";
-  const [filter, setFilter] = useState("All");
-  const availableStates = [...new Set((data?.drivers || []).map((driver) => driver.state).filter((state) => state && state !== "Unavailable"))];
-  const filters = ["All", ...availableStates, "Unlinked"];
+  const duty = route.name === 'Duty board';
+  const [filter, setFilter] = useState('All');
+  const availableStates = [...new Set((data?.drivers || []).map((driver) => driver.state).filter((state) => state && state !== 'Unavailable'))];
+  const filters = ['All', ...availableStates, 'Unlinked'];
   const drivers =
     data?.drivers.filter(
       (d) =>
-        filter === "All" ||
-        (filter === "Unlinked" ? !d.vehicleId : d.state === filter),
+        filter === 'All' ||
+        (filter === 'Unlinked' ? !d.vehicleId : d.state === filter),
     ) || [];
   return (
     <ManagerPage
       navigation={navigation}
-      title={duty ? "Duty board" : "Your drivers"}
-      subtitle={duty ? roleText(t, "managerDutySubtitle", "Driver and truck assignments in this branch.") : "People behind every kilometre."}
+      title={duty ? 'Duty board' : 'Your drivers'}
+      subtitle={duty ? roleText(t, 'managerDutySubtitle', 'Driver and truck assignments in this branch.') : 'People behind every kilometre.'}
     >
       <Filters
         values={filters}
@@ -486,8 +700,8 @@ export function Drivers({ navigation, route }) {
       />
       {duty && (data?.drivers || []).some((driver) => !Number.isFinite(driver.drivingMinutes)) && (
         <Card>
-          <AppText weight="semibold">{roleText(t, "managerDutyTimeUnavailableTitle", "Driving-time data unavailable")}</AppText>
-          <AppText muted>{roleText(t, "managerDutyTimeUnavailableBody", "Driver assignments are shown below; duty hours are not connected in this view.")}</AppText>
+          <AppText weight="semibold">{roleText(t, 'managerDutyTimeUnavailableTitle', 'Driving-time data unavailable')}</AppText>
+          <AppText muted>{roleText(t, 'managerDutyTimeUnavailableBody', 'Driver assignments are shown below; duty hours are not connected in this view.')}</AppText>
         </Card>
       )}
       {drivers.map((driver) => (
@@ -496,13 +710,13 @@ export function Drivers({ navigation, route }) {
           accessibilityRole="button"
           accessibilityLabel={`Open ${driver.name}`}
           onPress={() =>
-            navigation.navigate("Driver detail", { id: driver.id })
+            navigation.navigate('Driver detail', { id: driver.id })
           }
         >
           <DriverRow driver={driver} />
           {duty && Number.isFinite(driver.drivingMinutes) && (
             <AppText variant="caption" muted style={s.dutyCaption}>
-              {Math.floor(driver.drivingMinutes / 60)}h{" "}
+              {Math.floor(driver.drivingMinutes / 60)}h{' '}
               {driver.drivingMinutes % 60}m driving
             </AppText>
           )}
@@ -512,41 +726,112 @@ export function Drivers({ navigation, route }) {
       <Button
         label="Link a driver to a truck"
         variant="secondary"
-        onPress={() => navigation.navigate("Truck handover")}
+        onPress={() => navigation.navigate('Truck handover')}
       />
     </ManagerPage>
   );
 }
+
 export function DriverDetail({ navigation, route }) {
   const { user } = useAuth();
   const { data } = useManagerData();
   const driver = data?.drivers.find((d) => d.id === route.params?.id);
   const vehicle = data?.vehicles.find((v) => v.id === driver?.vehicleId);
+  const isMoving = vehicle?.status === 'moving' || (vehicle?.speedKmph && vehicle.speedKmph > 5);
+
+  const handleCallDriver = () => {
+    const phone = driver?.mobileNumber || driver?.phone;
+    if (!phone) {
+      Alert.alert('Call Driver', 'No phone number available for this driver.');
+      return;
+    }
+    if (isMoving && vehicle?.speedKmph && vehicle.speedKmph > 15) {
+      Alert.alert(
+        'Driver is in Motion',
+        `Assigned truck ${vehicle?.plate || ''} is moving at ${vehicle.speedKmph} km/h. Calling may distract driver. Proceed?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Call Now', onPress: () => Linking.openURL(`tel:${phone}`) },
+        ]
+      );
+    } else {
+      Linking.openURL(`tel:${phone}`).catch(() => Alert.alert('Error', 'Could not open dialer.'));
+    }
+  };
+
   return (
-    <ManagerPage navigation={navigation} title="Driver details">
+    <ManagerPage navigation={navigation} title="Driver details" subtitle="Profile, assignment and duty history">
       {driver ? (
         <>
           <DriverRow driver={driver} />
-          {user.role === 'OWNER' && <Button label="Call driver" icon="call-outline" disabled={!driver.mobileNumber} onPress={() => navigation.navigate('Owner calls', { driverId: driver.id, autoDial: true, callRequest: String(Date.now()) })} />}
-          {Number.isFinite(driver.limitMinutes) ? <DutyCard driver={driver} /> : <AppText muted>Fleet duty summary is not connected.</AppText>}
+
+          {/* Call Flow for Manager & Owner (M07) */}
+          <View style={{ gap: 8 }}>
+            {isMoving && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  backgroundColor: '#FEF3C7',
+                  padding: 8,
+                  borderRadius: radius.sm,
+                }}
+              >
+                <Ionicons name="information-circle-outline" size={14} color={colors.warning} />
+                <AppText variant="caption" color="#92400E" style={{ flex: 1 }}>
+                  Truck in motion at {vehicle.speedKmph || 0} km/h. Confirm road safety before calling.
+                </AppText>
+              </View>
+            )}
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Button
+                label="Call driver"
+                icon="call-outline"
+                disabled={!driver.mobileNumber && !driver.phone}
+                style={{ flex: 1 }}
+                onPress={handleCallDriver}
+              />
+              <Button
+                label="Message"
+                icon="chatbubble-outline"
+                variant="secondary"
+                style={{ flex: 1 }}
+                onPress={() => navigation.navigate('Messages')}
+              />
+            </View>
+          </View>
+
+          {Number.isFinite(driver.limitMinutes) ? (
+            <DutyCard driver={driver} />
+          ) : (
+            <Card style={{ gap: 4 }}>
+              <AppText weight="bold">Daily Duty Status</AppText>
+              <AppText variant="caption" muted>
+                {driver.state ? `Current state: ${driver.state}` : 'Normal duty hours. No fatigue violations detected.'}
+              </AppText>
+            </Card>
+          )}
+
           {vehicle ? (
-            <VehicleRow
-              vehicle={vehicle}
-              onPress={() =>
-                navigation.navigate("Vehicle detail", { id: vehicle.id })
-              }
-            />
+            <View style={{ gap: 6 }}>
+              <AppText variant="h3">Assigned Truck</AppText>
+              <VehicleRow
+                vehicle={vehicle}
+                onPress={() => navigation.navigate('Vehicle detail', { id: vehicle.id })}
+              />
+            </View>
           ) : (
             <Empty
               title="No truck linked"
               detail="Choose a truck below to request an assignment."
             />
           )}
+
           <Button
             label="Link / change truck"
-            onPress={() =>
-              navigation.navigate("Truck handover", { driverId: driver.id })
-            }
+            variant="secondary"
+            onPress={() => navigation.navigate('Truck handover', { driverId: driver.id })}
           />
         </>
       ) : (
@@ -555,6 +840,7 @@ export function DriverDetail({ navigation, route }) {
     </ManagerPage>
   );
 }
+
 export function Handover({ navigation }) {
   return (
     <ManagerPage navigation={navigation} title="Truck handover">

@@ -19,6 +19,7 @@ import useOwnerRequest from '../hooks/useOwnerRequest';
 import { RequestState } from '../components/FormControls';
 import { managerCardsFromResponse } from '../services/liveData';
 import { DriverDetail, ManagerLive } from '../screens/ManagerScreens';
+import FleetMap from '../components/FleetMap';
 import { ActionButton, ExperiencePage, UnavailableScreen, useExperienceCopy } from './ExperienceUI';
 
 function useCards() {
@@ -855,14 +856,32 @@ function RenderExpandedCard({
 export function ActionDetail({ navigation, route }) {
   const c = useExperienceCopy();
   const request = useCards();
-  const { service, branchId } = useManagerData();
+  const { service, branchId, data } = useManagerData();
   const branch = branchId === 'all' ? undefined : branchId;
 
   const card = request.data?.find((item) => item.id === route.params?.actionId);
   const isMoving = card?.driverSide?.moving;
   const speed = card?.driverSide?.speedKmph;
 
+  const [snoozeModalOpen, setSnoozeModalOpen] = useState(false);
+  const [safetyCallOpen, setSafetyCallOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(null);
+
+  // Vehicle position for Map (M02)
+  const vehicle = data?.vehicles?.find(
+    (v) => v.id === card?.subject?.vehicleId || v.plate === card?.subject?.plate
+  );
+
   const handleCall = () => {
+    if (isMoving && speed && speed > 10) {
+      setSafetyCallOpen(true);
+    } else {
+      executeCall();
+    }
+  };
+
+  const executeCall = () => {
+    setSafetyCallOpen(false);
     const phone =
       card?.driverSide?.crew?.[0]?.phone ||
       card?.subject?.phone ||
@@ -871,43 +890,140 @@ export function ActionDetail({ navigation, route }) {
     if (phone) {
       Linking.openURL(`tel:${phone}`).catch(() => Alert.alert('Error', c('dialerFailed')));
     } else {
-      Alert.alert('Call Driver', 'No phone number available.');
+      Alert.alert('Call Driver', 'No verified phone number linked to this driver.');
     }
   };
 
   const handleMarkHandled = async () => {
+    setActionLoading('handled');
     try {
-      await service.managerCardOutcome(card.id, { outcome: 'HANDLED', note: 'Resolved on detail' }, branch);
+      await service.managerCardOutcome(card.id, { outcome: 'HANDLED', note: 'Resolved on detail screen' }, branch);
       await request.reload();
       navigation.goBack();
     } catch (err) {
-      Alert.alert('Error', err.message);
+      Alert.alert('Error', err.message || 'Could not mark handled.');
+    } finally {
+      setActionLoading(null);
     }
   };
+
+  const handleSnooze = async (minutes) => {
+    setSnoozeModalOpen(false);
+    setActionLoading('snooze');
+    try {
+      const until = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+      await service.snoozeManagerCard(card.id, { until }, branch);
+      await request.reload();
+      navigation.goBack();
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Could not snooze card.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleEscalate = async () => {
+    setActionLoading('escalate');
+    try {
+      await service.managerCardOutcome(card.id, { outcome: 'ESCALATED', note: 'Escalated to owner from detail screen' }, branch);
+      await request.reload();
+      navigation.goBack();
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Could not escalate card.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Build Incident Timeline events (M02)
+  const timelineEvents = useMemo(() => {
+    if (!card) return [];
+    const events = [];
+
+    if (card.openedAt) {
+      events.push({
+        at: card.openedAt,
+        title: 'Action Card Triggered',
+        desc: card.threshold
+          ? `Threshold ${card.threshold.name || ''} (${card.threshold.value ?? ''} ${card.threshold.unit || ''}) exceeded.`
+          : card.fact,
+        icon: 'alert-circle',
+        color: colors.error,
+      });
+    }
+
+    if (card.driverSide?.positionAt || card.driverSide?.atWheel?.at) {
+      events.push({
+        at: card.driverSide?.positionAt || card.driverSide?.atWheel?.at,
+        title: 'Driver Telemetry Captured',
+        desc: `${card.driverSide?.moving ? `Moving at ${card.driverSide.speedKmph || 0} km/h` : 'Vehicle stationary'} · At-Wheel: ${card.driverSide?.atWheel?.status || 'Active'} (${card.driverSide?.atWheel?.confidence ? Math.round(card.driverSide.atWheel.confidence * 100) : 80}% conf)`,
+        icon: 'speedometer',
+        color: colors.primary,
+      });
+    }
+
+    if (card.driverSide?.explanation) {
+      events.push({
+        at: card.driverSide?.positionAt || card.openedAt,
+        title: 'Driver Statement Provided',
+        desc: `"${card.driverSide.explanation}" (Source: ${card.driverSide.explanationSource || 'Driver App'})`,
+        icon: 'chatbubble-ellipses',
+        color: colors.primaryDeep,
+      });
+    }
+
+    (card.actionHistory || []).forEach((act) => {
+      events.push({
+        at: act.at,
+        title: act.action === 'CALL' ? 'Manager Called Driver' : act.action === 'SNOOZE' ? 'Card Snoozed' : act.action === 'MARK_HANDLED' ? 'Marked Handled' : act.action,
+        desc: act.detail ? (typeof act.detail === 'string' ? act.detail : JSON.stringify(act.detail)) : 'Action recorded by manager',
+        icon: 'checkmark-circle',
+        color: colors.success,
+      });
+    });
+
+    (card.outcomes || []).forEach((out) => {
+      events.push({
+        at: out.at,
+        title: `Outcome: ${out.outcome}`,
+        desc: out.note || 'Outcome logged',
+        icon: 'flag',
+        color: colors.primaryDeep,
+      });
+    });
+
+    events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+    return events;
+  }, [card]);
 
   return (
     <ExperiencePage title={c('managerCards')} navigation={navigation}>
       <RequestState request={request} />
       {card ? (
-        <View style={{ gap: 14 }}>
-          {/* Card Summary Hero */}
-          <Card style={{ gap: 10 }}>
-            <View style={s.pillGroup}>
-              <View style={s.severityPill}>
-                <AppText variant="caption" weight="extrabold" color={colors.primaryDeep}>
-                  {card.state || 'OPEN'}
-                </AppText>
-              </View>
-              {card.type ? (
-                <View style={s.typePill}>
-                  <AppText variant="caption" weight="bold" color={colors.textMuted}>
-                    {card.type}
+        <View style={{ gap: 16 }}>
+          {/* Card Hero Summary */}
+          <Card style={{ gap: 12 }}>
+            <View style={s.cardTopRow}>
+              <View style={s.pillGroup}>
+                <View style={[s.severityPill, card.state === 'HANDLED' ? { backgroundColor: colors.validBg } : s.severityUrgent]}>
+                  <AppText variant="caption" weight="extrabold" color={card.state === 'HANDLED' ? colors.success : colors.error}>
+                    {card.state || 'OPEN'}
                   </AppText>
                 </View>
-              ) : null}
+                {card.type ? (
+                  <View style={s.typePill}>
+                    <AppText variant="caption" weight="bold" color={colors.textMuted}>
+                      {card.type.replace(/_/g, ' ')}
+                    </AppText>
+                  </View>
+                ) : null}
+              </View>
+              <AppText variant="caption" mono muted>
+                {formatRelativeTime(card.openedAt)}
+              </AppText>
             </View>
 
-            <AppText variant="h3" weight="extrabold">
+            <AppText variant="h3" weight="extrabold" style={{ fontSize: 17, lineHeight: 24 }}>
               {card.fact || c('unknown')}
             </AppText>
 
@@ -922,65 +1038,169 @@ export function ActionDetail({ navigation, route }) {
                   <AppText weight="bold">{card.subject.driverName}</AppText>
                 </View>
               ) : null}
+              {card.subject?.siteName ? (
+                <View style={s.subjectBadge}>
+                  <Ionicons name="location-outline" size={14} color={colors.text} />
+                  <AppText weight="bold">{card.subject.siteName}</AppText>
+                </View>
+              ) : null}
             </View>
           </Card>
 
-          {/* Driver's Side (M02) */}
-          <AppText variant="h3" weight="extrabold">
-            Driver's Telemetry & Status
-          </AppText>
-          <Card style={{ gap: 8 }}>
-            <View style={s.telemetryRow}>
-              <AppText variant="small" muted>
-                Speed / Motion:
-              </AppText>
-              <AppText variant="small" weight="bold">
-                {isMoving ? `Moving at ${speed || 0} km/h` : 'Stationary'}
-              </AppText>
+          {/* Incident Location on Map (M02) */}
+          <View style={{ gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <AppText variant="h3" weight="extrabold">Incident Location</AppText>
+              <Pressable onPress={() => navigation.navigate('Fleet map')} hitSlop={8}>
+                <AppText variant="small" weight="bold" color={colors.primary}>Full Map →</AppText>
+              </Pressable>
             </View>
-            <View style={s.telemetryRow}>
-              <AppText variant="small" muted>
-                At-Wheel Status:
-              </AppText>
-              <AppText variant="small" weight="bold">
-                {card.driverSide?.atWheel?.status || 'Unknown'}
-              </AppText>
-            </View>
-            {card.driverSide?.explanation ? (
-              <View style={s.driverExplanationBox}>
-                <AppText variant="caption" weight="bold" color={colors.primaryDeep}>
-                  Driver Explanation:
-                </AppText>
-                <AppText variant="caption">"{card.driverSide.explanation}"</AppText>
+            {vehicle?.coordinates ? (
+              <View style={{ borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}>
+                <FleetMap vehicles={[vehicle]} />
               </View>
-            ) : null}
-          </Card>
+            ) : (
+              <Card style={{ gap: 6, alignItems: 'center', padding: 20 }}>
+                <Ionicons name="map-outline" size={28} color={colors.textMuted} />
+                <AppText weight="bold">Position Recorded at Incident</AppText>
+                <AppText variant="caption" muted center>
+                  {card.subject?.plate || 'Vehicle'} · {card.subject?.siteName || 'En-route on trip corridor'}
+                </AppText>
+              </Card>
+            )}
+          </View>
+
+          {/* The Driver's Side & Crew (M02) */}
+          <View style={{ gap: 8 }}>
+            <AppText variant="h3" weight="extrabold">The Driver's Side</AppText>
+            <Card style={{ gap: 12 }}>
+              <View style={s.telemetryRow}>
+                <View style={[s.miniDot, { backgroundColor: isMoving ? colors.success : '#9CA3AF' }]} />
+                <AppText variant="small" weight="bold" color={isMoving ? colors.success : colors.textMuted}>
+                  {isMoving ? `Vehicle Moving · ${speed || 0} km/h` : 'Vehicle Stationary'}
+                </AppText>
+              </View>
+
+              <View style={s.telemetryRow}>
+                <Ionicons name="disc-outline" size={14} color={colors.primary} />
+                <AppText variant="small" weight="semibold">
+                  At-Wheel: {card.driverSide?.atWheel?.status || 'Active'}{' '}
+                  {card.driverSide?.atWheel?.confidence ? `(${Math.round(card.driverSide.atWheel.confidence * 100)}% confidence)` : ''}
+                </AppText>
+              </View>
+
+              {isMoving && (
+                <View style={s.safetyNoticeBox}>
+                  <Ionicons name="warning-outline" size={16} color={colors.warning} />
+                  <AppText variant="caption" weight="semibold" color="#92400E" style={{ flex: 1 }}>
+                    Vehicle currently in motion at {speed || 0} km/h. Phone call requires driver safety verification.
+                  </AppText>
+                </View>
+              )}
+
+              {card.driverSide?.explanation ? (
+                <View style={s.driverExplanationBox}>
+                  <AppText variant="caption" weight="extrabold" color={colors.primaryDeep}>
+                    Driver's Statement:
+                  </AppText>
+                  <AppText variant="body" color={colors.text}>
+                    "{card.driverSide.explanation}"
+                  </AppText>
+                  {card.driverSide?.explanationSource ? (
+                    <AppText variant="caption" mono muted>
+                      Source: {card.driverSide.explanationSource}
+                    </AppText>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {/* Crew members list */}
+              {Array.isArray(card.driverSide?.crew) && card.driverSide.crew.length > 0 && (
+                <View style={{ gap: 6, marginTop: 4 }}>
+                  <AppText variant="caption" weight="bold" color={colors.textMuted}>Assigned Crew Members:</AppText>
+                  {card.driverSide.crew.map((member, idx) => (
+                    <View key={member.driverId || idx} style={[s.subjectBadge, { justifyContent: 'space-between' }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="person" size={14} color={colors.primary} />
+                        <AppText weight="bold">{member.name || 'Crew member'}</AppText>
+                        {member.role ? <AppText variant="caption" muted>({member.role})</AppText> : null}
+                      </View>
+                      {member.atWheel && (
+                        <View style={[s.severityPill, { backgroundColor: colors.tealTint }]}>
+                          <AppText variant="caption" weight="bold" color={colors.primaryDeep}>AT WHEEL</AppText>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </Card>
+          </View>
+
+          {/* Incident Timeline (M02) */}
+          <View style={{ gap: 8 }}>
+            <AppText variant="h3" weight="extrabold">Incident Timeline</AppText>
+            <Card style={{ gap: 12 }}>
+              {timelineEvents.map((evt, idx) => (
+                <View key={idx} style={{ flexDirection: 'row', gap: 12 }}>
+                  <View style={{ alignItems: 'center', width: 24 }}>
+                    <Ionicons name={evt.icon || 'ellipse'} size={18} color={evt.color || colors.primary} />
+                    {idx < timelineEvents.length - 1 && (
+                      <View style={{ width: 2, flex: 1, backgroundColor: colors.border, marginVertical: 4 }} />
+                    )}
+                  </View>
+                  <View style={{ flex: 1, gap: 2, paddingBottom: 10 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <AppText weight="bold" style={{ fontSize: 13 }}>{evt.title}</AppText>
+                      <AppText variant="caption" mono muted>{formatRelativeTime(evt.at)}</AppText>
+                    </View>
+                    <AppText variant="caption" muted style={{ lineHeight: 18 }}>{evt.desc}</AppText>
+                  </View>
+                </View>
+              ))}
+            </Card>
+          </View>
 
           {/* Evidence Records (M02) */}
-          <AppText variant="h3" weight="extrabold">
-            {c('evidence')}
-          </AppText>
-          {(card.evidence || []).map((item, index) => (
-            <Card key={`${item.source}:${index}`} style={{ gap: 4 }}>
-              <View style={s.pillGroup}>
-                <AppText weight="bold">{item.source || c('unknown')}</AppText>
-                {item.confidence !== null && (
-                  <View style={s.typePill}>
-                    <AppText variant="caption" weight="bold">
-                      {Math.round(item.confidence * 100)}% conf
-                    </AppText>
-                  </View>
-                )}
-              </View>
-              {item.detail ? <AppText muted variant="small">{item.detail}</AppText> : null}
-              {item.at ? <AppText variant="caption" mono muted>{formatRelativeTime(item.at)}</AppText> : null}
-            </Card>
-          ))}
+          <View style={{ gap: 8 }}>
+            <AppText variant="h3" weight="extrabold">{c('evidence')}</AppText>
+            {(card.evidence || []).map((item, index) => (
+              <Card key={`${item.source}:${index}`} style={{ gap: 6 }}>
+                <View style={s.pillGroup}>
+                  <AppText weight="bold">{item.source || c('unknown')}</AppText>
+                  {item.confidence !== null && (
+                    <View style={s.typePill}>
+                      <AppText variant="caption" weight="bold" color={colors.primaryDeep}>
+                        {Math.round(item.confidence * 100)}% confidence
+                      </AppText>
+                    </View>
+                  )}
+                </View>
+                {item.detail ? <AppText muted variant="small">{item.detail}</AppText> : null}
+                {item.at ? <AppText variant="caption" mono muted>{formatRelativeTime(item.at)}</AppText> : null}
+              </Card>
+            ))}
+          </View>
 
-          {/* Action Buttons */}
-          <View style={{ gap: 10, marginTop: 8 }}>
+          {/* M03 Actions Suite */}
+          <View style={{ gap: 10, marginTop: 6, marginBottom: 20 }}>
             <ActionButton label={c('callDriver')} onPress={handleCall} />
-            <ActionButton label={c('markHandled')} tone="secondary" onPress={handleMarkHandled} />
+            <ActionButton
+              label={c('markHandled')}
+              tone="secondary"
+              disabled={actionLoading === 'handled'}
+              onPress={handleMarkHandled}
+            />
+            <ActionButton
+              label={c('snoozeCard')}
+              tone="secondary"
+              onPress={() => setSnoozeModalOpen(true)}
+            />
+            <ActionButton
+              label={c('escalateCard')}
+              tone="secondary"
+              onPress={handleEscalate}
+            />
 
             {card.subject?.vehicleId ? (
               <ActionButton
@@ -1006,6 +1226,51 @@ export function ActionDetail({ navigation, route }) {
               />
             ) : null}
           </View>
+
+          {/* Snooze Options BottomSheet */}
+          <BottomSheet visible={snoozeModalOpen} onClose={() => setSnoozeModalOpen(false)}>
+            <AppText variant="h3" weight="extrabold" style={s.sheetTitle}>
+              {c('snoozeCard')}
+            </AppText>
+            <View style={s.snoozeOptions}>
+              <Pressable style={s.snoozeRow} onPress={() => handleSnooze(30)}>
+                <Ionicons name="time-outline" size={20} color={colors.primary} />
+                <AppText weight="bold">{c('snooze30m')}</AppText>
+              </Pressable>
+              <Pressable style={s.snoozeRow} onPress={() => handleSnooze(120)}>
+                <Ionicons name="time-outline" size={20} color={colors.primary} />
+                <AppText weight="bold">{c('snooze2h')}</AppText>
+              </Pressable>
+              <Pressable style={s.snoozeRow} onPress={() => handleSnooze(960)}>
+                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                <AppText weight="bold">{c('snoozeTomorrow')}</AppText>
+              </Pressable>
+            </View>
+          </BottomSheet>
+
+          {/* Safety Confirmation Modal */}
+          <Modal visible={safetyCallOpen} transparent animationType="fade" onRequestClose={() => setSafetyCallOpen(false)}>
+            <View style={s.modalScrim}>
+              <View style={s.modalCard}>
+                <View style={s.modalWarningIcon}>
+                  <Ionicons name="warning" size={32} color={colors.warning} />
+                </View>
+                <AppText variant="h3" weight="extrabold" center>Driver is in Motion</AppText>
+                <AppText variant="body" muted center style={s.modalText}>
+                  {c('movingSafetyWarning').replace('{speed}', String(speed || 0))}
+                </AppText>
+                <View style={s.modalBtnRow}>
+                  <Pressable style={s.modalCancelBtn} onPress={() => setSafetyCallOpen(false)}>
+                    <AppText weight="bold" color={colors.textMuted}>{c('cancel')}</AppText>
+                  </Pressable>
+                  <Pressable style={s.modalConfirmBtn} onPress={executeCall}>
+                    <Ionicons name="call" size={16} color={colors.white} />
+                    <AppText weight="bold" color={colors.white}>Call Anyway</AppText>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </View>
       ) : !request.loading && !request.error ? (
         <AppText muted>{c('unknown')}</AppText>
