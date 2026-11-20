@@ -130,7 +130,11 @@ export function ManagerDataProvider({ children, audience = "manager" }) {
   const onStreamEvent = useCallback((frame) => {
     setLastPush({ event: frame.event, data: frame.data, at: Date.now() });
   }, []);
-  const { connected: streamConnected } = useDriverStream({ service, onEvent: onStreamEvent });
+  const { connected: streamConnected } = useDriverStream({
+    service,
+    enabled: audience === "driver",
+    onEvent: onStreamEvent,
+  });
   const mutate = async (action) => {
     const result = await action(
       service,
