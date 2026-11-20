@@ -63,7 +63,7 @@ export default function CurvedTabBar({ state, descriptors, navigation, centerAct
           })}
           {badge ? (
             <View style={[styles.badge, isMultiDigit && styles.badgePill]}>
-              <AppText style={styles.badgeText} color={colors.white}>
+              <AppText style={[styles.badgeText, isMultiDigit && styles.badgeTextMulti]} color={colors.white}>
                 {badgeDisplay}
               </AppText>
             </View>
@@ -123,16 +123,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: colors.surface,
+    zIndex: 10,
   },
   badgePill: {
     paddingHorizontal: 5,
     minWidth: 22,
+    right: -13,
   },
   badgeText: {
     fontSize: 9.5,
     fontWeight: '800',
     textAlign: 'center',
-    lineHeight: 12,
     includeFontPadding: false,
+    lineHeight: 13,
+  },
+  badgeTextMulti: {
+    fontSize: 8.5,
+    lineHeight: 12,
   },
 });

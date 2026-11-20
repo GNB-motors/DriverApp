@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   Modal,
+  Image,
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -108,6 +109,42 @@ export function ManagerActionHome({ navigation }) {
   const offlineVehicles = vehicles.filter((v) => v.status === 'offline').length;
   const driversOnDuty = (data?.drivers || []).length;
 
+  // Real operational telemetry metrics for home dashboard
+  const totalDistanceToday = useMemo(() => {
+    let km = 0;
+    for (const v of vehicles) {
+      if (Number.isFinite(v.todayKm) && v.todayKm > 0) km += v.todayKm;
+    }
+    if (km === 0 && Array.isArray(data?.trips)) {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayTime = todayStart.getTime();
+      for (const t of data.trips) {
+        if (t.startedAt && new Date(t.startedAt).getTime() >= todayTime) {
+          km += (Number(t.distanceKm) || 0);
+        }
+      }
+    }
+    return Math.round(km);
+  }, [vehicles, data?.trips]);
+
+  const lowFuelVehicles = useMemo(() => {
+    return vehicles.filter((v) => {
+      if (Number.isFinite(v.primaryFuelLevel) && v.primaryFuelLevel > 0 && v.primaryFuelLevel < 20) return true;
+      if (Number.isFinite(v.fuelLitres) && v.fuelLitres > 0 && v.fuelLitres < 35) return true;
+      return false;
+    });
+  }, [vehicles]);
+
+  const complianceIssuesCount = useMemo(() => {
+    return vehicles.filter((v) => Array.isArray(v.missingDocTypes) && v.missingDocTypes.length > 0).length;
+  }, [vehicles]);
+
+  const recentAlerts = useMemo(() => {
+    const list = data?.alertFeed?.items || data?.alerts || [];
+    return list.slice(0, 3);
+  }, [data?.alertFeed?.items, data?.alerts]);
+
   // Act rate metrics
   const actRateData = actRateReq.data;
   const totalActed = (actRateData?.types || []).reduce((acc, t) => acc + (t.acted || 0), 0);
@@ -206,38 +243,35 @@ export function ManagerActionHome({ navigation }) {
     <View style={s.container}>
       {/* Top Header */}
       <View style={[s.topBar, { paddingTop: insets.top + spacing.sm }]}>
-        <View style={s.headerLeft}>
-          <AppText variant="h2" weight="extrabold" color={colors.text} numberOfLines={1}>
-            {userName}
-          </AppText>
-          <View style={s.headerSubRow}>
-            <AppText variant="caption" weight="bold" color={colors.textMuted} style={s.roleText}>
-              {userRole}
-            </AppText>
-            <View style={s.headerDotDivider} />
-            <Pressable
-              style={s.branchPill}
-              onPress={() => setBranchSheetOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel={c('branchFilter')}
-            >
-              <Ionicons name="business-outline" size={12} color={colors.primary} />
-              <AppText variant="caption" weight="bold" color={colors.primaryDeep} numberOfLines={1} style={s.branchPillText}>
-                {currentBranchName}
-              </AppText>
-              <Ionicons name="chevron-down" size={11} color={colors.primary} />
-            </Pressable>
-          </View>
+        <View style={s.headerLeftLogo}>
+          <Image
+            source={require('../../../assets/gnb-logo.png')}
+            style={s.headerLogo}
+            resizeMode="contain"
+            accessibilityLabel="GNB Motors"
+          />
         </View>
 
-        <Pressable
-          style={s.refreshBtn}
-          onPress={onRefresh}
-          accessibilityRole="button"
-          accessibilityLabel="Refresh"
-        >
-          <Ionicons name="refresh-outline" size={20} color={colors.textMuted} />
-        </Pressable>
+        <View style={s.headerRightUser}>
+          <AppText variant="h2" weight="extrabold" color={colors.text} numberOfLines={1} style={s.textRight}>
+            {userName}
+          </AppText>
+          <AppText variant="caption" weight="bold" color={colors.textMuted} style={[s.roleText, s.textRight]}>
+            {userRole}
+          </AppText>
+          <Pressable
+            style={s.branchPillRight}
+            onPress={() => setBranchSheetOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={c('branchFilter')}
+          >
+            <Ionicons name="business-outline" size={12} color={colors.primary} />
+            <AppText variant="caption" weight="bold" color={colors.primaryDeep} numberOfLines={1} style={s.branchPillText}>
+              {currentBranchName}
+            </AppText>
+            <Ionicons name="chevron-down" size={11} color={colors.primary} />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -357,6 +391,77 @@ export function ManagerActionHome({ navigation }) {
           </Card>
         </View>
 
+        {/* Fleet Today Highlights Bar */}
+        <View style={s.highlightsCard}>
+          <View style={s.highlightItem}>
+            <View style={[s.highlightIconCircle, { backgroundColor: '#EFF6FF' }]}>
+              <Ionicons name="speedometer-outline" size={17} color={colors.primary} />
+            </View>
+            <View style={s.highlightCol}>
+              <AppText variant="caption" color={colors.textMuted} weight="bold" style={s.highlightLabel}>
+                TODAY'S RUN
+              </AppText>
+              <AppText variant="h3" weight="extrabold" color={colors.text}>
+                {totalDistanceToday.toLocaleString('en-IN')}{' '}
+                <AppText variant="caption" weight="bold" color={colors.textMuted}>
+                  km
+                </AppText>
+              </AppText>
+            </View>
+          </View>
+
+          <View style={s.highlightDivider} />
+
+          <View style={s.highlightItem}>
+            <View style={[s.highlightIconCircle, { backgroundColor: '#F0FDF4' }]}>
+              <Ionicons name="git-network-outline" size={17} color={colors.success} />
+            </View>
+            <View style={s.highlightCol}>
+              <AppText variant="caption" color={colors.textMuted} weight="bold" style={s.highlightLabel}>
+                ON ROAD
+              </AppText>
+              <AppText variant="h3" weight="extrabold" color={colors.text}>
+                {movingVehicles + idlingVehicles}{' '}
+                <AppText variant="caption" weight="bold" color={colors.textMuted}>
+                  / {vehicles.length}
+                </AppText>
+              </AppText>
+            </View>
+          </View>
+
+          <View style={s.highlightDivider} />
+
+          <View style={s.highlightItem}>
+            <View
+              style={[
+                s.highlightIconCircle,
+                { backgroundColor: lowFuelVehicles.length > 0 || (data?.alertFeed?.unacknowledgedCount || 0) > 0 ? '#FEF2F2' : '#F8FAFC' },
+              ]}
+            >
+              <Ionicons
+                name="warning-outline"
+                size={17}
+                color={lowFuelVehicles.length > 0 || (data?.alertFeed?.unacknowledgedCount || 0) > 0 ? colors.warning : colors.textMuted}
+              />
+            </View>
+            <View style={s.highlightCol}>
+              <AppText variant="caption" color={colors.textMuted} weight="bold" style={s.highlightLabel}>
+                EXCEPTIONS
+              </AppText>
+              <AppText
+                variant="h3"
+                weight="extrabold"
+                color={lowFuelVehicles.length > 0 || (data?.alertFeed?.unacknowledgedCount || 0) > 0 ? colors.warning : colors.text}
+              >
+                {(data?.alertFeed?.unacknowledgedCount || 0) + lowFuelVehicles.length}{' '}
+                <AppText variant="caption" weight="bold" color={colors.textMuted}>
+                  events
+                </AppText>
+              </AppText>
+            </View>
+          </View>
+        </View>
+
         {/* Act-Rate Performance Tile (M17) */}
         {overallRate !== null && (
           <View style={s.actRateCard}>
@@ -445,51 +550,6 @@ export function ManagerActionHome({ navigation }) {
             <AppText variant="body" muted center style={s.allClearText}>
               {c('allClearDesc')}
             </AppText>
-
-            {/* Quick Operational Shortcuts */}
-            <View style={s.shortcutsContainer}>
-              <Pressable
-                style={s.shortcutCard}
-                onPress={() => navigation.navigate('Fleet map')}
-              >
-                <Ionicons name="map-outline" size={20} color={colors.primary} />
-                <View style={s.shortcutContent}>
-                  <AppText weight="bold">{c('liveFleetMap')}</AppText>
-                  <AppText variant="caption" muted>
-                    Track active trucks and routes
-                  </AppText>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-              </Pressable>
-
-              <Pressable
-                style={s.shortcutCard}
-                onPress={() => navigation.navigate('Duty board')}
-              >
-                <Ionicons name="people-outline" size={20} color={colors.primary} />
-                <View style={s.shortcutContent}>
-                  <AppText weight="bold">{c('dutyBoard')}</AppText>
-                  <AppText variant="caption" muted>
-                    Driver assignments and duty hours
-                  </AppText>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-              </Pressable>
-
-              <Pressable
-                style={s.shortcutCard}
-                onPress={() => navigation.navigate('Manager approvals')}
-              >
-                <Ionicons name="document-text-outline" size={20} color={colors.primary} />
-                <View style={s.shortcutContent}>
-                  <AppText weight="bold">{c('approvalsQueue')}</AppText>
-                  <AppText variant="caption" muted>
-                    Review fuel bills, papers, workshop
-                  </AppText>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-              </Pressable>
-            </View>
           </View>
         ) : (
           /* Cards List */
@@ -578,6 +638,190 @@ export function ManagerActionHome({ navigation }) {
               </View>
             )}
           </View>
+        )}
+
+        {/* Quick Operational Launchpad */}
+        <View style={s.launchpadSection}>
+          <View style={s.launchpadHeader}>
+            <AppText variant="label" weight="extrabold" color={colors.text}>
+              OPERATIONAL HUB
+            </AppText>
+            <AppText variant="caption" color={colors.textMuted}>
+              Everyday Tools & Workflows
+            </AppText>
+          </View>
+
+          <View style={s.launchpadGrid}>
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Fleet map')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#EFF6FF' }]}>
+                <Ionicons name="map" size={20} color={colors.primary} />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Live Fleet
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Map & Tracking
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Duty board')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#F0FDF4' }]}>
+                <Ionicons name="people" size={20} color={colors.success} />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Duty Board
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Drivers & Hours
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Manager approvals')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FAF5FF' }]}>
+                <Ionicons name="checkmark-done-circle" size={20} color="#9333EA" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Approvals
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Bills & Advances
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Fleet documents', { kind: 'documents' })}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FFFBEB' }]}>
+                <Ionicons name="document-text" size={20} color="#D97706" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Documents
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Permit, Tax, PUC
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Fuel review', { kind: 'fuel' })}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FEF2F2' }]}>
+                <Ionicons name="speedometer" size={20} color="#EF4444" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Fuel Logs
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Diesel & Mileage
+              </AppText>
+            </Pressable>
+
+            <Pressable
+              style={s.launchpadTile}
+              onPress={() => navigation.navigate('Alerts')}
+              accessibilityRole="button"
+            >
+              <View style={[s.tileIconCircle, { backgroundColor: '#FFF1F2' }]}>
+                <Ionicons name="notifications" size={20} color="#E11D48" />
+              </View>
+              <AppText variant="body" weight="extrabold" color={colors.text}>
+                Alerts
+              </AppText>
+              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                Alarms & Geofence
+              </AppText>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Recent Critical Alerts Ticker */}
+        {recentAlerts.length > 0 && (
+          <View style={s.recentAlertsSection}>
+            <View style={s.recentAlertsHeader}>
+              <View style={s.inlineCenter}>
+                <Ionicons name="notifications-circle" size={18} color={colors.error} />
+                <AppText variant="label" weight="extrabold" color={colors.text}>
+                  RECENT EXCEPTIONS
+                </AppText>
+              </View>
+              <Pressable onPress={() => navigation.navigate('Alerts')} hitSlop={8}>
+                <AppText variant="small" weight="bold" color={colors.primary}>
+                  View All ({data?.alertFeed?.unacknowledgedCount || recentAlerts.length}) →
+                </AppText>
+              </Pressable>
+            </View>
+
+            <Card padding={0} style={s.recentAlertsCard}>
+              {recentAlerts.map((alert, idx) => {
+                const isUrgent = alert.severity === 'CRITICAL' || alert.severity === 'HIGH' || alert.type?.includes('SPEED') || alert.type?.includes('THEFT');
+                return (
+                  <Pressable
+                    key={alert.id || alert._id || idx}
+                    style={[s.recentAlertRow, idx > 0 && s.recentAlertBorder]}
+                    onPress={() => navigation.navigate('Alerts')}
+                  >
+                    <View style={[s.recentAlertDot, { backgroundColor: isUrgent ? colors.error : colors.warning }]} />
+                    <View style={s.recentAlertMain}>
+                      <View style={s.recentAlertTitleRow}>
+                        <AppText variant="body" weight="bold" numberOfLines={1} color={colors.text}>
+                          {alert.title || alert.type?.replace(/_/g, ' ') || 'Fleet Exception'}
+                        </AppText>
+                        <AppText variant="caption" mono color={colors.textMuted}>
+                          {alert.plate || alert.vehicle?.registrationNumber || ''}
+                        </AppText>
+                      </View>
+                      <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
+                        {alert.message || alert.description || 'Action recommended'}
+                      </AppText>
+                    </View>
+                    <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+                  </Pressable>
+                );
+              })}
+            </Card>
+          </View>
+        )}
+
+        {/* Compliance Warning Banner */}
+        {complianceIssuesCount > 0 && (
+          <Pressable
+            style={s.complianceBanner}
+            onPress={() => navigation.navigate('Fleet documents', { kind: 'documents' })}
+            accessibilityRole="button"
+          >
+            <View style={s.complianceBannerIconWrap}>
+              <Ionicons name="alert-circle" size={22} color="#D97706" />
+            </View>
+            <View style={s.complianceBannerContent}>
+              <AppText variant="small" weight="extrabold" color="#92400E">
+                {complianceIssuesCount} {complianceIssuesCount === 1 ? 'Truck has' : 'Trucks have'} Expired Documents
+              </AppText>
+              <AppText variant="caption" color="#B45309">
+                National Permit, Fitness or Insurance renewal required
+              </AppText>
+            </View>
+            <View style={s.complianceBannerAction}>
+              <AppText variant="caption" weight="bold" color="#92400E">
+                Review →
+              </AppText>
+            </View>
+          </Pressable>
         )}
       </ScrollView>
 
@@ -1348,51 +1592,45 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  headerLeft: {
-    gap: 4,
-    flex: 1,
-    marginRight: 8,
+  headerLeftLogo: {
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
-  headerSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    flexWrap: 'wrap',
+  headerLogo: {
+    width: 108,
+    height: 38,
+  },
+  headerRightUser: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 2,
+    paddingLeft: 12,
+  },
+  textRight: {
+    textAlign: 'right',
   },
   roleText: {
     fontSize: 12,
     lineHeight: 16,
-  },
-  headerDotDivider: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: colors.textMuted,
   },
   branchPillText: {
     fontSize: 11,
     lineHeight: 14,
     maxWidth: 140,
   },
-  branchPill: {
+  branchPillRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     backgroundColor: colors.tealTint,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: radius.full,
-    alignSelf: 'flex-start',
-  },
-  refreshBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.full,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignSelf: 'flex-end',
+    marginTop: 2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#CCFBF1',
   },
   scrollContent: {
     padding: 16,
@@ -1877,5 +2115,150 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,
+  },
+  highlightsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    ...elevation.sm,
+  },
+  highlightItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 0,
+  },
+  highlightIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  highlightCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  highlightLabel: {
+    fontSize: 10,
+    letterSpacing: 0.3,
+  },
+  highlightDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: colors.hairline,
+    marginHorizontal: 8,
+  },
+  launchpadSection: {
+    gap: 10,
+    marginTop: 4,
+  },
+  launchpadHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  launchpadGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  launchpadTile: {
+    flex: 1,
+    minWidth: '30%',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    gap: 4,
+    ...elevation.sm,
+  },
+  tileIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  recentAlertsSection: {
+    gap: 10,
+    marginTop: 4,
+  },
+  recentAlertsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  inlineCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  recentAlertsCard: {
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    overflow: 'hidden',
+  },
+  recentAlertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 10,
+  },
+  recentAlertBorder: {
+    borderTopWidth: 1,
+    borderTopColor: colors.hairline,
+  },
+  recentAlertDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  recentAlertMain: {
+    flex: 1,
+    gap: 2,
+  },
+  recentAlertTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  complianceBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderRadius: radius.lg,
+    padding: 12,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  complianceBannerIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  complianceBannerContent: {
+    flex: 1,
+    gap: 1,
+  },
+  complianceBannerAction: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
 });

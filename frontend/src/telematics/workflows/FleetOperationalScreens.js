@@ -15,14 +15,14 @@ import { FileLink } from "./OperationalScreens";
 import { formatLitres } from "../../utils/format";
 const permittedBranch = (branchId) =>
   branchId === "all" ? undefined : branchId;
-export function DriverRoster({ navigation }) {
+export function DriverRoster({ navigation, route = {} }) {
   const { service, branchId, data } = useManagerData();
   const [page, setPage] = useState(1);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
-  const vehicleId = route.params?.vehicleId;
-  const plate = route.params?.plate;
+  const vehicleId = route?.params?.vehicleId;
+  const plate = route?.params?.plate;
   const [activeFilterPlate, setActiveFilterPlate] = useState(plate || null);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -91,10 +91,52 @@ export function DriverRoster({ navigation }) {
       }
     }
 
-    // Pseudo-score trend & driving hours
-    const mockHours = (Math.abs(String(driver._id).charCodeAt(0) * 7) % 7) + 2;
-    const mockMins = (Math.abs(String(driver._id).charCodeAt(1) * 13) % 50) + 10;
-    const score = 88 + (Math.abs(String(driver._id).charCodeAt(2) * 3) % 11);
+    // Dynamic driving time calculation from duty record or today's trips
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartTime = todayStart.getTime();
+
+    let drivingMins = null;
+    if (Number.isFinite(driver.drivingMinutes)) {
+      drivingMins = driver.drivingMinutes;
+    } else if (Number.isFinite(driver.drivingMinutesToday)) {
+      drivingMins = driver.drivingMinutesToday;
+    } else if (Array.isArray(data?.trips)) {
+      const driverIdStr = String(driver._id || driver.id || "");
+      const vehicleIdStr = vehicle ? String(vehicle.id || vehicle._id || "") : null;
+      const driverTripsToday = data.trips.filter((t) => {
+        const tTime = t.startedAt ? new Date(t.startedAt).getTime() : 0;
+        if (tTime < todayStartTime) return false;
+        const tDriverId = String(t.driverId || t.driver?._id || t.driver || "");
+        const tVehicleId = String(t.vehicleId || t.vehicle?._id || t.vehicle || "");
+        return (tDriverId && tDriverId === driverIdStr) || (vehicleIdStr && tVehicleId === vehicleIdStr);
+      });
+      if (driverTripsToday.length > 0) {
+        drivingMins = driverTripsToday.reduce(
+          (sum, t) => sum + (Number(t.durationMinutes) || Math.round((Number(t.distanceKm) || 0) * 1.5)),
+          0
+        );
+      }
+    }
+
+    let drivingTime = "0h 0m";
+    if (drivingMins !== null && drivingMins > 0) {
+      drivingTime = `${Math.floor(drivingMins / 60)}h ${drivingMins % 60}m`;
+    } else if (vehicle?.status === "moving") {
+      drivingTime = "Driving now";
+    }
+
+    // Dynamic driver score / safety evaluation
+    const rawScore = driver.safetyScore ?? driver.score ?? driver.dnaScore;
+    const hasScore = Number.isFinite(rawScore);
+    const score = hasScore ? Math.round(rawScore) : null;
+    const scoreLabel = hasScore
+      ? `${score}/100 Score`
+      : driver.licenseNumber
+      ? `DL: ${driver.licenseNumber}`
+      : driver.assignment
+      ? "Assigned"
+      : "Profile Active";
 
     return {
       ...driver,
@@ -105,8 +147,10 @@ export function DriverRoster({ navigation }) {
       statusLabel,
       statusColor,
       statusBg,
-      drivingTime: `${mockHours}h ${mockMins}m`,
+      drivingTime,
+      hasScore,
       score,
+      scoreLabel,
     };
   });
 
@@ -313,15 +357,23 @@ export function DriverRoster({ navigation }) {
                       flexDirection: "row",
                       alignItems: "center",
                       gap: 4,
-                      backgroundColor: colors.validBg,
+                      backgroundColor: driver.hasScore ? colors.validBg : colors.background,
                       paddingHorizontal: 8,
                       paddingVertical: 3,
                       borderRadius: 6,
                     }}
                   >
-                    <Ionicons name="shield-checkmark" size={12} color={colors.success} />
-                    <AppText variant="caption" weight="bold" color={colors.success}>
-                      {driver.score}/100 Score
+                    <Ionicons
+                      name={driver.hasScore ? "shield-checkmark" : "ribbon-outline"}
+                      size={12}
+                      color={driver.hasScore ? colors.success : colors.textMuted}
+                    />
+                    <AppText
+                      variant="caption"
+                      weight="bold"
+                      color={driver.hasScore ? colors.success : colors.textMuted}
+                    >
+                      {driver.scoreLabel}
                     </AppText>
                   </View>
                 </View>
