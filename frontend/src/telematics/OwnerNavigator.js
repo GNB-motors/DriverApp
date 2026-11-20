@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { TelematicsApiProvider } from './context/TelematicsApiContext';
 import { ManagerDataProvider, useManagerData } from './context/ManagerDataContext';
 import * as Screens from './screens/ManagerScreens';
+import { ManagerReviews } from './experience/ManagerActions';
 import * as Owner from './screens/OwnerScreens';
 import FleetMapScreen from './screens/FleetMapScreen';
 const Tab = createBottomTabNavigator(); const Stack = createNativeStackNavigator();
@@ -40,6 +41,7 @@ export default function OwnerNavigator() {
   const identity = `${user._id}:${orgId}:owner`;
   return <TelematicsApiProvider key={identity} identity={identity} audience="owner"><ManagerDataProvider audience="owner"><Stack.Navigator initialRouteName="Owner tabs" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
     {Object.entries(reviewExperienceRoutes).map(([name, component]) => <Stack.Screen key={name} name={name} component={component} />)}
+    <Stack.Screen name="Manager approvals" component={ManagerReviews} />
     <Stack.Screen name="Crew & driving" component={FleetCrewScreen} />
     <Stack.Screen name="Owner tabs" component={OwnerTabs} />
     <Stack.Screen name="Fleet" component={Screens.Fleet} />

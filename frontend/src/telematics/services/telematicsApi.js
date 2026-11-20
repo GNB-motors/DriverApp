@@ -757,6 +757,100 @@ export function createTelematicsApi({
       return (await client.request({ url: `/access-control/${path}`, method, data: body, headers: headersFor(branchId) })).data.data;
     },
     async createSavedLocation(body) { return (await post('/locations', body)).data; },
+    // Approvals: WhatsApp
+    async whatsappDrafts(params = {}, branchId) {
+      return (await get('/whatsapp/admin/drafts', { params: { status: 'READY', limit: 50, ...params }, headers: headersFor(branchId) })).data;
+    },
+    async whatsappDraftCounts(branchId) {
+      return (await get('/whatsapp/admin/drafts/counts', { headers: headersFor(branchId) })).data;
+    },
+    async whatsappPublishDraft(id, payload = {}, branchId) {
+      return (await client.post(`/whatsapp/admin/drafts/${encodeURIComponent(id)}/publish`, payload, { headers: headersFor(branchId) })).data.data;
+    },
+    async whatsappRejectDraft(id, reason, branchId) {
+      return (await client.post(`/whatsapp/admin/drafts/${encodeURIComponent(id)}/reject`, { reason }, { headers: headersFor(branchId) })).data.data;
+    },
+    async whatsappBulkPublish(ids, branchId) {
+      return (await client.post('/whatsapp/admin/drafts/bulk-publish', { ids }, { headers: headersFor(branchId) })).data.data;
+    },
+
+    // Approvals: Owner & Manager (Office bills)
+    async officeBillCaptures(params = {}, branchId) {
+      return (await get('/fleet-view/bills', { params: { status: 'pending', uploaderRole: 'OWNER,MANAGER', source: 'office', limit: 50, ...params }, headers: headersFor(branchId) })).data;
+    },
+    async officeBillConfirm(links, branchId) {
+      return (await client.post('/fleet-view/bills/confirmations', { links }, { headers: headersFor(branchId) })).data.data;
+    },
+    async officeBillSuggestion(captureId, branchId) {
+      return (await get(`/fleet-view/bills/${encodeURIComponent(captureId)}/suggestion`, { headers: headersFor(branchId) })).data;
+    },
+
+    // Approvals: Field Agent
+    async fieldAgentApprovals(params = {}, branchId) {
+      return (await get('/field-agent/fuel-logs/approvals', { params: { status: 'PENDING', limit: 50, ...params }, headers: headersFor(branchId) }));
+    },
+    async fieldAgentApprovalCounts(branchId) {
+      return (await get('/field-agent/fuel-logs/approvals/counts', { headers: headersFor(branchId) })).data;
+    },
+    async fieldAgentApprove(ids, branchId) {
+      return (await client.post('/field-agent/fuel-logs/approvals/approve', { ids }, { headers: headersFor(branchId) })).data.data;
+    },
+    async fieldAgentReject(ids, reason, branchId) {
+      return (await client.post('/field-agent/fuel-logs/approvals/reject', { ids, ...(reason && { reason }) }, { headers: headersFor(branchId) })).data.data;
+    },
+
+    // Approvals: Trip Approvals
+    async tripApprovals(params = {}, branchId) {
+      return (await get('/movement-approvals', { params: { limit: 50, ...params }, headers: headersFor(branchId) })).data;
+    },
+    async tripApprovalRevoke(id, branchId) {
+      return (await client.delete(`/movement-approvals/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data.data;
+    },
+
+    // Upload: Fuel Bill from photo (single confirmed)
+    async uploadBillPhoto(asset, { vehicleId, fuelType = 'DIESEL', fillingType = 'FULL_TANK' } = {}, branchId) {
+      const body = new FormData();
+      if (typeof document !== 'undefined') {
+        body.append('fuelPhoto', asset.file || await (await fetch(asset.uri)).blob(), asset.name || 'fuel-bill.jpg');
+      } else {
+        body.append('fuelPhoto', { uri: asset.uri, name: asset.name || asset.fileName || 'fuel-bill.jpg', type: asset.mimeType || asset.type || 'image/jpeg' });
+      }
+      body.append('vehicleId', vehicleId);
+      body.append('fuelType', fuelType);
+      body.append('fillingType', fillingType);
+      return (await client.post('/mileage/fuel-log/from-photo', body, { headers: { 'Content-Type': 'multipart/form-data', ...headersFor(branchId) }, timeout: 120000 })).data.data;
+    },
+
+    // Upload: Fuel Bill capture (queue / multiple)
+    async uploadBillCapture(asset, clientId, { truck, kind = 'DIESEL' } = {}, branchId) {
+      const body = new FormData();
+      if (typeof document !== 'undefined') {
+        body.append('file', asset.file || await (await fetch(asset.uri)).blob(), asset.name || 'bill.jpg');
+      } else {
+        body.append('file', { uri: asset.uri, name: asset.name || asset.fileName || 'bill.jpg', type: asset.mimeType || asset.type || 'image/jpeg' });
+      }
+      body.append('source', 'office');
+      if (kind) body.append('kind', kind);
+      if (truck) body.append('truck', truck);
+      return (await client.post('/fleet-view/bills/captures', body, { headers: { 'Content-Type': 'multipart/form-data', ...idempotent(clientId), ...headersFor(branchId) }, timeout: 120000 })).data.data;
+    },
+
+    // Upload: WhatsApp chat export (.zip)
+    async uploadWhatsappExport(asset, onUploadProgress) {
+      const body = new FormData();
+      if (typeof document !== 'undefined') {
+        body.append('file', asset.file || await (await fetch(asset.uri)).blob(), asset.name || 'chat-export.zip');
+      } else {
+        body.append('file', { uri: asset.uri, name: asset.name || asset.fileName || 'chat-export.zip', type: asset.mimeType || 'application/zip' });
+      }
+      return (await client.post('/photo-imports/whatsapp-export', body, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000, onUploadProgress })).data.data;
+    },
+    async getChatExportJob(jobId) {
+      return (await get(`/photo-imports/chat-export/jobs/${encodeURIComponent(jobId)}`)).data;
+    },
+    async getActiveChatExportJob() {
+      return (await get('/photo-imports/chat-export/jobs/active')).data;
+    },
     async fuelVehicles() {
       if (user.role === "DRIVER") {
         const linked = (await get("/driver/me/vehicle")).data;

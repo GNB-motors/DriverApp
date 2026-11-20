@@ -24,6 +24,7 @@ import { DriverDetail, ManagerLive } from '../screens/ManagerScreens';
 import FleetMap from '../components/FleetMap';
 import { ActionButton, ExperiencePage, UnavailableScreen, useExperienceCopy } from './ExperienceUI';
 import { GNB_LOGO_URI } from './gnbLogoUri';
+import ApprovalsScreen from '../screens/ApprovalsScreen';
 
 function useCards() {
   const { service, branchId, lastPush } = useManagerData();
@@ -1554,14 +1555,7 @@ export const ManagerLiveSurface = ManagerLive;
 export const DriverTimeline = UnavailableScreen;
 export const DriverHelpfulCards = UnavailableScreen;
 export function ManagerReviews({ navigation }) {
-  const c = useExperienceCopy();
-  return (
-    <ExperiencePage title={c('approvals')} navigation={navigation}>
-      <ActionButton label={c('addFuel')} onPress={() => navigation.navigate('Fuel review')} />
-      <ActionButton label={c('reviewPapers')} tone="secondary" onPress={() => navigation.navigate('Fleet documents')} />
-      <ActionButton label={c('workshopBill')} tone="secondary" onPress={() => navigation.navigate('Maintenance')} />
-    </ExperiencePage>
-  );
+  return <ApprovalsScreen navigation={navigation} />;
 }
 export function ManagerDriverDetail(props) {
   return (
