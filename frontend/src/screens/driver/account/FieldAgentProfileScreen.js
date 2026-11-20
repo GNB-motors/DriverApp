@@ -1,21 +1,39 @@
-import React from 'react';
-import { View, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, ScrollView, Pressable, StyleSheet, Alert, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/AuthContext';
-import { AppText, Card, ListRow, colors, spacing, radius } from '../../../components/ui';
+import { useLanguage } from '../../../context/LanguageContext';
+import {
+  AppText,
+  Card,
+  Button,
+  ListRow,
+  BottomSheet,
+  colors,
+  spacing,
+  radius,
+} from '../../../components/ui';
 
 export default function FieldAgentProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { logout, user, organization } = useAuth();
+  const { language, t } = useLanguage();
+  const c = (key, fallback) => t('fieldAgent', key) || fallback;
+
+  const [showHelpSheet, setShowHelpSheet] = useState(false);
 
   const confirmLogout = () =>
-    Alert.alert('Log out?', 'You will need to sign in again.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Log out', style: 'destructive', onPress: logout },
-    ]);
+    Alert.alert(
+      c('logoutConfirm', 'Log out?'),
+      c('logoutMessage', 'You will need to sign in again.'),
+      [
+        { text: c('cancel', 'Cancel'), style: 'cancel' },
+        { text: c('logout', 'Log out'), style: 'destructive', onPress: logout },
+      ]
+    );
 
   const fullName =
     [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
@@ -23,30 +41,55 @@ export default function FieldAgentProfileScreen({ navigation }) {
     '';
   const agent = {
     name: fullName || '—',
-    phone: user?.mobileNumber || '—',
-    role: 'Field Agent',
-    initials: (fullName.trim()[0] || '?').toUpperCase(),
-    company: organization?.companyName || organization?.name || 'No org selected',
+    phone: user?.mobileNumber || user?.phone || '—',
+    role: c('role', 'Field Agent'),
+    initials: (fullName.trim()[0] || 'A').toUpperCase(),
+    company: organization?.companyName || organization?.name || c('noOrgSelected', 'No org selected'),
   };
+
+  const languageDisplayName =
+    language === 'hi' ? 'हिन्दी' : language === 'bn' ? 'বাংলা' : 'English';
 
   const settingsRows = [
     {
       icon: 'language-outline',
-      title: 'Language',
-      right: <AppText variant="body" muted>English</AppText>,
+      title: c('language', 'Language'),
+      right: <AppText variant="body" weight="medium" color={colors.primary}>{languageDisplayName}</AppText>,
       onPress: () => navigation.navigate('LanguageScreen'),
     },
     {
       icon: 'notifications-outline',
-      title: 'Notifications',
+      title: c('notifications', 'Notifications'),
       onPress: () => navigation.navigate('Alerts'),
     },
     {
       icon: 'help-circle-outline',
-      title: 'Help & support',
-      onPress: () => {},
+      title: c('helpSupport', 'Help & support'),
+      onPress: () => setShowHelpSheet(true),
     },
   ];
+
+  const handleCall = () => {
+    Linking.openURL('tel:18008890120').catch(() => {
+      Alert.alert('Phone dialer unavailable', 'Call Highway Sahayak Support at 1800-889-0120.');
+    });
+  };
+
+  const handleWhatsApp = () => {
+    const text = encodeURIComponent(
+      `Hello Highway Sahayak Support, I am Field Agent ${fullName} (${user?.mobileNumber || ''}) needing assistance.`
+    );
+    Linking.openURL(`https://wa.me/918000000000?text=${text}`).catch(() => {
+      Alert.alert('WhatsApp unavailable', 'Please contact support via phone or email.');
+    });
+  };
+
+  const handleEmail = () => {
+    const subject = encodeURIComponent(`Field Agent Support - ${fullName}`);
+    Linking.openURL(`mailto:support@gnbedge.in?subject=${subject}`).catch(() => {
+      Alert.alert('Email client unavailable', 'Please email support@gnbedge.in');
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -69,7 +112,9 @@ export default function FieldAgentProfileScreen({ navigation }) {
             </View>
           </View>
           <View style={{ flex: 1 }}>
-            <AppText variant="h3" weight="extrabold" color={colors.white}>{agent.name}</AppText>
+            <AppText variant="h3" weight="extrabold" color={colors.white}>
+              {agent.name}
+            </AppText>
             <AppText variant="small" color={colors.onPrimaryMuted}>
               {agent.phone} · {agent.role}
             </AppText>
@@ -81,7 +126,7 @@ export default function FieldAgentProfileScreen({ navigation }) {
       </LinearGradient>
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 90 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Settings group */}
@@ -101,21 +146,120 @@ export default function FieldAgentProfileScreen({ navigation }) {
           ))}
         </Card>
 
-        {/* Log out */}
+        {/* Log out button */}
         <Pressable
           style={styles.logout}
           onPress={confirmLogout}
           accessibilityRole="button"
-          accessibilityLabel="Log out"
+          accessibilityLabel={c('logout', 'Log out')}
         >
           <Ionicons name="log-out-outline" size={19} color={colors.error} />
-          <AppText variant="bodyStrong" weight="bold" color={colors.error}>Log out</AppText>
+          <AppText variant="bodyStrong" weight="bold" color={colors.error}>
+            {c('logout', 'Log out')}
+          </AppText>
         </Pressable>
 
         <AppText variant="caption" muted style={styles.version}>
-          Sahayak · Highway Sahayak Drive
+          Sahayak · Highway Sahayak Drive v1.0.1
         </AppText>
       </ScrollView>
+
+      {/* Help & Support BottomSheet */}
+      <BottomSheet visible={showHelpSheet} onClose={() => setShowHelpSheet(false)}>
+        <View style={styles.sheetContent}>
+          <View style={styles.sheetHeader}>
+            <View style={styles.helpIconBadge}>
+              <Ionicons name="headset" size={24} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <AppText variant="h3" weight="extrabold">
+                {c('helpSupport', 'Help & Support')}
+              </AppText>
+              <AppText variant="small" muted>
+                {c('supportHelpline', '24/7 Fleet & Field Operations Desk')}
+              </AppText>
+            </View>
+          </View>
+
+          {/* Contact options */}
+          <View style={styles.actionList}>
+            <Pressable onPress={handleCall} style={styles.contactBtn}>
+              <View style={[styles.contactIconBg, { backgroundColor: '#ECFDF5' }]}>
+                <Ionicons name="call" size={20} color="#059669" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AppText variant="bodyStrong" weight="bold">
+                  {c('callSupport', 'Call Support (24/7)')}
+                </AppText>
+                <AppText variant="caption" muted>
+                  1800-889-0120 · Toll-free
+                </AppText>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+
+            <Pressable onPress={handleWhatsApp} style={styles.contactBtn}>
+              <View style={[styles.contactIconBg, { backgroundColor: '#F0FDF4' }]}>
+                <Ionicons name="logo-whatsapp" size={20} color="#16A34A" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AppText variant="bodyStrong" weight="bold">
+                  {c('chatWhatsapp', 'WhatsApp Support')}
+                </AppText>
+                <AppText variant="caption" muted>
+                  Quick chat with operations executive
+                </AppText>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+
+            <Pressable onPress={handleEmail} style={styles.contactBtn}>
+              <View style={[styles.contactIconBg, { backgroundColor: '#EFF6FF' }]}>
+                <Ionicons name="mail" size={20} color="#2563EB" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AppText variant="bodyStrong" weight="bold">
+                  {c('emailSupport', 'Email Support')}
+                </AppText>
+                <AppText variant="caption" muted>
+                  support@gnbedge.in
+                </AppText>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
+
+          {/* Quick Guide */}
+          <Card style={styles.guideCard}>
+            <AppText variant="bodyStrong" weight="bold" color={colors.text}>
+              {c('quickGuide', 'Field Agent Quick Guide')}
+            </AppText>
+            <View style={styles.guideStep}>
+              <View style={styles.stepNum}><AppText variant="caption" weight="bold" color={colors.primary}>1</AppText></View>
+              <AppText variant="small" muted style={{ flex: 1 }}>{c('guideStep1', 'Select organisation context before refueling.')}</AppText>
+            </View>
+            <View style={styles.guideStep}>
+              <View style={styles.stepNum}><AppText variant="caption" weight="bold" color={colors.primary}>2</AppText></View>
+              <AppText variant="small" muted style={{ flex: 1 }}>{c('guideStep2', 'Capture a clear, well-lit photo of the fuel receipt.')}</AppText>
+            </View>
+            <View style={styles.guideStep}>
+              <View style={styles.stepNum}><AppText variant="caption" weight="bold" color={colors.primary}>3</AppText></View>
+              <AppText variant="small" muted style={{ flex: 1 }}>{c('guideStep3', 'Verify vehicle number and pump meter reading.')}</AppText>
+            </View>
+            <View style={styles.guideStep}>
+              <View style={styles.stepNum}><AppText variant="caption" weight="bold" color={colors.primary}>4</AppText></View>
+              <AppText variant="small" muted style={{ flex: 1 }}>{c('guideStep4', 'Full-tank entries require odometer photo.')}</AppText>
+            </View>
+          </Card>
+
+          <Button
+            size="md"
+            variant="secondary"
+            label="Close"
+            onPress={() => setShowHelpSheet(false)}
+          />
+        </View>
+      </BottomSheet>
     </View>
   );
 }
@@ -150,7 +294,7 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontSize: 20 },
 
-  scroll: { paddingHorizontal: 22, paddingTop: 16, gap: 14 },
+  scroll: { paddingHorizontal: 20, paddingTop: 16, gap: 14 },
 
   group: { overflow: 'hidden', padding: 0 },
   rowFlat: { borderWidth: 0, borderRadius: 0, backgroundColor: 'transparent' },
@@ -164,9 +308,67 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: radius.md,
     borderWidth: 1.5,
-    borderColor: colors.expiredBg,
+    borderColor: '#FECACA',
     backgroundColor: colors.surface,
   },
 
   version: { textAlign: 'center', marginTop: 4 },
+
+  sheetContent: {
+    gap: 16,
+    paddingBottom: 10,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  helpIconBadge: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: colors.infoBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionList: {
+    gap: 10,
+  },
+  contactBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  contactIconBg: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guideCard: {
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+  },
+  guideStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  stepNum: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.infoBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
