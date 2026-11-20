@@ -1,9 +1,10 @@
 // A missing/malformed response is an error, never an empty success or sample list.
 export function managerCardsFromResponse(payload) {
-  if (!Array.isArray(payload?.cards) || payload.cards.some(card => !card || typeof card.id !== 'string')) {
+  const cards = payload?.cards || payload?.data?.cards || (Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : null);
+  if (!Array.isArray(cards) || cards.some(card => !card || typeof (card.id || card._id) !== 'string')) {
     throw new Error('Action cards are unavailable. Please retry.');
   }
-  return payload.cards;
+  return cards.map(c => ({ ...c, id: c.id || c._id }));
 }
 
 export function vehicleOptionsFromResponse(payload) {
