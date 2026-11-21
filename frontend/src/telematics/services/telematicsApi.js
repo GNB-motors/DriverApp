@@ -749,10 +749,45 @@ export function createTelematicsApi({
     async voicePhrases() { return (await get('/app/v2/voice/phrases')).data; },
     async teamCreateEmployee(body, branchId) { return (await client.post('/employees', body, { headers: headersFor(branchId) })).data.data; },
     async teamUpdateEmployee(id, body, branchId) { return (await client.patch(`/employees/${encodeURIComponent(id)}`, body, { headers: headersFor(branchId) })).data.data; },
-    async teamRoles(branchId) { return (await get('/access-control/roles', { headers: headersFor(branchId) })).data; },
-    async teamEmployees(branchId) { return mapList('/employees', normalize, branchId); },
-    async teamAssignments(userId) { return (await get('/access-control/assignments', { params: { userId } })).data; },
-    async teamBranchRoles(branchId) { return (await get(`/access-control/branches/${encodeURIComponent(branchId)}/roles`)).data; },
+    async teamRoles(branchId) {
+      try {
+        return (await get('/access-control/roles', { headers: headersFor(branchId) })).data;
+      } catch {
+        try {
+          return (await get('/access-control/roles')).data;
+        } catch {
+          return { roles: [], catalog: [] };
+        }
+      }
+    },
+    async teamEmployees(branchId) {
+      try {
+        return await mapList('/employees', normalize, branchId);
+      } catch {
+        try {
+          const res = await get('/employees', { params: { limit: 100 }, headers: headersFor(branchId) });
+          const items = res?.data || res?.items || (Array.isArray(res) ? res : []);
+          return Array.isArray(items) ? items.map(normalize) : [];
+        } catch {
+          return [];
+        }
+      }
+    },
+    async teamAssignments(userId) {
+      try {
+        return (await get('/access-control/assignments', { params: { userId } })).data;
+      } catch {
+        return [];
+      }
+    },
+    async teamBranchRoles(branchId) {
+      if (!branchId || branchId === 'all') return [];
+      try {
+        return (await get(`/access-control/branches/${encodeURIComponent(branchId)}/roles`)).data;
+      } catch {
+        return [];
+      }
+    },
     async teamWrite(path, method, body, branchId) {
       return (await client.request({ url: `/access-control/${path}`, method, data: body, headers: headersFor(branchId) })).data.data;
     },
