@@ -19,6 +19,7 @@ import { TelematicsApiProvider } from './context/TelematicsApiContext';
 import { ManagerDataProvider, useManagerData } from './context/ManagerDataContext';
 import * as Screens from './screens/ManagerScreens';
 import FleetMapScreen from './screens/FleetMapScreen';
+import ChooseLanguageScreen from '../screens/driver/account/ChooseLanguageScreen';
 const Tab = createBottomTabNavigator(); const Stack = createNativeStackNavigator();
 const icons = { Home: 'home-outline', Live: 'map-outline', Drivers: 'people-outline', Alerts: 'notifications-outline', More: 'grid-outline' };
 function ManagerTabs() {
@@ -67,6 +68,7 @@ export default function ManagerNavigator() {
     <Stack.Screen name="Manager trip" component={HistoricalTripScreen} />
     <Stack.Screen name="AdBlue / DEF" component={DefLedgerScreen} />
     <Stack.Screen name="Team & access" component={TeamAccessScreen} />
+    <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} options={{ presentation: 'transparentModal', animation: 'fade' }} />
     <Stack.Screen name="Manager settings" component={Screens.Settings} />
     <Stack.Screen name="SOS centre" component={UnavailableScreen} />
     <Stack.Screen name="SOS detail" component={UnavailableScreen} />

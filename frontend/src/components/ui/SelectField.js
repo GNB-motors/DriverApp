@@ -7,7 +7,7 @@ import BottomSheet from './BottomSheet';
 import TextField from './TextField';
 
 // Keep Picker's value and callback contract so existing forms retain their behavior.
-export default function SelectField({ children, selectedValue, onValueChange, enabled = true, accessibilityLabel = 'Select an option', style }) {
+export default function SelectField({ children, selectedValue, onValueChange, enabled = true, accessibilityLabel = 'Select an option', style, icon, triggerStyle, valueStyle, chevronColor }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const options = Children.toArray(children).filter(isValidElement).map((child, index) => ({
@@ -34,10 +34,15 @@ export default function SelectField({ children, selectedValue, onValueChange, en
         accessibilityState={{ disabled: !enabled, expanded: open }}
         disabled={!enabled}
         onPress={() => { Keyboard.dismiss(); setQuery(''); setOpen(true); }}
-        style={[styles.field, open && styles.fieldOpen, !enabled && styles.disabled]}
+        style={[styles.field, triggerStyle, open && styles.fieldOpen, !enabled && styles.disabled]}
       >
-        <AppText variant="small" weight="medium" muted={!selected} style={[styles.value, styles.valueText]}>{selected?.label || 'Choose an option'}</AppText>
-        <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
+        {icon ? (
+          <View style={styles.iconAvatar}>
+            {icon}
+          </View>
+        ) : null}
+        <AppText variant="small" weight="medium" muted={!selected} style={[styles.value, styles.valueText, valueStyle]}>{selected?.label || 'Choose an option'}</AppText>
+        <Ionicons name="chevron-down" size={18} color={chevronColor || (icon ? '#0F172A' : colors.textMuted)} />
       </Pressable>
       <BottomSheet visible={open && enabled} onClose={close} avoidKeyboard style={styles.sheet}>
         <View style={styles.heading}>
@@ -84,6 +89,7 @@ SelectField.Item = SelectOption;
 
 const styles = StyleSheet.create({
   field: { minHeight: 52, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
+  iconAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EBF3FF', justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
   fieldOpen: { borderColor: colors.primary },
   value: { flex: 1, minWidth: 0 },
   valueText: { fontSize: 15, lineHeight: 22 },

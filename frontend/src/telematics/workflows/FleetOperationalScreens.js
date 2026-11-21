@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Picker from "../../components/ui/SelectField";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -20,6 +21,8 @@ export function DriverRoster({ navigation }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -38,6 +41,20 @@ export function DriverRoster({ navigation }) {
       };
     }, [service, branchId, page, revision]),
   );
+
+  const items = result?.items || [];
+  const filtered = search.trim()
+    ? items.filter((driver) => {
+        const name = [driver.firstName, driver.lastName]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        const phone = (driver.mobileNumber || "").toLowerCase();
+        const q = search.trim().toLowerCase();
+        return name.includes(q) || phone.includes(q);
+      })
+    : items;
+
   return (
     <ManagerPage
       allowEmpty
@@ -56,25 +73,142 @@ export function DriverRoster({ navigation }) {
       {!result && !error && <AppText muted>Loading drivers…</AppText>}
       {result && (
         <>
-          <AppText muted>{result.total} drivers · Current assignments</AppText>
-          {result.items.map((driver) => (
-            <MenuRow
-              key={driver._id}
-              title={
-                [driver.firstName, driver.lastName].filter(Boolean).join(" ") ||
-                driver.mobileNumber ||
-                "Driver"
-              }
-              detail={
-                driver.assignment
-                  ? `Truck linked · ${driver.assignment.source}`
-                  : "No active assignment"
-              }
-              onPress={() =>
-                navigation.navigate("Truck handover", { driverId: driver._id })
-              }
-            />
-          ))}
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 16,
+              paddingHorizontal: 2,
+            }}
+          >
+            <AppText>
+              <AppText weight="bold" variant="body">
+                {result.total} drivers
+              </AppText>
+              <AppText muted> · Current assignments</AppText>
+            </AppText>
+            <Pressable
+              onPress={() => setSearchOpen((prev) => !prev)}
+              accessibilityRole="button"
+              accessibilityLabel="Search drivers"
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: searchOpen
+                  ? colors.primarySoft || "#EFF6FF"
+                  : "#F0F4F8",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons
+                name="search"
+                size={19}
+                color={
+                  searchOpen
+                    ? colors.primaryDeep || "#2563EB"
+                    : colors.primary || "#2563EB"
+                }
+              />
+            </Pressable>
+          </View>
+          {searchOpen && (
+            <View style={{ marginBottom: 14 }}>
+              <TextField
+                placeholder="Search by driver name or number…"
+                value={search}
+                onChangeText={setSearch}
+              />
+            </View>
+          )}
+          {filtered.map((driver) => {
+            const name =
+              [driver.firstName, driver.lastName].filter(Boolean).join(" ") ||
+              driver.mobileNumber ||
+              "Driver";
+            const isAssigned = !!driver.assignment;
+            const detailText = isAssigned
+              ? `Truck linked · ${driver.assignment.source || "MANUAL"}`
+              : "No active assignment";
+
+            return (
+              <Card
+                key={driver._id}
+                onPress={() =>
+                  navigation.navigate("Truck handover", {
+                    driverId: driver._id,
+                  })
+                }
+                accessibilityRole="button"
+                accessibilityLabel={name}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: "#EAEFF5",
+                  backgroundColor: colors.white || "#FFFFFF",
+                  marginBottom: 10,
+                }}
+              >
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    backgroundColor: "#EBF3FF",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    marginRight: 14,
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name="truck"
+                    size={22}
+                    color="#2563EB"
+                  />
+                </View>
+                <View style={{ flex: 1, justifyContent: "center" }}>
+                  <AppText
+                    weight="bold"
+                    variant="body"
+                    color={colors.text || "#111827"}
+                  >
+                    {name}
+                  </AppText>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginTop: 4,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: 3.5,
+                        backgroundColor: isAssigned ? "#10B981" : "#9CA3AF",
+                        marginRight: 6,
+                      }}
+                    />
+                    <AppText variant="small" muted>
+                      {detailText}
+                    </AppText>
+                  </View>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color="#9CA3AF"
+                />
+              </Card>
+            );
+          })}
           <Button
             label="Previous"
             disabled={page === 1}
@@ -236,16 +370,79 @@ export function Handover({ navigation, route }) {
         </>
       ) : (
         <>
-          <AppText muted>
-            This closes existing open assignments for the selected driver and
-            truck. Any previous driver of this truck will be unlinked.
-          </AppText>
-          <AppText variant="label">Driver</AppText>
+          <View
+            style={{
+              backgroundColor: "#EBF3FF",
+              borderRadius: 16,
+              padding: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 20,
+            }}
+          >
+            <Ionicons
+              name="information-circle"
+              size={26}
+              color="#2563EB"
+              style={{ marginRight: 12 }}
+            />
+            <AppText
+              style={{
+                flex: 1,
+                fontSize: 13,
+                lineHeight: 18,
+                color: "#1E293B",
+              }}
+            >
+              This closes existing open assignments for the selected driver and
+              truck. Any previous driver of this truck will be unlinked.
+            </AppText>
+          </View>
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 8,
+            }}
+          >
+            <Ionicons
+              name="person"
+              size={15}
+              color="#2563EB"
+              style={{ marginRight: 6 }}
+            />
+            <AppText
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                color: "#0F172A",
+                letterSpacing: 0.5,
+              }}
+            >
+              DRIVER
+            </AppText>
+          </View>
           <Picker
             accessibilityLabel="Driver"
             enabled={!frozen && !busy}
             selectedValue={driverId}
             onValueChange={setDriverId}
+            icon={<Ionicons name="person" size={22} color="#2563EB" />}
+            triggerStyle={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: "#E2E8F0",
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              marginBottom: 12,
+            }}
+            valueStyle={{
+              fontSize: 16,
+              fontWeight: "700",
+              color: "#0F172A",
+            }}
           >
             <Picker.Item value="" label="Choose driver" />
             {drivers.map((driver) => (
@@ -262,18 +459,91 @@ export function Handover({ navigation, route }) {
               />
             ))}
           </Picker>
-          {drivers.length < driverTotal && (
-            <Button
-              label="Load more drivers"
+          {(driverTotal == null || drivers.length < driverTotal) && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Load more drivers"
               onPress={() => setDriverPage((value) => value + 1)}
-            />
+              style={{
+                backgroundColor: "#2563EB",
+                borderRadius: 999,
+                paddingVertical: 14,
+                paddingHorizontal: 20,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 18,
+                position: "relative",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <MaterialCommunityIcons
+                  name="car"
+                  size={20}
+                  color="#FFFFFF"
+                  style={{ marginRight: 8 }}
+                />
+                <AppText
+                  style={{ color: "#FFFFFF", fontWeight: "600", fontSize: 15 }}
+                >
+                  Load more drivers
+                </AppText>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color="#FFFFFF"
+                style={{ position: "absolute", right: 20 }}
+              />
+            </Pressable>
           )}
-          <AppText variant="label">Truck</AppText>
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 8,
+            }}
+          >
+            <MaterialCommunityIcons
+              name="truck"
+              size={16}
+              color="#2563EB"
+              style={{ marginRight: 6 }}
+            />
+            <AppText
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                color: "#0F172A",
+                letterSpacing: 0.5,
+              }}
+            >
+              TRUCK
+            </AppText>
+          </View>
           <Picker
             accessibilityLabel="Truck"
             enabled={!frozen && !busy}
             selectedValue={vehicleId}
             onValueChange={setVehicleId}
+            icon={
+              <MaterialCommunityIcons name="truck" size={22} color="#2563EB" />
+            }
+            triggerStyle={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: "#E2E8F0",
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              marginBottom: 12,
+            }}
+            valueStyle={{
+              fontSize: 16,
+              fontWeight: "700",
+              color: "#0F172A",
+            }}
           >
             <Picker.Item value="" label="Choose truck" />
             {trucks.map((truck) => (
@@ -284,34 +554,185 @@ export function Handover({ navigation, route }) {
               />
             ))}
           </Picker>
-          {trucks.length < truckTotal && (
-            <Button
-              label="Load more trucks"
+          {(truckTotal == null || trucks.length < truckTotal) && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Load more trucks"
               onPress={() => setTruckPage((value) => value + 1)}
-            />
+              style={{
+                backgroundColor: "#2563EB",
+                borderRadius: 999,
+                paddingVertical: 14,
+                paddingHorizontal: 20,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 18,
+                position: "relative",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <MaterialCommunityIcons
+                  name="truck"
+                  size={20}
+                  color="#FFFFFF"
+                  style={{ marginRight: 8 }}
+                />
+                <AppText
+                  style={{ color: "#FFFFFF", fontWeight: "600", fontSize: 15 }}
+                >
+                  Load more trucks
+                </AppText>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color="#FFFFFF"
+                style={{ position: "absolute", right: 20 }}
+              />
+            </Pressable>
           )}
-          <TextField
-            label="Handover notes"
-            editable={!frozen && !busy}
-            value={notes}
-            onChangeText={setNotes}
-          />
-          <Button
-            label={
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 8,
+            }}
+          >
+            <Ionicons
+              name="pencil"
+              size={15}
+              color="#2563EB"
+              style={{ marginRight: 6 }}
+            />
+            <AppText
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                color: "#0F172A",
+                letterSpacing: 0.5,
+              }}
+            >
+              HANDOVER NOTES
+            </AppText>
+          </View>
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: "#E2E8F0",
+              padding: 14,
+              minHeight: 90,
+              marginBottom: 20,
+            }}
+          >
+            <TextInput
+              editable={!frozen && !busy}
+              value={notes}
+              onChangeText={(text) => {
+                if (text.length <= 200) setNotes(text);
+              }}
+              placeholder="Add any handover notes (optional)..."
+              placeholderTextColor="#94A3B8"
+              multiline
+              style={{
+                fontSize: 14,
+                color: "#0F172A",
+                minHeight: 50,
+                textAlignVertical: "top",
+              }}
+            />
+            <AppText
+              style={{
+                alignSelf: "flex-end",
+                fontSize: 12,
+                color: "#64748B",
+                marginTop: 6,
+              }}
+            >
+              {notes.length}/200
+            </AppText>
+          </View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
               confirmTakeover
                 ? "Handover confirmed"
                 : "Confirm ending previous assignments"
             }
-            variant="secondary"
             disabled={!!frozen || busy}
             onPress={() => setConfirm((old) => !old)}
-          />
-          <Button
-            label={frozen ? "Retry same handover" : "Save handover"}
-            disabled={!draftReady}
-            loading={busy}
+            style={{
+              backgroundColor: confirmTakeover ? "#1D4ED8" : "#2563EB",
+              borderRadius: 999,
+              paddingVertical: 15,
+              paddingHorizontal: 20,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 12,
+              opacity: !!frozen || busy ? 0.6 : 1,
+            }}
+          >
+            <Ionicons
+              name="checkmark"
+              size={20}
+              color="#FFFFFF"
+              style={{ marginRight: 8 }}
+            />
+            <AppText
+              style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}
+            >
+              {confirmTakeover
+                ? "Handover confirmed"
+                : "Confirm ending previous assignments"}
+            </AppText>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              frozen ? "Retry same handover" : "Save handover"
+            }
+            disabled={!draftReady || busy}
             onPress={submit}
-          />
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderWidth: 1.5,
+              borderColor: "#2563EB",
+              borderRadius: 999,
+              paddingVertical: 15,
+              paddingHorizontal: 20,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 20,
+              opacity: !draftReady || busy ? 0.6 : 1,
+            }}
+          >
+            {busy ? (
+              <ActivityIndicator
+                size="small"
+                color="#2563EB"
+                style={{ marginRight: 8 }}
+              />
+            ) : (
+              <MaterialCommunityIcons
+                name="content-save"
+                size={19}
+                color="#2563EB"
+                style={{ marginRight: 8 }}
+              />
+            )}
+            <AppText
+              style={{ color: "#2563EB", fontWeight: "700", fontSize: 15 }}
+            >
+              {frozen ? "Retry same handover" : "Save handover"}
+            </AppText>
+          </Pressable>
         </>
       )}
       {error && <AppText color={colors.error}>{error}</AppText>}
@@ -375,10 +796,43 @@ export function FleetRecords({ navigation, route }) {
         </Picker>
       )}
       {kind === "fuel" && (
-        <AppText muted>
-          These are saved fuel entries. App-entry approval and rejection are not
-          connected to a verified review workflow.
-        </AppText>
+        <View
+          style={{
+            backgroundColor: "#EBF3FF",
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: "#BFDBFE",
+            padding: 14,
+            flexDirection: "row",
+            alignItems: "center",
+            marginBottom: 14,
+          }}
+        >
+          <Ionicons
+            name="information-circle"
+            size={28}
+            color="#2563EB"
+          />
+          <View
+            style={{
+              width: 1,
+              height: 36,
+              backgroundColor: "#93C5FD",
+              marginHorizontal: 12,
+            }}
+          />
+          <AppText
+            style={{
+              flex: 1,
+              fontSize: 12.5,
+              lineHeight: 18,
+              color: "#1E293B",
+            }}
+          >
+            These are saved fuel entries. App-entry approval and rejection are
+            not connected to a verified review workflow.
+          </AppText>
+        </View>
       )}
       {error && (
         <>
@@ -392,42 +846,134 @@ export function FleetRecords({ navigation, route }) {
       {!result && !error && <AppText muted>Loading records…</AppText>}
       {result && (
         <>
-          <AppText muted>
-            {result.total} records · Page {page}
-          </AppText>
-          {result.items.map((row) => (
-            <MenuRow
-              key={row._id}
-              title={
-                kind === "documents"
-                  ? row.docType
-                  : kind === "issues"
-                    ? row.report?.note || row.type
-                    : kind === "fuel"
-                      ? row.location || "Fuel entry"
-                      : "Workshop bill"
-              }
-              detail={
-                row.scanStatus || row.status || row.reviewStatus || "Recorded"
-              }
-              onPress={() =>
-                navigation.navigate("Review detail", { kind, id: row._id })
-              }
-            />
-          ))}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 12,
+              paddingHorizontal: 2,
+            }}
+          >
+            <AppText
+              style={{ fontSize: 14, fontWeight: "700", color: "#1E293B" }}
+            >
+              {result.total} records
+            </AppText>
+            <AppText style={{ fontSize: 14, color: "#64748B" }}>
+              {" "}· Page {page}
+            </AppText>
+          </View>
+          {result.items.map((row, index) => {
+            const title =
+              kind === "documents"
+                ? row.docType
+                : kind === "issues"
+                  ? row.report?.note || row.type
+                  : kind === "fuel"
+                    ? row.location || "Fuel entry"
+                    : "Workshop bill";
+            const detail =
+              row.scanStatus || row.status || row.reviewStatus || "Recorded";
+            return (
+              <Pressable
+                key={row._id}
+                accessibilityRole="button"
+                accessibilityLabel={`${title}, ${detail}`}
+                onPress={() =>
+                  navigation.navigate("Review detail", { kind, id: row._id })
+                }
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: "#E2E8F0",
+                  borderLeftWidth: index === 0 ? 4 : 1,
+                  borderLeftColor: index === 0 ? "#2563EB" : "#E2E8F0",
+                  paddingVertical: 14,
+                  paddingHorizontal: 14,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginBottom: 12,
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.03,
+                  shadowRadius: 4,
+                  elevation: 1,
+                }}
+              >
+                <View
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 12,
+                    backgroundColor: "#EBF3FF",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 14,
+                  }}
+                >
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color="#2563EB"
+                  />
+                </View>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <AppText
+                    style={{
+                      fontSize: 14.5,
+                      fontWeight: "700",
+                      color: "#0F172A",
+                      lineHeight: 19,
+                    }}
+                  >
+                    {title}
+                  </AppText>
+                  <AppText
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "600",
+                      color: "#64748B",
+                      marginTop: 3,
+                    }}
+                  >
+                    {detail}
+                  </AppText>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color="#475569"
+                />
+              </Pressable>
+            );
+          })}
           {!result.items.length && (
             <AppText muted>No records in this view.</AppText>
           )}
-          <Button
-            label="Previous"
-            disabled={page === 1}
-            onPress={() => setPage((value) => value - 1)}
-          />
-          <Button
-            label="Next"
-            disabled={page * 30 >= result.total}
-            onPress={() => setPage((value) => value + 1)}
-          />
+          <View
+            style={{
+              flexDirection: "row",
+              gap: 12,
+              marginTop: 12,
+              marginBottom: 20,
+            }}
+          >
+            <Button
+              label="Previous"
+              variant="secondary"
+              disabled={page === 1}
+              onPress={() => setPage((value) => value - 1)}
+              style={{ flex: 1 }}
+            />
+            <Button
+              label="Next"
+              variant="secondary"
+              disabled={page * 30 >= result.total}
+              onPress={() => setPage((value) => value + 1)}
+              style={{ flex: 1 }}
+            />
+          </View>
         </>
       )}
     </ManagerPage>
