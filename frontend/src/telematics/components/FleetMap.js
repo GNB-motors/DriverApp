@@ -132,14 +132,16 @@ export default function FleetMap({
     );
   };
 
-  if (!allCoords.length && !activePosition)
-    return (
-      <Card style={style}>
-        <AppText muted>
-          No reported coordinates are available in this view.
-        </AppText>
-      </Card>
-    );
+  const defaultCenter = {
+    latitude:
+      allCoords[0]?.latitude ||
+      (activePosition ? activePosition.latitude : 20.5937),
+    longitude:
+      allCoords[0]?.longitude ||
+      (activePosition ? activePosition.longitude : 78.9629),
+    latitudeDelta: allCoords.length ? 0.1 : 12,
+    longitudeDelta: allCoords.length ? 0.1 : 12,
+  };
 
   return (
     <View style={[styles.frame, style]}>
@@ -147,12 +149,7 @@ export default function FleetMap({
         ref={map}
         style={[styles.map, mapStyle]}
         onMapReady={fit}
-        initialRegion={{
-          latitude: allCoords[0]?.latitude || (activePosition ? activePosition.latitude : 20.5937),
-          longitude: allCoords[0]?.longitude || (activePosition ? activePosition.longitude : 78.9629),
-          latitudeDelta: 0.1,
-          longitudeDelta: 0.1,
-        }}
+        initialRegion={defaultCenter}
         onRegionChangeComplete={(next) => setRegion(next)}
       >
         {clusteredItems.map((item) => {

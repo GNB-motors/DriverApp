@@ -574,51 +574,75 @@ export default function RouteReplayScreen({ navigation, route }) {
       </View>
 
       {/* ============================================================== */}
-      {/* 3. LOADING / ERROR / EMPTY OVERLAYS                             */}
+      {/* 3. FLOATING STATUS / EMPTY / ERROR BANNERS                     */}
       {/* ============================================================== */}
-      {trailState.loading ? (
-        <View style={styles.centerOverlay} pointerEvents="none">
-          <View style={styles.hudLoadingCard}>
+      {trailState.loading && (
+        <View style={styles.topLoadingPillWrapper} pointerEvents="none">
+          <View style={styles.topLoadingPill}>
             <ActivityIndicator size="small" color={colors.primary} />
-            <AppText variant="small" weight="bold" style={{ marginLeft: 8 }}>
-              Loading vehicle track & replay…
+            <AppText variant="caption" weight="bold" color={colors.primaryDeep}>
+              Loading recorded GPS route track…
             </AppText>
           </View>
         </View>
-      ) : trailState.error ? (
-        <View style={styles.centerOverlay}>
-          <Card style={styles.centerCard}>
-            <Ionicons name="alert-circle" size={32} color={colors.error} />
-            <AppText weight="bold" color={colors.error}>
-              Could not load route
-            </AppText>
-            <AppText variant="caption" muted style={{ textAlign: "center" }}>
-              {trailState.error}
-            </AppText>
+      )}
+
+      {trailState.error && (
+        <View
+          style={[
+            styles.floatingBottom,
+            { paddingBottom: Math.max(insets.bottom, 10) },
+          ]}
+        >
+          <Card style={styles.timelineFloatingCard}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Ionicons name="alert-circle" size={24} color={colors.error} />
+              <View style={{ flex: 1 }}>
+                <AppText weight="bold" color={colors.error}>
+                  Could not load route
+                </AppText>
+                <AppText variant="caption" muted>
+                  {trailState.error}
+                </AppText>
+              </View>
+            </View>
             <Button
-              label="Retry"
+              label="Retry Loading Trail"
               icon="reload"
               onPress={() => setReloadTrigger((n) => n + 1)}
+              style={{ marginTop: 6 }}
             />
           </Card>
         </View>
-      ) : trailState.fixes.length === 0 ? (
-        <View style={styles.centerOverlay}>
-          <Card style={styles.centerCard}>
-            <Ionicons name="navigate-circle-outline" size={38} color={colors.textMuted} />
-            <AppText weight="bold">No recorded points</AppText>
-            <AppText variant="caption" muted style={{ textAlign: "center" }}>
-              No GPS telemetry fixes found for {vehicle?.plate || reg} between{" "}
-              {formatIstDateTime(activeRange.from)} and {formatIstDateTime(activeRange.to)}.
-            </AppText>
-            <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+      )}
+
+      {!trailState.loading && !trailState.error && trailState.fixes.length === 0 && (
+        <View
+          style={[
+            styles.floatingBottom,
+            { paddingBottom: Math.max(insets.bottom, 10) },
+          ]}
+        >
+          <Card style={styles.timelineFloatingCard}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <AppText weight="bold">No GPS movement recorded</AppText>
+                <AppText variant="caption" muted>
+                  No route fixes recorded for {vehicle?.plate || reg} in {activeRange.label}.
+                </AppText>
+              </View>
+            </View>
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
               <Button
-                label="Try Last 48h"
-                variant="secondary"
+                label="Last 48 Hours"
+                style={{ flex: 1 }}
                 onPress={() => setPreset("last48")}
               />
               <Button
-                label="Custom Date"
+                label="Custom Date Range"
+                variant="secondary"
+                style={{ flex: 1 }}
                 onPress={() => {
                   setCustomFromInput(toIstDateString(new Date(Date.now() - 48 * 3600000)));
                   setCustomToInput(toIstDateString(new Date()));
@@ -628,12 +652,12 @@ export default function RouteReplayScreen({ navigation, route }) {
             </View>
           </Card>
         </View>
-      ) : null}
+      )}
 
       {/* ============================================================== */}
       {/* 4. FLOATING BOTTOM CONTROLS (WEB TrackTimeline STYLE)           */}
       {/* ============================================================== */}
-      {!trailState.loading && trailState.fixes.length > 0 && (
+      {!trailState.loading && !trailState.error && trailState.fixes.length > 0 && (
         <View
           style={[
             styles.floatingBottom,
@@ -1194,28 +1218,25 @@ const styles = StyleSheet.create({
   modeTabPillActive: {
     backgroundColor: colors.primary,
   },
-  centerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  topLoadingPillWrapper: {
+    position: "absolute",
+    top: 105,
+    left: 0,
+    right: 0,
     alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-    zIndex: 90,
+    zIndex: 95,
   },
-  hudLoadingCard: {
+  topLoadingPill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.94)",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    gap: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: radius.full,
     ...elevation.md,
-  },
-  centerCard: {
-    alignItems: "center",
-    gap: 10,
-    padding: 20,
-    maxWidth: 320,
-    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
   },
   floatingBottom: {
     position: "absolute",

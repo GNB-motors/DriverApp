@@ -1313,15 +1313,20 @@ export function createTelematicsApi({
       return { ...payload, total, items: rawItems.map(tripView) };
     },
     async getTrail(registration, { branchId, from, to, limit = 10000 } = {}) {
-      const payload = (
-        await get(
-          `/livetracking/positions/${encodeURIComponent(registration)}/trail`,
-          { params: { from, to, limit }, headers: headersFor(branchId) },
-        )
-      ).data;
-      if (!Array.isArray(payload?.points))
-        throw new Error("Invalid trail response.");
-      return payload;
+      const cleanReg = String(registration || "")
+        .replace(/[^a-zA-Z0-9]/g, "")
+        .toUpperCase();
+      const res = await get(
+        `/livetracking/positions/${encodeURIComponent(cleanReg || registration)}/trail`,
+        { params: { from, to, limit }, headers: headersFor(branchId) },
+      );
+      const payload = res?.data?.points
+        ? res.data
+        : res?.points
+          ? res
+          : res?.data || {};
+      const points = Array.isArray(payload?.points) ? payload.points : [];
+      return { ...payload, points };
     },
     async branches() {
       return mapList("/branches");
