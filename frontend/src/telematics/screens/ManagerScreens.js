@@ -1,6 +1,8 @@
 import { VehicleCrewCard } from "./CrewScreens";
 import HistoricalTripScreen from './HistoricalTripScreen';
 import PushSettings from '../../components/PushSettings';
+import Constants from 'expo-constants';
+import { APP_VERSION } from "../services/appIdentity";
 import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
@@ -1263,51 +1265,33 @@ export function More({ navigation }) {
 }
 export function Settings({ navigation }) {
   const { user, organization, logout } = useAuth();
-  const managerData = useManagerData();
   const [error, setError] = useState("");
-  const [syncing, setSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState("");
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const handleSyncData = async () => {
-    setSyncing(true);
-    setSyncMessage("");
-    try {
-      if (managerData?.refresh) {
-        await managerData.refresh();
-      }
-      setSyncMessage("Fleet cache synchronized with live server.");
-    } catch (err) {
-      setSyncMessage(err.message || "Cache sync failed.");
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   const handleCall = () => {
-    Linking.openURL("tel:+918000123456").catch(() => {
+    Linking.openURL("tel:+918319353177").catch(() => {
       Alert.alert(
         "Phone Helpline",
-        "Direct dialer could not be launched. Please call +91 80001 23456 manually."
+        "Direct dialer could not be launched. Please call Dev Gupta at +91 831 935 3177 directly."
       );
     });
   };
 
   const handleWhatsApp = () => {
-    const url = "https://wa.me/918000123456?text=Hello%20GNB%20Fleet%20Support,%20I%20need%20assistance%20with%20DriverApp";
+    const url = "https://wa.me/918319353177?text=Hello%20Dev,%20I%20need%20assistance%20with%20GNB%20DriverApp";
     Linking.openURL(url).catch(() => {
       Alert.alert(
         "WhatsApp Helpline",
-        "WhatsApp could not be opened. Please contact +91 80001 23456."
+        "WhatsApp could not be opened. Please message Dev Gupta at +91 831 935 3177."
       );
     });
   };
 
   const handleEmail = () => {
-    Linking.openURL("mailto:support@gnbmotors.com?subject=GNB%20Fleet%20Support%20Request").catch(() => {
+    Linking.openURL("mailto:gnbmotors60@gmail.com?subject=GNB%20Fleet%20Support%20Request").catch(() => {
       Alert.alert(
         "Email Support",
-        "Email client could not be launched. Please write to support@gnbmotors.com."
+        "Email client could not be launched. Please write to gnbmotors60@gmail.com directly."
       );
     });
   };
@@ -1349,11 +1333,31 @@ export function Settings({ navigation }) {
       .join("")
       .toUpperCase() || "GA";
 
+  // Dynamic system diagnostics
+  const appVersion = APP_VERSION || Constants.expoConfig?.version || "2.0.0";
+  const apiHost = process.env.EXPO_PUBLIC_API_URL
+    ? process.env.EXPO_PUBLIC_API_URL.replace(/^https?:\/\//, "").split("/")[0]
+    : "api.app.gnbedge.in";
+  const platformName =
+    Platform.OS === "ios"
+      ? "Apple iOS"
+      : Platform.OS === "android"
+        ? "Google Android"
+        : Platform.OS === "web"
+          ? "Web Browser"
+          : Platform.OS.toUpperCase();
+  const platformVersion = Platform.Version ? `OS ${Platform.Version}` : "";
+  const isDev = Boolean(__DEV__);
+  const environmentLabel = isDev
+    ? "Development (Debug)"
+    : "Production Telematics (Live)";
+
   return (
     <ManagerPage
       navigation={navigation}
       title="Settings & support"
       subtitle="Fleet preferences, push alerts, and direct operational support."
+      allowEmpty
     >
       <Card style={s.profileCard}>
         <View style={s.profileHeader}>
@@ -1405,7 +1409,7 @@ export function Settings({ navigation }) {
 
       <SectionHeading
         title="Preferences & system"
-        caption="Fleet interface and offline data controls."
+        caption="Fleet interface and language controls."
       />
       <MenuRow
         title="Language & voice guidance"
@@ -1415,29 +1419,13 @@ export function Settings({ navigation }) {
       />
       <MenuRow
         title="Theme & appearance"
-        detail="Nova Light · Optimized for daytime operations"
+        detail="Light theme · High contrast fleet standard"
         icon="sunny-outline"
-        onPress={() =>
-          Alert.alert(
-            "Appearance",
-            "Nova Light is the active high-visibility theme optimized for fleet operations."
-          )
-        }
-      />
-      <MenuRow
-        title="Sync telematics cache"
-        detail={
-          syncing
-            ? "Refreshing live fleet cache..."
-            : syncMessage || "Tap to synchronize with live fleet data"
-        }
-        icon="sync-outline"
-        onPress={handleSyncData}
       />
 
       <SectionHeading
         title="Helpdesk & support"
-        caption="24/7 dedicated lines to GNB Fleet Command Desk."
+        caption="Direct operational contact lines."
       />
       <View style={s.supportGrid}>
         <TouchableOpacity
@@ -1450,10 +1438,10 @@ export function Settings({ navigation }) {
           </View>
           <View style={{ flex: 1 }}>
             <AppText weight="bold" style={s.supportCardTitle}>
-              Call Helpline
+              Dev Gupta · Operations Lead
             </AppText>
             <AppText variant="small" muted>
-              +91 80001 23456 (24/7 Toll-free)
+              +91 831 935 3177
             </AppText>
           </View>
           <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
@@ -1472,7 +1460,7 @@ export function Settings({ navigation }) {
               WhatsApp Support
             </AppText>
             <AppText variant="small" muted>
-              Instant dispatch & breakdown desk
+              +91 831 935 3177 · Dev Gupta
             </AppText>
           </View>
           <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
@@ -1491,7 +1479,7 @@ export function Settings({ navigation }) {
               Email Fleet Desk
             </AppText>
             <AppText variant="small" muted>
-              support@gnbmotors.com
+              gnbmotors60@gmail.com
             </AppText>
           </View>
           <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
@@ -1499,36 +1487,59 @@ export function Settings({ navigation }) {
       </View>
 
       <Card style={s.systemInfoCard}>
+        <View style={s.systemInfoHeader}>
+          <View style={s.systemInfoTitleRow}>
+            <Ionicons name="hardware-chip-outline" size={17} color={colors.primary} />
+            <AppText weight="bold" style={s.systemInfoTitle}>
+              System & Diagnostics
+            </AppText>
+          </View>
+          <View style={[s.envBadge, isDev ? s.envBadgeDev : s.envBadgeProd]}>
+            <AppText weight="bold" style={[s.envBadgeText, isDev ? s.envBadgeTextDev : s.envBadgeTextProd]}>
+              {isDev ? "DEV" : "PRODUCTION"}
+            </AppText>
+          </View>
+        </View>
+
+        <View style={s.systemInfoDivider} />
+
         <View style={s.systemInfoRow}>
           <AppText variant="small" muted>
-            Application Version
+            App Version
           </AppText>
           <AppText variant="small" weight="semibold">
-            GNB Fleet Enterprise v2.4.0
+            v{appVersion}
           </AppText>
         </View>
-        <View style={s.systemInfoRow}>
-          <AppText variant="small" muted>
-            Build Reference
-          </AppText>
-          <AppText variant="small" weight="semibold">
-            2026.11-PROD
-          </AppText>
-        </View>
+
         <View style={s.systemInfoRow}>
           <AppText variant="small" muted>
             Environment
           </AppText>
-          <AppText variant="small" weight="semibold" color="#15803D">
-            Production Telematics · SSL Encrypted
+          <AppText
+            variant="small"
+            weight="semibold"
+            color={isDev ? "#B45309" : "#15803D"}
+          >
+            {environmentLabel}
           </AppText>
         </View>
+
         <View style={s.systemInfoRow}>
           <AppText variant="small" muted>
             Device Platform
           </AppText>
           <AppText variant="small" weight="semibold">
-            {Platform.OS.toUpperCase()} {Platform.Version ? `· OS ${Platform.Version}` : ""}
+            {platformName} {platformVersion ? `· ${platformVersion}` : ""}
+          </AppText>
+        </View>
+
+        <View style={s.systemInfoRow}>
+          <AppText variant="small" muted>
+            API Gateway
+          </AppText>
+          <AppText variant="small" weight="semibold">
+            {apiHost}
           </AppText>
         </View>
       </Card>
@@ -1824,12 +1835,51 @@ const s = StyleSheet.create({
     color: colors.text,
   },
   systemInfoCard: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: colors.hairline,
-    borderRadius: radius.md,
-    padding: 12,
-    gap: 8,
+    borderColor: '#E2E8F0',
+    borderRadius: radius.lg,
+    padding: 14,
+    gap: 10,
+  },
+  systemInfoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  systemInfoTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  systemInfoTitle: {
+    fontSize: 13,
+    color: '#0F172A',
+  },
+  envBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  envBadgeProd: {
+    backgroundColor: '#DCFCE7',
+  },
+  envBadgeDev: {
+    backgroundColor: '#FEF3C7',
+  },
+  envBadgeText: {
+    fontSize: 9.5,
+    letterSpacing: 0.5,
+  },
+  envBadgeTextProd: {
+    color: '#15803D',
+  },
+  envBadgeTextDev: {
+    color: '#B45309',
+  },
+  systemInfoDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
   },
   systemInfoRow: {
     flexDirection: 'row',
