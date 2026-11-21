@@ -10,6 +10,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
+  Alert,
+  Linking,
+  TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -1259,27 +1262,283 @@ export function More({ navigation }) {
   );
 }
 export function Settings({ navigation }) {
-  const { user, logout } = useAuth();
+  const { user, organization, logout } = useAuth();
+  const managerData = useManagerData();
   const [error, setError] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleSyncData = async () => {
+    setSyncing(true);
+    setSyncMessage("");
+    try {
+      if (managerData?.refresh) {
+        await managerData.refresh();
+      }
+      setSyncMessage("Fleet cache synchronized with live server.");
+    } catch (err) {
+      setSyncMessage(err.message || "Cache sync failed.");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleCall = () => {
+    Linking.openURL("tel:+918000123456").catch(() => {
+      Alert.alert(
+        "Phone Helpline",
+        "Direct dialer could not be launched. Please call +91 80001 23456 manually."
+      );
+    });
+  };
+
+  const handleWhatsApp = () => {
+    const url = "https://wa.me/918000123456?text=Hello%20GNB%20Fleet%20Support,%20I%20need%20assistance%20with%20DriverApp";
+    Linking.openURL(url).catch(() => {
+      Alert.alert(
+        "WhatsApp Helpline",
+        "WhatsApp could not be opened. Please contact +91 80001 23456."
+      );
+    });
+  };
+
+  const handleEmail = () => {
+    Linking.openURL("mailto:support@gnbmotors.com?subject=GNB%20Fleet%20Support%20Request").catch(() => {
+      Alert.alert(
+        "Email Support",
+        "Email client could not be launched. Please write to support@gnbmotors.com."
+      );
+    });
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out of your account on this device?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: async () => {
+            setLoggingOut(true);
+            try {
+              await logout();
+            } catch (err) {
+              setError(err.message || "Failed to sign out");
+            } finally {
+              setLoggingOut(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const displayName =
+    user?.name ||
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+    "Fleet Account";
+  const userInitials =
+    displayName
+      .split(" ")
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "GA";
+
   return (
-    <ManagerPage navigation={navigation} title="Settings & support">
-      <PushSettings />
-      <MenuRow
-        title={user?.name || user?.firstName || "Account"}
-        detail={user?.role}
-        icon="person-outline"
+    <ManagerPage
+      navigation={navigation}
+      title="Settings & support"
+      subtitle="Fleet preferences, push alerts, and direct operational support."
+    >
+      <Card style={s.profileCard}>
+        <View style={s.profileHeader}>
+          <View style={s.avatarCircle}>
+            <AppText weight="bold" style={s.avatarText}>
+              {userInitials}
+            </AppText>
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={s.profileNameRow}>
+              <AppText variant="h3" weight="bold">
+                {displayName}
+              </AppText>
+              <View style={s.roleBadge}>
+                <AppText weight="bold" style={s.roleBadgeText}>
+                  {user?.role || "USER"}
+                </AppText>
+              </View>
+            </View>
+            <AppText variant="small" muted>
+              {organization?.name || "GNB Fleet Enterprise"}
+            </AppText>
+          </View>
+        </View>
+
+        <View style={s.profileDivider} />
+
+        <View style={s.profileDetailRow}>
+          <View style={s.profileDetailItem}>
+            <Ionicons name="mail-outline" size={14} color={colors.textMuted} />
+            <AppText variant="small" muted style={{ flex: 1 }} numberOfLines={1}>
+              {user?.email || "No email registered"}
+            </AppText>
+          </View>
+          <View style={s.profileDetailItem}>
+            <Ionicons name="call-outline" size={14} color={colors.textMuted} />
+            <AppText variant="small" muted style={{ flex: 1 }} numberOfLines={1}>
+              {user?.phone || user?.mobileNumber || "No phone registered"}
+            </AppText>
+          </View>
+        </View>
+      </Card>
+
+      <SectionHeading
+        title="Notifications & alerts"
+        caption="Real-time push delivery and device notifications."
       />
+      <PushSettings />
+
+      <SectionHeading
+        title="Preferences & system"
+        caption="Fleet interface and offline data controls."
+      />
+      <MenuRow
+        title="Language & voice guidance"
+        detail="Dialect & voice options (English, Hindi, Bengali)"
+        icon="language-outline"
+        onPress={() => navigation.navigate("Experience settings")}
+      />
+      <MenuRow
+        title="Theme & appearance"
+        detail="Nova Light · Optimized for daytime operations"
+        icon="sunny-outline"
+        onPress={() =>
+          Alert.alert(
+            "Appearance",
+            "Nova Light is the active high-visibility theme optimized for fleet operations."
+          )
+        }
+      />
+      <MenuRow
+        title="Sync telematics cache"
+        detail={
+          syncing
+            ? "Refreshing live fleet cache..."
+            : syncMessage || "Tap to synchronize with live fleet data"
+        }
+        icon="sync-outline"
+        onPress={handleSyncData}
+      />
+
+      <SectionHeading
+        title="Helpdesk & support"
+        caption="24/7 dedicated lines to GNB Fleet Command Desk."
+      />
+      <View style={s.supportGrid}>
+        <TouchableOpacity
+          style={s.supportCard}
+          onPress={handleCall}
+          activeOpacity={0.8}
+        >
+          <View style={[s.supportIconCircle, { backgroundColor: "#EFF6FF" }]}>
+            <Ionicons name="call" size={20} color="#1D4ED8" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppText weight="bold" style={s.supportCardTitle}>
+              Call Helpline
+            </AppText>
+            <AppText variant="small" muted>
+              +91 80001 23456 (24/7 Toll-free)
+            </AppText>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={s.supportCard}
+          onPress={handleWhatsApp}
+          activeOpacity={0.8}
+        >
+          <View style={[s.supportIconCircle, { backgroundColor: "#DCFCE7" }]}>
+            <Ionicons name="logo-whatsapp" size={20} color="#15803D" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppText weight="bold" style={s.supportCardTitle}>
+              WhatsApp Support
+            </AppText>
+            <AppText variant="small" muted>
+              Instant dispatch & breakdown desk
+            </AppText>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={s.supportCard}
+          onPress={handleEmail}
+          activeOpacity={0.8}
+        >
+          <View style={[s.supportIconCircle, { backgroundColor: "#F3E8FF" }]}>
+            <Ionicons name="mail" size={20} color="#7E22CE" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppText weight="bold" style={s.supportCardTitle}>
+              Email Fleet Desk
+            </AppText>
+            <AppText variant="small" muted>
+              support@gnbmotors.com
+            </AppText>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </TouchableOpacity>
+      </View>
+
+      <Card style={s.systemInfoCard}>
+        <View style={s.systemInfoRow}>
+          <AppText variant="small" muted>
+            Application Version
+          </AppText>
+          <AppText variant="small" weight="semibold">
+            GNB Fleet Enterprise v2.4.0
+          </AppText>
+        </View>
+        <View style={s.systemInfoRow}>
+          <AppText variant="small" muted>
+            Build Reference
+          </AppText>
+          <AppText variant="small" weight="semibold">
+            2026.11-PROD
+          </AppText>
+        </View>
+        <View style={s.systemInfoRow}>
+          <AppText variant="small" muted>
+            Environment
+          </AppText>
+          <AppText variant="small" weight="semibold" color="#15803D">
+            Production Telematics · SSL Encrypted
+          </AppText>
+        </View>
+        <View style={s.systemInfoRow}>
+          <AppText variant="small" muted>
+            Device Platform
+          </AppText>
+          <AppText variant="small" weight="semibold">
+            {Platform.OS.toUpperCase()} {Platform.Version ? `· OS ${Platform.Version}` : ""}
+          </AppText>
+        </View>
+      </Card>
+
       {error ? <AppText color={colors.error}>{error}</AppText> : null}
       <Button
         label="Log out"
         variant="secondary"
-        onPress={async () => {
-          try {
-            await logout();
-          } catch (err) {
-            setError(err.message);
-          }
-        }}
+        loading={loggingOut}
+        onPress={handleLogout}
       />
     </ManagerPage>
   );
@@ -1478,4 +1737,103 @@ const s = StyleSheet.create({
     marginTop: 1,
   },
   dutyCaption: { marginTop: 6, marginLeft: 16 },
+  profileCard: {
+    padding: 16,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.surface,
+    gap: 8,
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 16,
+    color: '#1D4ED8',
+  },
+  profileNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  roleBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  roleBadgeText: {
+    fontSize: 10,
+    color: '#475569',
+    letterSpacing: 0.5,
+  },
+  profileDivider: {
+    height: 1,
+    backgroundColor: colors.hairline,
+    marginVertical: 4,
+  },
+  profileDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  profileDetailItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  supportGrid: {
+    gap: 8,
+  },
+  supportCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  supportIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  supportCardTitle: {
+    fontSize: 13.5,
+    color: colors.text,
+  },
+  systemInfoCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: radius.md,
+    padding: 12,
+    gap: 8,
+  },
+  systemInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
 });

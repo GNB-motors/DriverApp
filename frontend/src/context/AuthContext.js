@@ -147,6 +147,7 @@ export function AuthProvider({ children }) {
     };
   }, [token, user?.role]);
   const enableNotifications = () => registerForPush(token, { registerDevice: registerPushDevice, unregisterDevice: unregisterPushDevice, requestPermission: true, isCurrent: () => activeToken.current === token });
+  const disableNotifications = () => unregisterFromPush(token, { unregisterDevice: unregisterPushDevice });
   const logout = async () => {
     const currentToken = token;
     // Captured before the session is cleared: revocation still needs the org.
@@ -160,6 +161,6 @@ export function AuthProvider({ children }) {
       catch (error) { logger.warn('Auth', `Local sign-out complete; server revocation failed: ${error.message}`); }
     }
   };
-  return <AuthContext.Provider value={{ user, token, organization, activeOrgId, setActiveOrg, loading, sessionError, retrySession: restoreSession, invalidateSession, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, login, logout, enableNotifications }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, token, organization, activeOrgId, setActiveOrg, loading, sessionError, retrySession: restoreSession, invalidateSession, isNewLogin, setIsNewLogin, sendOtp, verifyOtp, login, logout, enableNotifications, disableNotifications }}>{children}</AuthContext.Provider>;
 }
 export const useAuth = () => useContext(AuthContext);
