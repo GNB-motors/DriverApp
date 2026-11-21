@@ -255,7 +255,11 @@ export default function FleetMapScreen({ navigation, route }) {
             <Button
               label="View truck details"
               onPress={() =>
-                navigation.navigate("Vehicle detail", { id: selected.id })
+                navigation.navigate("Vehicle detail", {
+                  id: selected.id,
+                  plate: selected.plate,
+                  vehicle: selected,
+                })
               }
             />
           </View>

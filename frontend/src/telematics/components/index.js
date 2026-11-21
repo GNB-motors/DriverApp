@@ -196,16 +196,24 @@ export function VehicleRow({ vehicle, onPress, now, navigation }) {
 
   const handlePlayRoute = (e) => {
     e?.stopPropagation?.();
-    if (vehicle.activeTripId) {
-      nav?.navigate?.('Manager trip', { id: vehicle.activeTripId, vehicleId: vehicle.id });
-    } else {
-      nav?.navigate?.('Fleet trips', { vehicleId: vehicle.id, plate: vehicle.plate });
-    }
+    nav?.navigate?.('Route replay', {
+      vehicleId: vehicle.id,
+      plate: vehicle.plate,
+      vehicle,
+      mode: 'replay',
+      autoPlay: true,
+    });
   };
 
   const handleRouteHistory = (e) => {
     e?.stopPropagation?.();
-    nav?.navigate?.('Vehicle detail', { id: vehicle.id });
+    nav?.navigate?.('Route replay', {
+      vehicleId: vehicle.id,
+      plate: vehicle.plate,
+      vehicle,
+      mode: 'history',
+      autoPlay: false,
+    });
   };
 
   const handleDocuments = (e) => {

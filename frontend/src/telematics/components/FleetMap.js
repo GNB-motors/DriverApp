@@ -55,18 +55,28 @@ function ClusterMarker({ cluster, onPress }) {
 }
 
 export default function FleetMap({
-  vehicles,
+  vehicles = [],
   trailPoints = EMPTY_TRAIL,
+  traveledTrailPoints = EMPTY_TRAIL,
+  activePosition = null,
   onSelectVehicle,
   onExpand,
   caption,
+  style,
+  mapStyle,
+  children,
 }) {
   const map = useRef(null);
-  const points = mapPoints(vehicles);
+  const points = mapPoints(vehicles || []);
   const selection = points.map((point) => point.id).join("|");
+  const trailCoords = trailCoordinates(trailPoints);
+  const allCoords = [
+    ...points.map((point) => point.coordinates),
+    ...trailCoords,
+  ];
   const [region, setRegion] = useState({
-    latitude: points[0]?.coordinates?.latitude || 20.5937,
-    longitude: points[0]?.coordinates?.longitude || 78.9629,
+    latitude: allCoords[0]?.latitude || (activePosition ? activePosition.latitude : 20.5937),
+    longitude: allCoords[0]?.longitude || (activePosition ? activePosition.longitude : 78.9629),
     latitudeDelta: 0.1,
     longitudeDelta: 0.1,
   });
@@ -122,9 +132,9 @@ export default function FleetMap({
     );
   };
 
-  if (!points.length)
+  if (!allCoords.length && !activePosition)
     return (
-      <Card>
+      <Card style={style}>
         <AppText muted>
           No reported coordinates are available in this view.
         </AppText>
@@ -132,13 +142,14 @@ export default function FleetMap({
     );
 
   return (
-    <View style={styles.frame}>
+    <View style={[styles.frame, style]}>
       <MapView
         ref={map}
-        style={styles.map}
+        style={[styles.map, mapStyle]}
         onMapReady={fit}
         initialRegion={{
-          ...points[0].coordinates,
+          latitude: allCoords[0]?.latitude || (activePosition ? activePosition.latitude : 20.5937),
+          longitude: allCoords[0]?.longitude || (activePosition ? activePosition.longitude : 78.9629),
           latitudeDelta: 0.1,
           longitudeDelta: 0.1,
         }}
@@ -185,12 +196,88 @@ export default function FleetMap({
         })}
         {trailSegments(trailPoints).map((segment, index) => (
           <Polyline
-            key={index}
+            key={`trail-${index}`}
             coordinates={segment}
             strokeColor={colors.primary}
             strokeWidth={4}
           />
         ))}
+        {traveledTrailPoints && traveledTrailPoints.length > 1 && (
+          <Polyline
+            coordinates={trailCoordinates(traveledTrailPoints)}
+            strokeColor={colors.success}
+            strokeWidth={5}
+            zIndex={100}
+          />
+        )}
+        {trailPoints.length > 0 && validCoordinate(trailPoints[0]) && (
+          <Marker
+            coordinate={{
+              latitude: Number(trailPoints[0].latitude),
+              longitude: Number(trailPoints[0].longitude),
+            }}
+            title="Start Point"
+            zIndex={200}
+          >
+            <View style={styles.startFlagPin}>
+              <Ionicons name="flag" size={12} color="#FFFFFF" />
+              <AppText variant="caption" weight="bold" color="#FFFFFF" style={styles.pinText}>
+                START
+              </AppText>
+            </View>
+          </Marker>
+        )}
+        {trailPoints.length > 1 && validCoordinate(trailPoints[trailPoints.length - 1]) && (
+          <Marker
+            coordinate={{
+              latitude: Number(trailPoints[trailPoints.length - 1].latitude),
+              longitude: Number(trailPoints[trailPoints.length - 1].longitude),
+            }}
+            title="End / Current Point"
+            zIndex={200}
+          >
+            <View style={styles.endFlagPin}>
+              <Ionicons name="location" size={12} color="#FFFFFF" />
+              <AppText variant="caption" weight="bold" color="#FFFFFF" style={styles.pinText}>
+                END
+              </AppText>
+            </View>
+          </Marker>
+        )}
+        {activePosition && validCoordinate(activePosition) && (
+          <Marker
+            coordinate={{
+              latitude: Number(activePosition.latitude),
+              longitude: Number(activePosition.longitude),
+            }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            zIndex={9999}
+          >
+            <View style={styles.markerContainer}>
+              <SvgXml
+                xml={truckSvg({
+                  status: (activePosition.speed || 0) > 2 ? 'moving' : 'stopped',
+                  heading: activePosition.courseDegrees || 0,
+                  selected: true,
+                })}
+                width={56}
+                height={56}
+              />
+              <View style={[styles.plateTag, { backgroundColor: colors.primaryDeep }]}>
+                <AppText
+                  variant="caption"
+                  mono
+                  weight="bold"
+                  color={colors.white}
+                  style={styles.plateText}
+                >
+                  {activePosition.plate || 'REPLAY'}
+                </AppText>
+              </View>
+            </View>
+          </Marker>
+        )}
+        {children}
       </MapView>
       {onExpand && (
         <Pressable
@@ -261,5 +348,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
     textAlign: "center",
+  },
+  startFlagPin: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#16A34A",
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+    ...elevation.sm,
+  },
+  endFlagPin: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#DC2626",
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+    ...elevation.sm,
+  },
+  pinText: {
+    fontSize: 9,
+    lineHeight: 12,
+    marginLeft: 3,
   },
 });

@@ -1312,11 +1312,11 @@ export function createTelematicsApi({
       const total = Number.isFinite(payload?.total) ? payload.total : rawItems.length;
       return { ...payload, total, items: rawItems.map(tripView) };
     },
-    async getTrail(registration, { branchId, from, to } = {}) {
+    async getTrail(registration, { branchId, from, to, limit = 10000 } = {}) {
       const payload = (
         await get(
           `/livetracking/positions/${encodeURIComponent(registration)}/trail`,
-          { params: { from, to, limit: 2000 }, headers: headersFor(branchId) },
+          { params: { from, to, limit }, headers: headersFor(branchId) },
         )
       ).data;
       if (!Array.isArray(payload?.points))

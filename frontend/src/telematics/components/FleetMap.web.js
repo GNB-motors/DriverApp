@@ -50,11 +50,16 @@ function clusterIcon(cluster) {
 }
 
 function MapCanvas({
-  points,
-  trailPoints,
+  points = [],
+  trailPoints = [],
+  traveledTrailPoints = [],
+  activePosition = null,
   onSelectVehicle,
   onExpand,
   caption,
+  style,
+  mapStyle: customMapStyle,
+  children,
 }) {
   const key = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
   const { isLoaded, loadError } = useJsApiLoader({
@@ -68,14 +73,23 @@ function MapCanvas({
   const fit = () => {
     if (!map.current || !window.google) return;
     const bounds = new window.google.maps.LatLngBounds();
-    [
+    const allCoordinates = [
       ...points.map((point) => point.coordinates),
       ...trailCoordinates(trailPoints),
-    ].forEach((point) =>
+    ];
+    if (activePosition && validCoordinate(activePosition)) {
+      allCoordinates.push({
+        latitude: activePosition.latitude,
+        longitude: activePosition.longitude,
+      });
+    }
+    allCoordinates.forEach((point) =>
       bounds.extend({ lat: point.latitude, lng: point.longitude }),
     );
-    map.current.fitBounds(bounds, 45);
-    if (points.length === 1 && !trailPoints.length) map.current.setZoom(14);
+    if (allCoordinates.length) {
+      map.current.fitBounds(bounds, 45);
+      if (allCoordinates.length === 1) map.current.setZoom(14);
+    }
   };
 
   useEffect(() => {
@@ -121,9 +135,9 @@ function MapCanvas({
     );
 
   return (
-    <View style={styles.frame}>
+    <View style={[styles.frame, style]}>
       <GoogleMap
-        mapContainerStyle={mapStyle}
+        mapContainerStyle={customMapStyle || mapStyle}
         onLoad={(instance) => {
           map.current = instance;
           fit();
@@ -196,7 +210,7 @@ function MapCanvas({
         })}
         {trailSegments(trailPoints).map((segment, index) => (
           <PolylineF
-            key={index}
+            key={`trail-${index}`}
             path={segment.map((point) => ({
               lat: point.latitude,
               lng: point.longitude,
@@ -209,6 +223,41 @@ function MapCanvas({
             }}
           />
         ))}
+        {traveledTrailPoints && traveledTrailPoints.length > 1 && (
+          <PolylineF
+            path={trailCoordinates(traveledTrailPoints).map((point) => ({
+              lat: point.latitude,
+              lng: point.longitude,
+            }))}
+            options={{
+              strokeColor: "#16A34A",
+              strokeOpacity: 0.95,
+              strokeWeight: 5,
+              geodesic: true,
+            }}
+          />
+        )}
+        {activePosition && validCoordinate(activePosition) && (
+          <MarkerF
+            position={{
+              lat: activePosition.latitude,
+              lng: activePosition.longitude,
+            }}
+            icon={markerIcon({
+              status: (activePosition.speed || 0) > 2 ? "moving" : "stopped",
+              courseDegrees: activePosition.courseDegrees || 0,
+              plate: activePosition.plate || "REPLAY",
+            }, true)}
+            label={{
+              text: activePosition.plate || "REPLAY",
+              color: "#ffffff",
+              fontSize: "11px",
+              fontWeight: "bold",
+            }}
+            zIndex={9999}
+          />
+        )}
+        {children}
       </GoogleMap>
       {onExpand && (
         <Pressable
@@ -228,8 +277,34 @@ function MapCanvas({
   );
 }
 
-export default function FleetMap(props) {
-  return <MapCanvas {...props} />;
+export default function FleetMap({
+  vehicles = [],
+  trailPoints = [],
+  traveledTrailPoints = [],
+  activePosition = null,
+  onSelectVehicle,
+  onExpand,
+  caption,
+  style,
+  mapStyle: customMapStyle,
+  children,
+}) {
+  const points = mapPoints(vehicles || []);
+  return (
+    <MapCanvas
+      points={points}
+      trailPoints={trailPoints}
+      traveledTrailPoints={traveledTrailPoints}
+      activePosition={activePosition}
+      onSelectVehicle={onSelectVehicle}
+      onExpand={onExpand}
+      caption={caption}
+      style={style}
+      mapStyle={customMapStyle}
+    >
+      {children}
+    </MapCanvas>
+  );
 }
 
 const styles = StyleSheet.create({

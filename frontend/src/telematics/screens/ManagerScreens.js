@@ -415,13 +415,37 @@ export function Fleet({ navigation }) {
 export function VehicleDetail({ navigation, route }) {
   const { user } = useAuth();
   const { data, service, branchId } = useManagerData();
-  const vehicle = data?.vehicles.find((v) => v.id === route.params?.id);
-  const driver = data?.drivers.find((d) => d.id === vehicle?.driverId);
+  const paramId = route.params?.id || route.params?.vehicleId;
+  const paramPlate = (
+    route.params?.plate ||
+    route.params?.registrationNumber ||
+    ""
+  ).replace(/^position:/i, "");
+  const cleanId =
+    typeof paramId === "string" ? paramId.replace(/^position:/i, "") : paramId;
+
+  const vehicle =
+    (data?.vehicles || []).find(
+      (v) =>
+        (paramId && (v.id === paramId || v._id === paramId || v.plate === paramId)) ||
+        (cleanId && (v.id === cleanId || v._id === cleanId || v.plate === cleanId)) ||
+        (paramPlate &&
+          (v.plate === paramPlate ||
+            v.registrationNumber === paramPlate ||
+            v.telemetryRegistration === paramPlate)),
+    ) ||
+    route.params?.vehicle ||
+    null;
+
+  const driver = (data?.drivers || []).find((d) => d.id === vehicle?.driverId);
 
   // Active Trip & ETA (M05)
   const activeTrip = (data?.trips || []).find(
     (t) =>
-      t.vehicleId === vehicle?.id &&
+      (t.vehicleId === vehicle?.id ||
+        (vehicle?.plate &&
+          (t.vehicleRegistration === vehicle.plate ||
+            t.vehiclePlate === vehicle.plate))) &&
       (t.status === 'in_transit' ||
         t.status === 'active' ||
         t.status === 'started' ||
@@ -644,7 +668,78 @@ export function VehicleDetail({ navigation, route }) {
           )}
 
           <VehicleCrewCard navigation={navigation} vehicleId={vehicle.id} />
-          <VehicleTrailMap vehicle={vehicle} />
+          <VehicleTrailMap vehicle={vehicle} navigation={navigation} />
+
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+            <Button
+              label="Play Route Replay"
+              icon="play-circle-outline"
+              style={{ flex: 1 }}
+              onPress={() =>
+                navigation.navigate('Route replay', {
+                  vehicleId: vehicle.id,
+                  plate: vehicle.plate,
+                  vehicle,
+                  mode: 'replay',
+                  autoPlay: true,
+                })
+              }
+            />
+            <Button
+              label="Trail History"
+              icon="trail-sign-outline"
+              variant="secondary"
+              style={{ flex: 1 }}
+              onPress={() =>
+                navigation.navigate('Route replay', {
+                  vehicleId: vehicle.id,
+                  plate: vehicle.plate,
+                  vehicle,
+                  mode: 'history',
+                  autoPlay: false,
+                })
+              }
+            />
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+            <Button
+              label="Documents"
+              icon="document-text-outline"
+              variant="secondary"
+              style={{ flex: 1 }}
+              onPress={() =>
+                navigation.navigate('Fleet documents', {
+                  vehicleId: vehicle.id,
+                  plate: vehicle.plate,
+                })
+              }
+            />
+            <Button
+              label="Fuel Logs"
+              icon="water-outline"
+              variant="secondary"
+              style={{ flex: 1 }}
+              onPress={() =>
+                navigation.navigate('Fuel logs', {
+                  vehicleId: vehicle.id,
+                  plate: vehicle.plate,
+                })
+              }
+            />
+            <Button
+              label="Maintenance"
+              icon="construct-outline"
+              variant="secondary"
+              style={{ flex: 1 }}
+              onPress={() =>
+                navigation.navigate('Maintenance', {
+                  vehicleId: vehicle.id,
+                  plate: vehicle.plate,
+                })
+              }
+            />
+          </View>
 
           <MenuRow
             title="Odometer"
@@ -661,20 +756,20 @@ export function VehicleDetail({ navigation, route }) {
           />
 
           <SectionHeading title="Recent trips" caption="Recent loaded records; open the trip list for complete history." />
-          {data.trips
-            .filter((t) => t.vehicleId === vehicle.id)
+          {(data?.trips || [])
+            .filter((t) => t.vehicleId === vehicle.id || (vehicle.plate && (t.vehicleRegistration === vehicle.plate || t.vehiclePlate === vehicle.plate)))
             .map((t) => (
               <MenuRow
-                key={t.id}
-                title={`${t.from} → ${t.to}`}
-                detail={`${t.distanceKm} km · ${t.status}`}
+                key={t.id || t._id}
+                title={`${t.from || 'Origin'} → ${t.to || 'Destination'}`}
+                detail={`${t.distanceKm ?? 0} km · ${t.status || 'Completed'}`}
                 icon="navigate-outline"
                 onPress={() =>
-                  navigation.navigate('Manager trip', { id: t.id })
+                  navigation.navigate('Manager trip', { id: t.id || t._id })
                 }
               />
             ))}
-          {!data.trips.some((t) => t.vehicleId === vehicle.id) && (
+          {!(data?.trips || []).some((t) => t.vehicleId === vehicle.id || (vehicle.plate && (t.vehicleRegistration === vehicle.plate || t.vehiclePlate === vehicle.plate))) && (
             <AppText muted>No trips for this truck in the loaded recent records.</AppText>
           )}
           {user.role === 'OWNER' && (

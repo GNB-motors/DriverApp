@@ -11,6 +11,7 @@ import FleetDocumentsScreen from './screens/FleetDocumentsScreen';
 import FleetFuelLogsScreen from './screens/FleetFuelLogsScreen';
 import FleetTripsScreen from './screens/FleetTripsScreen';
 import FleetMaintenanceScreen from './screens/FleetMaintenanceScreen';
+import RouteReplayScreen from './screens/RouteReplayScreen';
 import * as Operations from './workflows/FleetOperationalScreens';
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -64,6 +65,9 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Documents" component={FleetDocumentsScreen} />
     <Stack.Screen name="Manager document" component={Operations.FleetRecordDetail} />
     <Stack.Screen name="Fleet trips" component={FleetTripsScreen} />
+    <Stack.Screen name="Route replay" component={RouteReplayScreen} />
+    <Stack.Screen name="Play route" component={RouteReplayScreen} />
+    <Stack.Screen name="Route history" component={RouteReplayScreen} />
     <Stack.Screen name="Manager trip" component={HistoricalTripScreen} />
     <Stack.Screen name="Drivers" component={Operations.DriverRoster} />
     <Stack.Screen name="Digest" component={OwnerReport} />
