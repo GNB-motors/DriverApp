@@ -89,11 +89,8 @@ export default function RouteReplayScreen({ navigation, route }) {
 
   // Resolve target vehicle & registration
   const paramId = route.params?.id || route.params?.vehicleId;
-  const paramPlate = (
-    route.params?.plate ||
-    route.params?.registrationNumber ||
-    ""
-  ).replace(/^position:/i, "");
+  const rawPlate = route.params?.plate || route.params?.registrationNumber || "";
+  const paramPlate = String(rawPlate).replace(/^position:/i, "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
   const cleanId =
     typeof paramId === "string" ? paramId.replace(/^position:/i, "") : paramId;
 
@@ -103,19 +100,23 @@ export default function RouteReplayScreen({ navigation, route }) {
         (paramId && (v.id === paramId || v._id === paramId || v.plate === paramId)) ||
         (cleanId && (v.id === cleanId || v._id === cleanId || v.plate === cleanId)) ||
         (paramPlate &&
-          (v.plate === paramPlate ||
-            v.registrationNumber === paramPlate ||
-            v.telemetryRegistration === paramPlate)),
+          (String(v.plate || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase() === paramPlate ||
+            String(v.registrationNumber || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase() === paramPlate ||
+            String(v.telemetryRegistration || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase() === paramPlate)),
     ) ||
     route.params?.vehicle ||
     null;
 
-  const reg =
+  const rawReg =
     vehicle?.telemetryRegistration ||
     vehicle?.plate ||
     vehicle?.registrationNumber ||
     paramPlate ||
     (cleanId ? String(cleanId) : "");
+
+  const reg = rawReg
+    ? String(rawReg).replace(/^position:/i, "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase()
+    : "";
 
   // View Mode: 'replay' or 'history'
   const [mode, setMode] = useState(
@@ -243,15 +244,19 @@ export default function RouteReplayScreen({ navigation, route }) {
         if (!active) return;
         const rawPoints = Array.isArray(res?.points) ? res.points : [];
         const fixes = rawPoints
-          .filter((p) => p && validCoordinate(p) && p.eventDateTime)
-          .map((p) => ({
-            ...p,
-            latitude: Number(p.latitude),
-            longitude: Number(p.longitude),
-            at: Date.parse(p.eventDateTime),
-            speed: Number(p.speed != null ? p.speed : 0),
-            courseDegrees: Number(p.courseDegrees != null ? p.courseDegrees : 0),
-          }))
+          .filter((p) => p && validCoordinate(p))
+          .map((p) => {
+            const timeVal = p.eventDateTime || p.timestamp || p.time || p.at;
+            const parsedTime = timeVal ? Date.parse(timeVal) : Date.now();
+            return {
+              ...p,
+              latitude: Number(p.latitude),
+              longitude: Number(p.longitude),
+              at: isNaN(parsedTime) ? Date.now() : parsedTime,
+              speed: Number(p.speed != null ? p.speed : 0),
+              courseDegrees: Number(p.courseDegrees != null ? p.courseDegrees : 0),
+            };
+          })
           .sort((a, b) => a.at - b.at);
 
         // Compute metrics

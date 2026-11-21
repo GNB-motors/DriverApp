@@ -487,11 +487,8 @@ export function VehicleDetail({ navigation, route }) {
   const { user } = useAuth();
   const { data, service, branchId } = useManagerData();
   const paramId = route.params?.id || route.params?.vehicleId;
-  const paramPlate = (
-    route.params?.plate ||
-    route.params?.registrationNumber ||
-    ""
-  ).replace(/^position:/i, "");
+  const rawPlate = route.params?.plate || route.params?.registrationNumber || "";
+  const paramPlate = String(rawPlate).replace(/^position:/i, "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
   const cleanId =
     typeof paramId === "string" ? paramId.replace(/^position:/i, "") : paramId;
 
@@ -501,9 +498,9 @@ export function VehicleDetail({ navigation, route }) {
         (paramId && (v.id === paramId || v._id === paramId || v.plate === paramId)) ||
         (cleanId && (v.id === cleanId || v._id === cleanId || v.plate === cleanId)) ||
         (paramPlate &&
-          (v.plate === paramPlate ||
-            v.registrationNumber === paramPlate ||
-            v.telemetryRegistration === paramPlate)),
+          (String(v.plate || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase() === paramPlate ||
+            String(v.registrationNumber || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase() === paramPlate ||
+            String(v.telemetryRegistration || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase() === paramPlate)),
     ) ||
     route.params?.vehicle ||
     null;
@@ -843,7 +840,7 @@ export function VehicleDetail({ navigation, route }) {
           {!(data?.trips || []).some((t) => t.vehicleId === vehicle.id || (vehicle.plate && (t.vehicleRegistration === vehicle.plate || t.vehiclePlate === vehicle.plate))) && (
             <AppText muted>No trips for this truck in the loaded recent records.</AppText>
           )}
-          {user.role === 'OWNER' && (
+          {user?.role === 'OWNER' && (
             <Button
               label="All trips for this truck"
               variant="secondary"

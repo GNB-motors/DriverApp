@@ -55,8 +55,11 @@ const time = (at) =>
     ? `${new Date(at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST`
     : "Still active";
 
-const identity = (user) =>
-  `${user._id}:${typeof user.orgId === "object" ? user.orgId._id : user.orgId}`;
+const identity = (user) => {
+  if (!user) return "anon";
+  const org = typeof user.orgId === "object" && user.orgId !== null ? user.orgId._id : user.orgId;
+  return `${user._id || "user"}:${org || "org"}`;
+};
 
 function confirm(message, action) {
   if (Platform.OS === "web") {
@@ -475,11 +478,18 @@ export function VehicleCrewCard({ navigation, vehicleId }) {
   const { branchId } = useManagerData();
   const service = useTelematicsApi();
   const branch = branchId === "all" ? undefined : branchId;
+  const cleanVehicleId =
+    vehicleId && !String(vehicleId).startsWith("position:")
+      ? String(vehicleId)
+      : null;
   const request = useOwnerRequest(
-    `${identity(user)}:${branch || "all"}:crew-card:${vehicleId}`,
-    () => service.crewVehicle(vehicleId, branch),
+    cleanVehicleId
+      ? `${identity(user)}:${branch || "all"}:crew-card:${cleanVehicleId}`
+      : null,
+    () => (cleanVehicleId ? service.crewVehicle(cleanVehicleId, branch) : Promise.resolve(null)),
     30000,
   );
+  if (!cleanVehicleId) return null;
   return (
     <Card>
       <AppText variant="h3">Crew & driving</AppText>
@@ -488,7 +498,7 @@ export function VehicleCrewCard({ navigation, vehicleId }) {
       <Button
         label="Crew and driving timeline"
         variant="secondary"
-        onPress={() => navigation.navigate("Crew & driving", { vehicleId })}
+        onPress={() => navigation.navigate("Crew & driving", { vehicleId: cleanVehicleId })}
       />
     </Card>
   );

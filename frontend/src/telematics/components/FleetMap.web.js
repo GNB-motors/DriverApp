@@ -140,6 +140,16 @@ function MapCanvas({
     <View style={[styles.frame, style]}>
       <GoogleMap
         mapContainerStyle={customMapStyle || mapStyle}
+        center={
+          activePosition && validCoordinate(activePosition)
+            ? { lat: Number(activePosition.latitude), lng: Number(activePosition.longitude) }
+            : points.length && validCoordinate(points[0].coordinates)
+              ? { lat: Number(points[0].coordinates.latitude), lng: Number(points[0].coordinates.longitude) }
+              : trailCoordinates(trailPoints).length
+                ? { lat: Number(trailCoordinates(trailPoints)[0].latitude), lng: Number(trailCoordinates(trailPoints)[0].longitude) }
+                : { lat: 21.2514, lng: 81.6296 }
+        }
+        zoom={zoom}
         onLoad={(instance) => {
           map.current = instance;
           fit();

@@ -1318,19 +1318,41 @@ export function createTelematicsApi({
     },
     async getTrail(registration, { branchId, from, to, limit = 10000 } = {}) {
       const cleanReg = String(registration || "")
+        .replace(/^position:/i, "")
         .replace(/[^a-zA-Z0-9]/g, "")
         .toUpperCase();
-      const res = await get(
-        `/livetracking/positions/${encodeURIComponent(cleanReg || registration)}/trail`,
-        { params: { from, to, limit }, headers: headersFor(branchId) },
-      );
-      const payload = res?.data?.points
-        ? res.data
-        : res?.points
-          ? res
-          : res?.data || {};
-      const points = Array.isArray(payload?.points) ? payload.points : [];
-      return { ...payload, points };
+      try {
+        const res = await get(
+          `/livetracking/positions/${encodeURIComponent(cleanReg || registration)}/trail`,
+          { params: { from, to, limit }, headers: headersFor(branchId) },
+        );
+        const payload = res?.data?.points
+          ? res.data
+          : res?.points
+            ? res
+            : res?.data || {};
+        const points = Array.isArray(payload?.points) ? payload.points : [];
+        return { ...payload, points };
+      } catch (err) {
+        if (branchId && err?.response?.status === 404) {
+          try {
+            const retryRes = await get(
+              `/livetracking/positions/${encodeURIComponent(cleanReg || registration)}/trail`,
+              { params: { from, to, limit } },
+            );
+            const payload = retryRes?.data?.points
+              ? retryRes.data
+              : retryRes?.points
+                ? retryRes
+                : retryRes?.data || {};
+            const points = Array.isArray(payload?.points) ? payload.points : [];
+            return { ...payload, points };
+          } catch {
+            // Re-throw initial error
+          }
+        }
+        throw err;
+      }
     },
     async branches() {
       return mapList("/branches");

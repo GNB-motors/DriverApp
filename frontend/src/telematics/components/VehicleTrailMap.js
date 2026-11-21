@@ -18,7 +18,9 @@ export default function VehicleTrailMap({ vehicle, navigation }) {
     vehicle?.plate ||
     vehicle?.registrationNumber ||
     "";
-  const reg = rawReg ? String(rawReg).replace(/^position:/i, "") : "";
+  const reg = rawReg
+    ? String(rawReg).replace(/^position:/i, "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase()
+    : "";
   const key = `${branchId}:${reg}`;
 
   useEffect(() => {

@@ -133,12 +133,14 @@ export default function FleetMap({
   };
 
   const defaultCenter = {
-    latitude:
+    latitude: Number(
       allCoords[0]?.latitude ||
       (activePosition ? activePosition.latitude : 20.5937),
-    longitude:
+    ),
+    longitude: Number(
       allCoords[0]?.longitude ||
       (activePosition ? activePosition.longitude : 78.9629),
+    ),
     latitudeDelta: allCoords.length ? 0.1 : 12,
     longitudeDelta: allCoords.length ? 0.1 : 12,
   };
