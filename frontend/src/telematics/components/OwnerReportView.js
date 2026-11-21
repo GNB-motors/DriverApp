@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   View,
   ScrollView,
@@ -7,6 +7,7 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -27,6 +28,7 @@ import {
   colors,
   spacing,
   radius,
+  elevation,
 } from "../../components/ui";
 import { Choice } from "./FormControls";
 import {
@@ -45,6 +47,8 @@ import {
   sectionState,
   groupSections,
 } from "../services/ownerPresentation";
+import { GNB_LOGO_URI } from "../experience/gnbLogoUri";
+import { useManagerData } from "../context/ManagerDataContext";
 
 export function OwnerScreen({ navigation, title, subtitle, action, children }) {
   const insets = useSafeAreaInsets();
@@ -150,7 +154,7 @@ export function OwnerGroupRow({
     </Pressable>
   );
 }
-function DateSelector({ date, onChange }) {
+export function DateSelector({ date, onChange }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(date);
   useEffect(() => setDraft(date), [date, open]);
@@ -269,7 +273,7 @@ function DateSelector({ date, onChange }) {
     </>
   );
 }
-function Highlight({ label, icon, value, unit, caption, onPress }) {
+export function Highlight({ label, icon, value, unit, caption, onPress }) {
   return (
     <Card
       padding={14}
@@ -443,14 +447,62 @@ export function OwnerReportDashboard({
   );
   const [tab, setTab] = useState("Summary");
   const [branchOpen, setBranchOpen] = useState(false);
-  const [audioOpen, setAudioOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+
+  const managerContext = useManagerData();
+  const fleetVehicles = managerContext?.data?.vehicles || [];
+  const movingVehicles = fleetVehicles.filter((v) => v.status === "moving").length;
+  const idlingVehicles = fleetVehicles.filter((v) => v.status === "idling").length;
+  const stoppedVehicles = fleetVehicles.filter((v) => v.status === "stopped").length;
+  const offlineVehicles = fleetVehicles.filter((v) => v.status === "offline").length;
+  const driversOnDuty = (managerContext?.data?.drivers || []).length;
+
+  const totalDistanceToday = useMemo(() => {
+    let km = 0;
+    for (const v of fleetVehicles) {
+      if (Number.isFinite(v.todayKm) && v.todayKm > 0) km += v.todayKm;
+    }
+    if (km === 0 && Array.isArray(managerContext?.data?.trips)) {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayTime = todayStart.getTime();
+      for (const t of managerContext.data.trips) {
+        if (t.startedAt && new Date(t.startedAt).getTime() >= todayTime) {
+          km += Number(t.distanceKm) || 0;
+        }
+      }
+    }
+    return Math.round(km);
+  }, [fleetVehicles, managerContext?.data?.trips]);
+
+  const lowFuelVehicles = useMemo(() => {
+    return fleetVehicles.filter((v) => {
+      if (Number.isFinite(v.primaryFuelLevel) && v.primaryFuelLevel > 0 && v.primaryFuelLevel < 20) return true;
+      if (Number.isFinite(v.fuelLitres) && v.fuelLitres > 0 && v.fuelLitres < 35) return true;
+      return false;
+    });
+  }, [fleetVehicles]);
+
+  const unreadAlertsCount = managerContext?.data?.alertFeed?.unacknowledgedCount || 0;
+
+  const currentBranchName =
+    (branches || managerContext?.branches || []).find(
+      (b) => b.id === (branchId || managerContext?.branchId),
+    )?.name || "All branches";
+
+  const userName =
+    user?.name || user?.firstName || (user?.phone ? `+${user.phone}` : "Owner");
+  const rawRole = (user?.role || "").toLowerCase();
+  const userRole = rawRole === "manager" ? "Branch Manager" : "Owner";
+
+  const onRefresh = useCallback(async () => {
+    await Promise.allSettled([request.reload(), managerContext?.refresh?.()]);
+  }, [request, managerContext]);
+
   const sections = request.data?.sections || {};
   const detail = (name) =>
     navigation.navigate("Owner report section", { name, date });
   const group = groupSections(sections, tab);
-  const branchName =
-    branches.find((b) => b.id === branchId)?.name || "All branches";
   const distanceSection = sections.distance ? "distance" : "trips";
   const highlights = [
     [
@@ -486,27 +538,14 @@ export function OwnerReportDashboard({
       "Submitted for review",
     ],
   ];
+
   return (
-    <View style={[s.screen, { paddingTop: insets.top }]}>
+    <View style={s.screen}>
       {focused && <StatusBar style="dark" />}
-      <ScrollView
-        key={tab}
-        keyboardShouldPersistTaps="handled"
-        contentInsetAdjustmentBehavior="never"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          s.dashboard,
-          { paddingBottom: spacing.xl + insets.bottom },
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={request.loading && !!request.data}
-            onRefresh={request.reload}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        <View style={s.spread}>
+
+      {/* Top Header - Same as Manager */}
+      <View style={[s.topBar, { paddingTop: insets.top + 6 }]}>
+        <View style={s.headerLeftLogo}>
           {showBack && (
             <Pressable
               accessibilityRole="button"
@@ -519,310 +558,593 @@ export function OwnerReportDashboard({
                   navigation?.navigate?.("More");
                 }
               }}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 14,
-                backgroundColor: "#F1F5F9",
-                borderWidth: 1,
-                borderColor: "#E2E8F0",
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: 8,
-              }}
+              style={s.backBtn}
             >
-              <Ionicons
-                name="chevron-back"
-                size={22}
-                color="#0F172A"
-              />
+              <Ionicons name="chevron-back" size={22} color="#0F172A" />
             </Pressable>
           )}
-          <View style={s.grow}>
-            <AppText variant="caption" color={colors.primary} weight="semibold">
-              {user?.firstName
-                ? `${user.firstName}’s workspace`
-                : "OWNER WORKSPACE"}
-            </AppText>
-            <AppText variant="h1" style={s.title}>
-              Aaj ka hisaab
-            </AppText>
-          </View>
-          <IconAction
-            icon="headset-outline"
-            label="Listen to report"
-            onPress={() => setAudioOpen(true)}
-          />
-          <IconAction
-            icon="settings-outline"
-            label="Morning report settings"
-            onPress={() => navigation.navigate("Report settings")}
+          <Image
+            source={{ uri: GNB_LOGO_URI }}
+            style={s.headerLogo}
+            resizeMode="contain"
+            accessibilityLabel="GNB Motors"
           />
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Choose branch"
-          onPress={() => setBranchOpen(true)}
-          style={s.branchChip}
-        >
-          <Ionicons
-            name="business-outline"
-            size={14}
-            color={colors.textMuted}
-          />
+
+        <View style={s.headerRightUser}>
           <AppText
-            variant="small"
-            weight="medium"
-            style={s.grow}
+            weight="extrabold"
+            color={colors.text}
             numberOfLines={1}
+            style={s.userNameText}
           >
-            {branchName}
+            {userName}
           </AppText>
-          <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
-        </Pressable>
-        <DateSelector date={date} onChange={onDateChange} />
-        <SegmentedControl
-          variant="pill"
-          options={["Summary", "Money", "Work", "People"]}
-          value={tab}
-          onChange={setTab}
-        />
-        {request.error && (
-          <Card variant="outline" style={s.block}>
-            <AppText variant="small" weight="semibold">
-              {request.data
-                ? "Could not refresh this report"
-                : "Your report could not load"}
-            </AppText>
-            <AppText variant="small" muted>
-              {request.data
-                ? "Showing your last loaded figures for this date and branch."
-                : request.error}
-            </AppText>
-            <Button
-              label="Try again"
-              size="sm"
-              variant="secondary"
-              onPress={request.reload}
-            />
-          </Card>
-        )}
-        {request.loading && !request.data && (
-          <View
-            accessibilityRole="progressbar"
-            accessibilityLabel="Loading report"
-            style={s.block}
+          <AppText
+            weight="semibold"
+            color={colors.textMuted}
+            numberOfLines={1}
+            style={s.userRoleText}
           >
-            <View style={[s.skeleton, { height: 190 }]} />
-            <View style={s.grid}>
-              {[0, 1, 2, 3].map((i) => (
-                <View
-                  key={i}
-                  style={[s.skeleton, s.highlight, { height: 130 }]}
-                />
-              ))}
+            {userRole}
+          </AppText>
+        </View>
+      </View>
+
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentInsetAdjustmentBehavior="never"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          s.dashboard,
+          { paddingBottom: spacing.xl + insets.bottom + 80 },
+        ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={request.loading && !!request.data}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {/* Fleet Pulse KPI Bar */}
+        <View style={s.pulseSection}>
+          <View style={s.pulseHeader}>
+            <View style={s.pulseTitleRow}>
+              <View style={s.liveDot} />
+              <AppText variant="label" weight="extrabold" color={colors.text}>
+                Fleet Pulse
+              </AppText>
             </View>
-            <AppText variant="small" muted>
-              Loading your fleet report…
-            </AppText>
+
+            {/* Authorised Branches Dropdown Pill right in Fleet Pulse */}
+            <Pressable
+              style={s.branchPillPulse}
+              onPress={() => setBranchOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Branch Filter"
+            >
+              <Ionicons name="business" size={13} color={colors.primary} />
+              <AppText
+                variant="caption"
+                weight="bold"
+                color={colors.primaryDeep}
+                numberOfLines={1}
+                style={s.branchPillPulseText}
+              >
+                {currentBranchName}
+              </AppText>
+              <Ionicons name="chevron-down" size={11} color={colors.primary} />
+            </Pressable>
           </View>
-        )}
-        {request.data && (
-          <>
-            {request.data.partialDay && (
-              <View style={s.notice}>
-                <Ionicons
-                  name="time-outline"
-                  size={16}
-                  color={colors.warning}
-                />
+
+          {/* 5-column Status Card */}
+          <Card style={s.pulseCardRow} padding={0}>
+            <Pressable
+              style={s.pulseCol}
+              onPress={() => navigation.navigate("Fleet map", { filter: "moving" })}
+              accessibilityRole="button"
+              accessibilityLabel={`Moving: ${movingVehicles}`}
+            >
+              <View style={s.pulseColTop}>
+                <View style={[s.statusDot, { backgroundColor: "#0C9F41" }]} />
                 <AppText
                   variant="caption"
-                  color={colors.warning}
-                  style={s.grow}
+                  weight="bold"
+                  color={colors.textMuted}
+                  numberOfLines={1}
+                  style={s.pulseColLabel}
                 >
-                  Today is still in progress. Daily totals are partial.
+                  Moving
                 </AppText>
               </View>
-            )}
-            {tab === "Summary" ? (
-              <>
-                <FleetHero
-                  section={sections.fleet}
-                  onOpen={() => detail("fleet")}
-                />
-                <SectionHeader
-                  label="The day at a glance"
-                  right={
-                    <AppText variant="caption" muted>
-                      Selected day
-                    </AppText>
+              <AppText
+                variant="h3"
+                weight="extrabold"
+                color={colors.text}
+                style={s.pulseColNumber}
+              >
+                {movingVehicles}
+              </AppText>
+            </Pressable>
+
+            <View style={s.pulseDivider} />
+
+            <Pressable
+              style={s.pulseCol}
+              onPress={() => navigation.navigate("Fleet map", { filter: "idling" })}
+              accessibilityRole="button"
+              accessibilityLabel={`Idling: ${idlingVehicles}`}
+            >
+              <View style={s.pulseColTop}>
+                <View style={[s.statusDot, { backgroundColor: "#F97316" }]} />
+                <AppText
+                  variant="caption"
+                  weight="bold"
+                  color={colors.textMuted}
+                  numberOfLines={1}
+                  style={s.pulseColLabel}
+                >
+                  Idling
+                </AppText>
+              </View>
+              <AppText
+                variant="h3"
+                weight="extrabold"
+                color={colors.text}
+                style={s.pulseColNumber}
+              >
+                {idlingVehicles}
+              </AppText>
+            </Pressable>
+
+            <View style={s.pulseDivider} />
+
+            <Pressable
+              style={s.pulseCol}
+              onPress={() => navigation.navigate("Fleet map", { filter: "stopped" })}
+              accessibilityRole="button"
+              accessibilityLabel={`Stopped: ${stoppedVehicles}`}
+            >
+              <View style={s.pulseColTop}>
+                <View style={[s.statusDot, { backgroundColor: "#9333EA" }]} />
+                <AppText
+                  variant="caption"
+                  weight="bold"
+                  color={colors.textMuted}
+                  numberOfLines={1}
+                  style={s.pulseColLabel}
+                >
+                  Stopped
+                </AppText>
+              </View>
+              <AppText
+                variant="h3"
+                weight="extrabold"
+                color={colors.text}
+                style={s.pulseColNumber}
+              >
+                {stoppedVehicles}
+              </AppText>
+            </Pressable>
+
+            <View style={s.pulseDivider} />
+
+            <Pressable
+              style={s.pulseCol}
+              onPress={() => navigation.navigate("Fleet map", { filter: "offline" })}
+              accessibilityRole="button"
+              accessibilityLabel={`Offline: ${offlineVehicles}`}
+            >
+              <View style={s.pulseColTop}>
+                <View style={[s.statusDot, { backgroundColor: "#9CA3AF" }]} />
+                <AppText
+                  variant="caption"
+                  weight="bold"
+                  color={colors.textMuted}
+                  numberOfLines={1}
+                  style={s.pulseColLabel}
+                >
+                  Offline
+                </AppText>
+              </View>
+              <AppText
+                variant="h3"
+                weight="extrabold"
+                color={colors.text}
+                style={s.pulseColNumber}
+              >
+                {offlineVehicles}
+              </AppText>
+            </Pressable>
+
+            <View style={s.pulseDivider} />
+
+            <Pressable
+              style={s.pulseCol}
+              onPress={() => navigation.navigate("Duty board")}
+              accessibilityRole="button"
+              accessibilityLabel={`On Duty: ${driversOnDuty}`}
+            >
+              <View style={s.pulseColTop}>
+                <Ionicons name="people-outline" size={11} color={colors.primary} />
+                <AppText
+                  variant="caption"
+                  weight="bold"
+                  color={colors.primary}
+                  numberOfLines={1}
+                  style={s.pulseColLabel}
+                >
+                  On Duty
+                </AppText>
+              </View>
+              <AppText
+                variant="h3"
+                weight="extrabold"
+                color={colors.primaryDeep}
+                style={s.pulseColNumber}
+              >
+                {driversOnDuty}
+              </AppText>
+            </Pressable>
+          </Card>
+
+          {/* Fleet Today Highlights Bar */}
+          <View style={s.highlightsCard}>
+            <View style={s.highlightItem}>
+              <View style={[s.highlightIconCircle, { backgroundColor: "#EFF6FF" }]}>
+                <Ionicons name="speedometer-outline" size={17} color={colors.primary} />
+              </View>
+              <View style={s.highlightCol}>
+                <AppText
+                  variant="caption"
+                  color={colors.textMuted}
+                  weight="bold"
+                  style={s.highlightLabel}
+                >
+                  TODAY'S RUN
+                </AppText>
+                <AppText variant="h3" weight="extrabold" color={colors.text}>
+                  {totalDistanceToday.toLocaleString("en-IN")}{" "}
+                  <AppText variant="caption" weight="bold" color={colors.textMuted}>
+                    km
+                  </AppText>
+                </AppText>
+              </View>
+            </View>
+
+            <View style={s.highlightDivider} />
+
+            <View style={s.highlightItem}>
+              <View style={[s.highlightIconCircle, { backgroundColor: "#F0FDF4" }]}>
+                <Ionicons name="git-network-outline" size={17} color={colors.success} />
+              </View>
+              <View style={s.highlightCol}>
+                <AppText
+                  variant="caption"
+                  color={colors.textMuted}
+                  weight="bold"
+                  style={s.highlightLabel}
+                >
+                  ON ROAD
+                </AppText>
+                <AppText variant="h3" weight="extrabold" color={colors.text}>
+                  {movingVehicles + idlingVehicles}{" "}
+                  <AppText variant="caption" weight="bold" color={colors.textMuted}>
+                    / {fleetVehicles.length}
+                  </AppText>
+                </AppText>
+              </View>
+            </View>
+
+            <View style={s.highlightDivider} />
+
+            <View style={s.highlightItem}>
+              <View
+                style={[
+                  s.highlightIconCircle,
+                  {
+                    backgroundColor:
+                      lowFuelVehicles.length > 0 || unreadAlertsCount > 0
+                        ? "#FEF2F2"
+                        : "#F8FAFC",
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="warning-outline"
+                  size={17}
+                  color={
+                    lowFuelVehicles.length > 0 || unreadAlertsCount > 0
+                      ? colors.warning
+                      : colors.textMuted
                   }
                 />
-                <View style={s.grid}>
-                  {highlights.map(
-                    ([name, metric, label, icon, unit, caption]) => (
-                      <Highlight
-                        key={`${name}-${metric}`}
-                        label={label}
-                        icon={icon}
-                        unit={unit}
-                        caption={caption}
-                        value={metricValue(sections[name], metric)}
-                        onPress={() => detail(name)}
-                      />
-                    ),
-                  )}
-                </View>
-                <SectionHeader
-                  label="Needs your review"
-                  right={
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Open full inbox"
-                      onPress={() => navigation.navigate("Owner escalations")}
-                      hitSlop={8}
-                    >
-                      <AppText
-                        variant="small"
-                        weight="semibold"
-                        color={colors.rage700}
-                      >
-                        View inbox
-                      </AppText>
-                    </Pressable>
+              </View>
+              <View style={s.highlightCol}>
+                <AppText
+                  variant="caption"
+                  color={colors.textMuted}
+                  weight="bold"
+                  style={s.highlightLabel}
+                >
+                  EXCEPTIONS
+                </AppText>
+                <AppText
+                  variant="h3"
+                  weight="extrabold"
+                  color={
+                    lowFuelVehicles.length > 0 || unreadAlertsCount > 0
+                      ? colors.warning
+                      : colors.text
                   }
-                />
-                <Card padding={0}>
-                  {[
-                    ["fuelReviews", "Fuel captures", "water-outline"],
-                    ["expenseReviews", "Driver bills", "receipt-outline"],
-                    ["documents", "Papers & renewals", "document-text-outline"],
-                  ].map(([name, title, icon], index) => {
-                    const count = metricValue(sections[name], "count");
-                    return (
-                      <OwnerGroupRow
-                        key={name}
-                        title={title}
-                        icon={icon}
-                        subtitle={
-                          count == null
-                            ? "Review data unavailable"
-                            : count === 0
-                              ? "No items in this queue"
-                              : "Current review queue"
-                        }
-                        right={
-                          <Badge
-                            tone={count > 0 ? "pending" : "neutral"}
-                            label={count == null ? "—" : String(count)}
-                          />
-                        }
-                        onPress={() => detail(name)}
-                        last={index === 2}
-                      />
-                    );
-                  })}
-                </Card>
-                <SectionHeader label="Your workspace" />
-                <View style={s.quickActions}>
-                  {[
-                    // ["Messages", "chatbubbles-outline", "Messages"],
-                    ["Reviews", "documents-outline", "Capture reviews"],
-                    ["Crew", "people-outline", "Crew & driving"],
-                    ["Trends", "trending-up-outline", "Owner trends"],
-                  ].map(([label, icon, route]) => (
-                    <Pressable
-                      key={label}
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        label === "Messages" ? "Messages & broadcasts" : label
-                      }
-                      onPress={() =>
-                        navigation.navigate(
-                          route,
-                          route === "Owner trends" ? { date } : undefined,
-                        )
-                      }
-                      style={s.quickAction}
-                    >
-                      <View style={s.quickIcon}>
-                        <Ionicons
-                          name={icon}
-                          size={21}
-                          color={colors.primary}
-                        />
-                      </View>
-                      <AppText variant="caption" weight="semibold">
-                        {label}
-                      </AppText>
-                    </Pressable>
-                  ))}
-                </View>
-                {sections.dataHealth && (
-                  <Card
-                    padding={14}
-                    onPress={() => detail("dataHealth")}
-                    accessibilityLabel="View data health"
+                >
+                  {unreadAlertsCount + lowFuelVehicles.length}{" "}
+                  <AppText variant="caption" weight="bold" color={colors.textMuted}>
+                    events
+                  </AppText>
+                </AppText>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Section: Aaj ka hisab */}
+        <View style={s.sectionWrap}>
+          <View style={s.sectionHeaderBar}>
+            <AppText variant="h2" weight="extrabold" color={colors.text}>
+              Aaj ka hisab
+            </AppText>
+          </View>
+
+          <DateSelector date={date} onChange={onDateChange} />
+
+          {request.error && (
+            <Card variant="outline" style={s.block}>
+              <AppText variant="small" weight="semibold">
+                {request.data
+                  ? "Could not refresh this report"
+                  : "Your report could not load"}
+              </AppText>
+              <AppText variant="small" muted>
+                {request.data
+                  ? "Showing your last loaded figures for this date and branch."
+                  : request.error}
+              </AppText>
+              <Button
+                label="Try again"
+                size="sm"
+                variant="secondary"
+                onPress={request.reload}
+              />
+            </Card>
+          )}
+
+          {request.loading && !request.data && (
+            <View
+              accessibilityRole="progressbar"
+              accessibilityLabel="Loading report"
+              style={s.block}
+            >
+              <View style={s.grid}>
+                {[0, 1, 2, 3].map((i) => (
+                  <View
+                    key={i}
+                    style={[s.skeleton, s.highlight, { height: 110 }]}
+                  />
+                ))}
+              </View>
+              <AppText variant="small" muted>
+                Loading report figures…
+              </AppText>
+            </View>
+          )}
+
+          {request.data && (
+            <>
+              {request.data.partialDay && (
+                <View style={s.notice}>
+                  <Ionicons
+                    name="time-outline"
+                    size={16}
+                    color={colors.warning}
+                  />
+                  <AppText
+                    variant="caption"
+                    color={colors.warning}
+                    style={s.grow}
                   >
-                    <View style={s.row}>
+                    Today is still in progress. Daily totals are partial.
+                  </AppText>
+                </View>
+              )}
+
+              <View style={s.grid}>
+                {highlights.map(
+                  ([name, metric, label, icon, unit, caption]) => (
+                    <Highlight
+                      key={`${name}-${metric}`}
+                      label={label}
+                      icon={icon}
+                      unit={unit}
+                      caption={caption}
+                      value={metricValue(sections[name], metric)}
+                      onPress={() => detail(name)}
+                    />
+                  ),
+                )}
+              </View>
+            </>
+          )}
+        </View>
+
+        {/* Section: Operational Hub */}
+        <View style={s.sectionWrap}>
+          <View style={s.sectionHeaderBar}>
+            <AppText variant="h2" weight="extrabold" color={colors.text}>
+              Operational Hub
+            </AppText>
+          </View>
+
+          <SegmentedControl
+            variant="pill"
+            options={["Summary", "Money", "Work", "People"]}
+            value={tab}
+            onChange={setTab}
+          />
+
+          {tab === "Summary" ? (
+            <View style={s.hubContent}>
+              <SectionHeader
+                label="Needs your review"
+                right={
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Open full inbox"
+                    onPress={() => navigation.navigate("Owner escalations")}
+                    hitSlop={8}
+                  >
+                    <AppText
+                      variant="small"
+                      weight="semibold"
+                      color={colors.rage700}
+                    >
+                      View inbox
+                    </AppText>
+                  </Pressable>
+                }
+              />
+              <Card padding={0}>
+                {[
+                  ["fuelReviews", "Fuel captures", "water-outline"],
+                  ["expenseReviews", "Driver bills", "receipt-outline"],
+                  ["documents", "Papers & renewals", "document-text-outline"],
+                ].map(([name, title, icon], index) => {
+                  const count = metricValue(sections[name], "count");
+                  return (
+                    <OwnerGroupRow
+                      key={name}
+                      title={title}
+                      icon={icon}
+                      subtitle={
+                        count == null
+                          ? "Review data unavailable"
+                          : count === 0
+                            ? "No items in this queue"
+                            : "Current review queue"
+                      }
+                      right={
+                        <Badge
+                          tone={count > 0 ? "pending" : "neutral"}
+                          label={count == null ? "—" : String(count)}
+                        />
+                      }
+                      onPress={() => detail(name)}
+                      last={index === 2}
+                    />
+                  );
+                })}
+              </Card>
+
+              <SectionHeader label="Your workspace" />
+              <View style={s.quickActions}>
+                {[
+                  ["Reviews", "documents-outline", "Capture reviews"],
+                  ["Crew", "people-outline", "Crew & driving"],
+                  ["Trends", "trending-up-outline", "Owner trends"],
+                ].map(([label, icon, route]) => (
+                  <Pressable
+                    key={label}
+                    accessibilityRole="button"
+                    accessibilityLabel={label}
+                    onPress={() =>
+                      navigation.navigate(
+                        route,
+                        route === "Owner trends" ? { date } : undefined,
+                      )
+                    }
+                    style={s.quickAction}
+                  >
+                    <View style={s.quickIcon}>
                       <Ionicons
-                        name="pulse-outline"
-                        size={19}
+                        name={icon}
+                        size={21}
                         color={colors.primary}
                       />
-                      <View style={s.grow}>
-                        <AppText variant="small" weight="semibold">
-                          Know what’s behind the numbers
-                        </AppText>
-                        <AppText variant="caption" muted>
-                          Coverage, source times & missing data
-                        </AppText>
-                      </View>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={colors.fog300}
-                      />
                     </View>
-                  </Card>
-                )}
-              </>
-            ) : (
-              <>
-                <SectionHeader
-                  label={
-                    tab === "Money"
-                      ? "Recorded money & evidence"
-                      : tab === "People"
-                        ? "Drivers & duty"
-                        : "Fleet & operations"
-                  }
-                />
-                <Card padding={0}>
-                  {group.map((name, i) => (
-                    <ReportRow
-                      key={name}
-                      name={name}
-                      section={sections[name]}
-                      onOpen={() => detail(name)}
-                      last={i === group.length - 1}
+                    <AppText variant="caption" weight="semibold">
+                      {label}
+                    </AppText>
+                  </Pressable>
+                ))}
+              </View>
+
+              {sections.dataHealth && (
+                <Card
+                  padding={14}
+                  onPress={() => detail("dataHealth")}
+                  accessibilityLabel="View data health"
+                >
+                  <View style={s.row}>
+                    <Ionicons
+                      name="pulse-outline"
+                      size={19}
+                      color={colors.primary}
                     />
-                  ))}
-                  {!group.length && (
-                    <View style={s.empty}>
-                      <AppText variant="small" muted>
-                        No report sections available in this view.
+                    <View style={s.grow}>
+                      <AppText variant="small" weight="semibold">
+                        Know what’s behind the numbers
+                      </AppText>
+                      <AppText variant="caption" muted>
+                        Coverage, source times & missing data
                       </AppText>
                     </View>
-                  )}
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color={colors.fog300}
+                    />
+                  </View>
                 </Card>
-                <AppText variant="caption" muted>
-                  Tap a row for its figures, coverage and supporting records.
-                  Unavailable figures are shown as —.
-                </AppText>
-              </>
-            )}
+              )}
+            </View>
+          ) : (
+            <View style={s.hubContent}>
+              <SectionHeader
+                label={
+                  tab === "Money"
+                    ? "Recorded money & evidence"
+                    : tab === "People"
+                      ? "Drivers & duty"
+                      : "Fleet & operations"
+                }
+              />
+              <Card padding={0}>
+                {group.map((name, i) => (
+                  <ReportRow
+                    key={name}
+                    name={name}
+                    section={sections[name]}
+                    onOpen={() => detail(name)}
+                    last={i === group.length - 1}
+                  />
+                ))}
+                {!group.length && (
+                  <View style={s.empty}>
+                    <AppText variant="small" muted>
+                      No report sections available in this view.
+                    </AppText>
+                  </View>
+                )}
+              </Card>
+              <AppText variant="caption" muted>
+                Tap a row for its figures, coverage and supporting records.
+                Unavailable figures are shown as —.
+              </AppText>
+            </View>
+          )}
+
+          {request.data && (
             <View style={s.footer}>
               <Ionicons name="sync-outline" size={13} color={colors.fog300} />
               <AppText variant="caption" muted style={s.grow}>
@@ -838,26 +1160,27 @@ export function OwnerReportDashboard({
                 IST · pull to refresh
               </AppText>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="About this report"
-              onPress={() => setAboutOpen(true)}
-              style={{
-                minHeight: 44,
-                justifyContent: "center",
-                alignSelf: "flex-start",
-              }}
+          )}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="About this report"
+            onPress={() => setAboutOpen(true)}
+            style={{
+              minHeight: 44,
+              justifyContent: "center",
+              alignSelf: "flex-start",
+            }}
+          >
+            <AppText
+              variant="caption"
+              weight="semibold"
+              color={colors.rage700}
             >
-              <AppText
-                variant="caption"
-                weight="semibold"
-                color={colors.rage700}
-              >
-                About this report
-              </AppText>
-            </Pressable>
-          </>
-        )}
+              About this report
+            </AppText>
+          </Pressable>
+        </View>
       </ScrollView>
       <BottomSheet visible={branchOpen} onClose={() => setBranchOpen(false)}>
         <View style={s.sheetHeading}>
@@ -1066,6 +1389,188 @@ const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   fill: { flex: 1 },
   grow: { flex: 1, minWidth: 0 },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingLeft: 8,
+    paddingRight: 14,
+    paddingBottom: 8,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  headerLeftLogo: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingLeft: 2,
+    gap: 6,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerLogo: {
+    width: 88,
+    height: 46,
+  },
+  headerRightUser: {
+    flex: 1,
+    alignItems: "flex-end",
+    justifyContent: "center",
+    gap: 2,
+    paddingLeft: 10,
+  },
+  userNameText: {
+    fontSize: 16,
+    lineHeight: 20,
+    textAlign: "right",
+  },
+  userRoleText: {
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: "right",
+  },
+  pulseSection: {
+    gap: 10,
+  },
+  pulseHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 2,
+  },
+  pulseTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.success,
+  },
+  branchPillPulse: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: colors.tealTint,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: "#CCFBF1",
+  },
+  branchPillPulseText: {
+    fontSize: 11,
+    lineHeight: 15,
+    maxWidth: 150,
+  },
+  pulseCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    ...elevation.sm,
+  },
+  pulseCol: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 2,
+    paddingHorizontal: 1,
+  },
+  pulseColTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+  },
+  pulseColLabel: {
+    fontSize: 10,
+    lineHeight: 13,
+  },
+  pulseColNumber: {
+    fontSize: 18,
+    lineHeight: 22,
+    marginTop: 3,
+  },
+  pulseDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: colors.hairline,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  highlightsCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    ...elevation.sm,
+  },
+  highlightItem: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minWidth: 0,
+  },
+  highlightIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  highlightCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  highlightLabel: {
+    fontSize: 10,
+    letterSpacing: 0.3,
+  },
+  highlightDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: colors.hairline,
+    marginHorizontal: 8,
+  },
+  sectionWrap: {
+    gap: 12,
+  },
+  sectionHeaderBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 2,
+    marginTop: 4,
+  },
+  hubContent: {
+    gap: 14,
+  },
   dashboard: {
     width: "100%",
     maxWidth: 680,

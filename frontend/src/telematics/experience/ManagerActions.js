@@ -25,6 +25,9 @@ import FleetMap from '../components/FleetMap';
 import { ActionButton, ExperiencePage, UnavailableScreen, useExperienceCopy } from './ExperienceUI';
 import { GNB_LOGO_URI } from './gnbLogoUri';
 import ApprovalsScreen from '../screens/ApprovalsScreen';
+import { DateSelector, Highlight } from '../components/OwnerReportView';
+import { istDay } from '../services/ownerReport';
+import { metricValue } from '../services/ownerPresentation';
 
 function useCards() {
   const { service, branchId, lastPush } = useManagerData();
@@ -91,17 +94,71 @@ export function ManagerActionHome({ navigation }) {
   const [snoozeModalCard, setSnoozeModalCard] = useState(null);
   const [safetyCallCard, setSafetyCallCard] = useState(null);
   const [actionInProgress, setActionInProgress] = useState({});
+  const [reportDate, setReportDate] = useState(istDay());
 
   const branch = branchId === 'all' ? undefined : branchId;
   const currentBranchName = branches.find((b) => b.id === branchId)?.name || c('allBranches');
+
+  const dailyRequest = useOwnerRequest(
+    `manager-daily-report:${branchId}:${reportDate}`,
+    async () => {
+      try {
+        return await service.ownerDaily(reportDate, branch);
+      } catch {
+        return null;
+      }
+    },
+    60000
+  );
 
   // Pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.allSettled([request.reload(), refresh(), actRateReq.reload()]);
+    await Promise.allSettled([request.reload(), refresh(), actRateReq.reload(), dailyRequest.reload()]);
     setRefreshing(false);
-  }, [request, refresh, actRateReq]);
+  }, [request, refresh, actRateReq, dailyRequest]);
+
+  const dailySections = dailyRequest.data?.sections || {};
+  const dailyDistanceSection = dailySections.distance ? 'distance' : 'trips';
+  const dailyHighlights = [
+    [
+      'trips',
+      'count',
+      'Completed trips',
+      'navigate-outline',
+      'records',
+      'Marked complete',
+      'Fleet trips',
+    ],
+    [
+      dailyDistanceSection,
+      dailySections.distance ? 'observedKm' : 'ladenKm',
+      dailySections.distance ? 'Observed distance' : 'Laden trip distance',
+      'speedometer-outline',
+      'km',
+      dailySections.distance ? 'Recorded intervals' : 'Of completed trips',
+      'Fleet trips',
+    ],
+    [
+      'diesel',
+      'amount',
+      'Diesel purchases',
+      'water-outline',
+      'INR',
+      'Recorded, not paid',
+      'Fuel logs',
+    ],
+    [
+      'expenses',
+      'amount',
+      'Driver bills',
+      'receipt-outline',
+      'INR',
+      'Submitted for review',
+      'Manager approvals',
+    ],
+  ];
 
   // Fleet Pulse metrics
   const vehicles = data?.vehicles || [];
@@ -484,6 +541,41 @@ export function ManagerActionHome({ navigation }) {
             </View>
           </View>
         )}
+
+        {/* Aaj ka hisab - Daily Report Section */}
+        <View style={s.hisabSection}>
+          <View style={s.hisabHeaderRow}>
+            <AppText variant="h3" weight="extrabold" color={colors.text}>
+              Aaj ka hisab
+            </AppText>
+          </View>
+
+          <DateSelector date={reportDate} onChange={setReportDate} />
+
+          {dailyRequest.loading && !dailyRequest.data ? (
+            <View style={s.hisabGrid}>
+              {[0, 1, 2, 3].map((i) => (
+                <View key={i} style={[s.skeletonHighlight, { height: 100 }]} />
+              ))}
+            </View>
+          ) : (
+            <View style={s.hisabGrid}>
+              {dailyHighlights.map(
+                ([name, metric, label, icon, unit, caption, targetRoute]) => (
+                  <Highlight
+                    key={`${name}-${metric}`}
+                    label={label}
+                    icon={icon}
+                    unit={unit}
+                    caption={caption}
+                    value={metricValue(dailySections[name], metric)}
+                    onPress={() => targetRoute && navigation.navigate(targetRoute)}
+                  />
+                ),
+              )}
+            </View>
+          )}
+        </View>
 
         {/* Action Cards Header & Filters */}
         <View style={s.sectionHeaderRow}>
@@ -2256,5 +2348,27 @@ const s = StyleSheet.create({
   complianceBannerAction: {
     paddingHorizontal: 8,
     paddingVertical: 4,
+  },
+  hisabSection: {
+    gap: 10,
+    marginTop: 4,
+  },
+  hisabHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  hisabGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  skeletonHighlight: {
+    width: '48%',
+    flexGrow: 1,
+    flexBasis: '46%',
+    borderRadius: radius.md,
+    backgroundColor: colors.fog700,
   },
 });
