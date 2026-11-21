@@ -1089,6 +1089,53 @@ export function createTelematicsApi({
         })
       ).data.data;
     },
+    async maintenanceRecords(params = {}, branchId) {
+      const res = await get('/maintenance', { params, headers: headersFor(branchId) });
+      const data = res?.data || res?.items || (Array.isArray(res) ? res : []);
+      const meta = res?.meta || { total: Array.isArray(data) ? data.length : 0 };
+      return { data: Array.isArray(data) ? data : [], meta };
+    },
+    async maintenanceSummary(params = {}, branchId) {
+      try {
+        const res = await get('/maintenance/summary', { params, headers: headersFor(branchId) });
+        return res?.data || res || { total: 0, totalAmount: 0, last30: 0 };
+      } catch {
+        return { total: 0, totalAmount: 0, last30: 0 };
+      }
+    },
+    async maintenancePredictions(params = {}, branchId) {
+      try {
+        const res = await get('/maintenance-predictions', { params, headers: headersFor(branchId) });
+        const records = res?.records || res?.data?.records || (Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []);
+        return { records: Array.isArray(records) ? records : [] };
+      } catch {
+        return { records: [] };
+      }
+    },
+    async createMaintenanceRecord(payload, asset, branchId) {
+      const fd = new FormData();
+      Object.entries(payload || {}).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') fd.append(k, String(v));
+      });
+      if (asset) {
+        if (typeof document !== 'undefined') {
+          fd.append('files', asset.file || await (await fetch(asset.uri)).blob(), asset.name || asset.fileName || 'bill.jpg');
+        } else {
+          fd.append('files', {
+            uri: asset.uri,
+            name: asset.name || asset.fileName || 'bill.jpg',
+            type: asset.mimeType || asset.type || 'image/jpeg',
+          });
+        }
+      }
+      return (await client.post('/maintenance', fd, { headers: { 'Content-Type': 'multipart/form-data', ...headersFor(branchId) }, timeout: 120000 })).data;
+    },
+    async updateMaintenanceRecord(id, payload, branchId) {
+      return (await client.patch(`/maintenance/${encodeURIComponent(id)}`, payload, { headers: headersFor(branchId) })).data;
+    },
+    async deleteMaintenanceRecord(id, branchId) {
+      return (await client.delete(`/maintenance/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data;
+    },
     async fleetRecord(kind, id, branchId) {
       return (
         await get(`/fleet/workflows/${kind}/${encodeURIComponent(id)}`, {

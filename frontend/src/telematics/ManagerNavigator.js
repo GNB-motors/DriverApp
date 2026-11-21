@@ -10,6 +10,7 @@ import HistoricalTripScreen from './screens/HistoricalTripScreen';
 import FleetDocumentsScreen from './screens/FleetDocumentsScreen';
 import FleetFuelLogsScreen from './screens/FleetFuelLogsScreen';
 import FleetTripsScreen from './screens/FleetTripsScreen';
+import FleetMaintenanceScreen from './screens/FleetMaintenanceScreen';
 import * as Operations from './workflows/FleetOperationalScreens';
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -62,7 +63,7 @@ export default function ManagerNavigator() {
     <Stack.Screen name="Manager alert" component={Screens.AlertDetail} />
     <Stack.Screen name="Fuel review" component={FleetFuelLogsScreen} />
     <Stack.Screen name="Fuel logs" component={FleetFuelLogsScreen} />
-    <Stack.Screen name="Maintenance" component={Operations.FleetRecords} />
+    <Stack.Screen name="Maintenance" component={FleetMaintenanceScreen} />
     <Stack.Screen name="New maintenance record" component={Operations.NewMaintenance} />
     <Stack.Screen name="Review detail" component={Operations.FleetRecordDetail} />
     <Stack.Screen name="Fleet documents" component={FleetDocumentsScreen} />
