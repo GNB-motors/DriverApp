@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import {
   View,
   StyleSheet,
-  ScrollView,
   Pressable,
   ActivityIndicator,
   Alert,
   Modal,
   TextInput,
+  ScrollView,
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,9 +33,9 @@ function toIstDateString(date) {
 }
 
 function formatIstTime(dateOrIso) {
-  if (!dateOrIso) return "N/A";
+  if (!dateOrIso) return "--:--";
   const d = new Date(dateOrIso);
-  if (isNaN(d.getTime())) return "N/A";
+  if (isNaN(d.getTime())) return "--:--";
   return d.toLocaleTimeString("en-IN", {
     timeZone: "Asia/Kolkata",
     hour: "2-digit",
@@ -128,9 +128,11 @@ export default function RouteReplayScreen({ navigation, route }) {
     from: new Date(Date.now() - 24 * 3600000).toISOString(),
     to: new Date().toISOString(),
   });
+  const [isRangePickerOpen, setIsRangePickerOpen] = useState(false);
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   const [customFromInput, setCustomFromInput] = useState("");
   const [customToInput, setCustomToInput] = useState("");
+  const [isStopsOpen, setIsStopsOpen] = useState(false);
 
   const activeRange = useMemo(() => {
     const now = new Date();
@@ -153,7 +155,7 @@ export default function RouteReplayScreen({ navigation, route }) {
       return {
         from: startOfDay.toISOString(),
         to: now.toISOString(),
-        label: "Today (00:00 - Now)",
+        label: "Today",
       };
     }
     if (preset === "yesterday") {
@@ -177,7 +179,7 @@ export default function RouteReplayScreen({ navigation, route }) {
       return {
         from: startOfYesterday.toISOString(),
         to: endOfYesterday.toISOString(),
-        label: "Yesterday (Full Day)",
+        label: "Yesterday",
       };
     }
     if (preset === "last48") {
@@ -199,7 +201,6 @@ export default function RouteReplayScreen({ navigation, route }) {
     loading: true,
     error: null,
     fixes: [],
-    trips: [],
     distanceKm: 0,
     maxSpeed: 0,
     avgSpeed: 0,
@@ -213,6 +214,7 @@ export default function RouteReplayScreen({ navigation, route }) {
   const [isPlaying, setIsPlaying] = useState(Boolean(route.params?.autoPlay));
   const [progress, setProgress] = useState(0); // 0.0 to 1.0
   const [speedMultiplier, setSpeedMultiplier] = useState(5); // 1x, 2x, 5x, 10x, 20x
+  const scrubberTrackRef = useRef(null);
 
   // Load trail from API
   useEffect(() => {
@@ -326,7 +328,6 @@ export default function RouteReplayScreen({ navigation, route }) {
           loading: false,
           error: null,
           fixes,
-          trips: Array.isArray(res?.trips) ? res.trips : [],
           distanceKm: Math.round(totalDist * 10) / 10,
           maxSpeed: Math.round(maxSpd),
           avgSpeed: avgSpd,
@@ -353,9 +354,9 @@ export default function RouteReplayScreen({ navigation, route }) {
   useEffect(() => {
     if (!isPlaying || mode !== "replay" || trailState.fixes.length < 2) return;
 
-    // Total base duration of replay animation is 25 seconds for the full route at 1x
+    // Base duration for 1x replay is ~30 seconds for complete route
     const intervalMs = 60;
-    const step = (intervalMs / (25000 / speedMultiplier));
+    const step = intervalMs / (30000 / speedMultiplier);
 
     const timer = setInterval(() => {
       setProgress((prev) => {
@@ -398,13 +399,19 @@ export default function RouteReplayScreen({ navigation, route }) {
     };
   }, [currentFix, vehicle?.plate, reg]);
 
-  // Scrubber drag / seek
+  // Scrubber touch seek
   const handleScrub = (event) => {
     const { locationX } = event.nativeEvent;
-    // Estimated scrubber width: total width minus padding (~340)
-    const estimatedWidth = 320;
-    const fraction = Math.max(0, Math.min(1, locationX / estimatedWidth));
-    setProgress(fraction);
+    scrubberTrackRef.current?.measure?.((x, y, width) => {
+      if (width > 0) {
+        const fraction = Math.max(0, Math.min(1, locationX / width));
+        setProgress(fraction);
+      }
+    });
+    // Fallback seek
+    const estWidth = 300;
+    const fallbackFrac = Math.max(0, Math.min(1, locationX / estWidth));
+    setProgress(fallbackFrac);
   };
 
   const handleCustomRangeSubmit = () => {
@@ -428,329 +435,360 @@ export default function RouteReplayScreen({ navigation, route }) {
     });
     setPreset("custom");
     setIsCustomModalOpen(false);
+    setIsRangePickerOpen(false);
   };
 
-  return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Top Header */}
-      <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={22} color={colors.text} />
-        </Pressable>
+  const totalKm = trailState.distanceKm;
+  const coveredKm = totalKm > 0 ? (totalKm * progress).toFixed(1) : 0;
 
-        <View style={styles.headerTitleContainer}>
-          <View style={styles.plateRow}>
-            <View style={styles.plateBadge}>
-              <AppText
-                variant="small"
-                mono
-                weight="bold"
-                color={colors.white}
-              >
-                {vehicle?.plate || reg || "TRUCK ROUTE"}
+  return (
+    <View style={styles.screen}>
+      {/* ============================================================== */}
+      {/* 1. FULL-SCREEN MAP CANVAS (100% DISPLAY)                        */}
+      {/* ============================================================== */}
+      <View style={StyleSheet.absoluteFill}>
+        <FleetMap
+          vehicles={vehicle ? [vehicle] : []}
+          trailPoints={trailState.fixes}
+          traveledTrailPoints={mode === "replay" ? traveledFixes : []}
+          activePosition={mode === "replay" ? activePosition : null}
+          caption={false}
+          style={styles.fullScreenMap}
+          mapStyle={styles.fullScreenMap}
+        />
+      </View>
+
+      {/* ============================================================== */}
+      {/* 2. FLOATING TOP HEADER OVERLAY                                  */}
+      {/* ============================================================== */}
+      <View
+        pointerEvents="box-none"
+        style={[styles.floatingHeader, { paddingTop: insets.top + spacing.xs }]}
+      >
+        <View style={styles.topBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            onPress={() => navigation.goBack()}
+            style={styles.iconCircleButton}
+          >
+            <Ionicons name="arrow-back" size={22} color={colors.text} />
+          </Pressable>
+
+          {/* Vehicle Plate & Info Badge */}
+          <View style={styles.vehicleInfoBadge}>
+            <View style={styles.plateContainer}>
+              <AppText variant="small" mono weight="bold" color={colors.white}>
+                {vehicle?.plate || reg || "TRUCK"}
               </AppText>
             </View>
-            <View style={styles.liveIndicator}>
-              <View style={styles.pulseDot} />
-              <AppText variant="caption" weight="bold" color={colors.primaryDeep}>
-                GPS TELEMETRY
+            <View style={{ flex: 1 }}>
+              <AppText variant="caption" weight="bold" numberOfLines={1}>
+                {trailState.fixes.length > 0
+                  ? `${trailState.distanceKm} km · ${trailState.fixes.length} fixes`
+                  : activeRange.label}
+              </AppText>
+              <AppText variant="caption" muted numberOfLines={1}>
+                {vehicle?.model || "Fleet vehicle"}
               </AppText>
             </View>
           </View>
-          <AppText variant="caption" muted numberOfLines={1}>
-            {vehicle?.model ? `${vehicle.model} · ` : ""}
-            {activeRange.label}
-          </AppText>
+
+          {/* Range Picker Button */}
+          <Pressable
+            style={styles.rangePickerButton}
+            onPress={() => setIsRangePickerOpen(true)}
+          >
+            <Ionicons name="calendar-outline" size={16} color={colors.primary} />
+            <AppText variant="caption" weight="bold" color={colors.primaryDeep}>
+              {preset === "last24"
+                ? "24h"
+                : preset === "today"
+                  ? "Today"
+                  : preset === "yesterday"
+                    ? "Yest"
+                    : preset === "last48"
+                      ? "48h"
+                      : "Range"} ▾
+            </AppText>
+          </Pressable>
+
+          {/* Reload Trail Button */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Reload trail"
+            onPress={() => setReloadTrigger((n) => n + 1)}
+            style={styles.iconCircleButtonSmall}
+          >
+            <Ionicons name="reload" size={16} color={colors.text} />
+          </Pressable>
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Reload trail"
-          onPress={() => setReloadTrigger((n) => n + 1)}
-          style={styles.refreshButton}
-        >
-          <Ionicons name="reload" size={18} color={colors.primary} />
-        </Pressable>
-      </View>
-
-      {/* Mode Switcher: Trail History vs Route Replay */}
-      <View style={styles.modeTabs}>
-        <Pressable
-          style={[
-            styles.modeTab,
-            mode === "history" && styles.modeTabActive,
-          ]}
-          onPress={() => {
-            setMode("history");
-            setIsPlaying(false);
-          }}
-        >
-          <Ionicons
-            name="map-outline"
-            size={16}
-            color={mode === "history" ? colors.primary : colors.textMuted}
-          />
-          <AppText
-            variant="small"
-            weight={mode === "history" ? "bold" : "medium"}
-            color={mode === "history" ? colors.primary : colors.textMuted}
+        {/* Mode Switcher Pill: Trail History vs Route Replay */}
+        <View style={styles.modeTabsRow}>
+          <Pressable
+            style={[
+              styles.modeTabPill,
+              mode === "history" && styles.modeTabPillActive,
+            ]}
+            onPress={() => {
+              setMode("history");
+              setIsPlaying(false);
+            }}
           >
-            Trail History
-          </AppText>
-        </Pressable>
-
-        <Pressable
-          style={[
-            styles.modeTab,
-            mode === "replay" && styles.modeTabActive,
-          ]}
-          onPress={() => setMode("replay")}
-        >
-          <Ionicons
-            name="play-circle-outline"
-            size={16}
-            color={mode === "replay" ? colors.primary : colors.textMuted}
-          />
-          <AppText
-            variant="small"
-            weight={mode === "replay" ? "bold" : "medium"}
-            color={mode === "replay" ? colors.primary : colors.textMuted}
-          >
-            Play Route Replay
-          </AppText>
-        </Pressable>
-      </View>
-
-      {/* Date Range Chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.presetsBar}
-      >
-        {[
-          { key: "last24", label: "Last 24h" },
-          { key: "today", label: "Today" },
-          { key: "yesterday", label: "Yesterday" },
-          { key: "last48", label: "Last 48h" },
-          { key: "custom", label: preset === "custom" ? "Custom Range ▾" : "Custom ▾" },
-        ].map((item) => {
-          const isActive = preset === item.key;
-          return (
-            <Pressable
-              key={item.key}
-              style={[styles.presetChip, isActive && styles.presetChipActive]}
-              onPress={() => {
-                if (item.key === "custom") {
-                  setCustomFromInput(toIstDateString(new Date(Date.now() - 24 * 3600000)));
-                  setCustomToInput(toIstDateString(new Date()));
-                  setIsCustomModalOpen(true);
-                } else {
-                  setPreset(item.key);
-                }
-              }}
+            <Ionicons
+              name="map"
+              size={14}
+              color={mode === "history" ? colors.white : colors.textMuted}
+            />
+            <AppText
+              variant="caption"
+              weight="bold"
+              color={mode === "history" ? colors.white : colors.text}
             >
-              <AppText
-                variant="caption"
-                weight={isActive ? "bold" : "medium"}
-                color={isActive ? colors.white : colors.text}
-              >
-                {item.label}
-              </AppText>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+              Route Trail
+            </AppText>
+          </Pressable>
 
-      {/* Main Content Area */}
+          <Pressable
+            style={[
+              styles.modeTabPill,
+              mode === "replay" && styles.modeTabPillActive,
+            ]}
+            onPress={() => setMode("replay")}
+          >
+            <Ionicons
+              name="play-circle"
+              size={15}
+              color={mode === "replay" ? colors.white : colors.textMuted}
+            />
+            <AppText
+              variant="caption"
+              weight="bold"
+              color={mode === "replay" ? colors.white : colors.text}
+            >
+              Track Replay
+            </AppText>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* ============================================================== */}
+      {/* 3. LOADING / ERROR / EMPTY OVERLAYS                             */}
+      {/* ============================================================== */}
       {trailState.loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <AppText weight="bold" style={{ marginTop: 12 }}>
-            Loading recorded route trail…
-          </AppText>
-          <AppText variant="caption" muted>
-            Fetching GPS points from telematics gateway
-          </AppText>
+        <View style={styles.centerOverlay} pointerEvents="none">
+          <View style={styles.hudLoadingCard}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <AppText variant="small" weight="bold" style={{ marginLeft: 8 }}>
+              Loading vehicle track & replay…
+            </AppText>
+          </View>
         </View>
       ) : trailState.error ? (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={44} color={colors.error} />
-          <AppText weight="bold" color={colors.error} style={{ marginTop: 8 }}>
-            Unable to load route
-          </AppText>
-          <AppText variant="caption" muted style={styles.errorText}>
-            {trailState.error}
-          </AppText>
-          <Button
-            label="Retry Loading Trail"
-            icon="reload"
-            onPress={() => setReloadTrigger((n) => n + 1)}
-            style={{ marginTop: 12 }}
-          />
+        <View style={styles.centerOverlay}>
+          <Card style={styles.centerCard}>
+            <Ionicons name="alert-circle" size={32} color={colors.error} />
+            <AppText weight="bold" color={colors.error}>
+              Could not load route
+            </AppText>
+            <AppText variant="caption" muted style={{ textAlign: "center" }}>
+              {trailState.error}
+            </AppText>
+            <Button
+              label="Retry"
+              icon="reload"
+              onPress={() => setReloadTrigger((n) => n + 1)}
+            />
+          </Card>
         </View>
       ) : trailState.fixes.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="navigate-circle-outline" size={48} color={colors.textMuted} />
-          <AppText weight="bold" style={{ marginTop: 8 }}>
-            No GPS points recorded in this window
-          </AppText>
-          <AppText variant="caption" muted style={styles.emptySubText}>
-            Vehicle {vehicle?.plate || reg} has no recorded telemetry positions between{" "}
-            {formatIstDateTime(activeRange.from)} and {formatIstDateTime(activeRange.to)}.
-          </AppText>
-          <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
-            <Button
-              label="Try Last 48 Hours"
-              variant="secondary"
-              onPress={() => setPreset("last48")}
-            />
-            <Button
-              label="Select Custom Date"
-              onPress={() => {
-                setCustomFromInput(toIstDateString(new Date(Date.now() - 48 * 3600000)));
-                setCustomToInput(toIstDateString(new Date()));
-                setIsCustomModalOpen(true);
-              }}
-            />
-          </View>
+        <View style={styles.centerOverlay}>
+          <Card style={styles.centerCard}>
+            <Ionicons name="navigate-circle-outline" size={38} color={colors.textMuted} />
+            <AppText weight="bold">No recorded points</AppText>
+            <AppText variant="caption" muted style={{ textAlign: "center" }}>
+              No GPS telemetry fixes found for {vehicle?.plate || reg} between{" "}
+              {formatIstDateTime(activeRange.from)} and {formatIstDateTime(activeRange.to)}.
+            </AppText>
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+              <Button
+                label="Try Last 48h"
+                variant="secondary"
+                onPress={() => setPreset("last48")}
+              />
+              <Button
+                label="Custom Date"
+                onPress={() => {
+                  setCustomFromInput(toIstDateString(new Date(Date.now() - 48 * 3600000)));
+                  setCustomToInput(toIstDateString(new Date()));
+                  setIsCustomModalOpen(true);
+                }}
+              />
+            </View>
+          </Card>
         </View>
-      ) : (
-        <ScrollView
-          style={styles.scrollArea}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-        >
-          {/* Map Section */}
-          <View style={styles.mapCard}>
-            <FleetMap
-              vehicles={vehicle ? [vehicle] : []}
-              trailPoints={trailState.fixes}
-              traveledTrailPoints={mode === "replay" ? traveledFixes : []}
-              activePosition={mode === "replay" ? activePosition : null}
-              caption={`${trailState.fixes.length} recorded GPS fixes · ${trailState.distanceKm} km traveled`}
-              mapStyle={{ height: 320 }}
-            />
-          </View>
+      ) : null}
 
-          {/* Mode-Specific Controls */}
-          {mode === "replay" ? (
-            /* =================== REPLAY CONTROLS =================== */
-            <View style={styles.replayControlsContainer}>
-              {/* Playhead HUD Card */}
-              <Card style={styles.hudCard}>
-                <View style={styles.hudRow}>
+      {/* ============================================================== */}
+      {/* 4. FLOATING BOTTOM CONTROLS (WEB TrackTimeline STYLE)           */}
+      {/* ============================================================== */}
+      {!trailState.loading && trailState.fixes.length > 0 && (
+        <View
+          style={[
+            styles.floatingBottom,
+            { paddingBottom: Math.max(insets.bottom, 10) },
+          ]}
+        >
+          {/* Stoppages Drawer (if opened) */}
+          {isStopsOpen && (
+            <Card style={styles.stopsDrawerCard}>
+              <View style={styles.stopsDrawerHeader}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ionicons name="pause-circle" size={16} color="#DC2626" />
+                  <AppText weight="bold">
+                    Detected Stoppages ({trailState.stoppages.length})
+                  </AppText>
+                </View>
+                <Pressable onPress={() => setIsStopsOpen(false)} hitSlop={10}>
+                  <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+                </Pressable>
+              </View>
+              <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
+                {trailState.stoppages.length === 0 ? (
+                  <AppText variant="caption" muted style={{ paddingVertical: 8 }}>
+                    No long stoppages (&gt; 3 mins) detected.
+                  </AppText>
+                ) : (
+                  trailState.stoppages.map((stop, i) => (
+                    <Pressable
+                      key={stop.id || i}
+                      style={styles.stopRow}
+                      onPress={() => {
+                        const stopIdx = trailState.fixes.findIndex((f) => f.at >= stop.startAt);
+                        if (stopIdx >= 0) {
+                          setProgress(stopIdx / (trailState.fixes.length - 1));
+                          setMode("replay");
+                        }
+                        setIsStopsOpen(false);
+                      }}
+                    >
+                      <View style={styles.stopDot} />
+                      <View style={{ flex: 1 }}>
+                        <AppText variant="caption" weight="bold">
+                          Stop #{i + 1} · {formatDuration(stop.durationMinutes)}
+                        </AppText>
+                        <AppText variant="caption" muted>
+                          {formatIstTime(stop.startAt)} → {formatIstTime(stop.endAt)}
+                        </AppText>
+                      </View>
+                      <Ionicons name="play" size={14} color={colors.primary} />
+                    </Pressable>
+                  ))
+                )}
+              </ScrollView>
+            </Card>
+          )}
+
+          {/* Main Floating HUD Card */}
+          <Card style={styles.timelineFloatingCard}>
+            {mode === "replay" ? (
+              /* --- REPLAY TIMELINE HUD --- */
+              <>
+                {/* HUD Top Strip: Time, Speed, Ignition, Distance */}
+                <View style={styles.hudTopStrip}>
                   <View style={{ flex: 1 }}>
                     <AppText variant="caption" muted weight="bold">
-                      REPLAY TIMESTAMP (IST)
+                      PLAYHEAD TIME (IST)
                     </AppText>
-                    <AppText weight="extrabold" style={styles.hudTime}>
-                      {currentFix ? formatIstDateTime(currentFix.at) : "N/A"}
+                    <AppText weight="extrabold" style={styles.hudTimestampText}>
+                      {currentFix ? formatIstDateTime(currentFix.at) : "--"}
                     </AppText>
                   </View>
 
-                  <View style={styles.hudSpeedBadge}>
+                  {/* Speed Badge */}
+                  <View
+                    style={[
+                      styles.speedChip,
+                      {
+                        backgroundColor:
+                          (currentFix?.speed || 0) > 3
+                            ? "#DCFCE7"
+                            : (currentFix?.ignition === true || currentFix?.ignition === 1)
+                              ? "#FEF3C7"
+                              : "#FEE2E2",
+                      },
+                    ]}
+                  >
                     <Ionicons
                       name={
                         (currentFix?.speed || 0) > 3
                           ? "speedometer"
-                          : "pause-circle"
+                          : (currentFix?.ignition === true || currentFix?.ignition === 1)
+                            ? "flash"
+                            : "stop-circle"
                       }
-                      size={18}
+                      size={15}
                       color={
                         (currentFix?.speed || 0) > 3
                           ? colors.success
-                          : colors.warning
+                          : (currentFix?.ignition === true || currentFix?.ignition === 1)
+                            ? "#D97706"
+                            : "#DC2626"
                       }
                     />
                     <AppText
-                      variant="h3"
+                      variant="caption"
                       weight="extrabold"
                       color={
                         (currentFix?.speed || 0) > 3
-                          ? colors.success
-                          : colors.text
+                          ? "#15803D"
+                          : (currentFix?.ignition === true || currentFix?.ignition === 1)
+                            ? "#B45309"
+                            : "#B91C1C"
                       }
                     >
-                      {currentFix?.speed != null
-                        ? Math.round(currentFix.speed)
-                        : 0}
+                      {currentFix?.speed != null ? Math.round(currentFix.speed) : 0} km/h
                     </AppText>
-                    <AppText variant="caption" muted weight="bold">
-                      km/h
+                  </View>
+
+                  {/* Ignition & Distance */}
+                  <View style={styles.hudRightSummary}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <View
+                        style={[
+                          styles.ignDot,
+                          {
+                            backgroundColor:
+                              currentFix?.ignition === true || currentFix?.ignition === 1
+                                ? colors.success
+                                : colors.textMuted,
+                          },
+                        ]}
+                      />
+                      <AppText variant="caption" weight="bold">
+                        IGN{" "}
+                        {currentFix?.ignition === true || currentFix?.ignition === 1
+                          ? "ON"
+                          : "OFF"}
+                      </AppText>
+                    </View>
+                    <AppText variant="caption" muted mono>
+                      {coveredKm}/{totalKm} km
                     </AppText>
                   </View>
                 </View>
 
-                {/* Sub-telemetry strip */}
-                <View style={styles.telemetryStrip}>
-                  <View style={styles.telemetryItem}>
-                    <AppText variant="caption" muted>
-                      Status:
-                    </AppText>
-                    <View
-                      style={[
-                        styles.statusDot,
-                        {
-                          backgroundColor:
-                            (currentFix?.speed || 0) > 3
-                              ? colors.success
-                              : (currentFix?.ignition === true || currentFix?.ignition === 1)
-                                ? "#F59E0B"
-                                : "#EF4444",
-                        },
-                      ]}
-                    />
-                    <AppText variant="caption" weight="bold">
-                      {(currentFix?.speed || 0) > 3
-                        ? "Moving"
-                        : (currentFix?.ignition === true || currentFix?.ignition === 1)
-                          ? "Idling"
-                          : "Stopped"}
-                    </AppText>
-                  </View>
-
-                  <View style={styles.telemetryItem}>
-                    <AppText variant="caption" muted>
-                      Ignition:
-                    </AppText>
-                    <AppText
-                      variant="caption"
-                      weight="bold"
-                      color={
-                        currentFix?.ignition === true || currentFix?.ignition === 1
-                          ? colors.success
-                          : colors.textMuted
-                      }
-                    >
-                      {currentFix?.ignition === true || currentFix?.ignition === 1
-                        ? "ON"
-                        : "OFF"}
-                    </AppText>
-                  </View>
-
-                  <View style={styles.telemetryItem}>
-                    <AppText variant="caption" muted>
-                      Point:
-                    </AppText>
-                    <AppText variant="caption" mono weight="bold">
-                      {currentFixIndex + 1}/{trailState.fixes.length}
-                    </AppText>
-                  </View>
-                </View>
-
-                {/* Interactive Scrubber Bar */}
-                <View style={styles.scrubberWrapper}>
+                {/* Scrubber Progress Bar */}
+                <View style={styles.scrubberContainer}>
                   <Pressable
+                    ref={scrubberTrackRef}
                     style={styles.scrubberTrack}
                     onPress={handleScrub}
                   >
                     <View
                       style={[
-                        styles.scrubberProgress,
+                        styles.scrubberFill,
                         { width: `${Math.round(progress * 100)}%` },
                       ]}
                     />
@@ -762,7 +800,7 @@ export default function RouteReplayScreen({ navigation, route }) {
                     />
                   </Pressable>
 
-                  <View style={styles.scrubberLabels}>
+                  <View style={styles.scrubberTimeLabels}>
                     <AppText variant="caption" muted mono>
                       {formatIstTime(trailState.fixes[0]?.at)} (Start)
                     </AppText>
@@ -775,69 +813,49 @@ export default function RouteReplayScreen({ navigation, route }) {
                   </View>
                 </View>
 
-                {/* Player Transport Controls */}
+                {/* Transport Controls & Multipliers */}
                 <View style={styles.transportRow}>
-                  {/* Reset to Start */}
+                  {/* Jump Start */}
                   <Pressable
-                    style={styles.transportButtonSecondary}
+                    style={styles.transportSubBtn}
                     onPress={() => {
                       setProgress(0);
                       setIsPlaying(false);
                     }}
                   >
-                    <Ionicons name="play-skip-back" size={20} color={colors.text} />
+                    <Ionicons name="play-skip-back" size={18} color={colors.text} />
                   </Pressable>
 
-                  {/* -15s jump */}
+                  {/* -15s */}
                   <Pressable
-                    style={styles.transportButtonSecondary}
-                    onPress={() => {
-                      setProgress((p) => Math.max(0, p - 0.05));
-                    }}
+                    style={styles.transportSubBtn}
+                    onPress={() => setProgress((p) => Math.max(0, p - 0.05))}
                   >
-                    <Ionicons name="play-back" size={20} color={colors.text} />
+                    <Ionicons name="play-back" size={18} color={colors.text} />
                   </Pressable>
 
-                  {/* Main Play / Pause Button */}
+                  {/* Big Play/Pause Button */}
                   <Pressable
-                    style={styles.playPauseButton}
+                    style={styles.playPauseCircle}
                     onPress={() => setIsPlaying((p) => !p)}
                   >
                     <Ionicons
                       name={isPlaying ? "pause" : "play"}
-                      size={28}
+                      size={24}
                       color={colors.white}
                     />
                   </Pressable>
 
-                  {/* +15s jump */}
+                  {/* +15s */}
                   <Pressable
-                    style={styles.transportButtonSecondary}
-                    onPress={() => {
-                      setProgress((p) => Math.min(1, p + 0.05));
-                    }}
+                    style={styles.transportSubBtn}
+                    onPress={() => setProgress((p) => Math.min(1, p + 0.05))}
                   >
-                    <Ionicons name="play-forward" size={20} color={colors.text} />
+                    <Ionicons name="play-forward" size={18} color={colors.text} />
                   </Pressable>
 
-                  {/* Jump to End */}
-                  <Pressable
-                    style={styles.transportButtonSecondary}
-                    onPress={() => {
-                      setProgress(1);
-                      setIsPlaying(false);
-                    }}
-                  >
-                    <Ionicons name="play-skip-forward" size={20} color={colors.text} />
-                  </Pressable>
-                </View>
-
-                {/* Speed Multipliers */}
-                <View style={styles.speedRow}>
-                  <AppText variant="caption" muted weight="bold">
-                    REPLAY SPEED:
-                  </AppText>
-                  <View style={styles.speedPills}>
+                  {/* Speed Multiplier Pills */}
+                  <View style={styles.speedPillsGroup}>
                     {[1, 2, 5, 10, 20].map((s) => (
                       <Pressable
                         key={s}
@@ -857,170 +875,166 @@ export default function RouteReplayScreen({ navigation, route }) {
                       </Pressable>
                     ))}
                   </View>
+
+                  {/* Stoppages toggle button */}
+                  <Pressable
+                    style={styles.stopsToggleChip}
+                    onPress={() => setIsStopsOpen((p) => !p)}
+                  >
+                    <Ionicons name="pause" size={12} color="#DC2626" />
+                    <AppText variant="caption" weight="bold" color={colors.text}>
+                      {trailState.stoppages.length}
+                    </AppText>
+                  </Pressable>
                 </View>
-              </Card>
-            </View>
-          ) : (
-            /* =================== TRAIL HISTORY STATS & BREAKDOWN =================== */
-            <View style={styles.historyContainer}>
-              {/* Summary KPIs */}
-              <View style={styles.kpiGrid}>
-                <Card style={styles.kpiCard}>
-                  <Ionicons name="git-commit-outline" size={20} color={colors.primary} />
-                  <AppText variant="caption" muted weight="bold">
-                    DISTANCE TRAVELED
-                  </AppText>
-                  <AppText variant="h3" weight="extrabold">
-                    {trailState.distanceKm} km
-                  </AppText>
-                </Card>
-
-                <Card style={styles.kpiCard}>
-                  <Ionicons name="speedometer-outline" size={20} color="#F59E0B" />
-                  <AppText variant="caption" muted weight="bold">
-                    TOP / AVG SPEED
-                  </AppText>
-                  <AppText variant="h3" weight="extrabold">
-                    {trailState.maxSpeed} / {trailState.avgSpeed}
-                  </AppText>
-                  <AppText variant="caption" muted>
-                    km/h
-                  </AppText>
-                </Card>
-
-                <Card style={styles.kpiCard}>
-                  <Ionicons name="time-outline" size={20} color={colors.success} />
-                  <AppText variant="caption" muted weight="bold">
-                    MOVING TIME
-                  </AppText>
-                  <AppText variant="h3" weight="extrabold">
-                    {formatDuration(trailState.movingMinutes)}
-                  </AppText>
-                </Card>
-
-                <Card style={styles.kpiCard}>
-                  <Ionicons name="stop-circle-outline" size={20} color="#EF4444" />
-                  <AppText variant="caption" muted weight="bold">
-                    STOPPED TIME
-                  </AppText>
-                  <AppText variant="h3" weight="extrabold">
-                    {formatDuration(trailState.stoppedMinutes)}
-                  </AppText>
-                </Card>
-              </View>
-
-              {/* Start & End Point Details */}
-              <Card style={{ gap: 10, marginTop: 12 }}>
-                <View style={styles.pointRow}>
-                  <View style={[styles.flagDot, { backgroundColor: "#16A34A" }]}>
-                    <Ionicons name="flag" size={14} color="#FFF" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <AppText variant="caption" weight="bold" color="#16A34A">
-                      ROUTE START
+              </>
+            ) : (
+              /* --- TRAIL HISTORY SUMMARY HUD --- */
+              <>
+                <View style={styles.historyHudHeader}>
+                  <View>
+                    <AppText variant="caption" muted weight="bold">
+                      RECORDED ROUTE OVERVIEW
                     </AppText>
-                    <AppText weight="bold">
-                      {formatIstDateTime(trailState.fixes[0]?.at)}
-                    </AppText>
-                    <AppText variant="caption" mono muted>
-                      {trailState.fixes[0]?.latitude.toFixed(5)},{" "}
-                      {trailState.fixes[0]?.longitude.toFixed(5)}
+                    <AppText variant="h3" weight="extrabold">
+                      {trailState.distanceKm} km traveled
                     </AppText>
                   </View>
+                  <Button
+                    label="Play Replay"
+                    icon="play-circle-outline"
+                    onPress={() => {
+                      setMode("replay");
+                      setIsPlaying(true);
+                    }}
+                  />
                 </View>
 
-                <View style={styles.pointDivider} />
-
-                <View style={styles.pointRow}>
-                  <View style={[styles.flagDot, { backgroundColor: "#DC2626" }]}>
-                    <Ionicons name="location" size={14} color="#FFF" />
+                {/* 4 Stats Chips */}
+                <View style={styles.historyStatsGrid}>
+                  <View style={styles.historyStatChip}>
+                    <Ionicons name="speedometer-outline" size={16} color="#F59E0B" />
+                    <View>
+                      <AppText variant="caption" muted>
+                        Top / Avg
+                      </AppText>
+                      <AppText variant="caption" weight="bold">
+                        {trailState.maxSpeed} / {trailState.avgSpeed} km/h
+                      </AppText>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <AppText variant="caption" weight="bold" color="#DC2626">
-                      LAST RECORDED POINT
-                    </AppText>
-                    <AppText weight="bold">
-                      {formatIstDateTime(
-                        trailState.fixes[trailState.fixes.length - 1]?.at,
-                      )}
-                    </AppText>
-                    <AppText variant="caption" mono muted>
-                      {trailState.fixes[trailState.fixes.length - 1]?.latitude.toFixed(5)},{" "}
-                      {trailState.fixes[trailState.fixes.length - 1]?.longitude.toFixed(5)}
-                    </AppText>
+
+                  <View style={styles.historyStatChip}>
+                    <Ionicons name="time-outline" size={16} color={colors.success} />
+                    <View>
+                      <AppText variant="caption" muted>
+                        Moving
+                      </AppText>
+                      <AppText variant="caption" weight="bold">
+                        {formatDuration(trailState.movingMinutes)}
+                      </AppText>
+                    </View>
                   </View>
+
+                  <View style={styles.historyStatChip}>
+                    <Ionicons name="stop-circle-outline" size={16} color="#DC2626" />
+                    <View>
+                      <AppText variant="caption" muted>
+                        Stopped
+                      </AppText>
+                      <AppText variant="caption" weight="bold">
+                        {formatDuration(trailState.stoppedMinutes)}
+                      </AppText>
+                    </View>
+                  </View>
+
+                  <Pressable
+                    style={styles.historyStatChip}
+                    onPress={() => setIsStopsOpen((p) => !p)}
+                  >
+                    <Ionicons name="pause-circle-outline" size={16} color={colors.primary} />
+                    <View>
+                      <AppText variant="caption" muted>
+                        Stoppages
+                      </AppText>
+                      <AppText variant="caption" weight="bold" color={colors.primary}>
+                        {trailState.stoppages.length} stops ▾
+                      </AppText>
+                    </View>
+                  </Pressable>
                 </View>
-              </Card>
-
-              {/* Stoppages List */}
-              <View style={{ marginTop: 16 }}>
-                <View style={styles.sectionHeader}>
-                  <Ionicons name="hand-left-outline" size={18} color={colors.text} />
-                  <AppText weight="bold">
-                    Detected Stoppages ({trailState.stoppages.length})
-                  </AppText>
-                </View>
-
-                {trailState.stoppages.length === 0 ? (
-                  <Card style={{ padding: 14 }}>
-                    <AppText variant="caption" muted>
-                      No extended stoppages (&gt; 3 mins) detected along this trail.
-                    </AppText>
-                  </Card>
-                ) : (
-                  trailState.stoppages.map((stop, idx) => (
-                    <Card
-                      key={stop.id || idx}
-                      style={{
-                        marginBottom: 8,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <View style={{ gap: 2, flex: 1 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                          <View
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: 4,
-                              backgroundColor: "#EF4444",
-                            }}
-                          />
-                          <AppText weight="bold">
-                            Stop #{idx + 1} · {formatDuration(stop.durationMinutes)}
-                          </AppText>
-                        </View>
-                        <AppText variant="caption" muted>
-                          {formatIstDateTime(stop.startAt)} → {formatIstTime(stop.endAt)}
-                        </AppText>
-                      </View>
-
-                      <Button
-                        label="Play from here"
-                        variant="secondary"
-                        onPress={() => {
-                          const stopIndex = trailState.fixes.findIndex(
-                            (f) => f.at >= stop.startAt,
-                          );
-                          if (stopIndex >= 0) {
-                            setProgress(stopIndex / (trailState.fixes.length - 1));
-                            setMode("replay");
-                            setIsPlaying(true);
-                          }
-                        }}
-                      />
-                    </Card>
-                  ))
-                )}
-              </View>
-            </View>
-          )}
-        </ScrollView>
+              </>
+            )}
+          </Card>
+        </View>
       )}
 
-      {/* Custom Date Range Modal */}
+      {/* ============================================================== */}
+      {/* 5. RANGE PICKER MODAL (Presets)                                 */}
+      {/* ============================================================== */}
+      <Modal
+        visible={isRangePickerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsRangePickerOpen(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setIsRangePickerOpen(false)}
+        >
+          <View style={styles.rangePickerModalContent}>
+            <View style={styles.modalHeaderRow}>
+              <AppText variant="small" weight="bold">
+                Select Telematics Date Range
+              </AppText>
+              <Pressable onPress={() => setIsRangePickerOpen(false)}>
+                <Ionicons name="close" size={20} color={colors.text} />
+              </Pressable>
+            </View>
+
+            {[
+              { key: "last24", label: "Last 24 Hours (Default)", desc: "Past 24 hours of live fixes" },
+              { key: "today", label: "Today", desc: "Since 00:00:00 IST today" },
+              { key: "yesterday", label: "Yesterday", desc: "Full day 00:00 to 23:59 IST" },
+              { key: "last48", label: "Last 48 Hours", desc: "Past 2 days of trail records" },
+              { key: "custom", label: "Custom Range…", desc: "Specify custom start and end date" },
+            ].map((item) => (
+              <Pressable
+                key={item.key}
+                style={[
+                  styles.rangeOptionRow,
+                  preset === item.key && styles.rangeOptionRowActive,
+                ]}
+                onPress={() => {
+                  if (item.key === "custom") {
+                    setCustomFromInput(toIstDateString(new Date(Date.now() - 24 * 3600000)));
+                    setCustomToInput(toIstDateString(new Date()));
+                    setIsRangePickerOpen(false);
+                    setIsCustomModalOpen(true);
+                  } else {
+                    setPreset(item.key);
+                    setIsRangePickerOpen(false);
+                  }
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <AppText weight="bold">{item.label}</AppText>
+                  <AppText variant="caption" muted>
+                    {item.desc}
+                  </AppText>
+                </View>
+                {preset === item.key && (
+                  <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                )}
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* ============================================================== */}
+      {/* 6. CUSTOM DATE RANGE INPUT MODAL                               */}
+      {/* ============================================================== */}
       <Modal
         visible={isCustomModalOpen}
         transparent
@@ -1031,23 +1045,19 @@ export default function RouteReplayScreen({ navigation, route }) {
           style={styles.modalBackdrop}
           onPress={() => setIsCustomModalOpen(false)}
         >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeader}>
+          <Pressable style={styles.customDateModalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeaderRow}>
               <AppText variant="h3" weight="bold">
-                Select Custom Date Range
+                Custom Route Date Range
               </AppText>
               <Pressable onPress={() => setIsCustomModalOpen(false)}>
                 <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
             </View>
 
-            <AppText variant="caption" muted style={{ marginBottom: 16 }}>
-              Specify start and end dates (YYYY-MM-DD) to fetch the exact recorded GPS route trail from the telematics gateway.
-            </AppText>
-
             <View style={styles.inputGroup}>
               <AppText variant="caption" weight="bold">
-                START DATE (FROM):
+                FROM DATE (YYYY-MM-DD):
               </AppText>
               <TextInput
                 style={styles.textInput}
@@ -1061,7 +1071,7 @@ export default function RouteReplayScreen({ navigation, route }) {
 
             <View style={styles.inputGroup}>
               <AppText variant="caption" weight="bold">
-                END DATE (TO):
+                TO DATE (YYYY-MM-DD):
               </AppText>
               <TextInput
                 style={styles.textInput}
@@ -1073,7 +1083,7 @@ export default function RouteReplayScreen({ navigation, route }) {
               />
             </View>
 
-            <View style={styles.modalActions}>
+            <View style={styles.modalActionsRow}>
               <Button
                 label="Cancel"
                 variant="secondary"
@@ -1094,207 +1104,177 @@ export default function RouteReplayScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#0F172A",
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#F1F5F9",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-  headerTitleContainer: {
+  fullScreenMap: {
     flex: 1,
+    width: "100%",
+    height: "100%",
+    borderRadius: 0,
   },
-  plateRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  floatingHeader: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    paddingHorizontal: 12,
     gap: 8,
   },
-  plateBadge: {
-    backgroundColor: "#0F172A",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#334155",
-  },
-  liveIndicator: {
+  topBar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    backgroundColor: "#EFF6FF",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: radius.full,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: radius.lg,
+    gap: 8,
+    ...elevation.md,
   },
-  pulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
-  },
-  refreshButton: {
+  iconCircleButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconCircleButtonSmall: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: "#EFF6FF",
     alignItems: "center",
     justifyContent: "center",
   },
-  modeTabs: {
-    flexDirection: "row",
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    gap: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-  },
-  modeTab: {
+  vehicleInfoBadge: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 8,
-    borderRadius: radius.md,
-    backgroundColor: "#F1F5F9",
-  },
-  modeTabActive: {
-    backgroundColor: "#EFF6FF",
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-  },
-  presetsBar: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
     gap: 8,
   },
-  presetChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: radius.full,
-    backgroundColor: colors.surface,
+  plateContainer: {
+    backgroundColor: "#0F172A",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: "#CBD5E1",
+    borderColor: "#334155",
   },
-  presetChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  errorContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  errorText: {
-    textAlign: "center",
-    marginTop: 4,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  emptySubText: {
-    textAlign: "center",
-    marginTop: 6,
-    maxWidth: 320,
-  },
-  scrollArea: {
-    flex: 1,
-  },
-  mapCard: {
-    marginHorizontal: spacing.md,
-    marginTop: 8,
-    borderRadius: radius.lg,
-    overflow: "hidden",
-    ...elevation.sm,
-  },
-  replayControlsContainer: {
-    paddingHorizontal: spacing.md,
-    marginTop: 12,
-  },
-  hudCard: {
-    gap: 12,
-    backgroundColor: colors.surface,
-    borderColor: "#CBD5E1",
-    borderWidth: 1,
-  },
-  hudRow: {
+  rangePickerButton: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-  },
-  hudTime: {
-    fontSize: 16,
-    marginTop: 2,
-  },
-  hudSpeedBadge: {
-    flexDirection: "row",
-    alignItems: "baseline",
     gap: 4,
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#BFDBFE",
   },
-  telemetryStrip: {
+  modeTabsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    backgroundColor: "#F1F5F9",
-    padding: 8,
-    borderRadius: radius.sm,
+    gap: 8,
+    alignSelf: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.8)",
+    padding: 3,
+    borderRadius: radius.full,
+    ...elevation.sm,
   },
-  telemetryItem: {
+  modeTabPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: radius.full,
   },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
+  modeTabPillActive: {
+    backgroundColor: colors.primary,
   },
-  scrubberWrapper: {
-    marginTop: 6,
+  centerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    zIndex: 90,
+  },
+  hudLoadingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.94)",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: radius.full,
+    ...elevation.md,
+  },
+  centerCard: {
+    alignItems: "center",
+    gap: 10,
+    padding: 20,
+    maxWidth: 320,
+    backgroundColor: colors.surface,
+  },
+  floatingBottom: {
+    position: "absolute",
+    bottom: 0,
+    left: 12,
+    right: 12,
+    zIndex: 100,
+    gap: 8,
+  },
+  timelineFloatingCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.97)",
+    borderRadius: radius.lg,
+    padding: 12,
+    gap: 10,
+    ...elevation.lg,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  hudTopStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  hudTimestampText: {
+    fontSize: 14,
+    marginTop: 1,
+  },
+  speedChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.md,
+  },
+  hudRightSummary: {
+    alignItems: "flex-end",
+    gap: 2,
+  },
+  ignDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  scrubberContainer: {
+    marginTop: 2,
   },
   scrubberTrack: {
-    height: 28,
+    height: 22,
     justifyContent: "center",
     backgroundColor: "#E2E8F0",
-    borderRadius: 14,
+    borderRadius: 11,
     position: "relative",
     overflow: "hidden",
   },
-  scrubberProgress: {
+  scrubberFill: {
     height: "100%",
     backgroundColor: colors.primary,
-    opacity: 0.85,
+    opacity: 0.9,
   },
   scrubberThumb: {
     position: "absolute",
@@ -1304,114 +1284,141 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderWidth: 3,
     borderColor: colors.primaryDeep,
-    top: 7,
+    top: 4,
   },
-  scrubberLabels: {
+  scrubberTimeLabels: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 4,
+    marginTop: 3,
   },
   transportRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 14,
-    marginVertical: 4,
+    justifyContent: "space-between",
+    paddingTop: 4,
   },
-  transportButtonSecondary: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  transportSubBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: "#F1F5F9",
     alignItems: "center",
     justifyContent: "center",
   },
-  playPauseButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  playPauseCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
     ...elevation.md,
   },
-  speedRow: {
+  speedPillsGroup: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#F1F5F9",
-  },
-  speedPills: {
-    flexDirection: "row",
-    gap: 6,
+    gap: 4,
   },
   speedPill: {
-    paddingHorizontal: 9,
+    paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: radius.full,
     backgroundColor: "#F1F5F9",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
   },
   speedPillActive: {
     backgroundColor: colors.primary,
-    borderColor: colors.primary,
   },
-  historyContainer: {
-    paddingHorizontal: spacing.md,
-    marginTop: 12,
-  },
-  kpiGrid: {
+  stopsToggleChip: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+  },
+  stopsDrawerCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.97)",
+    borderRadius: radius.md,
+    padding: 10,
+    gap: 8,
+    ...elevation.md,
+  },
+  stopsDrawerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  stopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
     gap: 8,
   },
-  kpiCard: {
-    width: "48.5%",
-    padding: 12,
-    gap: 4,
+  stopDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#DC2626",
   },
-  pointRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-  },
-  pointDivider: {
-    height: 1,
-    backgroundColor: "#E2E8F0",
-    marginVertical: 4,
-  },
-  flagDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sectionHeader: {
+  historyHudHeader: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+  },
+  historyStatsGrid: {
+    flexDirection: "row",
     gap: 6,
-    marginBottom: 8,
+  },
+  historyStatChip: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#F8FAFC",
+    padding: 6,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
   },
-  modalContent: {
+  rangePickerModalContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 18,
+    gap: 10,
+  },
+  customDateModalContent: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
     gap: 14,
   },
-  modalHeader: {
+  modalHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  rangeOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    backgroundColor: "#F8FAFC",
+  },
+  rangeOptionRowActive: {
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: colors.primary,
   },
   inputGroup: {
     gap: 6,
@@ -1426,7 +1433,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
   },
-  modalActions: {
+  modalActionsRow: {
     flexDirection: "row",
     gap: 10,
     marginTop: 10,

@@ -252,8 +252,40 @@ export default function FleetMapScreen({ navigation, route }) {
               </AppText>
               <FreshnessChip updatedAt={selected.updatedAt} />
             </View>
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+              <Button
+                label="Play Route"
+                icon="play-circle-outline"
+                style={{ flex: 1 }}
+                onPress={() =>
+                  navigation.navigate("Route replay", {
+                    vehicleId: selected.id,
+                    plate: selected.plate,
+                    vehicle: selected,
+                    mode: "replay",
+                    autoPlay: true,
+                  })
+                }
+              />
+              <Button
+                label="Route History"
+                icon="trail-sign-outline"
+                variant="secondary"
+                style={{ flex: 1 }}
+                onPress={() =>
+                  navigation.navigate("Route replay", {
+                    vehicleId: selected.id,
+                    plate: selected.plate,
+                    vehicle: selected,
+                    mode: "history",
+                    autoPlay: false,
+                  })
+                }
+              />
+            </View>
             <Button
               label="View truck details"
+              variant="secondary"
               onPress={() =>
                 navigation.navigate("Vehicle detail", {
                   id: selected.id,

@@ -269,10 +269,12 @@ function MapCanvas({
           <Ionicons name="expand-outline" size={20} color={colors.text} />
         </Pressable>
       )}
-      <AppText variant="caption" muted style={styles.caption}>
-        {caption ||
-          `${points.length} trucks with reported coordinates · Tap a marker for details`}
-      </AppText>
+      {caption !== false && caption !== null && (
+        <AppText variant="caption" muted style={styles.caption}>
+          {caption ||
+            `${points.length} trucks with reported coordinates · Tap a marker for details`}
+        </AppText>
+      )}
     </View>
   );
 }
