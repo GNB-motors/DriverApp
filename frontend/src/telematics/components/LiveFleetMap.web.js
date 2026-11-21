@@ -54,7 +54,9 @@ const LiveFleetMap = forwardRef(function LiveFleetMap(
   },
   ref,
 ) {
-  const key = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const key =
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+    "AIzaSyBTdzCwl2NZxdXjQP9chBV5F7FxKj3triA";
   const { isLoaded, loadError } = useJsApiLoader({
     id: "driver-app-google-maps",
     googleMapsApiKey: key || "",

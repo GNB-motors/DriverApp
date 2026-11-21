@@ -9,7 +9,7 @@ import React, {
 import { View, StyleSheet } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import { SvgXml } from "react-native-svg";
-import { AppText, colors } from "../../components/ui";
+import { AppText, colors, elevation } from "../../components/ui";
 import {
   INDIA_CORNERS,
   INDIA_REGION,
@@ -19,11 +19,14 @@ import {
   markerHeading,
 } from "./liveMap";
 import { truckSvg } from "./truckIcon";
+import { clusterVehicles } from "./clustering";
+
 const INTRO_DELAY_MS = 400;
 const PLATE_GAP = 4;
 const PLATE_HEIGHT = 22;
 const FOCUS_DELTA = 2;
 const EDGE = { top: 24, right: 24, bottom: 24, left: 24 };
+
 function TruckMarker({ vehicle, selected, onPress }) {
   const heading = markerHeading(vehicle);
   const xml = useMemo(
@@ -66,6 +69,50 @@ function TruckMarker({ vehicle, selected, onPress }) {
     </Marker>
   );
 }
+
+function ClusterMarker({ cluster, onPress }) {
+  const [tracking, setTracking] = useState(true);
+  useEffect(() => {
+    setTracking(true);
+    const timer = setTimeout(() => setTracking(false), 500);
+    return () => clearTimeout(timer);
+  }, [cluster.count]);
+
+  const size = cluster.count >= 100 ? 50 : cluster.count >= 10 ? 44 : 38;
+  const radius = size / 2;
+
+  return (
+    <Marker
+      coordinate={cluster.coordinates}
+      anchor={{ x: 0.5, y: 0.5 }}
+      onPress={() => onPress(cluster)}
+      tracksViewChanges={tracking}
+      zIndex={2000 + cluster.count}
+    >
+      <View
+        style={[
+          styles.clusterCircle,
+          {
+            width: size,
+            height: size,
+            borderRadius: radius,
+            backgroundColor: cluster.statusColor || colors.primary,
+          },
+        ]}
+      >
+        <AppText
+          variant="small"
+          weight="extrabold"
+          color={colors.white}
+          style={styles.clusterText}
+        >
+          {cluster.count > 999 ? "999+" : cluster.count}
+        </AppText>
+      </View>
+    </Marker>
+  );
+}
+
 const LiveFleetMap = forwardRef(function LiveFleetMap(
   {
     vehicles,
@@ -80,8 +127,10 @@ const LiveFleetMap = forwardRef(function LiveFleetMap(
 ) {
   const map = useRef(null);
   const region = useRef(INDIA_REGION);
+  const [currentRegion, setCurrentRegion] = useState(INDIA_REGION);
   const intro = useRef(null);
   useEffect(() => () => clearTimeout(intro.current), []);
+
   const showIndiaThenZoom = () => {
     fit(INDIA_CORNERS, false);
     const overview = fleetOverview(
@@ -93,11 +142,13 @@ const LiveFleetMap = forwardRef(function LiveFleetMap(
         INTRO_DELAY_MS,
       );
   };
+
   const fit = (coordinates, animated = true) =>
     map.current?.fitToCoordinates(coordinates, {
       edgePadding: EDGE,
       animated,
     });
+
   useImperativeHandle(
     ref,
     () => ({
@@ -121,6 +172,47 @@ const LiveFleetMap = forwardRef(function LiveFleetMap(
     }),
     [vehicles],
   );
+
+  const clusteredItems = useMemo(
+    () => clusterVehicles(vehicles, currentRegion),
+    [vehicles, currentRegion],
+  );
+
+  const handleClusterPress = (cluster) => {
+    const lats = cluster.vehicles.map((v) => v.coordinates.latitude);
+    const lngs = cluster.vehicles.map((v) => v.coordinates.longitude);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const latSpan = maxLat - minLat;
+    const lngSpan = maxLng - minLng;
+
+    const currentLatDelta =
+      region.current?.latitudeDelta || INDIA_REGION.latitudeDelta;
+    const currentLngDelta =
+      region.current?.longitudeDelta || INDIA_REGION.longitudeDelta;
+
+    const nextLatDelta = Math.max(
+      latSpan > 0 ? latSpan * 1.8 : 0.015,
+      currentLatDelta / 2.8,
+    );
+    const nextLngDelta = Math.max(
+      lngSpan > 0 ? lngSpan * 1.8 : 0.015,
+      currentLngDelta / 2.8,
+    );
+
+    map.current?.animateToRegion(
+      {
+        latitude: cluster.coordinates.latitude,
+        longitude: cluster.coordinates.longitude,
+        latitudeDelta: Math.max(0.01, nextLatDelta),
+        longitudeDelta: Math.max(0.01, nextLngDelta),
+      },
+      450,
+    );
+  };
+
   return (
     <MapView
       ref={map}
@@ -129,6 +221,7 @@ const LiveFleetMap = forwardRef(function LiveFleetMap(
       onMapReady={showIndiaThenZoom}
       onRegionChangeComplete={(next) => {
         region.current = next;
+        setCurrentRegion(next);
       }}
       onPress={(event) => {
         if (event.nativeEvent.action !== "marker-press") onClearSelection();
@@ -142,18 +235,31 @@ const LiveFleetMap = forwardRef(function LiveFleetMap(
       rotateEnabled={false}
       pitchEnabled={false}
     >
-      {vehicles.map((vehicle) => (
-        <TruckMarker
-          key={vehicle.id}
-          vehicle={vehicle}
-          selected={vehicle.id === selectedId}
-          onPress={onSelectVehicle}
-        />
-      ))}
+      {clusteredItems.map((item) => {
+        if (item.isCluster) {
+          return (
+            <ClusterMarker
+              key={item.id}
+              cluster={item}
+              onPress={handleClusterPress}
+            />
+          );
+        }
+        return (
+          <TruckMarker
+            key={item.vehicle.id}
+            vehicle={item.vehicle}
+            selected={item.vehicle.id === selectedId}
+            onPress={onSelectVehicle}
+          />
+        );
+      })}
     </MapView>
   );
 });
+
 export default LiveFleetMap;
+
 const styles = StyleSheet.create({
   marker: { alignItems: "center" },
   plate: {
@@ -163,5 +269,21 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     justifyContent: "center",
     backgroundColor: "#0C1020",
+  },
+  clusterCircle: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2.5,
+    borderColor: colors.white,
+    ...elevation.md,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+  },
+  clusterText: {
+    fontSize: 14,
+    lineHeight: 18,
+    textAlign: "center",
   },
 });

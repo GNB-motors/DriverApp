@@ -7,6 +7,11 @@ import { FleetCrewScreen } from "./screens/CrewScreens";
 import DefLedgerScreen from './screens/DefLedgerScreen';
 import TeamAccessScreen from './screens/TeamAccessScreen';
 import HistoricalTripScreen from './screens/HistoricalTripScreen';
+import FleetDocumentsScreen from './screens/FleetDocumentsScreen';
+import FleetFuelLogsScreen from './screens/FleetFuelLogsScreen';
+import FleetTripsScreen from './screens/FleetTripsScreen';
+import FleetMaintenanceScreen from './screens/FleetMaintenanceScreen';
+import RouteReplayScreen from './screens/RouteReplayScreen';
 import * as Operations from './workflows/FleetOperationalScreens';
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -57,13 +62,18 @@ export default function ManagerNavigator() {
     <Stack.Screen name="Duty board" component={Operations.DriverRoster} />
     <Stack.Screen name="Truck handover" component={Operations.Handover} />
     <Stack.Screen name="Manager alert" component={Screens.AlertDetail} />
-    <Stack.Screen name="Fuel review" component={Operations.FleetRecords} />
-    <Stack.Screen name="Maintenance" component={Operations.FleetRecords} />
+    <Stack.Screen name="Fuel review" component={FleetFuelLogsScreen} />
+    <Stack.Screen name="Fuel logs" component={FleetFuelLogsScreen} />
+    <Stack.Screen name="Maintenance" component={FleetMaintenanceScreen} />
     <Stack.Screen name="New maintenance record" component={Operations.NewMaintenance} />
     <Stack.Screen name="Review detail" component={Operations.FleetRecordDetail} />
-    <Stack.Screen name="Fleet documents" component={Operations.FleetRecords} />
+    <Stack.Screen name="Fleet documents" component={FleetDocumentsScreen} />
+    <Stack.Screen name="Documents" component={FleetDocumentsScreen} />
     <Stack.Screen name="Manager document" component={Operations.FleetRecordDetail} />
-    <Stack.Screen name="Fleet trips" component={Screens.Trips} />
+    <Stack.Screen name="Fleet trips" component={FleetTripsScreen} />
+    <Stack.Screen name="Route replay" component={RouteReplayScreen} />
+    <Stack.Screen name="Play route" component={RouteReplayScreen} />
+    <Stack.Screen name="Route history" component={RouteReplayScreen} />
     <Stack.Screen name="Manager trip" component={HistoricalTripScreen} />
     <Stack.Screen name="AdBlue / DEF" component={DefLedgerScreen} />
     <Stack.Screen name="Team & access" component={TeamAccessScreen} />

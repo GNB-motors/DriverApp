@@ -55,7 +55,7 @@ export function More({ navigation }) {
     ['App', [['Experience settings', 'Language & voice', 'settings-outline']]],
     ['Fleet & people', [['Drivers', 'Driver roster', 'people-outline'], ['Crew & driving', 'Crew & driving', 'swap-horizontal-outline'], ['Fleet trips', 'Trip history', 'navigate-outline'], ['Fuel & AdBlue', 'Fuel & AdBlue', 'water-outline'], ['Maintenance', 'Maintenance', 'construct-outline']]],
     ['Money & records', [['Capture reviews', 'Capture reviews', 'scan-outline'], ['Owner finance', 'Billing & cash flow', 'wallet-outline'], ['Fleet documents', 'Fleet documents', 'document-text-outline']]],
-    ['Conversations', [['Messages', 'Messages & broadcasts', 'chatbubbles-outline'], ['Owner calls', 'Calls & follow-ups', 'call-outline'], ['Owner escalations', 'Owner inbox', 'notifications-outline']]],
+    ['Conversations', [/* ['Messages', 'Messages & broadcasts', 'chatbubbles-outline'], */ ['Owner calls', 'Calls & follow-ups', 'call-outline'], ['Owner escalations', 'Owner inbox', 'notifications-outline']]],
     ['Your workspace', [['Owner home', 'Fleet home summary', 'home-outline'], ['Aaj ka hisaab', "Today's business report", 'document-text-outline'], ['Owner trends', 'Reports & trends', 'trending-up-outline'], ['Report settings', 'Morning report', 'sunny-outline'], ['Team & access', 'Team & access', 'person-add-outline'], ['Owner settings', 'Settings & support', 'settings-outline']]],
   ];
   return <OwnerScreen navigation={navigation} title="Your workspace" subtitle="Fleet, finances and your team.">
