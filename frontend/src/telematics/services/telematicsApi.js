@@ -809,6 +809,41 @@ export function createTelematicsApi({
       return (await get('/fuel-logs', { params: { limit: 50, ...params }, headers: headersFor(branchId) }));
     },
 
+    // Auto Trips & Fleet Trips
+    async autoTrips(params = {}, branchId) {
+      const res = await get('/auto-trips', {
+        params: { limit: 50, withCounts: '1', ...params },
+        headers: headersFor(branchId),
+      });
+      const data = res?.data || res;
+      const rawItems = Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data)
+          ? data
+          : Array.isArray(res?.items)
+            ? res.items
+            : [];
+      const items = rawItems.map(tripView);
+      const tabCounts = res?.tabCounts || data?.tabCounts || null;
+      const total = Number.isFinite(data?.total) ? data.total : items.length;
+      return {
+        items,
+        total,
+        tabCounts,
+        page: data?.page || 1,
+        limit: data?.limit || 50,
+      };
+    },
+    async createTripPlan(body, branchId) {
+      return (await client.post('/trip-plans', body, { headers: headersFor(branchId) })).data;
+    },
+    async addManualTrip(body, branchId) {
+      return (await client.post('/auto-trips/manual', body, { headers: headersFor(branchId) })).data;
+    },
+    async backfillVehicleTrips(vehicleId, branchId) {
+      return (await client.post(`/auto-trips/vehicles/${encodeURIComponent(vehicleId)}/backfill`, {}, { headers: headersFor(branchId) })).data;
+    },
+
     // Approvals: Owner & Manager (Office bills)
     async officeBillCaptures(params = {}, branchId) {
       return (await get('/fleet-view/bills', { params: { status: 'pending', uploaderRole: 'OWNER,MANAGER', source: 'office', limit: 50, ...params }, headers: headersFor(branchId) })).data;
@@ -1079,12 +1114,17 @@ export function createTelematicsApi({
       };
     },
     async listTrips(page = 1, branchId, vehicleId) {
-      const payload = (
-        await get("/auto-trips", { params: { page, limit: 30, ...(vehicleId && { vehicleId }) }, headers: headersFor(branchId) })
-      ).data;
-      if (!Array.isArray(payload?.items) || !Number.isFinite(payload.total))
-        throw new Error("Invalid trips response.");
-      return { ...payload, items: payload.items.map(tripView) };
+      const res = await get("/auto-trips", { params: { page, limit: 30, ...(vehicleId && { vehicleId }) }, headers: headersFor(branchId) });
+      const payload = res?.data || res;
+      const rawItems = Array.isArray(payload?.items)
+        ? payload.items
+        : Array.isArray(payload)
+          ? payload
+          : Array.isArray(res?.items)
+            ? res.items
+            : [];
+      const total = Number.isFinite(payload?.total) ? payload.total : rawItems.length;
+      return { ...payload, total, items: rawItems.map(tripView) };
     },
     async getTrail(registration, { branchId, from, to } = {}) {
       const payload = (
