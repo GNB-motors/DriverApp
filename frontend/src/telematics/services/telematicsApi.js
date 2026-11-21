@@ -64,10 +64,66 @@ function vehicleView(row, position = row.position, rule = row.locationRule) {
     Math.abs(position.longitude) <= 180;
   const stale =
     position?.isStale === true || !Number.isFinite(age) || age > (position?.freshMinutes ?? 15) || age < -2;
+
+  const fuelLitres =
+    position?.primaryFuelLevel ??
+    position?.fuel?.value ??
+    position?.readings?.fuelLitres?.value ??
+    row.primaryFuelLevel ??
+    row.fuelLitres ??
+    null;
+  const fuelUnit =
+    position?.fuelLevelUnit ||
+    position?.fuel?.unit ||
+    (position?.primaryFuelLevel != null ? 'L' : null);
+  const fuelPercent =
+    position?.fuelPercent ??
+    (row.tankCapacityLitres && fuelLitres != null
+      ? Math.min(100, Math.round((fuelLitres / row.tankCapacityLitres) * 100))
+      : null);
+
+  const odometerKm =
+    position?.odometer ??
+    position?.readings?.odometerKm?.value ??
+    row.odometerReading ??
+    row.odometerKm ??
+    null;
+  const todayKm =
+    position?.todayKm ??
+    position?.dailyKm ??
+    row.todayKm ??
+    null;
+
+  const silentForMin =
+    position?.silentForMin ??
+    (position?.eventDateTime
+      ? Math.max(0, Math.floor((Date.now() - new Date(position.eventDateTime).getTime()) / 60000))
+      : null);
+
+  const address =
+    position?.address ||
+    rule?.label ||
+    row.address ||
+    null;
+
+  const isSubscriptionExpired = Boolean(
+    position?.isSubscriptionExpired ||
+    row.isSubscriptionExpired ||
+    row.subscriptionExpired ||
+    row.subscriptionStatus === 'expired' ||
+    row.subscriptionStatus === 'EXPIRED' ||
+    (row.subscriptionExpiresAt && new Date(row.subscriptionExpiresAt).getTime() < Date.now())
+  );
+
+  const missingDocTypes = row.missingDocTypes || [];
+  const documents = row.documents || [];
+  const documentsCount = documents.length;
+
   return {
     ...normalize(row),
-    plate: row.registrationNumber,
-    model: row.model || row.make || "Model unavailable",
+    plate: row.registrationNumber || position?.registrationNumber,
+    model: row.model || row.make || position?.vehicle?.model || "Model unavailable",
+    manufacturer: row.manufacturer || position?.vehicle?.manufacturer || null,
     status: !position || !Number.isFinite(age) || age < -2
       ? "unknown"
       : stale || position.state === "OFFLINE"
@@ -81,7 +137,7 @@ function vehicleView(row, position = row.position, rule = row.locationRule) {
       position?.registrationNumber ||
       row.fleetEdgeRegistration ||
       row.registrationNumber,
-    courseDegrees: position?.courseDegrees ?? null,
+    courseDegrees: position?.headingDeg ?? position?.courseDegrees ?? null,
     speed: position?.speed ?? null,
     isStale: stale,
     source:
@@ -92,16 +148,32 @@ function vehicleView(row, position = row.position, rule = row.locationRule) {
           : position
             ? "truck"
             : null,
-    updatedAt: position?.eventDateTime || null,
+    updatedAt: position?.eventDateTime || row.updatedAt || null,
+    eventDateTime: position?.eventDateTime || null,
     coordinates: valid
       ? { latitude: position.latitude, longitude: position.longitude }
       : null,
+    address,
+    detailedAddress: address,
     location:
+      address ||
       rule?.label ||
       (valid
-        ? `${position.latitude.toFixed(5)}, ${position.longitude.toFixed(5)}`
+        ? `${position.latitude.toFixed(4)}, ${position.longitude.toFixed(4)}`
         : "Location unavailable"),
-    odometerKm: row.odometerReading ?? null,
+    odometerKm,
+    todayKm,
+    fuelLitres,
+    fuelUnit,
+    fuelPercent,
+    silentForMin,
+    driver: position?.driver || row.driver || null,
+    driverId: position?.driver?.id || row.driverId || null,
+    isSubscriptionExpired,
+    missingDocTypes,
+    documents,
+    documentsCount,
+    rawPosition: position || null,
   };
 }
 function tripView(row) {
@@ -258,13 +330,16 @@ export function createTelematicsApi({
     "/branches": { limit: 100 },
     "/alert-inbox": { status: "ALL" },
   };
+  const cleanBranchId = (id) => (!id || id === 'all' || id === 'ALL' ? undefined : id);
   const get = async (path, config) => (await client.get(path, config)).data;
   const post = async (path, body) => (await client.post(path, body)).data;
-  const mapList = async (path, convert = normalize, branchId) =>
-    (await collectPages((page, limit) => get(path, {
+  const mapList = async (path, convert = normalize, branchId) => {
+    const clean = cleanBranchId(branchId);
+    return (await collectPages((page, limit) => get(path, {
         params: { ...queries[path], page, limit },
-        headers: branchId ? { "X-Branch-Id": branchId } : {},
+        headers: clean ? { "X-Branch-Id": clean } : {},
       }))).map(convert);
+  };
   async function loadDriver() {
     const linked = (await get("/driver/me/vehicle")).data;
     if (!linked || !Object.prototype.hasOwnProperty.call(linked, "vehicle"))
@@ -339,8 +414,10 @@ export function createTelematicsApi({
     if (!Array.isArray(payload?.items) || !Number.isFinite(payload.total) || !Number.isFinite(payload.unreadCount)) throw new Error('Invalid driver inbox response.');
     return { ...payload, items: payload.items.map((row) => ({ ...normalize(row), description: row.message, acknowledged: !!row.acknowledgedAt })) };
   }
-  const headersFor = (branchId) =>
-    branchId ? { "X-Branch-Id": branchId } : {};
+  const headersFor = (branchId) => {
+    const clean = cleanBranchId(branchId);
+    return clean ? { "X-Branch-Id": clean } : {};
+  };
   async function listOwnerAlerts({
     branchId,
     page = 1,
@@ -459,6 +536,63 @@ export function createTelematicsApi({
       }),
     );
     data.vehicles = mergePositions(data.vehicles, data.positions || []);
+
+    // 1. Compute today's km from trips for each vehicle if todayKm not directly on telemetry
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartTime = todayStart.getTime();
+    for (const v of data.vehicles) {
+      if (v.todayKm == null && Array.isArray(data.trips)) {
+        const vehicleTripsToday = data.trips.filter((t) => {
+          const tripVehicleId = t.vehicleId || t.vehicle?._id || t.vehicle;
+          const tripPlate = t.registrationNumber || t.plate;
+          const matches =
+            tripVehicleId === v.id ||
+            (tripPlate && plateKey(tripPlate) === plateKey(v.plate));
+          const tTime = t.startedAt ? new Date(t.startedAt).getTime() : 0;
+          return matches && tTime >= todayStartTime;
+        });
+        if (vehicleTripsToday.length > 0) {
+          v.todayKm = vehicleTripsToday.reduce(
+            (sum, t) => sum + (Number(t.distanceKm) || 0),
+            0,
+          );
+        }
+      }
+    }
+
+    // 2. Batch-resolve place names for all vehicles with coordinates
+    const pointsToResolve = data.vehicles
+      .filter((v) => v.coordinates && !v.address)
+      .map((v) => ({
+        key: `${v.coordinates.latitude.toFixed(4)},${v.coordinates.longitude.toFixed(4)}`,
+        lat: v.coordinates.latitude,
+        lng: v.coordinates.longitude,
+      }));
+    if (pointsToResolve.length > 0) {
+      try {
+        const res = await post("/places/resolve", {
+          points: pointsToResolve.slice(0, 100),
+        });
+        const places = res.data?.places || res.data?.data?.places || {};
+        for (const v of data.vehicles) {
+          if (v.coordinates && !v.address) {
+            const k = `${v.coordinates.latitude.toFixed(4)},${v.coordinates.longitude.toFixed(4)}`;
+            const p = places[k];
+            if (p) {
+              const addr = [p.label, p.sub].filter(Boolean).join(", ");
+              if (addr) {
+                v.address = addr;
+                v.location = addr;
+                v.detailedAddress = addr;
+              }
+            }
+          }
+        }
+      } catch {
+        // network or server error graceful fallback
+      }
+    }
     if (data.summary?.analyticsError) errors.analytics = data.summary.analyticsError;
     data.adblue = data.fuel.filter((row) => row.fuelType === "ADBLUE");
     data.fuel = data.fuel.filter((row) => row.fuelType !== "ADBLUE");
@@ -547,9 +681,23 @@ export function createTelematicsApi({
     async driverExplain(alertId, body, branchId) { return (await client.post(`/app/v2/escalations/${encodeURIComponent(alertId)}/explain`, body, { headers: headersFor(branchId) })).data.data; },
     // Realtime SSE stream (N1.13): mint a single-use ticket, then open the
     // event stream at streamBaseUrl?ticket=... (ticket auth, no header needed).
-    async streamTicket() { const payload = (await client.post('/app/v2/stream/ticket', {})).data; if (!payload?.ticket) throw new Error('Invalid stream ticket response.'); return payload.ticket; },
+    async streamTicket() {
+      if (audience !== 'driver' && user?.role !== 'DRIVER') {
+        throw new Error('Stream ticket is only supported for driver sessions.');
+      }
+      const payload = (await client.post('/app/v2/stream/ticket', {})).data;
+      if (!payload?.ticket) throw new Error('Invalid stream ticket response.');
+      return payload.ticket;
+    },
     streamBaseUrl: `${apiRoot}/app/v2/stream`,
-    async defLedger(branchId) { return (await get('/def-ledger', { headers: headersFor(branchId) })).data; },
+    async defLedger(branchId) {
+      try {
+        const res = await get('/def-ledger', { headers: headersFor(branchId) });
+        return res?.data || res || { vehicles: [], totals: {} };
+      } catch {
+        return { vehicles: [], totals: {} };
+      }
+    },
     async myStops() { return rows(await get('/place-intelligence/stops/mine', { params: { days: 14, limit: 50 } })); },
     async explainStop(id, purpose, note) { return (await post(`/place-intelligence/stops/${encodeURIComponent(id)}/reason`, { purpose, ...(note?.trim() && { note: note.trim() }) })).data; },
     async erpTrips(page = 1) { return get('/app/v1/trips', { params: { page, limit: 30 } }); },
@@ -613,14 +761,258 @@ export function createTelematicsApi({
     async voicePhrases() { return (await get('/app/v2/voice/phrases')).data; },
     async teamCreateEmployee(body, branchId) { return (await client.post('/employees', body, { headers: headersFor(branchId) })).data.data; },
     async teamUpdateEmployee(id, body, branchId) { return (await client.patch(`/employees/${encodeURIComponent(id)}`, body, { headers: headersFor(branchId) })).data.data; },
-    async teamRoles(branchId) { return (await get('/access-control/roles', { headers: headersFor(branchId) })).data; },
-    async teamEmployees(branchId) { return mapList('/employees', normalize, branchId); },
-    async teamAssignments(userId) { return (await get('/access-control/assignments', { params: { userId } })).data; },
-    async teamBranchRoles(branchId) { return (await get(`/access-control/branches/${encodeURIComponent(branchId)}/roles`)).data; },
+    async teamDeleteEmployee(id, branchId) { return (await client.delete(`/employees/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data; },
+    async teamDeactivateEmployee(id, branchId) { return (await client.post(`/employees/${encodeURIComponent(id)}/deactivate`, {}, { headers: headersFor(branchId) })).data; },
+    async teamActivateEmployee(id, branchId) { return (await client.post(`/employees/${encodeURIComponent(id)}/import`, {}, { headers: headersFor(branchId) })).data; },
+    async employeeDocuments(id, branchId) {
+      const res = (await get('/documents', { params: { entityType: 'USER', entityId: id }, headers: headersFor(branchId) }));
+      return res?.data || res || [];
+    },
+    async uploadEmployeeDocument(employeeId, asset, docType, expiryDate, branchId) {
+      const body = new FormData();
+      body.append('entityType', 'USER');
+      body.append('entityId', employeeId);
+      body.append('docType', docType);
+      if (expiryDate) body.append('expiryDate', expiryDate);
+      if (typeof document !== 'undefined') {
+        body.append('file', asset.file || await (await fetch(asset.uri)).blob(), asset.name || asset.fileName || 'document.jpg');
+      } else {
+        body.append('file', {
+          uri: asset.uri,
+          name: asset.name || asset.fileName || 'document.jpg',
+          type: asset.mimeType || asset.type || 'image/jpeg',
+        });
+      }
+      return (await client.post('/documents', body, { headers: { 'Content-Type': 'multipart/form-data', ...headersFor(branchId) }, timeout: 120000 })).data;
+    },
+    async deleteEmployeeDocument(docId, branchId) {
+      return (await client.delete(`/documents/${encodeURIComponent(docId)}`, { headers: headersFor(branchId) })).data;
+    },
+    async teamRoles(branchId) {
+      try {
+        return (await get('/access-control/roles', { headers: headersFor(branchId) })).data;
+      } catch {
+        try {
+          return (await get('/access-control/roles')).data;
+        } catch {
+          return { roles: [], catalog: [] };
+        }
+      }
+    },
+    async teamEmployees(branchId) {
+      try {
+        return await mapList('/employees', normalize, branchId);
+      } catch {
+        try {
+          const res = await get('/employees', { params: { limit: 100 }, headers: headersFor(branchId) });
+          const items = res?.data || res?.items || (Array.isArray(res) ? res : []);
+          return Array.isArray(items) ? items.map(normalize) : [];
+        } catch {
+          return [];
+        }
+      }
+    },
+    async teamAssignments(userId) {
+      try {
+        return (await get('/access-control/assignments', { params: { userId } })).data;
+      } catch {
+        return [];
+      }
+    },
+    async teamBranchRoles(branchId) {
+      if (!branchId || branchId === 'all') return [];
+      try {
+        return (await get(`/access-control/branches/${encodeURIComponent(branchId)}/roles`)).data;
+      } catch {
+        return [];
+      }
+    },
     async teamWrite(path, method, body, branchId) {
       return (await client.request({ url: `/access-control/${path}`, method, data: body, headers: headersFor(branchId) })).data.data;
     },
     async createSavedLocation(body) { return (await post('/locations', body)).data; },
+    // Approvals: WhatsApp
+    async whatsappDrafts(params = {}, branchId) {
+      return (await get('/whatsapp/admin/drafts', { params: { status: 'READY', limit: 50, ...params }, headers: headersFor(branchId) })).data;
+    },
+    async whatsappDraft(id, branchId) {
+      return (await get(`/whatsapp/admin/drafts/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data;
+    },
+    async whatsappDraftCounts(branchId) {
+      return (await get('/whatsapp/admin/drafts/counts', { headers: headersFor(branchId) })).data;
+    },
+    async whatsappPublishDraft(id, payload = {}, branchId) {
+      return (await client.post(`/whatsapp/admin/drafts/${encodeURIComponent(id)}/publish`, payload, { headers: headersFor(branchId) })).data.data;
+    },
+    async whatsappRejectDraft(id, reason, branchId) {
+      return (await client.post(`/whatsapp/admin/drafts/${encodeURIComponent(id)}/reject`, { reason }, { headers: headersFor(branchId) })).data.data;
+    },
+    async whatsappBulkPublish(ids, branchId) {
+      return (await client.post('/whatsapp/admin/drafts/bulk-publish', { ids }, { headers: headersFor(branchId) })).data.data;
+    },
+    // Documents & Compliance
+    async listDocuments(params = {}, branchId) {
+      return (await get('/documents', { params, headers: headersFor(branchId) }));
+    },
+    async uploadVehicleDocument(vehicleId, asset, docType, expiryDate, branchId) {
+      const body = new FormData();
+      body.append('entityType', 'VEHICLE');
+      body.append('entityId', vehicleId);
+      body.append('docType', docType);
+      if (expiryDate) body.append('expiryDate', expiryDate);
+      if (typeof document !== 'undefined') {
+        body.append('file', asset.file || await (await fetch(asset.uri)).blob(), asset.name || asset.fileName || 'document.jpg');
+      } else {
+        body.append('file', {
+          uri: asset.uri,
+          name: asset.name || asset.fileName || 'document.jpg',
+          type: asset.mimeType || asset.type || 'image/jpeg',
+        });
+      }
+      return (await client.post('/documents', body, { headers: { 'Content-Type': 'multipart/form-data', ...headersFor(branchId) }, timeout: 120000 })).data;
+    },
+    async documentDetail(id, branchId) {
+      return (await get(`/documents/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data;
+    },
+    async getVehicleDocuments(vehicleId, branchId) {
+      const id = typeof vehicleId === 'object' ? vehicleId?.id || vehicleId?._id : vehicleId;
+      try {
+        const res = await client.get(`/vehicles/${encodeURIComponent(id)}/documents`, {
+          headers: headersFor(branchId),
+        });
+        return res.data?.data || res.data || [];
+      } catch {
+        try {
+          const res2 = await client.get(`/api/vehicles/${encodeURIComponent(id)}/documents`, {
+            headers: headersFor(branchId),
+          });
+          return res2.data?.data || res2.data || [];
+        } catch {
+          return [];
+        }
+      }
+    },
+
+    // Fuel Logs & Mileage
+    async unifiedFuelLogs(params = {}, branchId) {
+      return (await get('/fuel-logs/unified', { params: { limit: 50, ...params }, headers: headersFor(branchId) }));
+    },
+    async fuelLogs(params = {}, branchId) {
+      return (await get('/fuel-logs', { params: { limit: 50, ...params }, headers: headersFor(branchId) }));
+    },
+
+    // Auto Trips & Fleet Trips
+    async autoTrips(params = {}, branchId) {
+      const res = await get('/auto-trips', {
+        params: { limit: 50, withCounts: '1', ...params },
+        headers: headersFor(branchId),
+      });
+      const data = res?.data || res;
+      const rawItems = Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data)
+          ? data
+          : Array.isArray(res?.items)
+            ? res.items
+            : [];
+      const items = rawItems.map(tripView);
+      const tabCounts = res?.tabCounts || data?.tabCounts || null;
+      const total = Number.isFinite(data?.total) ? data.total : items.length;
+      return {
+        items,
+        total,
+        tabCounts,
+        page: data?.page || 1,
+        limit: data?.limit || 50,
+      };
+    },
+    async createTripPlan(body, branchId) {
+      return (await client.post('/trip-plans', body, { headers: headersFor(branchId) })).data;
+    },
+    async addManualTrip(body, branchId) {
+      return (await client.post('/auto-trips/manual', body, { headers: headersFor(branchId) })).data;
+    },
+    async backfillVehicleTrips(vehicleId, branchId) {
+      return (await client.post(`/auto-trips/vehicles/${encodeURIComponent(vehicleId)}/backfill`, {}, { headers: headersFor(branchId) })).data;
+    },
+
+    // Approvals: Owner & Manager (Office bills)
+    async officeBillCaptures(params = {}, branchId) {
+      return (await get('/fleet-view/bills', { params: { status: 'pending', uploaderRole: 'OWNER,MANAGER', source: 'office', limit: 50, ...params }, headers: headersFor(branchId) })).data;
+    },
+    async officeBillConfirm(links, branchId) {
+      return (await client.post('/fleet-view/bills/confirmations', { links }, { headers: headersFor(branchId) })).data.data;
+    },
+    async officeBillSuggestion(captureId, branchId) {
+      return (await get(`/fleet-view/bills/${encodeURIComponent(captureId)}/suggestion`, { headers: headersFor(branchId) })).data;
+    },
+
+    // Approvals: Field Agent
+    async fieldAgentApprovals(params = {}, branchId) {
+      return (await get('/field-agent/fuel-logs/approvals', { params: { status: 'PENDING', limit: 50, ...params }, headers: headersFor(branchId) }));
+    },
+    async fieldAgentApprovalCounts(branchId) {
+      return (await get('/field-agent/fuel-logs/approvals/counts', { headers: headersFor(branchId) })).data;
+    },
+    async fieldAgentApprove(ids, branchId) {
+      return (await client.post('/field-agent/fuel-logs/approvals/approve', { ids }, { headers: headersFor(branchId) })).data.data;
+    },
+    async fieldAgentReject(ids, reason, branchId) {
+      return (await client.post('/field-agent/fuel-logs/approvals/reject', { ids, ...(reason && { reason }) }, { headers: headersFor(branchId) })).data.data;
+    },
+
+    // Approvals: Trip Approvals
+    async tripApprovals(params = {}, branchId) {
+      return (await get('/movement-approvals', { params: { limit: 50, ...params }, headers: headersFor(branchId) })).data;
+    },
+    async tripApprovalRevoke(id, branchId) {
+      return (await client.delete(`/movement-approvals/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data.data;
+    },
+
+    // Upload: Fuel Bill from photo (single confirmed)
+    async uploadBillPhoto(asset, { vehicleId, fuelType = 'DIESEL', fillingType = 'FULL_TANK' } = {}, branchId) {
+      const body = new FormData();
+      if (typeof document !== 'undefined') {
+        body.append('fuelPhoto', asset.file || await (await fetch(asset.uri)).blob(), asset.name || 'fuel-bill.jpg');
+      } else {
+        body.append('fuelPhoto', { uri: asset.uri, name: asset.name || asset.fileName || 'fuel-bill.jpg', type: asset.mimeType || asset.type || 'image/jpeg' });
+      }
+      body.append('vehicleId', vehicleId);
+      body.append('fuelType', fuelType);
+      body.append('fillingType', fillingType);
+      return (await client.post('/mileage/fuel-log/from-photo', body, { headers: { 'Content-Type': 'multipart/form-data', ...headersFor(branchId) }, timeout: 120000 })).data.data;
+    },
+
+    // Upload: Fuel Bill capture (queue / multiple)
+    async uploadBillCapture(asset, clientId, { truck, kind = 'DIESEL' } = {}, branchId) {
+      const body = new FormData();
+      if (typeof document !== 'undefined') {
+        body.append('file', asset.file || await (await fetch(asset.uri)).blob(), asset.name || 'bill.jpg');
+      } else {
+        body.append('file', { uri: asset.uri, name: asset.name || asset.fileName || 'bill.jpg', type: asset.mimeType || asset.type || 'image/jpeg' });
+      }
+      body.append('source', 'office');
+      if (kind) body.append('kind', kind);
+      if (truck) body.append('truck', truck);
+      return (await client.post('/fleet-view/bills/captures', body, { headers: { 'Content-Type': 'multipart/form-data', ...idempotent(clientId), ...headersFor(branchId) }, timeout: 120000 })).data.data;
+    },
+
+    // Upload: WhatsApp chat export (.zip)
+    async uploadWhatsappExport(asset, onUploadProgress) {
+      const body = new FormData();
+      if (typeof document !== 'undefined') {
+        body.append('file', asset.file || await (await fetch(asset.uri)).blob(), asset.name || 'chat-export.zip');
+      } else {
+        body.append('file', { uri: asset.uri, name: asset.name || asset.fileName || 'chat-export.zip', type: asset.mimeType || 'application/zip' });
+      }
+      return (await client.post('/photo-imports/whatsapp-export', body, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000, onUploadProgress })).data.data;
+    },
+    async getChatExportJob(jobId) {
+      return (await get(`/photo-imports/chat-export/jobs/${encodeURIComponent(jobId)}`)).data;
+    },
+    async getActiveChatExportJob() {
+      return (await get('/photo-imports/chat-export/jobs/active')).data;
+    },
     async fuelVehicles() {
       if (user.role === "DRIVER") {
         const linked = (await get("/driver/me/vehicle")).data;
@@ -722,6 +1114,100 @@ export function createTelematicsApi({
         })
       ).data.data;
     },
+    async maintenanceRecords(params = {}, branchId) {
+      try {
+        const res = await get('/maintenance', { params, headers: headersFor(branchId) });
+        const data = res?.data || res?.items || (Array.isArray(res) ? res : []);
+        const meta = res?.meta || { total: Array.isArray(data) ? data.length : 0 };
+        return { data: Array.isArray(data) ? data : [], meta };
+      } catch {
+        return { data: [], meta: { total: 0 } };
+      }
+    },
+    async maintenanceSummary(params = {}, branchId) {
+      try {
+        const res = await get('/maintenance/summary', { params, headers: headersFor(branchId) });
+        return res?.data || res || { total: 0, totalAmount: 0, last30: 0 };
+      } catch {
+        return { total: 0, totalAmount: 0, last30: 0 };
+      }
+    },
+    async maintenancePredictions(params = {}, branchId) {
+      try {
+        const res = await get('/maintenance-predictions', { params, headers: headersFor(branchId) });
+        const records = res?.records || res?.data?.records || (Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []);
+        return { records: Array.isArray(records) ? records : [] };
+      } catch {
+        return { records: [] };
+      }
+    },
+    async createMaintenanceRecord(payload, asset, branchId) {
+      const fd = new FormData();
+      Object.entries(payload || {}).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') fd.append(k, String(v));
+      });
+      if (asset) {
+        if (typeof document !== 'undefined') {
+          fd.append('files', asset.file || await (await fetch(asset.uri)).blob(), asset.name || asset.fileName || 'bill.jpg');
+        } else {
+          fd.append('files', {
+            uri: asset.uri,
+            name: asset.name || asset.fileName || 'bill.jpg',
+            type: asset.mimeType || asset.type || 'image/jpeg',
+          });
+        }
+      }
+      return (await client.post('/maintenance', fd, { headers: { 'Content-Type': 'multipart/form-data', ...headersFor(branchId) }, timeout: 120000 })).data;
+    },
+    async updateMaintenanceRecord(id, payload, branchId) {
+      return (await client.patch(`/maintenance/${encodeURIComponent(id)}`, payload, { headers: headersFor(branchId) })).data;
+    },
+    async deleteMaintenanceRecord(id, branchId) {
+      return (await client.delete(`/maintenance/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data;
+    },
+    async createAdBlueLog(payload, asset, branchId) {
+      let documentId;
+      if (asset) {
+        try {
+          const fd = new FormData();
+          fd.append('docType', 'FUEL_SLIP');
+          fd.append('entityType', 'VEHICLE');
+          if (payload.vehicleId) fd.append('entityId', String(payload.vehicleId));
+          if (typeof document !== 'undefined') {
+            fd.append('file', asset.file || await (await fetch(asset.uri)).blob(), asset.name || asset.fileName || 'slip.jpg');
+          } else {
+            fd.append('file', {
+              uri: asset.uri,
+              name: asset.name || asset.fileName || 'slip.jpg',
+              type: asset.mimeType || asset.type || 'image/jpeg',
+            });
+          }
+          const docRes = await client.post('/documents', fd, {
+            headers: { 'Content-Type': 'multipart/form-data', ...headersFor(branchId) },
+            timeout: 120000,
+          });
+          documentId = docRes.data?._id || docRes.data?.data?._id || docRes.data?.id;
+        } catch (uploadErr) {
+          console.warn('[createAdBlueLog] Document upload skipped', uploadErr);
+        }
+      }
+
+      const body = {
+        vehicleId: payload.vehicleId,
+        driverId: payload.driverId,
+        litres: Number(payload.litres),
+        amount: Number(payload.amount),
+        ...(payload.place && { place: String(payload.place).trim() }),
+        ...(payload.filledAt && { filledAt: payload.filledAt }),
+        ...(documentId && { documentId }),
+      };
+
+      const res = await client.post('/adblue-logs', body, {
+        headers: headersFor(branchId),
+        timeout: 60000,
+      });
+      return res.data;
+    },
     async fleetRecord(kind, id, branchId) {
       return (
         await get(`/fleet/workflows/${kind}/${encodeURIComponent(id)}`, {
@@ -814,18 +1300,23 @@ export function createTelematicsApi({
       };
     },
     async listTrips(page = 1, branchId, vehicleId) {
-      const payload = (
-        await get("/auto-trips", { params: { page, limit: 30, ...(vehicleId && { vehicleId }) }, headers: headersFor(branchId) })
-      ).data;
-      if (!Array.isArray(payload?.items) || !Number.isFinite(payload.total))
-        throw new Error("Invalid trips response.");
-      return { ...payload, items: payload.items.map(tripView) };
+      const res = await get("/auto-trips", { params: { page, limit: 30, ...(vehicleId && { vehicleId }) }, headers: headersFor(branchId) });
+      const payload = res?.data || res;
+      const rawItems = Array.isArray(payload?.items)
+        ? payload.items
+        : Array.isArray(payload)
+          ? payload
+          : Array.isArray(res?.items)
+            ? res.items
+            : [];
+      const total = Number.isFinite(payload?.total) ? payload.total : rawItems.length;
+      return { ...payload, total, items: rawItems.map(tripView) };
     },
-    async getTrail(registration, { branchId, from, to } = {}) {
+    async getTrail(registration, { branchId, from, to, limit = 10000 } = {}) {
       const payload = (
         await get(
           `/livetracking/positions/${encodeURIComponent(registration)}/trail`,
-          { params: { from, to, limit: 2000 }, headers: headersFor(branchId) },
+          { params: { from, to, limit }, headers: headersFor(branchId) },
         )
       ).data;
       if (!Array.isArray(payload?.points))
@@ -834,6 +1325,9 @@ export function createTelematicsApi({
     },
     async branches() {
       return mapList("/branches");
+    },
+    async resolvePlaces(points) {
+      return (await post("/places/resolve", { points })).data;
     },
     async acknowledgeAlert(id, { branchId } = {}) {
       if (audience === "driver") {

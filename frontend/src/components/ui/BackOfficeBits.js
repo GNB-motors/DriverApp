@@ -148,10 +148,10 @@ export function FilterChips({ options, value, onChange, style }) {
 }
 
 /** Back-header for Owner/Ops detail screens (no sidebar). */
-export function BackHeader({ title, subtitle, right, onBack, active = true }) {
+export function BackHeader({ title, subtitle, right, onBack, active = true, style }) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.backHeader, { paddingTop: insets.top + spacing.sm, paddingLeft: 18 + insets.left, paddingRight: 18 + insets.right }]}>
+    <View style={[styles.backHeader, { paddingTop: insets.top + spacing.sm, paddingLeft: 18 + insets.left, paddingRight: 18 + insets.right }, style]}>
       {active && <StatusBar style="dark" />}
       {onBack && <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back" hitSlop={10} style={styles.backBtn}>
         <Ionicons name="chevron-back" size={22} color={colors.text} />

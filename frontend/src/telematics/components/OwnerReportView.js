@@ -697,7 +697,7 @@ export function OwnerReportDashboard({
                 <SectionHeader label="Your workspace" />
                 <View style={s.quickActions}>
                   {[
-                    ["Messages", "chatbubbles-outline", "Messages"],
+                    // ["Messages", "chatbubbles-outline", "Messages"],
                     ["Reviews", "documents-outline", "Capture reviews"],
                     ["Crew", "people-outline", "Crew & driving"],
                     ["Trends", "trending-up-outline", "Owner trends"],
