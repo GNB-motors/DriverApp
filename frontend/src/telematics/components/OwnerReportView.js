@@ -160,10 +160,10 @@ function DateSelector({ date, onChange }) {
       : date === istDay()
         ? "Today"
         : new Date(`${date}T12:00:00+05:30`).toLocaleDateString("en-IN", {
-          day: "numeric",
-          month: "short",
-          timeZone: "Asia/Kolkata",
-        });
+            day: "numeric",
+            month: "short",
+            timeZone: "Asia/Kolkata",
+          });
   return (
     <>
       <View style={s.dateRow}>
@@ -436,10 +436,10 @@ export function OwnerReportDashboard({
   const focused = useIsFocused();
   const showBack = Boolean(
     route?.name === "Aaj ka hisaab" ||
-    route?.name === "Digest" ||
-    route?.name === "Owner report" ||
-    (navigation?.canGoBack?.() && route?.name !== "Today") ||
-    (navigation?.getState?.()?.type === "stack" && navigation?.canGoBack?.()),
+      route?.name === "Digest" ||
+      route?.name === "Owner report" ||
+      (navigation?.canGoBack?.() && route?.name !== "Today") ||
+      (navigation?.getState?.()?.type === "stack" && navigation?.canGoBack?.()),
   );
   const [tab, setTab] = useState("Summary");
   const [branchOpen, setBranchOpen] = useState(false);
@@ -1037,16 +1037,16 @@ export function OwnerSectionContent({ name, section, onRecords }) {
                   Last source observation:{" "}
                   {source.observedAt
                     ? new Date(source.observedAt).toLocaleString("en-IN", {
-                      timeZone: "Asia/Kolkata",
-                    }) + " IST"
+                        timeZone: "Asia/Kolkata",
+                      }) + " IST"
                     : "Unavailable"}
                 </AppText>
                 <AppText variant="caption" muted>
                   Checked:{" "}
                   {source.checkedAt
                     ? new Date(source.checkedAt).toLocaleString("en-IN", {
-                      timeZone: "Asia/Kolkata",
-                    }) + " IST"
+                        timeZone: "Asia/Kolkata",
+                      }) + " IST"
                     : "Unavailable"}
                 </AppText>
               </View>
