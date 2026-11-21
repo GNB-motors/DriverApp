@@ -15,6 +15,8 @@ import AttachmentPicker from "./AttachmentPicker";
 import { formatLitres } from "../../utils/format";
 import DateField from "./DateField";
 import FuelLogFormScreen from "../../screens/driver/fuel/FuelLogFormScreen";
+import DigiLockerVerifyCard from "../../components/DigiLockerVerifyCard";
+import { useLanguage } from "../../context/LanguageContext";
 const labels = {
   fuel: "Fuel history",
   bills: "Workshop bills",
@@ -89,6 +91,7 @@ function Select({ label, value, onChange, values, disabled }) {
 }
 export function RecordList({ navigation, route }) {
   const { service } = useDriverData();
+  const { language } = useLanguage();
   const kind =
     route.params?.kind ||
     {
@@ -98,7 +101,8 @@ export function RecordList({ navigation, route }) {
       Documents: "documents",
       Support: "support",
     }[route.name];
-  const [scope, setScope] = useState("personal");
+  const [scope, setScope] = useState(route.params?.scope === "vehicle" ? "vehicle" : "personal");
+  useEffect(() => { if (route.params?.digiLockerCallbackUrl) setScope("personal"); }, [route.params?.digiLockerCallbackUrl]);
   const [page, setPage] = useState(1);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
@@ -146,6 +150,7 @@ export function RecordList({ navigation, route }) {
   }[kind];
   return (
     <Page navigation={navigation} title={labels[kind]} allowEmpty>
+      {kind === "documents" && scope === "personal" && <DigiLockerVerifyCard language={language} callbackUrl={route.params?.digiLockerCallbackUrl} onVerified={() => setRevision((value) => value + 1)} />}
       <Button
         label={`Add ${kind === "documents" ? "document" : kind === "support" ? "support ticket" : kind === "issues" ? "issue" : kind === "bills" ? "workshop bill" : "fuel"}`}
         onPress={() => navigation.navigate(createRoute, { scope })}

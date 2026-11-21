@@ -228,6 +228,7 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
   const [slot2, setSlot2] = useState("");
   const [safe, setSafe] = useState(false);
   const [notice, setNotice] = useState("");
+  const [asking, setAsking] = useState(false);
   const roster = useOwnerRequest(
     `${key}:candidates:${truckId || "none"}:${data?.vehicle.branchId || "none"}`,
     () =>
@@ -279,6 +280,15 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
     }
     request.reload();
   }
+  async function askCrew() {
+    if (asking || !safe || !truckId) return;
+    setAsking(true);
+    try {
+      const result = await service.crewAsk(truckId, {});
+      setNotice(result.askedCount ? `Who-is-driving question queued for ${result.askedCount} crew members.` : 'No new question was queued. Check again when the crew is available.');
+    } catch (error) { setNotice(error.message); }
+    finally { setAsking(false); }
+  }
   return (
     <Screen navigation={navigation} title="Crew & driving">
       <AppText muted>
@@ -298,6 +308,7 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
             <Summary data={data} />
           </Card>
           {notice ? <AppText>{notice}</AppText> : null}
+          {driver && <><Button label="Ask both phones: who is driving?" variant="secondary" disabled={locked || !safe || asking} loading={asking} onPress={askCrew} /><Button label="Answer office questions" variant="secondary" onPress={() => navigation.navigate('Driver questions')} /></>}
           {driver && (
             <Pressable
               accessibilityRole="checkbox"

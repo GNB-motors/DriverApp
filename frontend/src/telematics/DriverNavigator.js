@@ -9,6 +9,7 @@ import { ErpTripsScreen, ErpTripScreen } from './screens/ErpTripsScreen';
 import StopReasonsScreen from './screens/StopReasonsScreen';
 import { Messages, Conversation } from './screens/OwnerCommunicationScreens';
 import React from 'react';
+import { View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +21,8 @@ import { TelematicsApiProvider } from './context/TelematicsApiContext';
 import { DriverDataProvider, useDriverData } from './context/DriverDataContext';
 import * as Screens from './screens/DriverScreens';
 import * as Operations from './workflows/OperationalScreens';
+import { DriverWallet, DriverBillForm, DriverBillSent, DriverAdvances } from './screens/DriverWalletScreens';
+import { BreakPlanner, NearbyReports, DriverQuestions, CapturePages, MyCaptures, CaptureDetail } from './screens/DriverIntegrationScreens';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -30,14 +33,14 @@ function DriverTabBar(props) {
   const unread = data?.unreadCount || 0;
   return <CurvedTabBar {...props} badges={{ Inbox: unread }} centerAction={{ label: c('captureLabel'), onPress: () => props.navigation.getParent().navigate('Capture'), icon: <QuickAddIcon /> }} />;
 }
-function DriverTabs() {
+function DriverTabs({ navigation }) {
   const c = useExperienceCopy();
-  return <Tab.Navigator tabBar={(props) => <DriverTabBar {...props} />} screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name={icons[route.name]} size={size} color={color} /> })}>
+  return <View style={{ flex: 1 }}><DriverQuestions compact navigation={navigation} /><Tab.Navigator tabBar={(props) => <DriverTabBar {...props} />} screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name={icons[route.name]} size={size} color={color} /> })}>
     <Tab.Screen name="Navigate" component={NavigateScreen} options={{ tabBarLabel: c('navigationLabel') }} />
     <Tab.Screen name="Trips" component={DriverTripsExperience} options={{ tabBarLabel: c('trips') }} />
     <Tab.Screen name="Inbox" component={ExperienceInbox} options={{ tabBarLabel: c('inboxLabel') }} />
     <Tab.Screen name="More" component={DriverMoreExperience} options={{ tabBarLabel: c('moreLabel') }} />
-  </Tab.Navigator>;
+  </Tab.Navigator></View>;
 }
 export default function DriverNavigator() {
   const { user } = useAuth();
@@ -46,6 +49,16 @@ export default function DriverNavigator() {
   return <TelematicsApiProvider key={identity} identity={identity}><DriverDataProvider><Stack.Navigator initialRouteName="Driver tabs" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
     {Object.entries(driverExperienceRoutes).filter(([name]) => name !== 'Experience inbox').map(([name, component]) => <Stack.Screen key={name} name={name} component={component} />)}
     <Stack.Screen name="Capture" component={CaptureScreen} options={{ presentation: 'modal' }} />
+    <Stack.Screen name="Wallet" component={DriverWallet} />
+    <Stack.Screen name="AddBill" component={DriverBillForm} />
+    <Stack.Screen name="BillSent" component={DriverBillSent} />
+    <Stack.Screen name="Advances" component={DriverAdvances} />
+    <Stack.Screen name="Break planner" component={BreakPlanner} />
+    <Stack.Screen name="Nearby reports" component={NearbyReports} />
+    <Stack.Screen name="Driver questions" component={DriverQuestions} />
+    <Stack.Screen name="Photo any paper" component={CapturePages} />
+    <Stack.Screen name="My captures" component={MyCaptures} />
+    <Stack.Screen name="Capture detail" component={CaptureDetail} />
     <Stack.Screen name="Helpful cards" component={HelpfulCards} />
     <Stack.Screen name="Manager action detail" component={UnavailableScreen} />
     <Stack.Screen name="Recorded trips" component={Screens.DriverTrips} />

@@ -15,6 +15,8 @@ import { DutyCard, SectionHeading, VehicleRow, AlertRow, DataState } from '../co
 
 import FleetMap from '../components/FleetMap';
 import { validCoordinate } from '../components/mapGeometry';
+import { DriverDutyControl } from './DriverIntegrationScreens';
+import { DriverExpenseSummary } from './DriverWalletScreens';
 import { capturePairingFix } from '../tracking/useDriverLocationSharing';
 import { recentTrips, tripDetail, tripStatusLabel } from '../services/tripSummary';
 import { formatLitres } from '../../utils/format';
@@ -53,6 +55,7 @@ export function DriverHome({ navigation }) {
   const trips = recentTrips(data?.trips);
   const crewUnknown = data?.vehicle && !data?.crewStatus && data?.vehicle?.crewStatus !== 'DRIVING';
   return <Page navigation={navigation} title={`Hello, ${firstName}.`} subtitle="A clear view of the road ahead." action={<SosAction navigation={navigation} />}>
+    <DriverDutyControl navigation={navigation} />
     {data?.duty && <DutyCard driver={data.driver} />}
     {crewUnknown && <AtWheelPromptCard navigation={navigation} vehicleNumber={data?.vehicle?.registrationNumber} />}
     <DriverCrewCard navigation={navigation} />
@@ -279,7 +282,7 @@ export function DriverInbox({ navigation }) {
     return () => { active = false; };
   }, [service, filter, page, data?.unreadCount, revision]);
   return <Page navigation={navigation} title="Your inbox" subtitle="Your duty, assignment, support and incident updates." allowEmpty>
-    <View style={s.filters}>{['All', 'Unread'].map((item) => <Pressable key={item} style={[s.filter, filter === item && s.activeFilter]} accessibilityRole="button" accessibilityState={{ selected: filter === item }} onPress={() => { setFilter(item); setPage(1); }}><AppText weight="semibold" color={filter === item ? colors.white : colors.textMuted}>{item}</AppText></Pressable>)}</View>
+    <MenuRow title="Messages" icon="chatbubbles-outline" onPress={() => navigation.navigate('Messages')} /><MenuRow title="Document reminders" icon="calendar-outline" onPress={() => navigation.navigate('Document reminders')} /><MenuRow title="Questions from the office" icon="help-circle-outline" onPress={() => navigation.navigate('Driver questions')} /><View style={s.filters}>{['All', 'Unread'].map((item) => <Pressable key={item} style={[s.filter, filter === item && s.activeFilter]} accessibilityRole="button" accessibilityState={{ selected: filter === item }} onPress={() => { setFilter(item); setPage(1); }}><AppText weight="semibold" color={filter === item ? colors.white : colors.textMuted}>{item}</AppText></Pressable>)}</View>
     {error ? <><DataState state="error" onRetry={() => setRevision((old) => old + 1)} /><AppText color={colors.error} accessibilityRole="alert">{error}</AppText></> : !feed ? <DataState state="loading" /> : <>
       <AppText muted>{feed.unreadCount} unread · {feed.total} matching alerts</AppText>
       {feed.items.map((alert) => <AlertRow key={alert.id} alert={alert} onPress={() => navigation.navigate('Alert detail', { id: alert.id })} />)}
@@ -303,7 +306,7 @@ export function AlertDetail({ navigation, route }) {
 }
 export function MyTruck({ navigation }) {
   const { data } = useDriverData();
-  return <Page navigation={navigation} title="My truck" subtitle="Your vehicle. Your working day."><DriverCrewCard navigation={navigation} />{data?.vehicle ? <><VehicleRow vehicle={data.vehicle} /><MenuRow title="Odometer" detail={`${data.vehicle.odometerKm == null ? "Unavailable" : `${data.vehicle.odometerKm.toLocaleString('en-IN')} km`}`} icon="speedometer-outline" /><MenuRow title="Location sharing" detail="Understand where this position comes from" icon="location-outline" onPress={() => navigation.navigate('Location sharing')} /></> : <Empty title="No truck linked" description="Ask your manager to update your truck assignment." />}<Button label="Change truck" icon="swap-horizontal" onPress={() => navigation.navigate('Change truck')} /></Page>;
+  return <Page navigation={navigation} title="My truck" subtitle="Your vehicle. Your working day."><DriverCrewCard navigation={navigation} />{data?.vehicle ? <><VehicleRow vehicle={data.vehicle} /><MenuRow title="Odometer" detail={`${data.vehicle.odometerKm == null ? "Unavailable" : `${data.vehicle.odometerKm.toLocaleString('en-IN')} km`}`} icon="speedometer-outline" /><MenuRow title="Location sharing" detail="Understand where this position comes from" icon="location-outline" onPress={() => navigation.navigate('Location sharing')} /></> : <Empty title="No truck linked" description="Ask your manager to update your truck assignment." />}<MenuRow title="Truck papers" icon="document-text-outline" onPress={() => navigation.navigate('Documents', { scope: 'vehicle' })} /><MenuRow title="Workshop bills" icon="construct-outline" onPress={() => navigation.navigate('Workshop bills')} /><DriverExpenseSummary navigation={navigation} /><Button label="Change truck" icon="swap-horizontal" onPress={() => navigation.navigate('Change truck')} /></Page>;
 }
 export function ChangeTruck({ navigation }) {
   const { service, refresh } = useDriverData();
@@ -408,15 +411,15 @@ export function DriverMore({ navigation }) {
   const groups = [
     {
       key: 'moreTruckTrips',
-      items: [['Crew & driving', 'people-outline'], ['ERP trips', 'document-text-outline'], ['My truck', 'bus-outline'], ['Location sharing', 'location-outline']],
+      items: [['Home', 'home-outline'], ['Rest & hours', 'bed-outline'], ['Break planner', 'time-outline'], ['Site card', 'business-outline'], ['Crew & driving', 'people-outline'], ['ERP trips', 'document-text-outline'], ['My truck', 'bus-outline'], ['Location sharing', 'location-outline']],
     },
     {
       key: 'moreMessagesRecords',
-      items: [['Messages', 'chatbubbles-outline'], ['Documents', 'document-text-outline'], ['Fuel history', 'water-outline'], ['My issues', 'construct-outline'], ['Workshop bills', 'receipt-outline'], ['Support', 'help-circle-outline']],
+      items: [['Wallet', 'wallet-outline'], ['Advances', 'cash-outline'], ['My captures', 'camera-outline'], ['Document reminders', 'calendar-outline'], ['Nearby reports', 'warning-outline'], ['Helpful cards', 'information-circle-outline'], ['Driver questions', 'help-circle-outline'], ['Messages', 'chatbubbles-outline'], ['Documents', 'document-text-outline'], ['Fuel history', 'water-outline'], ['My issues', 'construct-outline'], ['Workshop bills', 'receipt-outline'], ['Support', 'help-circle-outline']],
     },
     {
       key: 'moreAccount',
-      items: [['Experience settings', 'language-outline'], ['Driver help', 'help-circle-outline'], ['Profile', 'person-outline']],
+      items: [['Experience settings', 'language-outline'], ['Privacy & consent', 'shield-checkmark-outline'], ['Driver help', 'help-circle-outline'], ['Profile', 'person-outline']],
     },
   ];
   return <Page navigation={navigation} title="Everything else" subtitle="Your essentials, in one place.">{groups.map((group) => <React.Fragment key={group.key}><SectionHeading title={t('roleDesign', group.key)} titleStyle={sectionTitleStyle} />{group.items.map(([title, icon]) => <MenuRow key={title} title={title} icon={icon} onPress={() => navigation.navigate(title)} />)}</React.Fragment>)}</Page>;
@@ -430,7 +433,7 @@ export function CaptureForm({ navigation, route }) {
 export function LocationSharing({ navigation }) {
   const { tracking } = useDriverData();
   return (
-    <Page navigation={navigation} title="Location sharing">
+    <Page navigation={navigation} title="Location sharing"><MenuRow title="Privacy & consent" icon="shield-checkmark-outline" onPress={() => navigation.navigate('Privacy & consent')} />
       <MenuRow
         title={`Sharing: ${tracking.mode}`}
         detail={
@@ -482,7 +485,7 @@ export function Profile({ navigation }) {
   const { preferences, setPreferences } = useDriverData();
   const [name, setName] = useState(preferences.nickname); const [saved, setSaved] = useState(false); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   async function signOut() { setBusy(true); try { await logout(); } catch (err) { setError(err.message); setBusy(false); } }
-  return <Page navigation={navigation} title="Your profile" subtitle="Your account and local preferences." allowEmpty><MenuRow title={user?.name || user?.firstName || 'Driver'} detail={`${user?.role || 'DRIVER'} · Signed-in account`} icon="person-outline" /><MenuRow title="Organization" detail={organization?.name || 'Your signed-in organization'} icon="business-outline" /><Card style={s.form}><TextField label="display preference" accessibilityLabel="display preference" placeholder="Optional nickname for this session" value={name} onChangeText={(value) => { setName(value); setSaved(false); }} maxLength={50} /><Button label={saved ? 'Preference saved locally' : 'Save preference'} variant="secondary" onPress={() => { setPreferences({ nickname: name.trim() }); setSaved(true); }} /><AppText variant="caption" muted>This preference stays for this session and updates your Home greeting. Your account name is unchanged.</AppText></Card><PushSettings /><MenuRow title="Language" detail="English" icon="language-outline" /><MenuRow title="Appearance" detail="Nova light · Current theme" icon="sunny-outline" />{error ? <AppText color={colors.error}>{error}</AppText> : null}<Button label="Log out" variant="secondary" loading={busy} onPress={() => Alert.alert('Log out?', 'Sign out of your account on this device?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Log out', onPress: signOut }])} /></Page>;
+  return <Page navigation={navigation} title="Your profile" subtitle="Your account and local preferences." allowEmpty><MenuRow title={user?.name || user?.firstName || 'Driver'} detail={`${user?.role || 'DRIVER'} · Signed-in account`} icon="person-outline" /><MenuRow title="Organization" detail={organization?.name || 'Your signed-in organization'} icon="business-outline" /><Card style={s.form}><TextField label="display preference" accessibilityLabel="display preference" placeholder="Optional nickname for this session" value={name} onChangeText={(value) => { setName(value); setSaved(false); }} maxLength={50} /><Button label={saved ? 'Preference saved locally' : 'Save preference'} variant="secondary" onPress={() => { setPreferences({ nickname: name.trim() }); setSaved(true); }} /><AppText variant="caption" muted>This preference stays for this session and updates your Home greeting. Your account name is unchanged.</AppText></Card><PushSettings /><MenuRow title="Khata & expense bills" icon="wallet-outline" onPress={() => navigation.navigate('Wallet')} /><MenuRow title="Advance records" icon="cash-outline" onPress={() => navigation.navigate('Advances')} /><MenuRow title="Language" detail="Choose language & voice" icon="language-outline" onPress={() => navigation.navigate('Experience settings')} /><MenuRow title="Appearance" detail="Nova light · Current theme" icon="sunny-outline" />{error ? <AppText color={colors.error}>{error}</AppText> : null}<Button label="Log out" variant="secondary" loading={busy} onPress={() => Alert.alert('Log out?', 'Sign out of your account on this device?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Log out', onPress: signOut }])} /></Page>;
 }
 const SOS_TYPES = [
   { key: 'BREAKDOWN', label: 'Breakdown', icon: 'build-outline', color: colors.warning },

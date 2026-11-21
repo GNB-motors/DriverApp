@@ -4,6 +4,7 @@ const rows = {
   trips: ['Trips', 'यात्राएँ', 'যাত্রা'],
   inboxLabel: ['Inbox', 'इनबॉक्स', 'ইনবক্স'],
   moreLabel: ['More', 'और', 'আরও'],
+  stopToCapture: ['Stop safely before taking photos or filling forms.', 'फ़ोटो लेने या फ़ॉर्म भरने से पहले सुरक्षित जगह रुकें।', 'ছবি তোলা বা ফর্ম পূরণের আগে নিরাপদে থামুন।'],
   captureLabel: ['Capture', 'कैप्चर', 'ক্যাপচার'],
   home: ['Home', 'होम', 'হোম'],
   live: ['Live', 'लाइव', 'লাইভ'],

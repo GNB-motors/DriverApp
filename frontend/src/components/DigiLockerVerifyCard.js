@@ -19,8 +19,9 @@
  * When `DIGILOCKER_ENABLED=false` (the default) step 1 returns 503 and we show
  * a single non-retryable notice, so drivers never tap a dead button.
  */
-import React, { useState, useCallback, useEffect } from 'react';
-import { View, Pressable, ActivityIndicator, Alert, Linking, StyleSheet } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { View, ActivityIndicator, Alert, Linking, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { storage } from '../utils/storage';
@@ -81,8 +82,12 @@ const COPY = {
   },
 };
 
-export default function DigiLockerVerifyCard({ language = 'en', onVerified }) {
+export default function DigiLockerVerifyCard({ language = 'en', onVerified, callbackUrl }) {
   const c = COPY[language] || COPY.en;
+  const { user } = useAuth();
+  const orgId = typeof user?.orgId === 'object' ? user.orgId?._id : user?.orgId;
+  const pendingStateKey = `${PENDING_STATE_KEY}:${orgId}:${user?._id}`;
+  const exchanging = useRef(false);
 
   const [status, setStatus] = useState(null); // backend /digilocker/status
   const [loadingStatus, setLoadingStatus] = useState(true);
@@ -99,7 +104,7 @@ export default function DigiLockerVerifyCard({ language = 'en', onVerified }) {
     } catch (err) {
       // 503 => integration switched off for this org. Anything else (network
       // blip) leaves the card in its last-known state and lets the driver retry.
-      if (err?.statusCode === 503) setDisabled(true);
+      if ((err?.statusCode || err?.status) === 503) setDisabled(true);
       logger.error('DigiLockerVerifyCard', `status fetch failed: ${err?.message}`);
     } finally {
       setLoadingStatus(false);
@@ -120,17 +125,18 @@ export default function DigiLockerVerifyCard({ language = 'en', onVerified }) {
       const parsed = parseDigiLockerCallback(url);
       if (!parsed) return;
 
-      const pendingState = await storage.getItem(PENDING_STATE_KEY);
-      if (!pendingState) return;
+      if (exchanging.current) return;
+      const pendingState = await storage.getItem(pendingStateKey);
+      if (!pendingState || exchanging.current) return;
 
       // Mismatched state => the callback is not ours (or is stale). Drop it.
-      if (parsed.state && parsed.state !== pendingState) {
+      if (parsed.state !== pendingState) {
         if (!cancelled) logger.warn('DigiLockerVerifyCard', 'callback state mismatch — ignored');
         return;
       }
 
       if (parsed.error) {
-        await storage.removeItem(PENDING_STATE_KEY);
+        await storage.removeItem(pendingStateKey);
         if (!cancelled) {
           Alert.alert(c.cancelTitle, c.cancelBody);
         }
@@ -138,32 +144,35 @@ export default function DigiLockerVerifyCard({ language = 'en', onVerified }) {
       }
 
       if (!parsed.code) {
-        await storage.removeItem(PENDING_STATE_KEY);
+        await storage.removeItem(pendingStateKey);
         if (!cancelled) Alert.alert(c.cancelTitle, c.cancelBody);
         return;
       }
 
       try {
+        exchanging.current = true;
         if (!cancelled) setBusy('exchange');
         await completeDigiLockerVerification({ code: parsed.code, state: parsed.state || pendingState });
-        await storage.removeItem(PENDING_STATE_KEY);
+        await storage.removeItem(pendingStateKey);
         if (!cancelled) {
           await refreshStatus();
+          setBusy(null);
           onVerified?.();
         }
       } catch (err) {
-        await storage.removeItem(PENDING_STATE_KEY);
+        await storage.removeItem(pendingStateKey);
         const { message } = friendlyDigiLockerError(err, language);
         if (!cancelled) {
           setBusy(null);
           Alert.alert(c.cancelTitle, message);
         }
-      }
+      } finally { exchanging.current = false; }
     }
 
     Linking.getInitialURL().then((url) => {
       if (url && !cancelled) completeFromDeepLink(url);
     });
+    if (callbackUrl) completeFromDeepLink(callbackUrl);
     const sub = Linking.addEventListener('url', ({ url }) => completeFromDeepLink(url));
     return () => {
       cancelled = true;
@@ -172,7 +181,7 @@ export default function DigiLockerVerifyCard({ language = 'en', onVerified }) {
     // Intentionally mount-only: a re-render mid-consent would be unusual and
     // re-running this could double-submit a code.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [callbackUrl, pendingStateKey]);
 
   const start = useCallback(async () => {
     try {
@@ -181,7 +190,7 @@ export default function DigiLockerVerifyCard({ language = 'en', onVerified }) {
 
       // Persist BEFORE handing off — the app may be unmounted/killed while the
       // driver is on the DigiLocker screen.
-      await storage.setItem(PENDING_STATE_KEY, data.state);
+      await storage.setItem(pendingStateKey, data.state);
       setBusy('opening');
 
       const canOpen = await Linking.canOpenURL(data.authorizationUrl);
@@ -192,12 +201,12 @@ export default function DigiLockerVerifyCard({ language = 'en', onVerified }) {
       setBusy(null);
     } catch (err) {
       setBusy(null);
-      await storage.removeItem(PENDING_STATE_KEY);
+      await storage.removeItem(pendingStateKey);
       const { message } = friendlyDigiLockerError(err, language);
       Alert.alert(c.cancelTitle, message);
       refreshStatus();
     }
-  }, [language, c, refreshStatus]);
+  }, [language, c, refreshStatus, pendingStateKey]);
 
   if (disabled) {
     return (
@@ -257,13 +266,13 @@ export default function DigiLockerVerifyCard({ language = 'en', onVerified }) {
       )}
 
       <Button
-        title={busy === 'start' || busy === 'opening' ? c.opening : anyVerified ? c.reVerify : c.verify}
+        label={busy === 'start' || busy === 'opening' ? c.opening : anyVerified ? c.reVerify : c.verify}
         onPress={start}
         disabled={Boolean(busy)}
         loading={busy === 'exchange'}
         variant={anyVerified ? 'secondary' : 'primary'}
         style={{ marginTop: spacing.sm }}
-        icon={<Ionicons name="shield-checkmark-outline" size={18} color={colors.white} />}
+        icon="shield-checkmark-outline"
       />
 
       {busy === 'exchange' ? (
