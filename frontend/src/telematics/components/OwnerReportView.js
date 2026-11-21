@@ -417,6 +417,7 @@ function ReportRow({ name, section, onOpen, last }) {
 }
 export function OwnerReportDashboard({
   navigation,
+  route,
   request,
   date,
   onDateChange,
@@ -433,8 +434,13 @@ export function OwnerReportDashboard({
 }) {
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
-  // The Today tab has the tab bar; opened from More it is a stack screen and needs a way back.
-  const back = navigation.getState().type === "stack" && navigation.canGoBack();
+  const showBack = Boolean(
+    route?.name === "Aaj ka hisaab" ||
+      route?.name === "Digest" ||
+      route?.name === "Owner report" ||
+      (navigation?.canGoBack?.() && route?.name !== "Today") ||
+      (navigation?.getState?.()?.type === "stack" && navigation?.canGoBack?.()),
+  );
   const [tab, setTab] = useState("Summary");
   const [branchOpen, setBranchOpen] = useState(false);
   const [audioOpen, setAudioOpen] = useState(false);
@@ -501,13 +507,37 @@ export function OwnerReportDashboard({
         }
       >
         <View style={s.spread}>
-          {back ? (
-            <IconAction
-              icon="arrow-back"
-              label="Back"
-              onPress={() => navigation.goBack()}
-            />
-          ) : null}
+          {showBack && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              hitSlop={10}
+              onPress={() => {
+                if (navigation?.canGoBack?.()) {
+                  navigation.goBack();
+                } else {
+                  navigation?.navigate?.("More");
+                }
+              }}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                backgroundColor: "#F1F5F9",
+                borderWidth: 1,
+                borderColor: "#E2E8F0",
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 8,
+              }}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={22}
+                color="#0F172A"
+              />
+            </Pressable>
+          )}
           <View style={s.grow}>
             <AppText variant="caption" color={colors.primary} weight="semibold">
               {user?.firstName
@@ -860,6 +890,16 @@ export function OwnerReportDashboard({
             />
           ))}
         </ScrollView>
+        <View style={{ paddingTop: spacing.md }}>
+          <Button
+            label="Inspect branch overview"
+            variant="secondary"
+            onPress={() => {
+              setBranchOpen(false);
+              navigation.navigate('Branch overview', { id: branchId === 'all' ? undefined : branchId });
+            }}
+          />
+        </View>
       </BottomSheet>
       <BottomSheet visible={aboutOpen} onClose={() => setAboutOpen(false)}>
         <View style={s.sheetHeading}>

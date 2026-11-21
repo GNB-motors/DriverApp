@@ -26,6 +26,7 @@ import * as Screens from './screens/ManagerScreens';
 import { ManagerReviews } from './experience/ManagerActions';
 import * as Owner from './screens/OwnerScreens';
 import FleetMapScreen from './screens/FleetMapScreen';
+import ChooseLanguageScreen from '../screens/driver/account/ChooseLanguageScreen';
 const Tab = createBottomTabNavigator(); const Stack = createNativeStackNavigator();
 const icons = { Today: 'sunny-outline', Live: 'map-outline', Fleet: 'bus-outline', Alerts: 'notifications-outline', More: 'grid-outline' };
 function OwnerTabs() {
@@ -88,6 +89,7 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Branch overview" component={Owner.BranchOverview} />
     <Stack.Screen name="Capture reviews" component={OwnerCaptures} />
     <Stack.Screen name="Team & access" component={TeamAccessScreen} />
+    <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} options={{ presentation: 'transparentModal', animation: 'fade' }} />
     <Stack.Screen name="Owner settings" component={Screens.Settings} />
     <Stack.Screen name="Owner home" component={Owner.OwnerHomeSummary} />
     <Stack.Screen name="Aaj ka hisaab" component={Owner.OwnerDailyReport} />

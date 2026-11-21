@@ -16,6 +16,7 @@ import {
   Linking,
   TouchableOpacity,
 } from "react-native";
+import Svg, { Path, Rect, Circle } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -56,6 +57,75 @@ const date = (value) =>
     day: "numeric",
     month: "short",
   });
+
+function HeroTruckIllustration() {
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        right: -8,
+        top: 22,
+        width: 155,
+        height: 105,
+        zIndex: 0,
+        opacity: 0.9,
+      }}
+    >
+      <Svg width="155" height="105" viewBox="0 0 155 105" fill="none">
+        {/* Background diagonal swoosh curve */}
+        <Path
+          d="M25 105 C60 85 105 48 155 26 L155 105 Z"
+          fill="rgba(18, 64, 175, 0.32)"
+        />
+        {/* Container trailer main side panel */}
+        <Path d="M80 35 L155 18 L155 80 L80 84 Z" fill="#5895F5" />
+        {/* Container roof surface */}
+        <Path d="M72 26 L147 12 L155 18 L80 35 Z" fill="#4683E2" />
+        {/* Container front panel connecting to cab */}
+        <Path d="M72 26 L80 35 L80 52 L72 48 Z" fill="#3B74CE" />
+        {/* Cab Roof */}
+        <Path d="M36 38 L74 34 L76 44 L38 48 Z" fill="#659DF5" />
+        {/* Cab Windshield */}
+        <Path d="M15 48 L37 46 L38 62 L14 64 Z" fill="#1C388B" />
+        {/* Cab Front / Hood */}
+        <Path d="M12 64 L39 62 L39 81 L12 82 Z" fill="#5895F5" />
+        {/* Cab Front Grille */}
+        <Rect x="16" y="69" width="17" height="7" rx="1.5" fill="#1C388B" />
+        <Path
+          d="M18 71.5 H31 M18 74 H31"
+          stroke="#93C5FD"
+          strokeWidth="1.1"
+          strokeLinecap="round"
+        />
+        {/* Headlights */}
+        <Rect x="13.5" y="70" width="2" height="4.5" rx="0.8" fill="#DBEAFE" />
+        <Rect x="33.5" y="68.5" width="2" height="4.5" rx="0.8" fill="#DBEAFE" />
+        {/* Front Bumper */}
+        <Path d="M9 82 L41 80 L41 86 L9 87 Z" fill="#4683E2" />
+        {/* Cab Side Panel / Door */}
+        <Path d="M39 46 L77 42 L77 82 L39 82 Z" fill="#4F8CEE" />
+        {/* Cab Side Window */}
+        <Path d="M42 48 L71 45 L71 60 L42 61 Z" fill="#1C388B" />
+        {/* Front-right wheel peeking out underneath */}
+        <Path d="M17 86 A4 4 0 0 1 24 86 Z" fill="#172554" />
+        {/* Front-left Wheel arch */}
+        <Path d="M42 82 A11 11 0 0 1 65 82" fill="#3B74CE" />
+        {/* Front-left Wheel Tire & Rim */}
+        <Circle cx="53.5" cy="84.5" r="9" fill="#172554" />
+        <Circle cx="53.5" cy="84.5" r="4.5" fill="#93C5FD" />
+        <Circle cx="53.5" cy="84.5" r="1.8" fill="#172554" />
+        {/* Rear-left Wheel arch */}
+        <Path d="M108 80 A11 11 0 0 1 131 80" fill="#3B74CE" />
+        {/* Rear-left Wheel Tire & Rim */}
+        <Circle cx="119.5" cy="82.5" r="9" fill="#172554" />
+        <Circle cx="119.5" cy="82.5" r="4.5" fill="#93C5FD" />
+        <Circle cx="119.5" cy="82.5" r="1.8" fill="#172554" />
+      </Svg>
+    </View>
+  );
+}
+
 export function ManagerPage({ navigation, title, subtitle, action, children, allowEmpty = false, showSourceErrors = true }) {
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
@@ -86,8 +156,9 @@ export function ManagerPage({ navigation, title, subtitle, action, children, all
             colors={colors.gradient || colors.heroGradient}
             start={{ x: 0.1, y: 0 }}
             end={{ x: 0.9, y: 1 }}
-            style={[s.pageHero, { paddingTop: insets.top + 18, paddingLeft: 20 + insets.left, paddingRight: 20 + insets.right }]}
+            style={[s.pageHero, { paddingTop: insets.top + 18, paddingLeft: 20 + insets.left, paddingRight: 20 + insets.right, overflow: 'hidden', position: 'relative' }]}
           >
+            <HeroTruckIllustration />
             <View style={s.heroHeadingRow}>
               {showBack && (
                 <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" style={s.backButton}>
@@ -1360,6 +1431,9 @@ export function More({ navigation }) {
 }
 export function Settings({ navigation }) {
   const { user, organization, logout } = useAuth();
+  const { language } = useLanguage();
+  const currentLangLabel =
+    language === "hi" ? "हिन्दी" : language === "bn" ? "বাংলা" : "English";
   const [error, setError] = useState("");
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -1505,6 +1579,12 @@ export function Settings({ navigation }) {
       <SectionHeading
         title="Preferences & system"
         caption="Fleet interface and language controls."
+      />
+      <MenuRow
+        title="Language"
+        detail={currentLangLabel}
+        icon="language-outline"
+        onPress={() => navigation.navigate("LanguageScreen")}
       />
       <MenuRow
         title="Language & voice guidance"
@@ -1747,7 +1827,7 @@ const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   page: { width: "100%", maxWidth: 760, alignSelf: "center", flexGrow: 1, backgroundColor: colors.background },
   pageHero: { paddingBottom: 42, gap: 18 },
-  heroHeadingRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  heroHeadingRow: { flexDirection: "row", alignItems: "center", gap: 12, zIndex: 1 },
   heroHeading: { flex: 1, minWidth: 0 },
   liveSummary: { gap: 2 },
   eyebrow: { letterSpacing: 1, textTransform: "uppercase", marginBottom: 5 },
@@ -1756,7 +1836,7 @@ const s = StyleSheet.create({
   heroAction: { flexShrink: 0, alignSelf: "flex-start" },
   backButton: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.onPrimaryFaint, alignItems: "center", justifyContent: "center" },
   sheet: { marginTop: -24, backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, minHeight: 240, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 20, borderWidth: 1, borderColor: colors.hairline },
-  branchScroller: { flexGrow: 0 },
+  branchScroller: { flexGrow: 0, zIndex: 1 },
   branchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   branchFilter: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: radius.full },
   branchFilterSelected: { backgroundColor: colors.white },

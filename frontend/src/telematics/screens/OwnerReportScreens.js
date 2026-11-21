@@ -1,8 +1,9 @@
 import { captureKindLabel, captureWarnings } from "../services/documentCapture";
 import React, { useEffect, useRef, useState } from "react";
-import { View, Linking } from "react-native";
+import { ActivityIndicator, Linking, Pressable, View } from "react-native";
 import * as Speech from "expo-speech";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import Select from "../../components/ui/SelectField";
 import { reportMeta } from "../services/ownerPresentation";
 import {
   AppText,
@@ -14,6 +15,7 @@ import {
   colors,
 } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { useManagerData } from "../context/ManagerDataContext";
 import { MenuRow } from "./DriverScreens";
 import { FileLink } from "../workflows/OperationalScreens";
@@ -35,24 +37,40 @@ import {
   comparisonNotes,
 } from "../services/ownerReport";
 
+const RETAKE_REASONS = [
+  ["BLURRY_OR_DARK", "Blurry or dark photo"],
+  ["DOCUMENT_CROPPED", "Document or receipt cropped"],
+  ["WRONG_DOCUMENT_TYPE", "Wrong document / slip"],
+  ["INCOMPLETE_BILL", "Incomplete bill / missing pages"],
+];
+
 function useScope() {
   const { user } = useAuth();
   const context = useManagerData();
   const branch = context.branchId === "all" ? undefined : context.branchId;
   return {
     ...context,
+    user,
     branch,
     key: `${user._id}:${typeof user.orgId === "object" ? user.orgId._id : user.orgId}:${branch || "all"}`,
   };
 }
 export function OwnerReport({ navigation, route }) {
   const { user } = useAuth();
+  const { language: appLanguage, setLanguage: setAppLanguage } = useLanguage();
   const { service, branch, key, selectBranch, branchId, branches } = useScope();
   const [date, setDate] = useState(route.params?.date || yesterday());
-  const [language, setLanguage] = useState("en");
+  const [language, setLanguage] = useState(appLanguage || "en");
   const [speechError, setSpeechError] = useState("");
   const [speaking, setSpeaking] = useState(false);
   const speechSequence = useRef(0);
+  useEffect(() => {
+    if (appLanguage) setLanguage(appLanguage);
+  }, [appLanguage]);
+  const handleLanguageChange = (lang) => {
+    setLanguage(lang);
+    setAppLanguage(lang);
+  };
   useEffect(() => {
     if (route.params?.date) setDate(route.params.date);
     if (
@@ -119,6 +137,7 @@ export function OwnerReport({ navigation, route }) {
   return (
     <OwnerReportDashboard
       navigation={navigation}
+      route={route}
       request={request}
       date={date}
       onDateChange={setDate}
@@ -127,7 +146,7 @@ export function OwnerReport({ navigation, route }) {
       branches={branches}
       onBranchChange={selectBranch}
       language={language}
-      onLanguageChange={setLanguage}
+      onLanguageChange={handleLanguageChange}
       speaking={speaking}
       onListen={listen}
       onStop={() => Speech.stop()}
@@ -457,28 +476,93 @@ export function OwnerRecord({ navigation, route }) {
   );
   const write = useOwnerWrite(`${key}:review:${kind}:${id}`);
   const [note, setNote] = useState("");
-  const [notingIssue, setNotingIssue] = useState(false);
+  const [mode, setMode] = useState(null); // null | "issue" | "correct" | "retake" | "dispute"
+  const [corrections, setCorrections] = useState({});
+  const [retakeReason, setRetakeReason] = useState("BLURRY_OR_DARK");
   const [confirmation, setConfirmation] = useState("");
   useEffect(() => {
     setNote("");
-    setNotingIssue(false);
+    setMode(null);
+    setCorrections({});
+    setRetakeReason("BLURRY_OR_DARK");
     setConfirmation("");
   }, [key, kind, id]);
   const item = request.data;
-  async function decide(action) {
-    const result = await write.execute(
-      { action, note, expectedUpdatedAt: item.updatedAt },
-      (body) => service.ownerDecision(kind, id, body, branch),
+
+  function startCorrecting() {
+    setConfirmation("");
+    setNote("");
+    if (kind === "document") {
+      setCorrections({ ...(item?.ocrData?.processedData || {}) });
+    } else if (kind === "fuel") {
+      setCorrections({
+        litres: item?.litres != null ? String(item.litres) : "",
+        amount:
+          item?.totalAmount != null
+            ? String(item.totalAmount)
+            : item?.amount != null
+              ? String(item.amount)
+              : "",
+        rate: item?.rate != null ? String(item.rate) : "",
+        invoiceNumber:
+          item?.invoiceNumber != null ? String(item.invoiceNumber) : "",
+        odometerReading:
+          item?.odometerReading != null ? String(item.odometerReading) : "",
+      });
+    } else if (kind === "expense") {
+      setCorrections({
+        amount: item?.amount != null ? String(item.amount) : "",
+        category: item?.category != null ? String(item.category) : "",
+        invoiceNumber:
+          item?.invoiceNumber != null ? String(item.invoiceNumber) : "",
+        description: item?.description != null ? String(item.description) : "",
+      });
+    }
+    setMode("correct");
+  }
+
+  async function decide(action, extra = {}) {
+    const actionNote = extra.note !== undefined ? extra.note : note;
+    const actionCorrections =
+      extra.corrections !== undefined
+        ? extra.corrections
+        : action === "CORRECT"
+          ? corrections
+          : undefined;
+    const actionRetakeReason =
+      extra.retakeReason !== undefined
+        ? extra.retakeReason
+        : action === "RETAKE"
+          ? retakeReason
+          : undefined;
+
+    const payload = {
+      action,
+      note: actionNote,
+      expectedUpdatedAt: item.updatedAt,
+      ...(actionCorrections ? { corrections: actionCorrections } : {}),
+      ...(actionRetakeReason ? { retakeReason: actionRetakeReason } : {}),
+    };
+
+    const result = await write.execute(payload, (body) =>
+      service.ownerDecision(kind, id, body, branch),
     );
     if (result) {
       setNote("");
-      setNotingIssue(false);
+      setMode(null);
+      setCorrections({});
       setConfirmation(
-        kind === "document"
-          ? (write.draft?.action || action) === "REJECT"
-            ? "Issue recorded. Verification status is unchanged."
-            : "Document verified."
-          : "Decision saved.",
+        action === "CORRECT"
+          ? "Corrections saved."
+          : action === "RETAKE"
+            ? "Driver retake requested."
+            : action === "DISPUTE"
+              ? "Disagreement flagged on record."
+              : kind === "document"
+                ? (write.draft?.action || action) === "REJECT"
+                  ? "Issue recorded. Verification status is unchanged."
+                  : "Document verified."
+                : "Decision saved.",
       );
       request.reload();
     }
@@ -597,6 +681,152 @@ export function OwnerRecord({ navigation, route }) {
                   loading={write.busy}
                   onPress={() => decide(write.draft.action)}
                 />
+              ) : mode === "correct" ? (
+                <>
+                  <AppText weight="bold">Correct extracted fields</AppText>
+                  {Object.keys(corrections).map((field) => (
+                    <TextField
+                      key={field}
+                      label={field.replaceAll("_", " ")}
+                      value={String(corrections[field] ?? "")}
+                      onChangeText={(val) =>
+                        setCorrections((prev) => ({ ...prev, [field]: val }))
+                      }
+                      editable={!write.busy}
+                    />
+                  ))}
+                  <TextField
+                    label="Correction note (optional)"
+                    value={note}
+                    onChangeText={setNote}
+                    maxLength={2000}
+                    multiline
+                    editable={!write.busy}
+                  />
+                  <Button
+                    label="Save corrected extractions"
+                    disabled={
+                      !write.ready ||
+                      write.busy ||
+                      request.loading ||
+                      !item.updatedAt
+                    }
+                    loading={write.busy}
+                    onPress={() => decide("CORRECT")}
+                  />
+                  <Button
+                    label="Cancel"
+                    variant="ghost"
+                    disabled={write.busy}
+                    onPress={() => {
+                      setMode(null);
+                      setNote("");
+                      setCorrections({});
+                    }}
+                  />
+                </>
+              ) : mode === "retake" ? (
+                <>
+                  <Choice
+                    label="Reason for retake"
+                    value={retakeReason}
+                    onChange={setRetakeReason}
+                    options={RETAKE_REASONS}
+                  />
+                  <TextField
+                    label="Retake instruction for driver"
+                    value={note}
+                    onChangeText={setNote}
+                    maxLength={2000}
+                    multiline
+                    editable={!write.busy}
+                  />
+                  <Button
+                    label="Send retake request"
+                    disabled={
+                      !write.ready ||
+                      write.busy ||
+                      request.loading ||
+                      !item.updatedAt
+                    }
+                    loading={write.busy}
+                    onPress={() => decide("RETAKE")}
+                  />
+                  <Button
+                    label="Cancel"
+                    variant="ghost"
+                    disabled={write.busy}
+                    onPress={() => {
+                      setMode(null);
+                      setNote("");
+                    }}
+                  />
+                </>
+              ) : mode === "dispute" ? (
+                <>
+                  <TextField
+                    label="Disagreement details / explanation"
+                    value={note}
+                    onChangeText={setNote}
+                    maxLength={2000}
+                    multiline
+                    editable={!write.busy}
+                  />
+                  <Button
+                    label="Record disagreement"
+                    variant="danger"
+                    disabled={
+                      !write.ready ||
+                      write.busy ||
+                      request.loading ||
+                      !item.updatedAt ||
+                      !note.trim()
+                    }
+                    loading={write.busy}
+                    onPress={() => decide("DISPUTE")}
+                  />
+                  <Button
+                    label="Cancel"
+                    variant="ghost"
+                    disabled={write.busy}
+                    onPress={() => {
+                      setMode(null);
+                      setNote("");
+                    }}
+                  />
+                </>
+              ) : mode === "issue" ? (
+                <>
+                  <TextField
+                    label="What is the issue?"
+                    value={note}
+                    onChangeText={setNote}
+                    maxLength={2000}
+                    multiline
+                    editable={!write.busy}
+                  />
+                  <Button
+                    label="Save issue note"
+                    disabled={
+                      !write.ready ||
+                      write.busy ||
+                      request.loading ||
+                      !item.updatedAt ||
+                      !note.trim()
+                    }
+                    loading={write.busy}
+                    onPress={() => decide("REJECT")}
+                  />
+                  <Button
+                    label="Cancel"
+                    variant="ghost"
+                    disabled={write.busy}
+                    onPress={() => {
+                      setMode(null);
+                      setNote("");
+                    }}
+                  />
+                </>
               ) : (
                 <>
                   {!item.isVerified && (
@@ -611,49 +841,42 @@ export function OwnerRecord({ navigation, route }) {
                       onPress={() => decide("VERIFY")}
                     />
                   )}
-                  {notingIssue ? (
-                    <>
-                      <TextField
-                        label="What is the issue?"
-                        value={note}
-                        onChangeText={setNote}
-                        maxLength={2000}
-                        multiline
-                        editable={!write.busy}
-                      />
+                  {item.ocrData?.processedData &&
+                    Object.keys(item.ocrData.processedData).length > 0 && (
                       <Button
-                        label="Save issue note"
-                        disabled={
-                          !write.ready ||
-                          write.busy ||
-                          request.loading ||
-                          !item.updatedAt ||
-                          !note.trim()
-                        }
-                        loading={write.busy}
-                        onPress={() => decide("REJECT")}
+                        label="Edit extractions"
+                        variant="secondary"
+                        disabled={!write.ready || write.busy}
+                        onPress={startCorrecting}
                       />
-                      <Button
-                        label="Cancel"
-                        variant="ghost"
-                        disabled={write.busy}
-                        onPress={() => {
-                          setNotingIssue(false);
-                          setNote("");
-                        }}
-                      />
-                    </>
-                  ) : (
-                    <Button
-                      label="Note an issue"
-                      variant="secondary"
-                      disabled={!write.ready || write.busy}
-                      onPress={() => {
-                        setConfirmation("");
-                        setNotingIssue(true);
-                      }}
-                    />
-                  )}
+                    )}
+                  <Button
+                    label="Request driver retake"
+                    variant="secondary"
+                    disabled={!write.ready || write.busy}
+                    onPress={() => {
+                      setConfirmation("");
+                      setMode("retake");
+                    }}
+                  />
+                  <Button
+                    label="Note an issue"
+                    variant="secondary"
+                    disabled={!write.ready || write.busy}
+                    onPress={() => {
+                      setConfirmation("");
+                      setMode("issue");
+                    }}
+                  />
+                  <Button
+                    label="Flag disagreement"
+                    variant="secondary"
+                    disabled={!write.ready || write.busy}
+                    onPress={() => {
+                      setConfirmation("");
+                      setMode("dispute");
+                    }}
+                  />
                 </>
               )}
             </Card>
@@ -662,26 +885,258 @@ export function OwnerRecord({ navigation, route }) {
             ? item.reviewStatus === "NEEDS_REVIEW"
             : kind === "expense" && item.status === "PENDING") && (
             <>
-              <TextField
-                label="Review note / rejection reason"
-                value={note}
-                onChangeText={setNote}
-                editable={!write.busy && !write.draft}
-                multiline
-              />
-              <Button
-                label={write.draft ? "Retry saved decision" : "Approve"}
-                disabled={!write.ready}
-                loading={write.busy}
-                onPress={() => decide("APPROVE")}
-              />
-              {!write.draft && (
+              {write.draft ? (
                 <Button
-                  label="Reject with reason"
-                  variant="danger"
-                  disabled={!note.trim() || !write.ready || write.busy}
-                  onPress={() => decide("REJECT")}
+                  label="Retry saved decision"
+                  disabled={!write.ready}
+                  loading={write.busy}
+                  onPress={() => decide(write.draft.action)}
                 />
+              ) : mode === "correct" ? (
+                <>
+                  {kind === "fuel" ? (
+                    <>
+                      <TextField
+                        label="Litres / Quantity"
+                        value={corrections.litres || ""}
+                        onChangeText={(val) =>
+                          setCorrections((prev) => ({ ...prev, litres: val }))
+                        }
+                        keyboardType="decimal-pad"
+                        editable={!write.busy}
+                      />
+                      <TextField
+                        label="Total Amount (₹)"
+                        value={corrections.amount || ""}
+                        onChangeText={(val) =>
+                          setCorrections((prev) => ({ ...prev, amount: val }))
+                        }
+                        keyboardType="decimal-pad"
+                        editable={!write.busy}
+                      />
+                      <TextField
+                        label="Rate per litre (₹)"
+                        value={corrections.rate || ""}
+                        onChangeText={(val) =>
+                          setCorrections((prev) => ({ ...prev, rate: val }))
+                        }
+                        keyboardType="decimal-pad"
+                        editable={!write.busy}
+                      />
+                      <TextField
+                        label="Invoice / Slip number"
+                        value={corrections.invoiceNumber || ""}
+                        onChangeText={(val) =>
+                          setCorrections((prev) => ({
+                            ...prev,
+                            invoiceNumber: val,
+                          }))
+                        }
+                        editable={!write.busy}
+                      />
+                      <TextField
+                        label="Odometer reading"
+                        value={corrections.odometerReading || ""}
+                        onChangeText={(val) =>
+                          setCorrections((prev) => ({
+                            ...prev,
+                            odometerReading: val,
+                          }))
+                        }
+                        keyboardType="numeric"
+                        editable={!write.busy}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <TextField
+                        label="Total Amount (₹)"
+                        value={corrections.amount || ""}
+                        onChangeText={(val) =>
+                          setCorrections((prev) => ({ ...prev, amount: val }))
+                        }
+                        keyboardType="decimal-pad"
+                        editable={!write.busy}
+                      />
+                      <TextField
+                        label="Category"
+                        value={corrections.category || ""}
+                        onChangeText={(val) =>
+                          setCorrections((prev) => ({ ...prev, category: val }))
+                        }
+                        editable={!write.busy}
+                      />
+                      <TextField
+                        label="Invoice / Bill number"
+                        value={corrections.invoiceNumber || ""}
+                        onChangeText={(val) =>
+                          setCorrections((prev) => ({
+                            ...prev,
+                            invoiceNumber: val,
+                          }))
+                        }
+                        editable={!write.busy}
+                      />
+                      <TextField
+                        label="Description"
+                        value={corrections.description || ""}
+                        onChangeText={(val) =>
+                          setCorrections((prev) => ({
+                            ...prev,
+                            description: val,
+                          }))
+                        }
+                        editable={!write.busy}
+                      />
+                    </>
+                  )}
+                  <TextField
+                    label="Correction note (optional)"
+                    value={note}
+                    onChangeText={setNote}
+                    multiline
+                    editable={!write.busy}
+                  />
+                  <Button
+                    label={
+                      kind === "fuel"
+                        ? "Save corrected fuel details"
+                        : "Save corrected bill details"
+                    }
+                    disabled={
+                      !write.ready ||
+                      write.busy ||
+                      request.loading ||
+                      !item.updatedAt
+                    }
+                    loading={write.busy}
+                    onPress={() => decide("CORRECT")}
+                  />
+                  <Button
+                    label="Cancel"
+                    variant="ghost"
+                    disabled={write.busy}
+                    onPress={() => {
+                      setMode(null);
+                      setNote("");
+                      setCorrections({});
+                    }}
+                  />
+                </>
+              ) : mode === "retake" ? (
+                <>
+                  <Choice
+                    label="Reason for retake"
+                    value={retakeReason}
+                    onChange={setRetakeReason}
+                    options={RETAKE_REASONS}
+                  />
+                  <TextField
+                    label="Retake instruction for driver"
+                    value={note}
+                    onChangeText={setNote}
+                    multiline
+                    editable={!write.busy}
+                  />
+                  <Button
+                    label="Send retake request"
+                    disabled={
+                      !write.ready ||
+                      write.busy ||
+                      request.loading ||
+                      !item.updatedAt
+                    }
+                    loading={write.busy}
+                    onPress={() => decide("RETAKE")}
+                  />
+                  <Button
+                    label="Cancel"
+                    variant="ghost"
+                    disabled={write.busy}
+                    onPress={() => {
+                      setMode(null);
+                      setNote("");
+                    }}
+                  />
+                </>
+              ) : mode === "dispute" ? (
+                <>
+                  <TextField
+                    label="Disagreement details / explanation"
+                    value={note}
+                    onChangeText={setNote}
+                    multiline
+                    editable={!write.busy}
+                  />
+                  <Button
+                    label="Record disagreement"
+                    variant="danger"
+                    disabled={
+                      !write.ready ||
+                      write.busy ||
+                      request.loading ||
+                      !item.updatedAt ||
+                      !note.trim()
+                    }
+                    loading={write.busy}
+                    onPress={() => decide("DISPUTE")}
+                  />
+                  <Button
+                    label="Cancel"
+                    variant="ghost"
+                    disabled={write.busy}
+                    onPress={() => {
+                      setMode(null);
+                      setNote("");
+                    }}
+                  />
+                </>
+              ) : (
+                <>
+                  <TextField
+                    label="Review note / rejection reason"
+                    value={note}
+                    onChangeText={setNote}
+                    editable={!write.busy && !write.draft}
+                    multiline
+                  />
+                  <Button
+                    label="Approve"
+                    disabled={!write.ready}
+                    loading={write.busy}
+                    onPress={() => decide("APPROVE")}
+                  />
+                  <Button
+                    label="Reject with reason"
+                    variant="danger"
+                    disabled={!note.trim() || !write.ready || write.busy}
+                    onPress={() => decide("REJECT")}
+                  />
+                  <Button
+                    label="Correct values"
+                    variant="secondary"
+                    disabled={!write.ready || write.busy}
+                    onPress={startCorrecting}
+                  />
+                  <Button
+                    label="Request driver retake"
+                    variant="secondary"
+                    disabled={!write.ready || write.busy}
+                    onPress={() => {
+                      setConfirmation("");
+                      setMode("retake");
+                    }}
+                  />
+                  <Button
+                    label="Flag disagreement"
+                    variant="secondary"
+                    disabled={!write.ready || write.busy}
+                    onPress={() => {
+                      setConfirmation("");
+                      setMode("dispute");
+                    }}
+                  />
+                </>
               )}
             </>
           )}
@@ -746,22 +1201,173 @@ export function OwnerTrends({ navigation, route }) {
     return (
       <Screen navigation={navigation} title="Trends and same weekday">
         <RequestState request={request} />
-        <AppText>
-          {data.days[0].date} to {data.date} IST · selected branch
-        </AppText>
-        {data.notes.map((note) => (
-          <AppText key={note} muted>
-            {note}
+
+        {/* Top date range bar */}
+        <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: "#E2E8F0",
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+            flexDirection: "row",
+            alignItems: "center",
+            marginBottom: 10,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.03,
+            shadowRadius: 4,
+            elevation: 1,
+          }}
+        >
+          <Ionicons
+            name="calendar"
+            size={20}
+            color="#4F46E5"
+            style={{ marginRight: 12 }}
+          />
+          <AppText
+            style={{
+              fontSize: 14,
+              fontWeight: "700",
+              color: "#0F172A",
+              flex: 1,
+            }}
+          >
+            {data.days[0].date} to {data.date} IST · selected branch
           </AppText>
-        ))}
+          <Ionicons name="chevron-down" size={18} color="#0F172A" />
+        </View>
+
+        {/* Notice cards */}
+        {data.notes.map((note, index) => {
+          const isBulb =
+            index === 1 ||
+            note.toLowerCase().includes("average") ||
+            note.toLowerCase().includes("compar");
+          return (
+            <View
+              key={note}
+              style={{
+                backgroundColor: "#F5F3FF",
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: "#DDD6FE",
+                padding: 14,
+                flexDirection: "row",
+                alignItems: "center",
+                marginBottom: 10,
+              }}
+            >
+              <View
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 21,
+                  backgroundColor: isBulb ? "#FEF3C7" : "#E0E7FF",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 12,
+                }}
+              >
+                {isBulb ? (
+                  <Ionicons name="bulb" size={22} color="#D97706" />
+                ) : (
+                  <Ionicons name="stats-chart" size={20} color="#4F46E5" />
+                )}
+              </View>
+              <AppText
+                style={{
+                  flex: 1,
+                  fontSize: 12.5,
+                  lineHeight: 18,
+                  color: "#1E293B",
+                }}
+              >
+                {note}
+              </AppText>
+            </View>
+          );
+        })}
+
+        {/* Trend Section Cards */}
         {trendSections.map((name) => {
           const section = data.sections[name];
           if (!section) return null;
+          const isTrips = name === "trips";
+          const isDiesel = name === "diesel";
           return (
-            <Card key={name}>
-              <AppText variant="h3">{sectionNames[name]}</AppText>
+            <View
+              key={name}
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: 20,
+                padding: 16,
+                borderWidth: 1,
+                borderColor: "#E2E8F0",
+                marginBottom: 16,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.04,
+                shadowRadius: 6,
+                elevation: 2,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <View
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 23,
+                    backgroundColor: isTrips
+                      ? "#DBEAFE"
+                      : isDiesel
+                        ? "#D1FAE5"
+                        : name === "expenses"
+                          ? "#FFEDD5"
+                          : "#F1F5F9",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 12,
+                  }}
+                >
+                  {isTrips ? (
+                    <Ionicons name="car" size={24} color="#2563EB" />
+                  ) : isDiesel ? (
+                    <MaterialCommunityIcons
+                      name="gas-station"
+                      size={24}
+                      color="#059669"
+                    />
+                  ) : name === "expenses" ? (
+                    <Ionicons name="receipt" size={22} color="#EA580C" />
+                  ) : (
+                    <Ionicons name="analytics" size={22} color="#475569" />
+                  )}
+                </View>
+                <View
+                  style={{
+                    width: 1,
+                    height: 32,
+                    backgroundColor: "#E2E8F0",
+                    marginRight: 12,
+                  }}
+                />
+                <AppText
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "700",
+                    color: "#0F172A",
+                    flex: 1,
+                  }}
+                >
+                  {sectionNames[name]}
+                </AppText>
+              </View>
+
               {section.availability === "unavailable" ? (
-                <AppText muted>
+                <AppText muted style={{ marginTop: 8 }}>
                   {section.reasonCode === "NOT_ENABLED"
                     ? "Not enabled"
                     : section.status === "error"
@@ -769,58 +1375,247 @@ export function OwnerTrends({ navigation, route }) {
                       : "Source unavailable"}
                 </AppText>
               ) : (
-                Object.entries(section.metrics).map(([metric, trend]) => (
-                  <View key={metric}>
-                    <AppText weight="bold">
-                      {metric.replace(/([A-Z])/g, " $1")}:{" "}
-                      {trendPointText(trend.series.at(-1), trend.unit)}
-                    </AppText>
-                    <AppText variant="caption" muted>
-                      Same weekday ({trend.comparison.sameWeekday.date}):{" "}
-                      {trendPointText(trend.series.at(-8), trend.unit)} · 7-day
-                      average:{" "}
-                      {displayMetric({
-                        value: trend.comparison.previousSevenDays.dailyAverage,
-                        unit: trend.unit,
-                      })}
-                    </AppText>
-                    {comparisonNotes(trend.comparison).map((note) => (
-                      <AppText
-                        key={note}
-                        variant="caption"
-                        color={colors.warning}
-                      >
-                        {note}
-                      </AppText>
-                    ))}
-                    {expanded === name &&
-                      trend.series.map((point) => (
-                        <AppText key={point.date} variant="caption">
-                          {point.date}
-                          {point.partialDay ? " (partial day)" : ""}:{" "}
-                          {trendPointText(point, trend.unit)} · {point.rows}{" "}
-                          rows
-                          {point.missingRows
-                            ? ` · ${point.missingRows} missing`
-                            : ""}
-                        </AppText>
-                      ))}
-                  </View>
-                ))
+                Object.entries(section.metrics).map(
+                  ([metric, trend], index) => {
+                    let metricIcon = null;
+                    if (metric === "ladenKm" || metric === "observedKm") {
+                      metricIcon = (
+                        <View
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 16,
+                            backgroundColor: "#F3E8FF",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            marginRight: 10,
+                          }}
+                        >
+                          <Ionicons
+                            name="location"
+                            size={17}
+                            color="#9333EA"
+                          />
+                        </View>
+                      );
+                    } else if (metric === "litres") {
+                      metricIcon = (
+                        <View
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 16,
+                            backgroundColor: "#D1FAE5",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            marginRight: 10,
+                          }}
+                        >
+                          <Ionicons
+                            name="water"
+                            size={17}
+                            color="#059669"
+                          />
+                        </View>
+                      );
+                    } else if (metric === "amount") {
+                      metricIcon = (
+                        <View
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 16,
+                            backgroundColor: "#D1FAE5",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            marginRight: 10,
+                          }}
+                        >
+                          <MaterialCommunityIcons
+                            name="currency-inr"
+                            size={17}
+                            color="#059669"
+                          />
+                        </View>
+                      );
+                    }
+
+                    return (
+                      <View key={metric}>
+                        {index === 0 ? (
+                          <View style={{ marginTop: 10 }}>
+                            <AppText
+                              style={{
+                                fontSize: 14,
+                                fontWeight: "700",
+                                color: "#0F172A",
+                              }}
+                            >
+                              {metric}:{" "}
+                              {trendPointText(trend.series.at(-1), trend.unit)}
+                            </AppText>
+                            <AppText
+                              style={{
+                                fontSize: 12,
+                                color: "#64748B",
+                                marginTop: 3,
+                              }}
+                            >
+                              Same weekday (
+                              {trend.comparison.sameWeekday.date}):{" "}
+                              {trendPointText(trend.series.at(-8), trend.unit)}{" "}
+                              · 7-day average:{" "}
+                              {displayMetric({
+                                value:
+                                  trend.comparison.previousSevenDays
+                                    .dailyAverage,
+                                unit: trend.unit,
+                              })}
+                            </AppText>
+                          </View>
+                        ) : (
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              marginTop: 12,
+                            }}
+                          >
+                            {metricIcon}
+                            <View
+                              style={{
+                                width: 1,
+                                height: 26,
+                                backgroundColor: "#E2E8F0",
+                                marginRight: 10,
+                              }}
+                            />
+                            <View style={{ flex: 1 }}>
+                              <AppText
+                                style={{
+                                  fontSize: 14,
+                                  fontWeight: "700",
+                                  color: "#0F172A",
+                                }}
+                              >
+                                {metric.replace(/([A-Z])/g, " $1")}:{" "}
+                                {trendPointText(
+                                  trend.series.at(-1),
+                                  trend.unit,
+                                )}
+                              </AppText>
+                              <AppText
+                                style={{
+                                  fontSize: 12,
+                                  color: "#64748B",
+                                  marginTop: 2,
+                                }}
+                              >
+                                Same weekday (
+                                {trend.comparison.sameWeekday.date}):{" "}
+                                {trendPointText(
+                                  trend.series.at(-8),
+                                  trend.unit,
+                                )}{" "}
+                                · 7-day average:{" "}
+                                {displayMetric({
+                                  value:
+                                    trend.comparison.previousSevenDays
+                                      .dailyAverage,
+                                  unit: trend.unit,
+                                })}
+                              </AppText>
+                            </View>
+                          </View>
+                        )}
+
+                        {comparisonNotes(trend.comparison).map((note) => (
+                          <AppText
+                            key={note}
+                            variant="caption"
+                            color={colors.warning}
+                            style={{ marginTop: 2 }}
+                          >
+                            {note}
+                          </AppText>
+                        ))}
+
+                        {expanded === name &&
+                          trend.series.map((point) => (
+                            <AppText
+                              key={point.date}
+                              variant="caption"
+                              style={{
+                                color: "#475569",
+                                marginTop: 2,
+                                marginLeft: 4,
+                              }}
+                            >
+                              {point.date}
+                              {point.partialDay ? " (partial day)" : ""}:{" "}
+                              {trendPointText(point, trend.unit)} · {point.rows}{" "}
+                              rows
+                              {point.missingRows
+                                ? ` · ${point.missingRows} missing`
+                                : ""}
+                            </AppText>
+                          ))}
+                      </View>
+                    );
+                  },
+                )
               )}
+
               {section.notes.map((note) => (
-                <AppText key={note} variant="caption" muted>
+                <AppText
+                  key={note}
+                  variant="caption"
+                  muted
+                  style={{ marginTop: 4 }}
+                >
                   {note}
                 </AppText>
               ))}
+
               {section.availability === "available" && (
-                <Button
-                  label={expanded === name ? "Hide days" : "Show 14 days"}
-                  variant="ghost"
-                  onPress={() => setExpanded(expanded === name ? null : name)}
-                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    expanded === name ? "Hide 14 days" : "Show 14 days"
+                  }
+                  onPress={() =>
+                    setExpanded(expanded === name ? null : name)
+                  }
+                  style={{
+                    backgroundColor: "#EEF2FF",
+                    borderRadius: 999,
+                    paddingVertical: 7,
+                    paddingHorizontal: 16,
+                    alignSelf: "center",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginTop: 14,
+                  }}
+                >
+                  <AppText
+                    style={{
+                      color: "#4F46E5",
+                      fontWeight: "700",
+                      fontSize: 13.5,
+                      marginRight: 4,
+                    }}
+                  >
+                    {expanded === name ? "Hide 14 days" : "Show 14 days"}
+                  </AppText>
+                  <Ionicons
+                    name={expanded === name ? "chevron-up" : "chevron-down"}
+                    size={16}
+                    color="#4F46E5"
+                  />
+                </Pressable>
               )}
-            </Card>
+            </View>
           );
         })}
         {data.notTrended.map((group) => (
@@ -867,7 +1662,8 @@ export function OwnerTrends({ navigation, route }) {
   );
 }
 export function ReportSettings({ navigation }) {
-  const { service, branches, key } = useScope();
+  const { service, branches, key, user } = useScope();
+  const { setLanguage: setAppLanguage } = useLanguage();
   const request = useOwnerRequest(`${key}:preferences`, () =>
     service.ownerPreferences(),
   );
@@ -877,13 +1673,17 @@ export function ReportSettings({ navigation }) {
   useEffect(() => {
     if (request.data)
       setForm({
-        enabled: request.data.enabled,
-        time: request.data.time,
-        language: request.data.language,
+        enabled: Boolean(request.data.enabled),
+        time: request.data.time || "08:00",
+        language: request.data.language || "en",
         branchId: request.data.branchId || null,
+        emailEnabled: Boolean(request.data.emailEnabled),
+        email: request.data.email ?? user?.email ?? "",
+        whatsappEnabled: Boolean(request.data.whatsappEnabled),
+        whatsappNumber: request.data.whatsappNumber ?? user?.phone ?? "",
       });
     else setForm(null);
-  }, [request.data]);
+  }, [request.data, user]);
   return (
     <Screen navigation={navigation} title="Morning report">
       <RequestState request={request} />
@@ -924,9 +1724,52 @@ export function ReportSettings({ navigation }) {
             }
             options={branches.map((b) => [b.id, b.name])}
           />
+          <Choice
+            label="Email delivery"
+            value={String(form.emailEnabled)}
+            onChange={(value) =>
+              setForm({ ...form, emailEnabled: value === "true" })
+            }
+            options={[
+              ["true", "Enabled"],
+              ["false", "Disabled"],
+            ]}
+          />
+          {form.emailEnabled && (
+            <TextField
+              label="Recipient email"
+              value={form.email}
+              onChangeText={(email) => setForm({ ...form, email })}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              maxLength={100}
+            />
+          )}
+          <Choice
+            label="WhatsApp delivery"
+            value={String(form.whatsappEnabled)}
+            onChange={(value) =>
+              setForm({ ...form, whatsappEnabled: value === "true" })
+            }
+            options={[
+              ["true", "Enabled"],
+              ["false", "Disabled"],
+            ]}
+          />
+          {form.whatsappEnabled && (
+            <TextField
+              label="WhatsApp number"
+              value={form.whatsappNumber}
+              onChangeText={(whatsappNumber) =>
+                setForm({ ...form, whatsappNumber })
+              }
+              keyboardType="phone-pad"
+              maxLength={15}
+            />
+          )}
           <AppText muted>
             Opens yesterday's report. Historical reports are recomputed; device
-            notification permission is also required.
+            notification permission is also required for push delivery.
           </AppText>
           <Button
             label="Save preference"
@@ -936,6 +1779,7 @@ export function ReportSettings({ navigation }) {
               setError("");
               try {
                 await service.ownerPreferences(form);
+                if (form.language) setAppLanguage(form.language);
                 request.reload();
               } catch (failure) {
                 setError(failure.message);
@@ -1146,64 +1990,361 @@ export function OwnerEscalation({ navigation, route }) {
       <RequestState request={request} />
       {item && (
         <>
-          <Card>
-            <AppText variant="h3">{item.label || item.condition}</AppText>
-            <AppText>{item.wants}</AppText>
-            <AppText>{item.subjectLabel || item.subjectKey}</AppText>
-            <AppText>{item.ranking.explanation}</AppText>
-            <AppText>
-              Score {item.ranking.score} · confidence {item.ranking.confidence}{" "}
-              · stake{" "}
-              {item.ranking.stakeInr == null
-                ? "unassessed"
-                : `₹${item.ranking.stakeInr}`}
-            </AppText>
-            <AppText>
-              Acknowledgement: {item.status}. Owner action:{" "}
-              {item.ownerWorkflow?.state || "OPEN"}.
-            </AppText>
-          </Card>
-          {item.sources.map((source, index) => (
-            <Card key={index}>
-              <AppText>
-                {source.source} · {source.code}
-              </AppText>
-              <AppText>{source.detail}</AppText>
-              {["incidents", "documents"].includes(source.source) &&
-                /^[a-f0-9]{24}$/i.test(String(source.refId).split(":")[0]) && (
-                  <Button
-                    label="Open source evidence"
-                    variant="secondary"
-                    onPress={() =>
-                      navigation.navigate(
-                        source.source === "incidents"
-                          ? "Review detail"
-                          : "Manager document",
-                        {
-                          id: String(source.refId).split(":")[0],
-                          kind:
-                            source.source === "incidents"
-                              ? "issues"
-                              : "documents",
-                        },
-                      )
-                    }
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: 20,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: "#E2E8F0",
+              flexDirection: "row",
+              marginBottom: 16,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.04,
+              shadowRadius: 6,
+              elevation: 2,
+            }}
+          >
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 14,
+                backgroundColor: "#EBF3FF",
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 14,
+                position: "relative",
+              }}
+            >
+              <MaterialCommunityIcons
+                name="gas-station"
+                size={26}
+                color="#2563EB"
+              />
+              <View
+                style={{
+                  position: "absolute",
+                  right: 5,
+                  bottom: 5,
+                  width: 14,
+                  height: 14,
+                  borderRadius: 7,
+                  backgroundColor: "#2563EB",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <AppText
+                  style={{
+                    color: "#FFFFFF",
+                    fontSize: 9,
+                    fontWeight: "900",
+                    lineHeight: 11,
+                  }}
+                >
+                  !
+                </AppText>
+              </View>
+            </View>
+
+            <View
+              style={{
+                width: 1,
+                alignSelf: "stretch",
+                backgroundColor: "#E2E8F0",
+                marginRight: 14,
+              }}
+            />
+
+            <View style={{ flex: 1 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 6,
+                }}
+              >
+                <AppText
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "700",
+                    color: "#0F172A",
+                    flex: 1,
+                    marginRight: 8,
+                  }}
+                >
+                  {item.label || item.condition}
+                </AppText>
+                <View
+                  style={{
+                    backgroundColor: "#FEE2E2",
+                    borderRadius: 999,
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                >
+                  <Ionicons
+                    name="alert-circle"
+                    size={14}
+                    color="#DC2626"
                   />
-                )}
-              {["challans", "deviations"].includes(source.source) && (
-                <Button
-                  label="Open current source records"
-                  variant="secondary"
-                  onPress={() =>
-                    navigation.navigate("Owner report rows", {
-                      metric: source.source,
-                      date: yesterday(),
-                    })
-                  }
+                  <AppText
+                    style={{
+                      fontSize: 11,
+                      fontWeight: "700",
+                      color: "#DC2626",
+                      marginLeft: 4,
+                    }}
+                  >
+                    High Priority
+                  </AppText>
+                </View>
+              </View>
+
+              <AppText
+                style={{
+                  fontSize: 13.5,
+                  color: "#1E293B",
+                  lineHeight: 19,
+                  marginBottom: 4,
+                }}
+              >
+                {item.wants}
+              </AppText>
+              <AppText
+                style={{
+                  fontSize: 13,
+                  fontWeight: "600",
+                  color: "#0F172A",
+                  marginBottom: 4,
+                }}
+              >
+                {item.subjectLabel || item.subjectKey}
+              </AppText>
+              <AppText
+                style={{
+                  fontSize: 12.5,
+                  color: "#334155",
+                  lineHeight: 18,
+                  marginBottom: 4,
+                }}
+              >
+                {item.ranking?.explanation}
+              </AppText>
+              <AppText
+                style={{
+                  fontSize: 12.5,
+                  color: "#334155",
+                  marginBottom: 2,
+                }}
+              >
+                Score {item.ranking?.score} · confidence{" "}
+                {item.ranking?.confidence} · stake{" "}
+                {item.ranking?.stakeInr == null
+                  ? "unassessed"
+                  : `₹${item.ranking.stakeInr}`}
+              </AppText>
+              <AppText
+                style={{
+                  fontSize: 12.5,
+                  color: "#334155",
+                }}
+              >
+                Acknowledgement: {item.status}. Owner action:{" "}
+                {item.ownerWorkflow?.state || "OPEN"}.
+              </AppText>
+            </View>
+          </View>
+
+          {item.sources.map((source, index) => {
+            const isRefuel =
+              source.code?.includes("REFUEL") || source.severity === "info";
+            return (
+              <View
+                key={index}
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 20,
+                  padding: 16,
+                  borderWidth: 1,
+                  borderColor: "#E2E8F0",
+                  flexDirection: "row",
+                  marginBottom: 16,
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.04,
+                  shadowRadius: 6,
+                  elevation: 2,
+                }}
+              >
+                <View
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 14,
+                    backgroundColor: "#EBF3FF",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 14,
+                  }}
+                >
+                  {isRefuel ? (
+                    <MaterialCommunityIcons
+                      name="shield-alert"
+                      size={28}
+                      color="#2563EB"
+                    />
+                  ) : (
+                    <Ionicons
+                      name="warning"
+                      size={26}
+                      color="#2563EB"
+                    />
+                  )}
+                </View>
+
+                <View
+                  style={{
+                    width: 1,
+                    alignSelf: "stretch",
+                    backgroundColor: "#E2E8F0",
+                    marginRight: 14,
+                  }}
                 />
-              )}
-            </Card>
-          ))}
+
+                <View style={{ flex: 1 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <AppText
+                      style={{
+                        fontSize: 15,
+                        fontWeight: "700",
+                        color: "#0F172A",
+                        flex: 1,
+                        marginRight: 8,
+                      }}
+                    >
+                      {source.source} · {source.code}
+                    </AppText>
+                    {isRefuel ? (
+                      <View
+                        style={{
+                          backgroundColor: "#DBEAFE",
+                          borderRadius: 999,
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                          flexDirection: "row",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Ionicons
+                          name="information-circle"
+                          size={14}
+                          color="#2563EB"
+                        />
+                        <AppText
+                          style={{
+                            fontSize: 11,
+                            fontWeight: "700",
+                            color: "#2563EB",
+                            marginLeft: 4,
+                          }}
+                        >
+                          Info
+                        </AppText>
+                      </View>
+                    ) : (
+                      <View
+                        style={{
+                          backgroundColor: "#FEF3C7",
+                          borderRadius: 999,
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                          flexDirection: "row",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Ionicons
+                          name="warning"
+                          size={13}
+                          color="#D97706"
+                        />
+                        <AppText
+                          style={{
+                            fontSize: 11,
+                            fontWeight: "700",
+                            color: "#D97706",
+                            marginLeft: 4,
+                          }}
+                        >
+                          Warning
+                        </AppText>
+                      </View>
+                    )}
+                  </View>
+
+                  <AppText
+                    style={{
+                      fontSize: 13,
+                      color: "#1E293B",
+                      lineHeight: 19,
+                    }}
+                  >
+                    {source.detail}
+                  </AppText>
+
+                  {["incidents", "documents"].includes(source.source) &&
+                    /^[a-f0-9]{24}$/i.test(
+                      String(source.refId).split(":")[0],
+                    ) && (
+                      <Button
+                        label="Open source evidence"
+                        variant="secondary"
+                        style={{ marginTop: 10 }}
+                        onPress={() =>
+                          navigation.navigate(
+                            source.source === "incidents"
+                              ? "Review detail"
+                              : "Manager document",
+                            {
+                              id: String(source.refId).split(":")[0],
+                              kind:
+                                source.source === "incidents"
+                                  ? "issues"
+                                  : "documents",
+                            },
+                          )
+                        }
+                      />
+                    )}
+                  {["challans", "deviations"].includes(source.source) && (
+                    <Button
+                      label="Open current source records"
+                      variant="secondary"
+                      style={{ marginTop: 10 }}
+                      onPress={() =>
+                        navigation.navigate("Owner report rows", {
+                          metric: source.source,
+                          date: yesterday(),
+                        })
+                      }
+                    />
+                  )}
+                </View>
+              </View>
+            );
+          })}
           <TextField
             label="Assessed stake in rupees (optional)"
             value={stake}
@@ -1363,41 +2504,229 @@ export function OwnerCalls({ navigation, route }) {
   return (
     <Screen navigation={navigation} title="Calls and outcomes">
       <RequestState request={roster} />
-      <Choice
-        label="Driver"
-        value={driverId}
-        onChange={setDriverId}
-        disabled={write.busy || !!write.draft}
-        options={(roster.data?.items || []).map((d) => [
-          d._id,
-          `${d.firstName} ${d.lastName || ""}${d.mobileNumber ? "" : " · no phone"}`,
-        ])}
-      />
-      <Button
-        label={write.draft ? "Retry saved call initiation" : "Open dialer"}
-        disabled={!write.ready || !driverId}
-        loading={write.busy}
+      <View style={{ marginBottom: 4 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            marginBottom: 8,
+          }}
+        >
+          <Ionicons
+            name="person"
+            size={16}
+            color="#2563EB"
+            style={{ marginRight: 6 }}
+          />
+          <AppText
+            style={{
+              fontSize: 13,
+              fontWeight: "700",
+              color: "#1E293B",
+              letterSpacing: 0.5,
+            }}
+          >
+            DRIVER
+          </AppText>
+        </View>
+        <Select
+          accessibilityLabel="Driver"
+          selectedValue={driverId}
+          onValueChange={setDriverId}
+          enabled={!write.busy && !write.draft}
+          triggerStyle={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: "#E2E8F0",
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+          }}
+          valueStyle={{
+            fontSize: 16,
+            fontWeight: "700",
+            color: "#0F172A",
+          }}
+          chevronColor="#0F172A"
+        >
+          <Select.Item label="Choose..." value="" />
+          {(roster.data?.items || []).map((d) => (
+            <Select.Item
+              key={d._id}
+              label={`${d.firstName} ${d.lastName || ""}${d.mobileNumber ? "" : " · no phone"}`}
+              value={d._id}
+            />
+          ))}
+        </Select>
+      </View>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={
+          write.draft ? "Retry saved call initiation" : "Open dialer"
+        }
+        disabled={!write.ready || !driverId || write.busy}
         onPress={dial}
-      />
-      <AppText muted>
-        Returning from the dialer does not prove that a call connected. Record
-        the outcome yourself.
-      </AppText>
+        style={{
+          backgroundColor: "#2563EB",
+          borderRadius: 999,
+          paddingVertical: 15,
+          paddingHorizontal: 20,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          marginVertical: 12,
+          opacity: !write.ready || !driverId || write.busy ? 0.6 : 1,
+        }}
+      >
+        {write.busy ? (
+          <ActivityIndicator
+            size="small"
+            color="#FFFFFF"
+            style={{ marginRight: 8 }}
+          />
+        ) : (
+          <Ionicons
+            name="call"
+            size={19}
+            color="#FFFFFF"
+            style={{ marginRight: 8 }}
+          />
+        )}
+        <AppText style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 16 }}>
+          {write.draft ? "Retry saved call initiation" : "Open dialer"}
+        </AppText>
+      </Pressable>
+
+      <View
+        style={{
+          backgroundColor: "#EBF3FF",
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: "#BFDBFE",
+          padding: 14,
+          flexDirection: "row",
+          alignItems: "center",
+          marginBottom: 16,
+        }}
+      >
+        <Ionicons
+          name="information-circle"
+          size={26}
+          color="#2563EB"
+          style={{ marginRight: 12 }}
+        />
+        <AppText
+          style={{
+            flex: 1,
+            fontSize: 13,
+            lineHeight: 18,
+            color: "#1E293B",
+          }}
+        >
+          Returning from the dialer does not prove that a call connected. Record
+          the outcome yourself.
+        </AppText>
+      </View>
+
       <RequestState request={calls} />
       {calls.data?.items.map((call) => (
-        <MenuRow
+        <Pressable
           key={call._id}
-          title={call.phone}
-          detail={`${call.outcome} · ${new Date(call.createdAt).toLocaleString()}`}
+          accessibilityRole="button"
+          accessibilityLabel={`${call.phone}, ${call.outcome}`}
           onPress={() => {
             setSelected(call);
             setNote(call.note || "");
           }}
-        />
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 20,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: "#E2E8F0",
+            marginBottom: 12,
+            flexDirection: "row",
+            alignItems: "center",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.03,
+            shadowRadius: 4,
+            elevation: 1,
+          }}
+        >
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: "#EBF3FF",
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 14,
+            }}
+          >
+            <Ionicons name="call" size={22} color="#2563EB" />
+          </View>
+          <View
+            style={{
+              width: 1,
+              height: 32,
+              backgroundColor: "#E2E8F0",
+              marginRight: 14,
+            }}
+          />
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <AppText
+              style={{
+                fontSize: 17,
+                fontWeight: "700",
+                color: "#0F172A",
+                marginBottom: 4,
+              }}
+            >
+              {call.phone}
+            </AppText>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Ionicons
+                name="calendar-outline"
+                size={14}
+                color="#2563EB"
+                style={{ marginRight: 5 }}
+              />
+              <AppText
+                style={{ fontSize: 12, fontWeight: "600", color: "#64748B" }}
+              >
+                {call.outcome} · {new Date(call.createdAt).toLocaleString()}
+              </AppText>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#0F172A" />
+        </Pressable>
       ))}
+
       {selected && (
-        <Card>
-          <AppText>{selected.phone}</AppText>
+        <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 20,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: "#E2E8F0",
+            marginBottom: 16,
+            gap: 12,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.04,
+            shadowRadius: 6,
+            elevation: 2,
+          }}
+        >
+          <AppText
+            style={{ fontSize: 16, fontWeight: "700", color: "#0F172A" }}
+          >
+            Record outcome for {selected.phone}
+          </AppText>
           <Choice
             label="Outcome"
             value={outcome}
@@ -1412,10 +2741,10 @@ export function OwnerCalls({ navigation, route }) {
             onChangeText={setNote}
             multiline
           />
-          <Button
-            label="Save outcome"
-            disabled={!outcomeWrite.ready}
-            loading={outcomeWrite.busy}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Save outcome"
+            disabled={!outcomeWrite.ready || outcomeWrite.busy}
             onPress={async () => {
               setError("");
               const result = await outcomeWrite.execute(
@@ -1435,24 +2764,105 @@ export function OwnerCalls({ navigation, route }) {
                 calls.reload();
               }
             }}
-          />
-        </Card>
+            style={{
+              backgroundColor: "#2563EB",
+              borderRadius: 999,
+              paddingVertical: 14,
+              paddingHorizontal: 20,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: !outcomeWrite.ready || outcomeWrite.busy ? 0.6 : 1,
+            }}
+          >
+            {outcomeWrite.busy ? (
+              <ActivityIndicator
+                size="small"
+                color="#FFFFFF"
+                style={{ marginRight: 8 }}
+              />
+            ) : (
+              <Ionicons
+                name="checkmark"
+                size={18}
+                color="#FFFFFF"
+                style={{ marginRight: 8 }}
+              />
+            )}
+            <AppText
+              style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}
+            >
+              Save outcome
+            </AppText>
+          </Pressable>
+        </View>
       )}
+
       {write.error || outcomeWrite.error || error ? (
         <AppText color={colors.error}>
           {write.error || outcomeWrite.error || error}
         </AppText>
       ) : null}
-      <Button
-        label="Previous calls"
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Previous calls"
         disabled={page === 1}
         onPress={() => setPage(page - 1)}
-      />
-      <Button
-        label="More calls"
+        style={{
+          backgroundColor: "#FFFFFF",
+          borderWidth: 1.5,
+          borderColor: "#BFDBFE",
+          borderRadius: 999,
+          paddingVertical: 14,
+          paddingHorizontal: 20,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 12,
+          opacity: page === 1 ? 0.5 : 1,
+        }}
+      >
+        <MaterialCommunityIcons
+          name="history"
+          size={20}
+          color="#2563EB"
+          style={{ marginRight: 8 }}
+        />
+        <AppText style={{ color: "#2563EB", fontWeight: "700", fontSize: 16 }}>
+          Previous calls
+        </AppText>
+      </Pressable>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="More calls"
         disabled={!calls.data || page * 30 >= calls.data.total}
         onPress={() => setPage(page + 1)}
-      />
+        style={{
+          backgroundColor: "#FFFFFF",
+          borderWidth: 1.5,
+          borderColor: "#BFDBFE",
+          borderRadius: 999,
+          paddingVertical: 14,
+          paddingHorizontal: 20,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 16,
+          opacity: !calls.data || page * 30 >= calls.data.total ? 0.5 : 1,
+        }}
+      >
+        <Ionicons
+          name="ellipsis-horizontal-circle"
+          size={22}
+          color="#2563EB"
+          style={{ marginRight: 8 }}
+        />
+        <AppText style={{ color: "#2563EB", fontWeight: "700", fontSize: 16 }}>
+          More calls
+        </AppText>
+      </Pressable>
     </Screen>
   );
 }

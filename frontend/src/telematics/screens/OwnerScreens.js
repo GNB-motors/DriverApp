@@ -12,6 +12,7 @@ import { ManagerHome } from './ManagerScreens';
 import { MenuRow } from './DriverScreens';
 import { KpiCard, SectionHeading, DataState } from '../components';
 import { formatLitres } from '../../utils/format';
+import { useLanguage } from '../../context/LanguageContext';
 const money = (value) => typeof value === 'number' ? `₹${value.toLocaleString('en-IN')}` : '—';
 
 export function Today({ navigation }) {
@@ -45,21 +46,86 @@ export function Digest({ navigation }) {
   return <ManagerPage navigation={navigation} title="Your fleet digest" subtitle="Complete branch totals and the last 30 days of activity."><Card style={s.digest}><View style={s.digestIcon}><Ionicons name="sparkles-outline" size={28} color={colors.primary} /></View><AppText variant="h2">Here’s what stands out.</AppText><AppText muted>{summary.moving} of {summary.trucks} trucks are moving. {summary.offline} have stale/offline telemetry, and {summary.unlinked} have no driver link.</AppText><AppText variant="caption" muted>Complete fleet counts. Fuel and trip aggregates cover the last 30 days.</AppText></Card><MenuRow title={`${summary.alerts} alerts to review`} detail={`${summary.critical} marked critical in this view`} icon="notifications-outline" onPress={() => navigation.navigate('Owner tabs', { screen: 'Alerts' })} /><MenuRow title={`${summary.pendingReviews} pending reviews`} detail="Fuel slips and workshop bills" icon="receipt-outline" onPress={() => navigation.navigate('Fuel review')} /><MenuRow title={`${summary.issues} open issues`} detail="Resolve vehicle maintenance needs" icon="construct-outline" onPress={() => navigation.navigate('Maintenance')} /><MenuRow title={`${summary.distanceKm} km in trips`} detail="GPS-detected journey records" icon="navigate-outline" onPress={() => navigation.navigate('Fleet trips')} /><MenuRow title="View the duty board" detail={`${summary.drivers} drivers in this view`} icon="people-outline" onPress={() => navigation.navigate('Duty board')} /></ManagerPage>;
 }
 export function BranchOverview({ navigation, route }) {
-  const { data, selectBranch, branchId, branches } = useManagerData(); const branch = branches.find((b) => b.id === route.params?.id);
+  const { data, selectBranch, branchId, branches } = useManagerData();
+  const targetId = route.params?.id || (branchId !== 'all' ? branchId : null);
+  const branch = targetId ? branches.find((b) => b.id === targetId) : null;
   const visible = branch && (branchId === 'all' || branch.id === branchId);
   const vehicles = visible ? data?.vehicles.filter((v) => v.branchId === branch.id) || [] : [];
-  return <ManagerPage navigation={navigation} title={branch?.name || 'Branch overview'} subtitle="Loaded branch records.">{visible ? <><View style={s.metrics}><KpiCard label="Trucks" value={vehicles.length} icon="bus-outline" /><KpiCard label="Drivers" value={data?.drivers.filter((d) => d.branchId === branch.id).length || 0} icon="people-outline" /></View>{vehicles.map((v) => <MenuRow key={v.id} title={v.plate} detail={`${v.model} · ${v.status}`} icon="bus-outline" onPress={() => navigation.navigate('Vehicle detail', { id: v.id })} />)}{!vehicles.length && <DataState state="empty" />}<Button label={`Filter to ${branch.name}`} variant="secondary" onPress={() => selectBranch(branch.id)} /></> : <Card><AppText muted>This branch is outside the selected view. Choose All branches above to see its records.</AppText></Card>}</ManagerPage>;
+
+  if (!branch) {
+    return (
+      <ManagerPage navigation={navigation} title="Branch overview" subtitle="Loaded branch records.">
+        <SectionHeading title="Across your branches" caption="Choose a branch to view its trucks and drivers." />
+        {branches.filter((b) => b.id !== 'all').map((b) => {
+          const bVehicles = data?.vehicles.filter((v) => v.branchId === b.id) || [];
+          return (
+            <MenuRow
+              key={b.id}
+              title={b.name}
+              detail={`${bVehicles.length} trucks · ${bVehicles.filter((v) => v.status === 'moving').length} moving`}
+              icon="business-outline"
+              onPress={() => navigation.navigate('Branch overview', { id: b.id })}
+            />
+          );
+        })}
+        {!branches.filter((b) => b.id !== 'all').length && <DataState state="empty" />}
+      </ManagerPage>
+    );
+  }
+
+  return (
+    <ManagerPage navigation={navigation} title={branch.name || 'Branch overview'} subtitle="Loaded branch records.">
+      {visible ? (
+        <>
+          <View style={s.metrics}>
+            <KpiCard label="Trucks" value={vehicles.length} icon="bus-outline" />
+            <KpiCard label="Drivers" value={data?.drivers.filter((d) => d.branchId === branch.id).length || 0} icon="people-outline" />
+          </View>
+          {vehicles.map((v) => (
+            <MenuRow
+              key={v.id}
+              title={v.plate}
+              detail={`${v.model} · ${v.status}`}
+              icon="bus-outline"
+              onPress={() => navigation.navigate('Vehicle detail', { id: v.id })}
+            />
+          ))}
+          {!vehicles.length && <DataState state="empty" />}
+          {branchId !== branch.id && (
+            <Button label={`Filter to ${branch.name}`} variant="secondary" onPress={() => selectBranch(branch.id)} />
+          )}
+        </>
+      ) : (
+        <Card>
+          <AppText muted>This branch is outside the selected view. Choose All branches above to see its records.</AppText>
+          <Button label={`Filter to ${branch.name}`} variant="secondary" onPress={() => selectBranch(branch.id)} style={{ marginTop: 12 }} />
+        </Card>
+      )}
+    </ManagerPage>
+  );
 }
 export function More({ navigation }) {
+  const { language } = useLanguage();
+  const currentLangLabel = language === 'hi' ? 'हिन्दी' : language === 'bn' ? 'বাংলা' : 'English';
   const groups = [
-    ['App', [['Experience settings', 'Language & voice', 'settings-outline']]],
-    ['Fleet & people', [['Drivers', 'Driver roster', 'people-outline'], ['Crew & driving', 'Crew & driving', 'swap-horizontal-outline'], ['Fleet trips', 'Trip history', 'navigate-outline'], ['Fuel & AdBlue', 'Fuel & AdBlue', 'water-outline'], ['Maintenance', 'Maintenance', 'construct-outline']]],
+    ['App', [
+      ['LanguageScreen', 'Language', 'language-outline', currentLangLabel],
+      ['Experience settings', 'Language & voice', 'settings-outline'],
+    ]],
+    ['Fleet & people', [
+      ['Branch overview', 'Branch overview', 'business-outline'],
+      ['Drivers', 'Driver roster', 'people-outline'],
+      ['Crew & driving', 'Crew & driving', 'swap-horizontal-outline'],
+      ['Fleet trips', 'Trip history', 'navigate-outline'],
+      ['Fuel & AdBlue', 'Fuel & AdBlue', 'water-outline'],
+      ['Maintenance', 'Maintenance', 'construct-outline'],
+    ]],
     ['Money & records', [['Capture reviews', 'Capture reviews', 'scan-outline'], ['Owner finance', 'Billing & cash flow', 'wallet-outline'], ['Fleet documents', 'Fleet documents', 'document-text-outline']]],
     ['Conversations', [/* ['Messages', 'Messages & broadcasts', 'chatbubbles-outline'], */ ['Owner calls', 'Calls & follow-ups', 'call-outline'], ['Owner escalations', 'Owner inbox', 'notifications-outline']]],
     ['Your workspace', [['Owner home', 'Fleet home summary', 'home-outline'], ['Aaj ka hisaab', "Today's business report", 'document-text-outline'], ['Owner trends', 'Reports & trends', 'trending-up-outline'], ['Report settings', 'Morning report', 'sunny-outline'], ['Team & access', 'Team & access', 'person-add-outline'], ['Owner settings', 'Settings & support', 'settings-outline']]],
   ];
   return <OwnerScreen navigation={navigation} title="Your workspace" subtitle="Fleet, finances and your team.">
-    {groups.map(([label, links]) => <View key={label} style={{ gap: 10 }}><AppText variant="label" muted>{label}</AppText><Card padding={0}>{links.map(([route, title, icon], index) => <OwnerGroupRow key={route} title={title} icon={icon} last={index === links.length - 1} onPress={() => navigation.navigate(route)} />)}</Card></View>)}
+    {groups.map(([label, links]) => <View key={label} style={{ gap: 10 }}><AppText variant="label" muted>{label}</AppText><Card padding={0}>{links.map(([route, title, icon, detail], index) => <OwnerGroupRow key={route} title={title} icon={icon} detail={detail} last={index === links.length - 1} onPress={() => navigation.navigate(route)} />)}</Card></View>)}
   </OwnerScreen>;
 }
 // Keep these existing entry points on the connected report/fleet surfaces.
