@@ -10,6 +10,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import { useAppFonts } from './src/theme/fonts';
 import SplashScreen from './src/components/ui/SplashScreen';
 import NotificationRouter from './src/services/NotificationRouter';
+import DigiLockerCallbackRouter from './src/services/DigiLockerCallbackRouter';
 import { setupAndroidChannel } from './src/services/pushNotifications';
 
 export const navigationRef = createNavigationContainerRef();
@@ -64,6 +65,7 @@ function App() {
       <LanguageProvider>
         <AuthProvider>
           <NotificationRouter navigationRef={navigationRef} ready={navigationReady} />
+          <DigiLockerCallbackRouter navigationRef={navigationRef} ready={navigationReady} />
           <NavigationContainer ref={navigationRef} onReady={() => setNavigationReady(true)}>
             <StatusBar style="dark" />
             <AppNavigator />

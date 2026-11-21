@@ -3,6 +3,7 @@ import { Linking, Platform } from 'react-native';
 import * as Speech from 'expo-speech';
 import { AppText, Card } from '../../components/ui';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { DriverInbox } from '../screens/DriverScreens';
 import { OperationalForm, RecordList, RecordDetail } from '../workflows/OperationalScreens';
 import { FleetRecords } from '../workflows/FleetOperationalScreens';
@@ -11,6 +12,7 @@ import { ActionButton, ExperiencePage, UnavailableScreen, useExperienceCopy } fr
 export function ExperienceSettings({ navigation }) {
   const c = useExperienceCopy();
   const { language, setLanguage } = useLanguage();
+  const { user } = useAuth();
   const [error, setError] = useState('');
   useEffect(() => () => { Speech.stop(); }, []);
   const testVoice = async () => {
@@ -28,6 +30,8 @@ export function ExperienceSettings({ navigation }) {
     <Card style={{ gap: 12 }}><AppText variant="h3">{c('language')}</AppText>{[['en', 'English'], ['hi', 'हिन्दी'], ['bn', 'বাংলা']].map(([value, label]) => <ActionButton key={value} label={label} tone="secondary" selected={language === value} onPress={() => setLanguage(value)} />)}</Card>
     <ActionButton label={c('testVoice')} onPress={testVoice} />{error ? <AppText accessibilityRole="alert">{error}</AppText> : null}
     <ActionButton label={c('battery')} tone="secondary" onPress={() => navigation.navigate('Battery help')} />
+    {user?.role === 'DRIVER' && <><ActionButton label="Privacy & consent" tone="secondary" onPress={() => navigation.navigate('Privacy & consent')} />
+    <ActionButton label="Location sharing" tone="secondary" onPress={() => navigation.navigate('Location sharing')} /></>}
   </ExperiencePage>;
 }
 export function BatteryHelp({ navigation }) {
