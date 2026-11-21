@@ -874,6 +874,24 @@ export function createTelematicsApi({
     async documentDetail(id, branchId) {
       return (await get(`/documents/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data;
     },
+    async getVehicleDocuments(vehicleId, branchId) {
+      const id = typeof vehicleId === 'object' ? vehicleId?.id || vehicleId?._id : vehicleId;
+      try {
+        const res = await client.get(`/vehicles/${encodeURIComponent(id)}/documents`, {
+          headers: headersFor(branchId),
+        });
+        return res.data?.data || res.data || [];
+      } catch {
+        try {
+          const res2 = await client.get(`/api/vehicles/${encodeURIComponent(id)}/documents`, {
+            headers: headersFor(branchId),
+          });
+          return res2.data?.data || res2.data || [];
+        } catch {
+          return [];
+        }
+      }
+    },
 
     // Fuel Logs & Mileage
     async unifiedFuelLogs(params = {}, branchId) {

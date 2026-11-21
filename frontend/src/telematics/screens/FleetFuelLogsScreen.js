@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { Card, BackHeader } from '../../components/ui';
 import { useManagerData } from '../context/ManagerDataContext';
 import { useAuth } from '../../context/AuthContext';
@@ -135,6 +137,52 @@ export default function FleetFuelLogsScreen({ navigation, route = {} }) {
 
   // Fullscreen receipt image lightbox preview
   const [lightboxUrl, setLightboxUrl] = useState(null);
+
+  // Vehicles for selection
+  const vehicles = useMemo(() => {
+    return Array.isArray(managerData?.vehicles) ? managerData.vehicles : [];
+  }, [managerData]);
+
+  // Upload Fuel Bill state
+  const [uploadBillModal, setUploadBillModal] = useState(false);
+  const [uploadFiles, setUploadFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState('');
+  const [selectedTruckId, setSelectedTruckId] = useState('');
+  const [fuelType, setFuelType] = useState('DIESEL');
+  const [fillingType, setFillingType] = useState('FULL_TANK');
+
+  // Enter by Hand state
+  const [manualFuelModal, setManualFuelModal] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    vehicleId: '',
+    fuelType: 'DIESEL',
+    fillingType: 'FULL_TANK',
+    litres: '',
+    rate: '',
+    amountInr: '',
+    odometerReading: '',
+    stationName: '',
+    refuelTime: new Date().toISOString().slice(0, 16),
+  });
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [manualError, setManualError] = useState('');
+  const [manualSuccess, setManualSuccess] = useState('');
+
+  // Bulk WhatsApp Chat state
+  const [whatsappChatModal, setWhatsappChatModal] = useState(false);
+  const [chatZipFile, setChatZipFile] = useState(null);
+  const [chatUploading, setChatUploading] = useState(false);
+  const [chatUploadPercent, setChatUploadPercent] = useState(0);
+  const [chatJobStatus, setChatJobStatus] = useState(null);
+  const chatPollTimer = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (chatPollTimer.current) clearInterval(chatPollTimer.current);
+    };
+  }, []);
 
   // Fetch fuel logs from unified endpoint
   const loadFuelLogs = useCallback(async (isRefresh = false) => {
@@ -292,6 +340,215 @@ export default function FleetFuelLogsScreen({ navigation, route = {} }) {
     setLightboxUrl(url);
   };
 
+  // Upload Handlers for Fuel Bill
+  const pickCameraPhoto = async () => {
+    try {
+      const res = await ImagePicker.launchCameraAsync({
+        quality: 0.85,
+        mediaTypes: ['images'],
+      });
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setUploadFiles((prev) => [...prev, ...res.assets]);
+      }
+    } catch {
+      Alert.alert('Camera Error', 'Could not access device camera.');
+    }
+  };
+
+  const pickGalleryPhotos = async () => {
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        quality: 0.85,
+        allowsMultipleSelection: true,
+        mediaTypes: ['images'],
+      });
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setUploadFiles((prev) => [...prev, ...res.assets]);
+      }
+    } catch {
+      Alert.alert('Gallery Error', 'Could not open photo library.');
+    }
+  };
+
+  const pickDocumentFiles = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ['image/*', 'application/pdf'],
+        copyToCacheDirectory: true,
+        multiple: true,
+      });
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setUploadFiles((prev) => [...prev, ...res.assets]);
+      }
+    } catch {
+      Alert.alert('File Error', 'Could not pick files.');
+    }
+  };
+
+  const submitManagerBillUpload = async () => {
+    if (!uploadFiles.length) {
+      setUploadError('Please take a photo or select at least one bill image.');
+      return;
+    }
+    setUploading(true);
+    setUploadError('');
+    setUploadSuccess('');
+    const bId = branchId === 'all' ? undefined : branchId;
+
+    try {
+      if (uploadFiles.length === 1 && selectedTruckId) {
+        await service.uploadBillPhoto(
+          uploadFiles[0],
+          {
+            vehicleId: selectedTruckId,
+            fuelType,
+            fillingType,
+          },
+          bId
+        );
+        setUploadSuccess('Bill uploaded & saved successfully!');
+      } else {
+        const vehicle = vehicles.find((v) => (v.id || v._id) === selectedTruckId);
+        const truckPlate = vehicle?.registrationNumber || '';
+        for (let i = 0; i < uploadFiles.length; i++) {
+          const clientId = `upload-${Date.now()}-${i}`;
+          await service.uploadBillCapture(uploadFiles[i], clientId, { truck: truckPlate, kind: fuelType }, bId);
+        }
+        setUploadSuccess(`${uploadFiles.length} bill(s) uploaded successfully!`);
+      }
+      setUploadFiles([]);
+      loadFuelLogs(true);
+      setTimeout(() => {
+        setUploadBillModal(false);
+        setUploadSuccess('');
+      }, 1500);
+    } catch (err) {
+      setUploadError(err?.message || 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Enter by Hand Manual Submit
+  const submitManualFuelLog = async () => {
+    if (!manualForm.vehicleId) {
+      setManualError('Please select a vehicle first.');
+      return;
+    }
+    const litresNum = Number(manualForm.litres);
+    if (!litresNum || litresNum <= 0 || isNaN(litresNum)) {
+      setManualError('Please enter a valid fuel volume in litres.');
+      return;
+    }
+    setManualSubmitting(true);
+    setManualError('');
+    setManualSuccess('');
+
+    try {
+      const payload = {
+        vehicleId: manualForm.vehicleId,
+        fuelType: manualForm.fuelType,
+        fillingType: manualForm.fillingType,
+        litres: litresNum,
+        rate: manualForm.rate ? Number(manualForm.rate) : undefined,
+        totalCost: manualForm.amountInr
+          ? Number(manualForm.amountInr)
+          : manualForm.rate && litresNum
+          ? Number((Number(manualForm.rate) * litresNum).toFixed(2))
+          : undefined,
+        odometerReading: manualForm.odometerReading ? Number(manualForm.odometerReading) : undefined,
+        petrolPump: manualForm.stationName.trim() || undefined,
+        refuelTime: manualForm.refuelTime
+          ? new Date(manualForm.refuelTime).toISOString()
+          : new Date().toISOString(),
+      };
+
+      await service.fuelSave(payload);
+      setManualSuccess('Fuel log recorded successfully!');
+      loadFuelLogs(true);
+      setTimeout(() => {
+        setManualFuelModal(false);
+        setManualSuccess('');
+      }, 1200);
+    } catch (err) {
+      setManualError(err?.message || 'Could not record fuel log. Please try again.');
+    } finally {
+      setManualSubmitting(false);
+    }
+  };
+
+  // WhatsApp Chat Bulk Upload
+  const pickZipFile = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
+        copyToCacheDirectory: true,
+      });
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setChatZipFile(res.assets[0]);
+      }
+    } catch {
+      Alert.alert('Error', 'Could not select zip file.');
+    }
+  };
+
+  const submitWhatsappChatUpload = async () => {
+    if (!chatZipFile) {
+      Alert.alert('Select File', 'Please select a WhatsApp chat export .zip file first.');
+      return;
+    }
+    setChatUploading(true);
+    setChatUploadPercent(0);
+    setChatJobStatus('Uploading chat archive to server…');
+
+    try {
+      const res = await service.uploadWhatsappExport(chatZipFile, (progressEvent) => {
+        if (progressEvent.total) {
+          const pct = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setChatUploadPercent(pct);
+        }
+      });
+
+      const jobId = res?.jobId || res?.data?.jobId;
+      if (jobId) {
+        setChatJobStatus('Chat uploaded! Processing media and fuel receipts on server…');
+        let pollCount = 0;
+        chatPollTimer.current = setInterval(async () => {
+          pollCount += 1;
+          try {
+            const job = await service.getChatExportJob(jobId);
+            if (job?.status === 'completed' || job?.completed || pollCount > 30) {
+              clearInterval(chatPollTimer.current);
+              setChatUploading(false);
+              setChatJobStatus('Chat archive imported successfully!');
+              loadFuelLogs(true);
+              setTimeout(() => {
+                setWhatsappChatModal(false);
+                setChatZipFile(null);
+                setChatJobStatus(null);
+              }, 1800);
+            }
+          } catch {
+            if (pollCount > 25) {
+              clearInterval(chatPollTimer.current);
+              setChatUploading(false);
+              loadFuelLogs(true);
+            }
+          }
+        }, 3000);
+      } else {
+        setChatUploading(false);
+        Alert.alert('Import Started', 'WhatsApp chat upload received. Processing in background.');
+        setWhatsappChatModal(false);
+        setChatZipFile(null);
+        loadFuelLogs(true);
+      }
+    } catch (err) {
+      setChatUploading(false);
+      Alert.alert('Upload Failed', err?.message || 'Could not process WhatsApp chat export.');
+    }
+  };
+
   return (
     <View style={s.container}>
       {/* 1. Header */}
@@ -316,6 +573,61 @@ export default function FleetFuelLogsScreen({ navigation, route = {} }) {
           <RefreshControl refreshing={refreshing} onRefresh={() => loadFuelLogs(true)} />
         }
       >
+        {/* Top Action Bar: Upload Fuel Bill, Enter by Hand, Bulk WhatsApp */}
+        <View style={s.actionRow}>
+          <TouchableOpacity
+            style={[s.actionBtn, s.primaryActionBtn]}
+            onPress={() => {
+              setUploadFiles([]);
+              setUploadError('');
+              setUploadSuccess('');
+              setUploadBillModal(true);
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="camera" size={16} color="#FFFFFF" />
+            <Text style={s.primaryActionText}>Upload Fuel Bill</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[s.actionBtn, s.handActionBtn]}
+            onPress={() => {
+              setManualError('');
+              setManualSuccess('');
+              setManualForm({
+                vehicleId: '',
+                fuelType: 'DIESEL',
+                fillingType: 'FULL_TANK',
+                litres: '',
+                rate: '',
+                amountInr: '',
+                odometerReading: '',
+                stationName: '',
+                refuelTime: new Date().toISOString().slice(0, 16),
+              });
+              setManualFuelModal(true);
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="create-outline" size={16} color="#0D9488" />
+            <Text style={s.handActionText}>Enter by Hand</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[s.actionBtn, s.secondaryActionBtn]}
+            onPress={() => {
+              setChatZipFile(null);
+              setChatJobStatus(null);
+              setChatUploadPercent(0);
+              setWhatsappChatModal(true);
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="cloud-upload-outline" size={16} color="#1A56DB" />
+            <Text style={s.secondaryActionText}>Bulk WhatsApp</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* 2. Top KPI Summary Strip */}
         <View style={s.kpiGrid}>
           <View style={s.kpiCard}>
@@ -645,10 +957,11 @@ export default function FleetFuelLogsScreen({ navigation, route = {} }) {
           visible={Boolean(selectedLog)}
           animationType="slide"
           transparent
+          statusBarTranslucent
           onRequestClose={() => setSelectedLog(null)}
         >
-          <View style={s.modalOverlay}>
-            <View style={[s.modalCard, { maxHeight: '85%', paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <View style={s.bottomSheetOverlay}>
+            <View style={[s.modalCard, { maxHeight: '85%', paddingBottom: Math.max(insets.bottom, 24) }]}>
               {/* Modal Header */}
               <View style={s.modalHeader}>
                 <View style={{ flex: 1 }}>
@@ -806,6 +1119,7 @@ export default function FleetFuelLogsScreen({ navigation, route = {} }) {
           visible={Boolean(lightboxUrl)}
           animationType="fade"
           transparent
+          statusBarTranslucent
           onRequestClose={() => setLightboxUrl(null)}
         >
           <View style={s.lightboxOverlay}>
@@ -829,6 +1143,368 @@ export default function FleetFuelLogsScreen({ navigation, route = {} }) {
           </View>
         </Modal>
       )}
+
+      {/* 9. Upload Fuel Bill Modal */}
+      <Modal visible={uploadBillModal} transparent animationType="slide" statusBarTranslucent>
+        <View style={s.bottomSheetOverlay}>
+          <View style={[s.actionModalCard, { maxHeight: '90%', paddingBottom: Math.max(insets.bottom, 24) }]}>
+            <View style={s.modalHeaderRow}>
+              <View>
+                <Text style={s.modalHeading}>Upload Fuel Bill</Text>
+                <Text style={s.modalSub}>Upload bill or meter photo for instant logging</Text>
+              </View>
+              <TouchableOpacity onPress={() => !uploading && setUploadBillModal(false)} hitSlop={8}>
+                <Ionicons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={{ gap: 12, paddingVertical: 8 }}>
+              {/* Vehicle Picker */}
+              <View>
+                <Text style={s.inputLabel}>Vehicle / Truck (Optional for bulk):</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginVertical: 4 }}>
+                  {vehicles.map((v) => {
+                    const vId = v.id || v._id;
+                    const isSelected = selectedTruckId === vId;
+                    return (
+                      <TouchableOpacity
+                        key={vId}
+                        style={[s.pillBtn, isSelected && s.pillBtnActive]}
+                        onPress={() => setSelectedTruckId(isSelected ? '' : vId)}
+                      >
+                        <Text style={[s.pillBtnText, isSelected && s.pillBtnTextActive]}>
+                          {v.registrationNumber || v.plate}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* Fuel Type */}
+              <View>
+                <Text style={s.inputLabel}>Fuel Type:</Text>
+                <View style={s.segmentedRow}>
+                  <TouchableOpacity
+                    style={[s.segmentBtn, fuelType === 'DIESEL' && s.segmentBtnActive]}
+                    onPress={() => setFuelType('DIESEL')}
+                  >
+                    <Text style={[s.segmentText, fuelType === 'DIESEL' && s.segmentTextActive]}>Diesel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[s.segmentBtn, fuelType === 'ADBLUE' && s.segmentBtnActive]}
+                    onPress={() => setFuelType('ADBLUE')}
+                  >
+                    <Text style={[s.segmentText, fuelType === 'ADBLUE' && s.segmentTextActive]}>DEF (AdBlue)</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Tank Status */}
+              <View>
+                <Text style={s.inputLabel}>Tank Status:</Text>
+                <View style={s.segmentedRow}>
+                  <TouchableOpacity
+                    style={[s.segmentBtn, fillingType === 'FULL_TANK' && s.segmentBtnActive]}
+                    onPress={() => setFillingType('FULL_TANK')}
+                  >
+                    <Text style={[s.segmentText, fillingType === 'FULL_TANK' && s.segmentTextActive]}>Full Tank</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[s.segmentBtn, fillingType === 'PARTIAL' && s.segmentBtnActive]}
+                    onPress={() => setFillingType('PARTIAL')}
+                  >
+                    <Text style={[s.segmentText, fillingType === 'PARTIAL' && s.segmentTextActive]}>Partial Fill</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Upload Action Tiles */}
+              <Text style={s.inputLabel}>Add Photos / Files:</Text>
+              <View style={s.uploadTileRow}>
+                <TouchableOpacity style={s.uploadTile} onPress={pickCameraPhoto}>
+                  <Ionicons name="camera" size={24} color="#1A56DB" />
+                  <Text style={s.uploadTileText}>Camera</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={s.uploadTile} onPress={pickGalleryPhotos}>
+                  <Ionicons name="images" size={24} color="#1A56DB" />
+                  <Text style={s.uploadTileText}>Gallery (Multi)</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={s.uploadTile} onPress={pickDocumentFiles}>
+                  <Ionicons name="document-attach" size={24} color="#1A56DB" />
+                  <Text style={s.uploadTileText}>PDF / Files</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Selected Files Preview */}
+              {uploadFiles.length > 0 && (
+                <View style={s.filesPreviewBox}>
+                  <Text style={s.filesPreviewTitle}>{uploadFiles.length} file(s) selected:</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {uploadFiles.map((file, idx) => (
+                      <View key={idx} style={s.fileThumbBox}>
+                        <Image source={{ uri: file.uri }} style={s.fileThumbImg} />
+                        <TouchableOpacity
+                          style={s.fileRemoveBtn}
+                          onPress={() => setUploadFiles((prev) => prev.filter((_, i) => i !== idx))}
+                        >
+                          <Ionicons name="close" size={14} color="#FFFFFF" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {uploadError ? <Text style={s.errorText}>{uploadError}</Text> : null}
+              {uploadSuccess ? <Text style={s.successText}>{uploadSuccess}</Text> : null}
+
+              {/* Submit Button */}
+              <TouchableOpacity
+                style={[s.primarySubmitBtn, uploading && { opacity: 0.7 }]}
+                disabled={uploading}
+                onPress={submitManagerBillUpload}
+              >
+                {uploading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={s.primarySubmitText}>
+                    Upload {uploadFiles.length ? `(${uploadFiles.length})` : ''}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 10. Enter by Hand Modal */}
+      <Modal visible={manualFuelModal} transparent animationType="slide" statusBarTranslucent>
+        <View style={s.bottomSheetOverlay}>
+          <View style={[s.actionModalCard, { maxHeight: '90%', paddingBottom: Math.max(insets.bottom, 24) }]}>
+            <View style={s.modalHeaderRow}>
+              <View>
+                <Text style={s.modalHeading}>Enter Fuel Log by Hand</Text>
+                <Text style={s.modalSub}>Record diesel or DEF fill details manually</Text>
+              </View>
+              <TouchableOpacity onPress={() => !manualSubmitting && setManualFuelModal(false)} hitSlop={8}>
+                <Ionicons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={{ gap: 12, paddingVertical: 8 }}>
+              {/* Select Vehicle */}
+              <View>
+                <Text style={s.inputLabel}>Select Vehicle *</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginVertical: 4 }}>
+                  {vehicles.map((v) => {
+                    const vId = v.id || v._id;
+                    const isSelected = manualForm.vehicleId === vId;
+                    return (
+                      <TouchableOpacity
+                        key={vId}
+                        style={[s.pillBtn, isSelected && s.pillBtnActive]}
+                        onPress={() => setManualForm((p) => ({ ...p, vehicleId: vId }))}
+                      >
+                        <Text style={[s.pillBtnText, isSelected && s.pillBtnTextActive]}>
+                          {v.registrationNumber || v.plate}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* Fuel Type & Filling Type */}
+              <View style={s.formRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.inputLabel}>Fuel Type</Text>
+                  <View style={s.segmentedRow}>
+                    <TouchableOpacity
+                      style={[s.segmentBtn, manualForm.fuelType === 'DIESEL' && s.segmentBtnActive]}
+                      onPress={() => setManualForm((p) => ({ ...p, fuelType: 'DIESEL' }))}
+                    >
+                      <Text style={[s.segmentText, manualForm.fuelType === 'DIESEL' && s.segmentTextActive]}>Diesel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[s.segmentBtn, manualForm.fuelType === 'ADBLUE' && s.segmentBtnActive]}
+                      onPress={() => setManualForm((p) => ({ ...p, fuelType: 'ADBLUE' }))}
+                    >
+                      <Text style={[s.segmentText, manualForm.fuelType === 'ADBLUE' && s.segmentTextActive]}>DEF</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={s.inputLabel}>Tank Status</Text>
+                  <View style={s.segmentedRow}>
+                    <TouchableOpacity
+                      style={[s.segmentBtn, manualForm.fillingType === 'FULL_TANK' && s.segmentBtnActive]}
+                      onPress={() => setManualForm((p) => ({ ...p, fillingType: 'FULL_TANK' }))}
+                    >
+                      <Text style={[s.segmentText, manualForm.fillingType === 'FULL_TANK' && s.segmentTextActive]}>Full</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[s.segmentBtn, manualForm.fillingType === 'PARTIAL' && s.segmentBtnActive]}
+                      onPress={() => setManualForm((p) => ({ ...p, fillingType: 'PARTIAL' }))}
+                    >
+                      <Text style={[s.segmentText, manualForm.fillingType === 'PARTIAL' && s.segmentTextActive]}>Part</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              {/* Volume & Cost */}
+              <View style={s.formRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.inputLabel}>Litres Filled *</Text>
+                  <TextInput
+                    style={s.formInput}
+                    placeholder="e.g. 150.0"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numeric"
+                    value={manualForm.litres}
+                    onChangeText={(val) => setManualForm((p) => ({ ...p, litres: val }))}
+                  />
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={s.inputLabel}>Rate / Litre (₹)</Text>
+                  <TextInput
+                    style={s.formInput}
+                    placeholder="e.g. 91.50"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numeric"
+                    value={manualForm.rate}
+                    onChangeText={(val) => setManualForm((p) => ({ ...p, rate: val }))}
+                  />
+                </View>
+              </View>
+
+              {/* Total Amount & Odometer */}
+              <View style={s.formRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.inputLabel}>Total Cost (₹)</Text>
+                  <TextInput
+                    style={s.formInput}
+                    placeholder="e.g. 13725"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numeric"
+                    value={manualForm.amountInr}
+                    onChangeText={(val) => setManualForm((p) => ({ ...p, amountInr: val }))}
+                  />
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={s.inputLabel}>Odometer (km)</Text>
+                  <TextInput
+                    style={s.formInput}
+                    placeholder="e.g. 154200"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numeric"
+                    value={manualForm.odometerReading}
+                    onChangeText={(val) => setManualForm((p) => ({ ...p, odometerReading: val }))}
+                  />
+                </View>
+              </View>
+
+              {/* Station Name */}
+              <View>
+                <Text style={s.inputLabel}>Petrol Pump / Station Name</Text>
+                <TextInput
+                  style={s.formInput}
+                  placeholder="e.g. Indian Oil, Asansol Highway"
+                  placeholderTextColor="#94A3B8"
+                  value={manualForm.stationName}
+                  onChangeText={(val) => setManualForm((p) => ({ ...p, stationName: val }))}
+                />
+              </View>
+
+              {manualError ? <Text style={s.errorText}>{manualError}</Text> : null}
+              {manualSuccess ? <Text style={s.successText}>{manualSuccess}</Text> : null}
+
+              {/* Submit Button */}
+              <TouchableOpacity
+                style={[s.primarySubmitBtn, manualSubmitting && { opacity: 0.7 }]}
+                disabled={manualSubmitting}
+                onPress={submitManualFuelLog}
+              >
+                {manualSubmitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={s.primarySubmitText}>Save Fuel Entry</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 11. Bulk WhatsApp Chat Modal */}
+      <Modal visible={whatsappChatModal} transparent animationType="slide" statusBarTranslucent>
+        <View style={s.bottomSheetOverlay}>
+          <View style={[s.actionModalCard, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+            <View style={s.modalHeaderRow}>
+              <View>
+                <Text style={s.modalHeading}>Bulk Upload (WhatsApp Chat)</Text>
+                <Text style={s.modalSub}>Import driver fuel slips & odometer photos from chat export</Text>
+              </View>
+              <TouchableOpacity onPress={() => !chatUploading && setWhatsappChatModal(false)} hitSlop={8}>
+                <Ionicons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={s.chatInstructionsBox}>
+              <Ionicons name="information-circle-outline" size={20} color="#1A56DB" />
+              <Text style={s.chatInstructionsText}>
+                Export your WhatsApp driver group or individual chat as a <Text style={{ fontWeight: 'bold' }}>.ZIP (Include Media)</Text> to automatically extract all fuel receipts and odometer pictures.
+              </Text>
+            </View>
+
+            <TouchableOpacity style={s.zipPickerBtn} onPress={pickZipFile}>
+              <Ionicons name="archive-outline" size={32} color="#1A56DB" />
+              <Text style={s.zipPickerTitle}>
+                {chatZipFile ? chatZipFile.name : 'Tap to select .ZIP Chat Export'}
+              </Text>
+              {chatZipFile?.size ? (
+                <Text style={s.zipPickerSize}>
+                  {(chatZipFile.size / (1024 * 1024)).toFixed(2)} MB
+                </Text>
+              ) : null}
+            </TouchableOpacity>
+
+            {chatUploading && (
+              <View style={s.chatProgressBox}>
+                <ActivityIndicator size="small" color="#1A56DB" />
+                <Text style={s.chatProgressText}>{chatJobStatus || 'Processing archive…'}</Text>
+                {chatUploadPercent > 0 && chatUploadPercent < 100 && (
+                  <Text style={s.chatProgressPct}>{chatUploadPercent}%</Text>
+                )}
+              </View>
+            )}
+
+            <View style={s.modalBtnRow}>
+              <TouchableOpacity
+                style={[s.mBtn, s.mBtnCancel]}
+                disabled={chatUploading}
+                onPress={() => setWhatsappChatModal(false)}
+              >
+                <Text style={s.mBtnCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[s.mBtn, s.mBtnConfirm, (!chatZipFile || chatUploading) && { opacity: 0.6 }]}
+                disabled={!chatZipFile || chatUploading}
+                onPress={submitWhatsappChatUpload}
+              >
+                <Text style={s.mBtnConfirmText}>Start Import</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1328,11 +2004,24 @@ const s = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'flex-end',
+    margin: 0,
+    padding: 0,
+  },
+  bottomSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'flex-end',
+    margin: 0,
+    padding: 0,
   },
   modalCard: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
+    width: '100%',
     padding: 20,
   },
   modalHeader: {
@@ -1458,5 +2147,304 @@ const s = StyleSheet.create({
   lightboxImage: {
     width: SCREEN_WIDTH - 20,
     height: '90%',
+  },
+
+  // Action Row
+  actionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 11,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  primaryActionBtn: {
+    backgroundColor: '#1A56DB',
+  },
+  primaryActionText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  handActionBtn: {
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+  },
+  handActionText: {
+    color: '#0D9488',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  secondaryActionBtn: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  secondaryActionText: {
+    color: '#1A56DB',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+
+  // Action Modals & Bottom Sheets
+  actionModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
+    width: '100%',
+    padding: 20,
+    gap: 12,
+  },
+  modalHeading: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalSub: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 4,
+  },
+  pillBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  pillBtnActive: {
+    backgroundColor: '#1A56DB',
+    borderColor: '#1A56DB',
+  },
+  pillBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  pillBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  segmentedRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  segmentBtnActive: {
+    backgroundColor: '#1A56DB',
+    borderColor: '#1A56DB',
+  },
+  segmentText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  segmentTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  uploadTileRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginVertical: 4,
+  },
+  uploadTile: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#93C5FD',
+    gap: 4,
+  },
+  uploadTileText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1A56DB',
+  },
+  filesPreviewBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 6,
+  },
+  filesPreviewTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  fileThumbBox: {
+    width: 60,
+    height: 60,
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginRight: 8,
+    position: 'relative',
+  },
+  fileThumbImg: {
+    width: '100%',
+    height: '100%',
+  },
+  fileRemoveBtn: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 10,
+    padding: 2,
+  },
+  primarySubmitBtn: {
+    backgroundColor: '#1A56DB',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  primarySubmitText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  formInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 40,
+    fontSize: 13,
+    color: '#0F172A',
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+  successText: {
+    fontSize: 12,
+    color: '#16A34A',
+    fontWeight: '600',
+  },
+  // WhatsApp Chat box
+  chatInstructionsBox: {
+    flexDirection: 'row',
+    backgroundColor: '#EFF6FF',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    gap: 10,
+    alignItems: 'center',
+  },
+  chatInstructionsText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#1E3A8A',
+    lineHeight: 16,
+  },
+  zipPickerBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#93C5FD',
+    gap: 6,
+    marginVertical: 8,
+  },
+  zipPickerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1A56DB',
+    textAlign: 'center',
+    paddingHorizontal: 16,
+  },
+  zipPickerSize: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  chatProgressBox: {
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+  },
+  chatProgressText: {
+    fontSize: 12,
+    color: '#1A56DB',
+    fontWeight: '600',
+  },
+  chatProgressPct: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1A56DB',
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  mBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  mBtnCancel: {
+    backgroundColor: '#F1F5F9',
+  },
+  mBtnCancelText: {
+    color: '#475569',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  mBtnConfirm: {
+    backgroundColor: '#1A56DB',
+  },
+  mBtnConfirmText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
   },
 });

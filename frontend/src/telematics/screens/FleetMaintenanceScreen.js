@@ -1006,9 +1006,9 @@ function FleetMaintenanceContent({ navigation }) {
       {/* =====================================================================
           MODAL 1: Filter Dropdown Selector (Bottom Sheet)
       ===================================================================== */}
-      <Modal visible={dropdownModalOpen} animationType="slide" transparent onRequestClose={() => setDropdownModalOpen(false)}>
+      <Modal visible={dropdownModalOpen} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setDropdownModalOpen(false)}>
         <View style={s.modalOverlay}>
-          <View style={s.dropdownSheetCard}>
+          <View style={[s.dropdownSheetCard, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={s.modalHeader}>
               <Text style={s.modalHeaderTitle}>
                 {activeTab === 'UPCOMING'
@@ -1067,9 +1067,9 @@ function FleetMaintenanceContent({ navigation }) {
       {/* =====================================================================
           MODAL 2: Add Service / Log Repair Form Modal
       ===================================================================== */}
-      <Modal visible={addRecordModal.visible} animationType="slide" transparent onRequestClose={() => setAddRecordModal((p) => ({ ...p, visible: false }))}>
+      <Modal visible={addRecordModal.visible} animationType="slide" transparent statusBarTranslucent onRequestClose={() => setAddRecordModal((p) => ({ ...p, visible: false }))}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalOverlay}>
-          <View style={s.formModalCard}>
+          <View style={[s.formModalCard, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={s.modalHeader}>
               <View>
                 <Text style={s.modalHeaderTitle}>
@@ -1230,7 +1230,7 @@ function FleetMaintenanceContent({ navigation }) {
       {/* =====================================================================
           MODAL 3: Resolve Issue Modal
       ===================================================================== */}
-      <Modal visible={resolveModal.visible} animationType="fade" transparent onRequestClose={() => setResolveModal((p) => ({ ...p, visible: false }))}>
+      <Modal visible={resolveModal.visible} animationType="fade" transparent statusBarTranslucent onRequestClose={() => setResolveModal((p) => ({ ...p, visible: false }))}>
         <View style={s.modalOverlayCenter}>
           <View style={s.dialogCard}>
             <View style={s.resolveIconCircle}>
@@ -1279,10 +1279,11 @@ function FleetMaintenanceContent({ navigation }) {
         visible={vehiclePickerModalOpen}
         animationType="slide"
         transparent
+        statusBarTranslucent
         onRequestClose={() => setVehiclePickerModalOpen(false)}
       >
         <View style={s.modalOverlay}>
-          <View style={s.vehiclePickerSheet}>
+          <View style={[s.vehiclePickerSheet, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             {/* Picker Header */}
             <View style={s.modalHeader}>
               <View>
@@ -1375,7 +1376,7 @@ function FleetMaintenanceContent({ navigation }) {
       {/* =====================================================================
           MODAL 5: Lightbox Full-screen Bill Preview
       ===================================================================== */}
-      <Modal visible={!!lightboxUri} animationType="fade" transparent onRequestClose={() => setLightboxUri(null)}>
+      <Modal visible={!!lightboxUri} animationType="fade" transparent statusBarTranslucent onRequestClose={() => setLightboxUri(null)}>
         <View style={s.lightboxOverlay}>
           <TouchableOpacity style={s.lightboxClose} onPress={() => setLightboxUri(null)}>
             <Ionicons name="close" size={28} color="#FFFFFF" />
@@ -1828,6 +1829,8 @@ const s = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'flex-end',
+    margin: 0,
+    padding: 0,
   },
   modalOverlayCenter: {
     flex: 1,
@@ -1863,6 +1866,10 @@ const s = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
+    width: '100%',
     maxHeight: '60%',
   },
   dropdownItemRow: {
@@ -1891,6 +1898,10 @@ const s = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
+    width: '100%',
     maxHeight: '90%',
   },
   inputLabel: {
@@ -2098,6 +2109,10 @@ const s = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
+    width: '100%',
     maxHeight: '80%',
     paddingBottom: 20,
   },

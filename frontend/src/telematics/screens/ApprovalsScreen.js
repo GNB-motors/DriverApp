@@ -892,34 +892,27 @@ export default function ApprovalsScreen({ navigation }) {
         contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 32 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadApprovals(true)} />}
       >
-        {/* Top Action Bar for Uploads */}
-        <View style={s.actionBar}>
-          <TouchableOpacity
-            style={[s.actionBtn, s.primaryActionBtn]}
-            onPress={() => {
-              setUploadFiles([]);
-              setUploadError('');
-              setUploadSuccess('');
-              setUploadBillModal(true);
-            }}
-          >
-            <Ionicons name="camera" size={18} color="#FFFFFF" />
-            <Text style={s.primaryActionText}>Upload Fuel Bill</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[s.actionBtn, s.secondaryActionBtn]}
-            onPress={() => {
-              setChatZipFile(null);
-              setChatJobStatus(null);
-              setChatUploadPercent(0);
-              setWhatsappChatModal(true);
-            }}
-          >
-            <Ionicons name="cloud-upload-outline" size={18} color="#1A56DB" />
-            <Text style={s.secondaryActionText}>Upload WhatsApp Chat</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Trip Approval Action Bar (visible when Trip Approvals is selected in filter dropdown) */}
+        {filter === 'TRIPS' && (
+          <View style={s.tripApprovalBar}>
+            <TouchableOpacity
+              style={s.tripApprovalBtn}
+              onPress={() => {
+                Alert.alert(
+                  'Trip Authorizations',
+                  'Place and route movement authorizations prevent automated detour warnings for approved stops. You can review and revoke active approvals below.'
+                );
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="navigate-circle" size={18} color="#FFFFFF" />
+              <Text style={s.tripApprovalBtnText}>+ New Trip Approval</Text>
+            </TouchableOpacity>
+            <Text style={s.tripApprovalHint}>
+              Authorise a vehicle or driver to visit a place, so an agreed stop is not treated as an unapproved detour.
+            </Text>
+          </View>
+        )}
 
         {/* Filter Dropdown Bar */}
         <View style={s.filterContainer}>
@@ -1255,7 +1248,7 @@ export default function ApprovalsScreen({ navigation }) {
       </ScrollView>
 
       {/* FILTER PICKER MODAL */}
-      <Modal visible={showFilterPicker} transparent animationType="fade">
+      <Modal visible={showFilterPicker} transparent animationType="fade" statusBarTranslucent>
         <Pressable style={s.modalOverlay} onPress={() => setShowFilterPicker(false)}>
           <View style={s.pickerCard}>
             <Text style={s.pickerTitle}>Filter Approval Queue</Text>
@@ -1282,7 +1275,7 @@ export default function ApprovalsScreen({ navigation }) {
       </Modal>
 
       {/* FULLSCREEN PHOTO INSPECTION LIGHTBOX MODAL */}
-      <Modal visible={photoViewer.open} transparent animationType="slide">
+      <Modal visible={photoViewer.open} transparent animationType="slide" statusBarTranslucent>
         <View style={s.lightboxOverlay}>
           {/* Top Bar */}
           <View style={[s.viewerTopBar, { paddingTop: Math.max(insets.top, 16) }]}>
@@ -1434,9 +1427,9 @@ export default function ApprovalsScreen({ navigation }) {
       </Modal>
 
       {/* REJECTION REASON MODAL */}
-      <Modal visible={rejectModal.open} transparent animationType="slide">
-        <View style={s.modalOverlay}>
-          <View style={s.actionModalCard}>
+      <Modal visible={rejectModal.open} transparent animationType="slide" statusBarTranslucent>
+        <View style={s.bottomSheetOverlay}>
+          <View style={[s.actionModalCard, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             <Text style={s.modalHeading}>Reject Approval</Text>
             <Text style={s.modalSub}>Enter the reason for rejecting this fuel bill:</Text>
             <TextInput
@@ -1462,9 +1455,9 @@ export default function ApprovalsScreen({ navigation }) {
       </Modal>
 
       {/* LINK TRUCK CONFIRMATION MODAL */}
-      <Modal visible={linkTruckModal.open} transparent animationType="slide">
-        <View style={s.modalOverlay}>
-          <View style={s.actionModalCard}>
+      <Modal visible={linkTruckModal.open} transparent animationType="slide" statusBarTranslucent>
+        <View style={s.bottomSheetOverlay}>
+          <View style={[s.actionModalCard, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             <Text style={s.modalHeading}>Link Bill to Truck</Text>
             <Text style={s.modalSub}>Select which truck this bill photo belongs to:</Text>
             <ScrollView style={{ maxHeight: 200, marginVertical: 10 }}>
@@ -1501,9 +1494,9 @@ export default function ApprovalsScreen({ navigation }) {
       </Modal>
 
       {/* MANAGER FUEL BILL UPLOAD MODAL */}
-      <Modal visible={uploadBillModal} transparent animationType="slide">
-        <View style={s.modalOverlay}>
-          <View style={[s.actionModalCard, { maxHeight: '90%' }]}>
+      <Modal visible={uploadBillModal} transparent animationType="slide" statusBarTranslucent>
+        <View style={s.bottomSheetOverlay}>
+          <View style={[s.actionModalCard, { maxHeight: '90%', paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={s.modalHeaderRow}>
               <Text style={s.modalHeading}>Upload Fuel Bill</Text>
               <TouchableOpacity onPress={() => !uploading && setUploadBillModal(false)}>
@@ -1634,9 +1627,9 @@ export default function ApprovalsScreen({ navigation }) {
       </Modal>
 
       {/* WHATSAPP CHAT BULK UPLOAD MODAL */}
-      <Modal visible={whatsappChatModal} transparent animationType="slide">
-        <View style={s.modalOverlay}>
-          <View style={s.actionModalCard}>
+      <Modal visible={whatsappChatModal} transparent animationType="slide" statusBarTranslucent>
+        <View style={s.bottomSheetOverlay}>
+          <View style={[s.actionModalCard, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={s.modalHeaderRow}>
               <Text style={s.modalHeading}>Upload WhatsApp Chat</Text>
               <TouchableOpacity onPress={() => !chatUploading && setWhatsappChatModal(false)}>
@@ -2292,10 +2285,52 @@ const s = StyleSheet.create({
     fontWeight: '700',
   },
 
+  // Trip Approvals Action Bar
+  tripApprovalBar: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+  },
+  tripApprovalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#1A56DB',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  tripApprovalBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  tripApprovalHint: {
+    fontSize: 11.5,
+    color: '#475569',
+    lineHeight: 16,
+  },
+
   // Action Modals (Reject, Link, Upload)
+  bottomSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+    margin: 0,
+    padding: 0,
+  },
   actionModalCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
+    width: '100%',
     padding: 20,
     gap: 12,
   },

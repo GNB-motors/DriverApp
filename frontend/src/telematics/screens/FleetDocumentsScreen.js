@@ -76,9 +76,12 @@ export default function FleetDocumentsScreen({ navigation, route = {} }) {
 
   // Selected Vehicle for detailed docs inspector drawer
   const [activeVehicle, setActiveVehicle] = useState(null);
+  const [activeVehicleDocs, setActiveVehicleDocs] = useState([]);
+  const [loadingActiveDocs, setLoadingActiveDocs] = useState(false);
 
   // Document Lightbox Preview
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [activeFileIndex, setActiveFileIndex] = useState(0);
 
   // Upload Document Modal
   const [uploadModal, setUploadModal] = useState({
@@ -142,6 +145,38 @@ export default function FleetDocumentsScreen({ navigation, route = {} }) {
     }
   }, [vehicles, targetVehicleId, targetPlate]);
 
+  // Live fetch vehicle-specific documents (including RC front/back photos from vehicle subdocuments)
+  useEffect(() => {
+    if (!activeVehicle) {
+      setActiveVehicleDocs([]);
+      return;
+    }
+    const vId = activeVehicle.id || activeVehicle._id;
+    if (!vId) return;
+
+    let cancelled = false;
+    setLoadingActiveDocs(true);
+
+    const fetchVehicleDocs = async () => {
+      try {
+        if (service?.getVehicleDocuments) {
+          const res = await service.getVehicleDocuments(vId, branchId === 'all' ? undefined : branchId);
+          if (!cancelled) {
+            const list = Array.isArray(res) ? res : res?.data || [];
+            setActiveVehicleDocs(list);
+          }
+        }
+      } catch {
+        if (!cancelled) setActiveVehicleDocs([]);
+      } finally {
+        if (!cancelled) setLoadingActiveDocs(false);
+      }
+    };
+
+    fetchVehicleDocs();
+    return () => { cancelled = true; };
+  }, [activeVehicle, service, branchId]);
+
   // Group documents by vehicle ID
   const docsByVehicle = useMemo(() => {
     const map = new Map();
@@ -161,7 +196,18 @@ export default function FleetDocumentsScreen({ navigation, route = {} }) {
 
     return vehicles.map((v) => {
       const vId = String(v.id || v._id || '');
-      const vehicleDocs = docsByVehicle.get(vId) || [];
+      const directDocs = Array.isArray(v.documents) ? v.documents : [];
+      const centralDocs = docsByVehicle.get(vId) || [];
+      const vehicleDocs = [...directDocs];
+      centralDocs.forEach((cd) => {
+        const norm = normalizeDocType(cd.docType);
+        const exists = vehicleDocs.findIndex((d) => normalizeDocType(d.docType) === norm);
+        if (exists >= 0) {
+          vehicleDocs[exists] = { ...vehicleDocs[exists], ...cd };
+        } else {
+          vehicleDocs.push(cd);
+        }
+      });
 
       let validCount = 0;
       let expiringCount = 0;
@@ -275,12 +321,110 @@ export default function FleetDocumentsScreen({ navigation, route = {} }) {
     });
   }, [vehiclesWithCompliance, search, filter]);
 
-  // Active Vehicle evaluated documents
+  // Extract all file attachments (handles Front & Back photos for RC)
+  const extractDocFiles = useCallback((doc) => {
+    if (!doc) return [];
+    const files = [];
+    if (Array.isArray(doc.files) && doc.files.length > 0) {
+      doc.files.forEach((f) => {
+        const url = f.publicUrl || f.url || f.fileUrl;
+        if (url) {
+          files.push({
+            side: f.side || (files.length === 0 ? 'FRONT' : 'BACK'),
+            url,
+            mimeType: f.mimeType,
+            name: f.name || f.fileName || `${doc.docType || 'Document'} (${f.side || 'File'})`,
+          });
+        }
+      });
+    }
+    if (files.length === 0 && (doc.fileUrl || doc.url || doc.publicUrl)) {
+      files.push({
+        side: 'SINGLE',
+        url: doc.fileUrl || doc.url || doc.publicUrl,
+        mimeType: doc.mimeType,
+        name: doc.title || doc.docType || 'Document',
+      });
+    }
+    return files;
+  }, []);
+
+  // Active Vehicle evaluated documents (merges live vehicle subdocuments for RC front/back)
   const activeVehicleEvaluated = useMemo(() => {
     if (!activeVehicle) return null;
     const vId = String(activeVehicle.id || activeVehicle._id || '');
-    return vehiclesWithCompliance.find((v) => v.vId === vId) || null;
-  }, [activeVehicle, vehiclesWithCompliance]);
+    const base = vehiclesWithCompliance.find((v) => v.vId === vId) || {
+      ...activeVehicle,
+      vId,
+      plate: activeVehicle.registrationNumber || activeVehicle.plate || 'Unknown Vehicle',
+      docStatusList: [],
+    };
+
+    // Combine base docs with live vehicle-specific docs
+    const directDocs = Array.isArray(activeVehicle?.documents) ? activeVehicle.documents : [];
+    const centralDocs = docsByVehicle.get(vId) || [];
+    const combinedDocs = [...directDocs];
+    centralDocs.forEach((cd) => {
+      const norm = normalizeDocType(cd.docType);
+      const exists = combinedDocs.findIndex((d) => normalizeDocType(d.docType) === norm);
+      if (exists >= 0) {
+        combinedDocs[exists] = { ...combinedDocs[exists], ...cd };
+      } else {
+        combinedDocs.push(cd);
+      }
+    });
+    activeVehicleDocs.forEach((d) => {
+      const canon = normalizeDocType(d.docType);
+      const idx = combinedDocs.findIndex((existing) => normalizeDocType(existing.docType) === canon);
+      if (idx >= 0) {
+        combinedDocs[idx] = { ...combinedDocs[idx], ...d };
+      } else {
+        combinedDocs.push(d);
+      }
+    });
+
+    const now = Date.now();
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    let validCount = 0;
+    let expiringCount = 0;
+    let expiredCount = 0;
+    let missingCount = 0;
+
+    const docStatusList = STANDARD_DOC_TYPES.map((type) => {
+      const found = combinedDocs.find((d) => normalizeDocType(d.docType) === type.key);
+      if (!found) {
+        missingCount += 1;
+        return { ...type, status: 'NOT_UPLOADED', doc: null };
+      }
+      const exp = found.expiryDate ? new Date(found.expiryDate).getTime() : null;
+      if (!exp) {
+        validCount += 1;
+        return { ...type, status: 'VALID', doc: found };
+      }
+      if (exp < now) {
+        expiredCount += 1;
+        return { ...type, status: 'EXPIRED', doc: found, expiryDate: found.expiryDate };
+      }
+      if (exp - now < thirtyDaysMs) {
+        expiringCount += 1;
+        const daysLeft = Math.ceil((exp - now) / (24 * 60 * 60 * 1000));
+        return { ...type, status: 'EXPIRING_SOON', doc: found, daysLeft, expiryDate: found.expiryDate };
+      }
+      validCount += 1;
+      return { ...type, status: 'VALID', doc: found, expiryDate: found.expiryDate };
+    });
+
+    return {
+      ...base,
+      docStatusList,
+      validCount,
+      expiringCount,
+      expiredCount,
+      missingCount,
+      isFullyCompliant: missingCount === 0 && expiredCount === 0 && expiringCount === 0,
+      needsAction: expiredCount > 0 || missingCount > 0,
+    };
+  }, [activeVehicle, vehiclesWithCompliance, docsByVehicle, activeVehicleDocs]);
 
   // Upload Actions
   const pickCamera = async () => {
@@ -556,9 +700,9 @@ export default function FleetDocumentsScreen({ navigation, route = {} }) {
       </ScrollView>
 
       {/* VEHICLE DOCUMENTS DETAIL DRAWER / MODAL */}
-      <Modal visible={Boolean(activeVehicle)} transparent animationType="slide">
+      <Modal visible={Boolean(activeVehicle)} transparent animationType="slide" statusBarTranslucent>
         <View style={s.modalOverlay}>
-          <View style={[s.drawerCard, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <View style={[s.drawerCard, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             {/* Header */}
             <View style={s.drawerHeader}>
               <View>
@@ -568,6 +712,9 @@ export default function FleetDocumentsScreen({ navigation, route = {} }) {
                     <View style={s.compliantBadge}>
                       <Text style={s.compliantBadgeText}>COMPLIANT</Text>
                     </View>
+                  )}
+                  {loadingActiveDocs && (
+                    <ActivityIndicator size="small" color="#1A56DB" />
                   )}
                 </View>
                 <Text style={s.drawerSub}>
@@ -591,6 +738,7 @@ export default function FleetDocumentsScreen({ navigation, route = {} }) {
                 const isValid = docItem.status === 'VALID';
                 const isExpiring = docItem.status === 'EXPIRING_SOON';
                 const isExpired = docItem.status === 'EXPIRED';
+                const docFiles = extractDocFiles(doc);
 
                 return (
                   <View key={docItem.key} style={s.docDetailItem}>
@@ -666,14 +814,58 @@ export default function FleetDocumentsScreen({ navigation, route = {} }) {
                           </View>
                         ) : null}
 
+                        {/* Uploaded File Previews (Front / Back photos) */}
+                        {docFiles.length > 0 && (
+                          <View style={s.docFilesContainer}>
+                            <Text style={s.docFilesHeading}>Uploaded Document Photo(s):</Text>
+                            <View style={s.docFilesRow}>
+                              {docFiles.map((file, fIdx) => {
+                                const sideText = file.side === 'FRONT' ? 'Front Side Photo' : file.side === 'BACK' ? 'Back Side Photo' : `Page ${fIdx + 1}`;
+                                return (
+                                  <TouchableOpacity
+                                    key={fIdx}
+                                    style={s.docFileCard}
+                                    onPress={() => {
+                                      setActiveFileIndex(fIdx);
+                                      setPreviewDoc({ ...doc, files: docFiles });
+                                    }}
+                                    activeOpacity={0.8}
+                                  >
+                                    <Image
+                                      source={{
+                                        uri: resolveImageUrl(file.url),
+                                        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                                      }}
+                                      style={s.docFileThumb}
+                                      resizeMode="cover"
+                                    />
+                                    <View style={s.docFileMeta}>
+                                      <View style={s.docFileSideBadge}>
+                                        <Ionicons name="image-outline" size={11} color="#1A56DB" />
+                                        <Text style={s.docFileSideText} numberOfLines={1}>{sideText}</Text>
+                                      </View>
+                                      <Text style={s.docFileViewText}>Tap to preview</Text>
+                                    </View>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          </View>
+                        )}
+
                         {/* Action buttons when uploaded */}
                         <View style={s.docActionRow}>
                           <TouchableOpacity
                             style={s.docViewBtn}
-                            onPress={() => setPreviewDoc(doc)}
+                            onPress={() => {
+                              setActiveFileIndex(0);
+                              setPreviewDoc({ ...doc, files: docFiles });
+                            }}
                           >
                             <Ionicons name="eye-outline" size={15} color="#1A56DB" />
-                            <Text style={s.docViewBtnText}>View Document</Text>
+                            <Text style={s.docViewBtnText}>
+                              {docFiles.length > 1 ? `View All (${docFiles.length})` : 'View Document'}
+                            </Text>
                           </TouchableOpacity>
 
                           <TouchableOpacity
@@ -733,41 +925,79 @@ export default function FleetDocumentsScreen({ navigation, route = {} }) {
       </Modal>
 
       {/* DOCUMENT PREVIEW LIGHTBOX MODAL */}
-      <Modal visible={Boolean(previewDoc)} transparent animationType="fade">
+      <Modal visible={Boolean(previewDoc)} transparent animationType="fade" statusBarTranslucent>
         <View style={s.lightboxOverlay}>
           <View style={[s.lightboxTopBar, { paddingTop: Math.max(insets.top, 16) }]}>
-            <Text style={s.lightboxTitle}>
-              {previewDoc?.docType} · {activeVehicleEvaluated?.plate || 'Document Preview'}
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.lightboxTitle}>
+                {previewDoc?.docType} · {activeVehicleEvaluated?.plate || 'Document Preview'}
+              </Text>
+              {(() => {
+                const docFiles = extractDocFiles(previewDoc);
+                if (docFiles.length <= 1) return null;
+                const curFile = docFiles[activeFileIndex] || docFiles[0];
+                return (
+                  <Text style={s.lightboxSub}>
+                    Viewing: {curFile?.side === 'FRONT' ? 'Front Side Photo' : curFile?.side === 'BACK' ? 'Back Side Photo' : `File ${activeFileIndex + 1} of ${docFiles.length}`}
+                  </Text>
+                );
+              })()}
+            </View>
+
+            {(() => {
+              const docFiles = extractDocFiles(previewDoc);
+              if (docFiles.length <= 1) return null;
+              return (
+                <View style={s.lightboxSideToggle}>
+                  {docFiles.map((f, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[s.lightboxToggleBtn, activeFileIndex === idx && s.lightboxToggleBtnActive]}
+                      onPress={() => setActiveFileIndex(idx)}
+                    >
+                      <Text style={[s.lightboxToggleText, activeFileIndex === idx && s.lightboxToggleTextActive]}>
+                        {f.side === 'FRONT' ? 'Front' : f.side === 'BACK' ? 'Back' : `Side ${idx + 1}`}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              );
+            })()}
+
             <TouchableOpacity style={{ padding: 8 }} onPress={() => setPreviewDoc(null)}>
               <Ionicons name="close" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 
           <View style={s.lightboxImageContainer}>
-            {previewDoc?.fileUrl || previewDoc?.url ? (
-              <Image
-                source={{
-                  uri: resolveImageUrl(previewDoc.fileUrl || previewDoc.url),
-                  headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-                }}
-                style={s.lightboxImage}
-                resizeMode="contain"
-              />
-            ) : (
-              <View style={{ alignItems: 'center', gap: 8 }}>
-                <Ionicons name="document-text-outline" size={56} color="#64748B" />
-                <Text style={{ color: '#94A3B8', fontSize: 14 }}>Preview unavailable for this format.</Text>
-              </View>
-            )}
+            {(() => {
+              const docFiles = extractDocFiles(previewDoc);
+              const curFile = docFiles[activeFileIndex] || docFiles[0];
+              const curUrl = curFile?.url || previewDoc?.fileUrl || previewDoc?.url;
+              return curUrl ? (
+                <Image
+                  source={{
+                    uri: resolveImageUrl(curUrl),
+                    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                  }}
+                  style={s.lightboxImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={{ alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="document-text-outline" size={56} color="#64748B" />
+                  <Text style={{ color: '#94A3B8', fontSize: 14 }}>Preview unavailable for this format.</Text>
+                </View>
+              );
+            })()}
           </View>
         </View>
       </Modal>
 
       {/* UPLOAD DOCUMENT MODAL */}
-      <Modal visible={uploadModal.open} transparent animationType="slide">
+      <Modal visible={uploadModal.open} transparent animationType="slide" statusBarTranslucent>
         <View style={s.modalOverlay}>
-          <View style={[s.actionModalCard, { maxHeight: '90%' }]}>
+          <View style={[s.actionModalCard, { maxHeight: '90%', paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={s.modalHeaderRow}>
               <View>
                 <Text style={s.modalHeading}>Upload {uploadModal.docType}</Text>
@@ -1142,11 +1372,17 @@ const s = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+    margin: 0,
+    padding: 0,
   },
   drawerCard: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
+    width: '100%',
     maxHeight: '90%',
   },
   drawerHeader: {
@@ -1335,6 +1571,36 @@ const s = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
+  lightboxSub: {
+    color: '#94A3B8',
+    fontSize: 11.5,
+    marginTop: 2,
+  },
+  lightboxSideToggle: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 8,
+    padding: 2,
+    gap: 4,
+    marginRight: 8,
+  },
+  lightboxToggleBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  lightboxToggleBtnActive: {
+    backgroundColor: '#1A56DB',
+  },
+  lightboxToggleText: {
+    color: '#CBD5E1',
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  lightboxToggleTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
   lightboxImageContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1346,11 +1612,68 @@ const s = StyleSheet.create({
     height: '100%',
   },
 
+  // Document photo thumbnails in drawer
+  docFilesContainer: {
+    marginTop: 8,
+    gap: 6,
+  },
+  docFilesHeading: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  docFilesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  docFileCard: {
+    flex: 1,
+    minWidth: 120,
+    maxWidth: '49%',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    overflow: 'hidden',
+  },
+  docFileThumb: {
+    width: '100%',
+    height: 90,
+    backgroundColor: '#E2E8F0',
+  },
+  docFileMeta: {
+    padding: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  docFileSideBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  docFileSideText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#1A56DB',
+  },
+  docFileViewText: {
+    fontSize: 10,
+    color: '#64748B',
+  },
+
   // Action / Upload Modal
   actionModalCard: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
+    width: '100%',
     padding: 20,
     gap: 12,
   },
