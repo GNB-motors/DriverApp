@@ -293,7 +293,7 @@ export default function FleetFuelLogsScreen({ navigation, route = {} }) {
   };
 
   return (
-    <View style={[s.container, { paddingTop: insets.top }]}>
+    <View style={s.container}>
       {/* 1. Header */}
       <BackHeader
         title="Fuel Logs & Mileage"
