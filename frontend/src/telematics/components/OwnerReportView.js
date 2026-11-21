@@ -448,6 +448,7 @@ export function OwnerReportDashboard({
   const [tab, setTab] = useState("Summary");
   const [branchOpen, setBranchOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [audioOpen, setAudioOpen] = useState(false);
 
   const managerContext = useManagerData();
   const fleetVehicles = managerContext?.data?.vehicles || [];

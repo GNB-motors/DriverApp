@@ -284,6 +284,55 @@ export function crewCard(detail, now = Date.now()) {
   };
 }
 
+function adaptWebOwnerReport(webReport) {
+  if (!webReport) return null;
+  const sectionsList = Array.isArray(webReport.sections) ? webReport.sections : [];
+  const byId = {};
+  for (const s of sectionsList) {
+    if (s?.id) byId[s.id] = s;
+  }
+  const work = byId.yesterdaysWork?.numbers || {};
+  const money = byId.moneyOut?.numbers || {};
+  return {
+    generatedAt: webReport.generatedAt || new Date().toISOString(),
+    sections: {
+      trips: {
+        status: work.trips != null ? 'ok' : 'empty',
+        metrics: {
+          count: { value: typeof work.trips === 'number' ? work.trips : null, unit: 'records' },
+        },
+      },
+      distance: {
+        status: work.km != null ? 'ok' : 'empty',
+        metrics: {
+          observedKm: { value: typeof work.km === 'number' ? work.km : null, unit: 'km' },
+          ladenKm: { value: typeof work.km === 'number' ? work.km : null, unit: 'km' },
+        },
+      },
+      diesel: {
+        status: money.dieselBillInr != null ? 'ok' : 'empty',
+        metrics: {
+          amount: { value: typeof money.dieselBillInr === 'number' ? money.dieselBillInr : null, unit: 'INR' },
+        },
+      },
+      expenses: {
+        status: (money.driverExpensesInr != null || money.maintenanceInr != null) ? 'ok' : 'empty',
+        metrics: {
+          amount: {
+            value: typeof money.driverExpensesInr === 'number'
+              ? money.driverExpensesInr
+              : typeof money.maintenanceInr === 'number'
+                ? money.maintenanceInr
+                : null,
+            unit: 'INR',
+          },
+        },
+      },
+      ...byId,
+    },
+  };
+}
+
 export function createTelematicsApi({
   baseURL,
   token,
@@ -650,7 +699,22 @@ export function createTelematicsApi({
     return (await client.post(path, body, { timeout: 120000 })).data.data;
   }
   return {
-    async ownerDaily(date, branchId) { return (await get('/app/v2/reports/daily', { params: { date }, headers: headersFor(branchId) })).data; },
+    async ownerDaily(date, branchId) {
+      try {
+        return (await get('/app/v2/reports/daily', { params: { date }, headers: headersFor(branchId) })).data;
+      } catch (err) {
+        try {
+          const res = await get('/owner-report', { params: { day: date }, headers: headersFor(branchId) });
+          const report = res?.data || res;
+          if (report?.sections) {
+            return adaptWebOwnerReport(report);
+          }
+        } catch {
+          // Ignore fallback error
+        }
+        throw err;
+      }
+    },
     async ownerRows(params, branchId) { return (await get('/app/v2/reports/rows', { params, headers: headersFor(branchId) })).data; },
     async ownerTrends(date, branchId) { return (await get('/app/v2/reports/trends', { params: { date }, headers: headersFor(branchId) })).data; },
     async ownerRecord(kind, id, branchId) { return (await get(`/app/v2/records/${kind}/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data; },

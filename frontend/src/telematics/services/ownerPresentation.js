@@ -113,7 +113,7 @@ export function metricValue(section, key) {
     section.availability === "unavailable"
   )
     return null;
-  const value = section.metrics?.[key]?.value;
+  const value = section.metrics?.[key]?.value ?? section.numbers?.[key] ?? section[key];
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 export function shortNumber(value, currency = false) {
