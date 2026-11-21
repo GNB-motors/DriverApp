@@ -1251,7 +1251,7 @@ export function More({ navigation }) {
         <MenuRow key={name} title={name} icon={icon} onPress={() => navigation.navigate(name)} />
       ))}
       <SectionHeading title={roleText(t, "managerMoreAdministration", "Administration")} titleStyle={indicSectionTitleStyle} />
-      <MenuRow title="Messages & broadcasts" icon="chatbubbles-outline" onPress={() => navigation.navigate("Messages")} />
+      {/* <MenuRow title="Messages & broadcasts" icon="chatbubbles-outline" onPress={() => navigation.navigate("Messages")} /> */}
       <MenuRow title="Crew & driving" icon="swap-horizontal-outline" onPress={() => navigation.navigate("Crew & driving")} />
       <MenuRow title="Language & voice" icon="language-outline" onPress={() => navigation.navigate("Experience settings")} />
       <MenuRow title="Settings & support" icon="settings-outline" onPress={() => navigation.navigate("Manager settings")} />
