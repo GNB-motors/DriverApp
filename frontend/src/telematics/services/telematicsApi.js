@@ -690,7 +690,14 @@ export function createTelematicsApi({
       return payload.ticket;
     },
     streamBaseUrl: `${apiRoot}/app/v2/stream`,
-    async defLedger(branchId) { return (await get('/def-ledger', { headers: headersFor(branchId) })).data; },
+    async defLedger(branchId) {
+      try {
+        const res = await get('/def-ledger', { headers: headersFor(branchId) });
+        return res?.data || res || { vehicles: [], totals: {} };
+      } catch {
+        return { vehicles: [], totals: {} };
+      }
+    },
     async myStops() { return rows(await get('/place-intelligence/stops/mine', { params: { days: 14, limit: 50 } })); },
     async explainStop(id, purpose, note) { return (await post(`/place-intelligence/stops/${encodeURIComponent(id)}/reason`, { purpose, ...(note?.trim() && { note: note.trim() }) })).data; },
     async erpTrips(page = 1) { return get('/app/v1/trips', { params: { page, limit: 30 } }); },
@@ -1139,6 +1146,49 @@ export function createTelematicsApi({
     },
     async deleteMaintenanceRecord(id, branchId) {
       return (await client.delete(`/maintenance/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data;
+    },
+    async createAdBlueLog(payload, asset, branchId) {
+      let documentId;
+      if (asset) {
+        try {
+          const fd = new FormData();
+          fd.append('docType', 'FUEL_SLIP');
+          fd.append('entityType', 'VEHICLE');
+          if (payload.vehicleId) fd.append('entityId', String(payload.vehicleId));
+          if (typeof document !== 'undefined') {
+            fd.append('file', asset.file || await (await fetch(asset.uri)).blob(), asset.name || asset.fileName || 'slip.jpg');
+          } else {
+            fd.append('file', {
+              uri: asset.uri,
+              name: asset.name || asset.fileName || 'slip.jpg',
+              type: asset.mimeType || asset.type || 'image/jpeg',
+            });
+          }
+          const docRes = await client.post('/documents', fd, {
+            headers: { 'Content-Type': 'multipart/form-data', ...headersFor(branchId) },
+            timeout: 120000,
+          });
+          documentId = docRes.data?._id || docRes.data?.data?._id || docRes.data?.id;
+        } catch (uploadErr) {
+          console.warn('[createAdBlueLog] Document upload skipped', uploadErr);
+        }
+      }
+
+      const body = {
+        vehicleId: payload.vehicleId,
+        driverId: payload.driverId,
+        litres: Number(payload.litres),
+        amount: Number(payload.amount),
+        ...(payload.place && { place: String(payload.place).trim() }),
+        ...(payload.filledAt && { filledAt: payload.filledAt }),
+        ...(documentId && { documentId }),
+      };
+
+      const res = await client.post('/adblue-logs', body, {
+        headers: headersFor(branchId),
+        timeout: 60000,
+      });
+      return res.data;
     },
     async fleetRecord(kind, id, branchId) {
       return (
