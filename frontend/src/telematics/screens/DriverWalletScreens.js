@@ -1,7 +1,10 @@
 import React, { useCallback, useRef, useState } from 'react';
+import { View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { useFocusEffect } from '@react-navigation/native';
-import { AppText, Button, Card, TextField, colors } from '../../components/ui';
+import {
+  AppText, Button, Card, SegmentedControl, StatusBadge, TextField, colors, spacing,
+} from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import client from '../../services/client';
 import billService from '../../services/billService';
@@ -37,18 +40,22 @@ function Pager({ page, setPage, total, limit = 20 }) {
       <AppText muted>
         Page {page} · {total ?? '—'} records
       </AppText>
-      <Button
-        label="Previous"
-        variant="secondary"
-        disabled={page === 1}
-        onPress={() => setPage(page - 1)}
-      />
-      <Button
-        label="Next"
-        variant="secondary"
-        disabled={total == null || page * limit >= total}
-        onPress={() => setPage(page + 1)}
-      />
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+        <Button
+          label="Previous"
+          variant="secondary"
+          style={{ flex: 1 }}
+          disabled={page === 1}
+          onPress={() => setPage(page - 1)}
+        />
+        <Button
+          label="Next"
+          variant="secondary"
+          style={{ flex: 1 }}
+          disabled={total == null || page * limit >= total}
+          onPress={() => setPage(page + 1)}
+        />
+      </View>
     </>
   );
 }
@@ -59,7 +66,7 @@ export function DriverExpenseSummary({ navigation }) {
     [user._id],
   );
   return (
-    <Card>
+    <Card style={{ gap: spacing.sm }}>
       <AppText weight="bold">My recorded expenses</AppText>
       <RequestState request={request} />
       {request.data && (
@@ -98,7 +105,7 @@ export function DriverWallet({ navigation }) {
   return (
     <Screen navigation={navigation} title="Khata & expense bills">
       <RequestState request={summary} />
-      <Card>
+      <Card style={{ gap: spacing.sm }}>
         <AppText muted>Recorded expenses</AppText>
         <AppText variant="h2">{money(summary.data?.totalAmount)}</AppText>
         <AppText muted>
@@ -115,12 +122,12 @@ export function DriverWallet({ navigation }) {
         variant="secondary"
         onPress={() => navigation.navigate('Advances')}
       />
-      <Choice
-        label="View"
+      <SegmentedControl
+        variant="pill"
         value={tab}
         options={[
-          ['bills', 'My bills'],
-          ['ledger', 'Expense ledger'],
+          { value: 'bills', label: 'My bills' },
+          { value: 'ledger', label: 'Expense ledger' },
         ]}
         onChange={(v) => {
           if (v) {
@@ -134,16 +141,18 @@ export function DriverWallet({ navigation }) {
         <>
           {!entries.length && <AppText>No entries yet.</AppText>}
           {entries.map((r) => (
-            <Card key={idOf(r)} style={{ gap: 8 }}>
+            <Card key={idOf(r)} style={{ gap: spacing.sm }}>
               <AppText weight="bold">
-                {r.title || r.category || 'Expense'} · {money(r.amount)}
+                {r.title || r.category || 'Expense'}
               </AppText>
-              <AppText>
-                {r.status || 'RECORDED'}
-                {r.expenseDate
-                  ? ` · ${new Date(r.expenseDate).toLocaleDateString()}`
-                  : ''}
-              </AppText>
+              <AppText variant="h3">{money(r.amount)}</AppText>
+              <StatusBadge
+                status={r.status || 'recorded'}
+                label={!r.status ? 'Recorded' : undefined}
+              />
+              {r.expenseDate && (
+                <AppText muted>{new Date(r.expenseDate).toLocaleDateString()}</AppText>
+              )}
               {r.description ? <AppText muted>{r.description}</AppText> : null}
               {r.rejectionReason ? (
                 <AppText color={colors.error}>{r.rejectionReason}</AppText>
@@ -331,17 +340,24 @@ export function DriverBillSent({ navigation, route }) {
   const bill = route.params?.bill;
   return (
     <Screen navigation={navigation} title="Bill sent">
-      <Card>
+      <Card style={{ gap: spacing.sm }}>
+        <StatusBadge status={bill?.status || 'PENDING'} />
         <AppText variant="h2">
           {bill?.status === 'CONFIRMED'
             ? 'Confirmed in expense ledger'
-            : 'Awaiting confirmation'}
+            : bill?.status === 'REJECTED'
+              ? 'Bill needs correction'
+              : 'Awaiting confirmation'}
         </AppText>
         <AppText>
           {money(bill?.amount)} · {bill?.title || 'Expense bill'}
         </AppText>
         <AppText muted>
-          Your office will review this bill. It has not been paid.
+          {bill?.status === 'CONFIRMED'
+            ? 'Your office confirmed this expense. Confirmation does not mean payment.'
+            : bill?.status === 'REJECTED'
+              ? 'Your office rejected this bill. Open my bills to correct and resubmit it.'
+              : 'Your office will review this bill. It has not been paid.'}
         </AppText>
       </Card>
       <Button
@@ -377,17 +393,15 @@ export function DriverAdvances({ navigation }) {
             <AppText>No advance records yet.</AppText>
           )}
           {(request.data.data || []).map((r) => (
-            <Card key={idOf(r)}>
+            <Card key={idOf(r)} style={{ gap: spacing.sm }}>
               <AppText weight="bold">
-                {r.advanceNumber} · {money(r.netPayable)}
+                {r.advanceNumber}
               </AppText>
-              <AppText>
-                {r.status} · {r.tripId?.tripNumber || 'Trip'}
-              </AppText>
-              <AppText>
-                Requested: {money(r.requestedAmount)} · Deductions:{' '}
-                {money(r.totalDeductions)}
-              </AppText>
+              <AppText variant="h3">{money(r.netPayable)}</AppText>
+              <StatusBadge status={r.status} />
+              <AppText>{r.tripId?.tripNumber || 'Trip'}</AppText>
+              <AppText>Requested: {money(r.requestedAmount)}</AppText>
+              <AppText>Deductions: {money(r.totalDeductions)}</AppText>
               {r.paidAt && (
                 <AppText>
                   Office recorded payment:{' '}

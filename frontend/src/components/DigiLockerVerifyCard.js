@@ -36,7 +36,7 @@ import {
   isDigiLockerCallbackUrl,
   friendlyDigiLockerError,
 } from '../utils/digilocker';
-import { AppText, Button, Badge, colors, spacing, radius } from './ui';
+import { AppText, Button, Badge, Card, colors, spacing, radius } from './ui';
 
 /** AsyncStorage key for the in-flight state token. */
 export const PENDING_STATE_KEY = '@gnb/digilocker/pending';
@@ -210,7 +210,7 @@ export default function DigiLockerVerifyCard({ language = 'en', onVerified, call
 
   if (disabled) {
     return (
-      <View style={[styles.card, styles.cardMuted]}>
+      <Card style={styles.cardMuted}>
         <View style={styles.headerRow}>
           <View style={[styles.icon, { backgroundColor: colors.expiredBg }]}>
             <Ionicons name="cloud-offline-outline" size={20} color={colors.textMuted} />
@@ -222,7 +222,7 @@ export default function DigiLockerVerifyCard({ language = 'en', onVerified, call
             </AppText>
           </View>
         </View>
-      </View>
+      </Card>
     );
   }
 
@@ -234,7 +234,7 @@ export default function DigiLockerVerifyCard({ language = 'en', onVerified, call
   if (verified.RC) verifiedChips.push({ label: c.rc, at: status?.verifiedAt?.RC });
 
   return (
-    <View style={styles.card}>
+    <Card style={{ gap: spacing.sm }}>
       <View style={styles.headerRow}>
         <View style={[styles.icon, { backgroundColor: colors.tealTint }]}>
           <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
@@ -280,19 +280,11 @@ export default function DigiLockerVerifyCard({ language = 'en', onVerified, call
           {c.verifying}
         </AppText>
       ) : null}
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
   cardMuted: {
     backgroundColor: colors.surfaceMuted || colors.surface,
   },
@@ -315,6 +307,7 @@ const styles = StyleSheet.create({
   },
   chipRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     marginTop: spacing.xs,
   },

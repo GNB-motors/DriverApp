@@ -35,10 +35,17 @@ const ui = {
   AppText: Text,
   Button,
   Card: Wrapper,
+  StatusBadge: ({ status, label }) => h(Text, null, label || status),
+  SegmentedControl: ({ options, onChange }) => h(
+    'div', null,
+    options.map(({ label, value }) => h(
+      'button', { key: value, onClick: () => onChange(value) }, label,
+    )),
+  ),
   TextField,
   BackHeader: Text,
   colors: {},
-  spacing: { md: 16, lg: 24 },
+  spacing: { sm: 8, md: 16, lg: 24 },
 };
 const Select = ({ children, selectedValue, onValueChange }) =>
   h(

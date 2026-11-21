@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Crypto from 'expo-crypto';
-import { AppText, Button, Card, colors } from '../../components/ui';
+import {
+  AppText, Button, Card, StatusBadge, colors, spacing,
+} from '../../components/ui';
 import { useTelematicsApi } from '../context/TelematicsApiContext';
 import { useDriverData } from '../context/DriverDataContext';
 import { Screen, RequestState, useRequest } from '../components/FormControls';
@@ -15,6 +17,17 @@ import {
   fetchDutyStatus,
 } from '../../services/driverDutyService';
 import { capturePairingFix } from '../tracking/useDriverLocationSharing';
+
+function CaptureStatus({ status }) {
+  const [tone, label] = {
+    RECEIVED: ['pending', 'Received'],
+    PARSING: ['pending', 'Processing'],
+    REVIEW_NEEDED: ['pending', 'Needs review'],
+    ACCEPTED: ['confirmed', 'Accepted'],
+    REJECTED: ['rejected', 'Rejected'],
+  }[status] || [status, status?.replaceAll('_', ' ')];
+  return <StatusBadge status={tone} label={label} />;
+}
 
 export function DriverDutyControl({ navigation }) {
   const { refresh, tracking } = useDriverData();
@@ -40,7 +53,7 @@ export function DriverDutyControl({ navigation }) {
     }
   }
   return (
-    <Card style={{ gap: 8 }}>
+    <Card style={{ gap: spacing.sm }}>
       <AppText variant="h3">My working day</AppText>
       <RequestState request={request} />
       {request.data && (
@@ -75,7 +88,7 @@ export function BreakPlanner({ navigation }) {
       <RequestState request={request} />
       {plan && (
         <>
-          <Card>
+          <Card style={{ gap: spacing.sm }}>
             <AppText variant="h3">{plan.line}</AppText>
             <AppText>
               Driving: {minutes(plan.drivingMs)} · Limit:{' '}
@@ -94,7 +107,7 @@ export function BreakPlanner({ navigation }) {
             </AppText>
           )}
           {(plan.options || []).map((p, i) => (
-            <Card key={p.id || i}>
+            <Card key={p.id || i} style={{ gap: spacing.sm }}>
               <AppText weight="bold">{p.label || 'Parking option'}</AppText>
               <AppText>
                 {p.distanceKm == null
@@ -164,7 +177,7 @@ export function NearbyReports({ navigation }) {
             <AppText>No nearby reports.</AppText>
           )}
           {(request.data.reports || []).map((r) => (
-            <Card key={r.id} style={{ gap: 8 }}>
+            <Card key={r.id} style={{ gap: spacing.sm }}>
               <AppText weight="bold">{r.label || r.type}</AppText>
               <AppText>
                 {r.placeName || 'Location reported'} · {r.status || 'Reported'}
@@ -256,7 +269,7 @@ export function DriverQuestions({ navigation, compact = false }) {
     <>
       {!compact && <RequestState request={request} />}
       {prompt && !(compact && (hidden === prompt.id || moving || expired)) ? (
-        <Card style={{ gap: 8 }}>
+        <Card style={{ gap: spacing.sm }}>
           <AppText variant="h3">
             {prompt.subject?.label ||
               prompt.type ||
@@ -447,10 +460,9 @@ export function MyCaptures({ navigation }) {
             <AppText>No captured papers yet.</AppText>
           )}
           {(request.data.captures || []).map((p) => (
-            <Card key={p.id}>
-              <AppText>
-                {p.docType || 'Paper'} · {p.status}
-              </AppText>
+            <Card key={p.id} style={{ gap: spacing.sm }}>
+              <AppText weight="bold">{p.docType?.replaceAll('_', ' ') || 'Paper'}</AppText>
+              <CaptureStatus status={p.status} />
               <Button
                 label="Review details"
                 variant="secondary"
@@ -484,13 +496,12 @@ export function CaptureDetail({ navigation, route }) {
       <RequestState request={request} />
       {paper && (
         <>
-          <Card>
+          <Card style={{ gap: spacing.sm }}>
             <AppText variant="h3">
-              {paper.docType || 'Unidentified paper'}
+              {paper.docType?.replaceAll('_', ' ') || 'Unidentified paper'}
             </AppText>
-            <AppText>
-              {paper.status} · {paper.pages?.length || 0} pages
-            </AppText>
+            <CaptureStatus status={paper.status} />
+            <AppText>{paper.pages?.length || 0} pages</AppText>
             <AppText muted>
               Review status is separate from expense approval or payment.
             </AppText>
@@ -547,14 +558,13 @@ export function DocumentReminders({ navigation }) {
             <AppText>No documents expiring in the next 30 days.</AppText>
           )}
           {reminders.map((d) => (
-            <Card key={recordId(d)}>
+            <Card key={recordId(d)} style={{ gap: spacing.sm }}>
               <AppText weight="bold">{d.docType}</AppText>
-              <AppText>
-                {new Date(d.expiryDate).getTime() < Date.now()
-                  ? 'Expired'
-                  : 'Expiring'}{' '}
-                · {new Date(d.expiryDate).toLocaleDateString()}
-              </AppText>
+              <StatusBadge
+                status={new Date(d.expiryDate).getTime() < Date.now() ? 'rejected' : 'expiring'}
+                label={new Date(d.expiryDate).getTime() < Date.now() ? 'Expired' : 'Expiring'}
+              />
+              <AppText muted>{new Date(d.expiryDate).toLocaleDateString()}</AppText>
               <Button
                 label="Open document"
                 variant="secondary"
