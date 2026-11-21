@@ -81,7 +81,7 @@ export function ManagerActionHome({ navigation }) {
   const rawRole = (user?.role || '').toLowerCase();
   const userRole = rawRole === 'owner' ? 'Owner' : rawRole === 'manager' ? 'Branch Manager' : rawRole ? (rawRole.charAt(0).toUpperCase() + rawRole.slice(1)) : 'Branch Manager';
   const insets = useSafeAreaInsets();
-  const { service, branchId, setBranchId, branches, data, refresh, loading: fleetLoading } = useManagerData();
+  const { service, branchId, selectBranch, setBranchId, branches, data, refresh, loading: fleetLoading } = useManagerData();
   const request = useCards();
   const actRateReq = useActRate();
 
@@ -837,7 +837,8 @@ export function ManagerActionHome({ navigation }) {
                 key={b.id}
                 style={[s.branchOption, isSelected && s.branchOptionSelected]}
                 onPress={() => {
-                  setBranchId(b.id);
+                  const switchFn = setBranchId || selectBranch;
+                  if (switchFn) switchFn(b.id);
                   setBranchSheetOpen(false);
                 }}
               >

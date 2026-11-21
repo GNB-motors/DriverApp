@@ -330,13 +330,16 @@ export function createTelematicsApi({
     "/branches": { limit: 100 },
     "/alert-inbox": { status: "ALL" },
   };
+  const cleanBranchId = (id) => (!id || id === 'all' || id === 'ALL' ? undefined : id);
   const get = async (path, config) => (await client.get(path, config)).data;
   const post = async (path, body) => (await client.post(path, body)).data;
-  const mapList = async (path, convert = normalize, branchId) =>
-    (await collectPages((page, limit) => get(path, {
+  const mapList = async (path, convert = normalize, branchId) => {
+    const clean = cleanBranchId(branchId);
+    return (await collectPages((page, limit) => get(path, {
         params: { ...queries[path], page, limit },
-        headers: branchId ? { "X-Branch-Id": branchId } : {},
+        headers: clean ? { "X-Branch-Id": clean } : {},
       }))).map(convert);
+  };
   async function loadDriver() {
     const linked = (await get("/driver/me/vehicle")).data;
     if (!linked || !Object.prototype.hasOwnProperty.call(linked, "vehicle"))
@@ -411,8 +414,10 @@ export function createTelematicsApi({
     if (!Array.isArray(payload?.items) || !Number.isFinite(payload.total) || !Number.isFinite(payload.unreadCount)) throw new Error('Invalid driver inbox response.');
     return { ...payload, items: payload.items.map((row) => ({ ...normalize(row), description: row.message, acknowledged: !!row.acknowledgedAt })) };
   }
-  const headersFor = (branchId) =>
-    branchId ? { "X-Branch-Id": branchId } : {};
+  const headersFor = (branchId) => {
+    const clean = cleanBranchId(branchId);
+    return clean ? { "X-Branch-Id": clean } : {};
+  };
   async function listOwnerAlerts({
     branchId,
     page = 1,
@@ -749,6 +754,33 @@ export function createTelematicsApi({
     async voicePhrases() { return (await get('/app/v2/voice/phrases')).data; },
     async teamCreateEmployee(body, branchId) { return (await client.post('/employees', body, { headers: headersFor(branchId) })).data.data; },
     async teamUpdateEmployee(id, body, branchId) { return (await client.patch(`/employees/${encodeURIComponent(id)}`, body, { headers: headersFor(branchId) })).data.data; },
+    async teamDeleteEmployee(id, branchId) { return (await client.delete(`/employees/${encodeURIComponent(id)}`, { headers: headersFor(branchId) })).data; },
+    async teamDeactivateEmployee(id, branchId) { return (await client.post(`/employees/${encodeURIComponent(id)}/deactivate`, {}, { headers: headersFor(branchId) })).data; },
+    async teamActivateEmployee(id, branchId) { return (await client.post(`/employees/${encodeURIComponent(id)}/import`, {}, { headers: headersFor(branchId) })).data; },
+    async employeeDocuments(id, branchId) {
+      const res = (await get('/documents', { params: { entityType: 'USER', entityId: id }, headers: headersFor(branchId) }));
+      return res?.data || res || [];
+    },
+    async uploadEmployeeDocument(employeeId, asset, docType, expiryDate, branchId) {
+      const body = new FormData();
+      body.append('entityType', 'USER');
+      body.append('entityId', employeeId);
+      body.append('docType', docType);
+      if (expiryDate) body.append('expiryDate', expiryDate);
+      if (typeof document !== 'undefined') {
+        body.append('file', asset.file || await (await fetch(asset.uri)).blob(), asset.name || asset.fileName || 'document.jpg');
+      } else {
+        body.append('file', {
+          uri: asset.uri,
+          name: asset.name || asset.fileName || 'document.jpg',
+          type: asset.mimeType || asset.type || 'image/jpeg',
+        });
+      }
+      return (await client.post('/documents', body, { headers: { 'Content-Type': 'multipart/form-data', ...headersFor(branchId) }, timeout: 120000 })).data;
+    },
+    async deleteEmployeeDocument(docId, branchId) {
+      return (await client.delete(`/documents/${encodeURIComponent(docId)}`, { headers: headersFor(branchId) })).data;
+    },
     async teamRoles(branchId) {
       try {
         return (await get('/access-control/roles', { headers: headersFor(branchId) })).data;

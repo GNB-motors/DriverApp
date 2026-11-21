@@ -154,6 +154,7 @@ export function ManagerDataProvider({ children, audience = "manager" }) {
         branches,
         roleLabel: audience === "owner" ? "OWNER" : "FLEET MANAGER",
         selectBranch: setBranchId,
+        setBranchId,
         refresh,
         mutate,
         service,
