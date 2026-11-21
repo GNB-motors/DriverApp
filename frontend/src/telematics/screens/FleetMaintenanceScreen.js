@@ -88,6 +88,23 @@ export default function FleetMaintenanceScreen({ navigation }) {
     }));
   }, [managerData]);
 
+  // Searchable Vehicle Picker state
+  const [vehicleSearchText, setVehicleSearchText] = useState('');
+  const [vehiclePickerModalOpen, setVehiclePickerModalOpen] = useState(false);
+
+  const filteredVehiclesForPicker = useMemo(() => {
+    if (!vehicleSearchText.trim()) return vehicles;
+    const q = vehicleSearchText.trim().toLowerCase().replace(/[\s-]/g, '');
+    return vehicles.filter((v) => {
+      const p = String(v.plate || '').toLowerCase().replace(/[\s-]/g, '');
+      return p.includes(q);
+    });
+  }, [vehicles, vehicleSearchText]);
+
+  const selectedVehicleObj = useMemo(() => {
+    return vehicles.find((v) => v.id === addRecordModal.vehicleId);
+  }, [vehicles, addRecordModal.vehicleId]);
+
   // General state
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -999,25 +1016,41 @@ export default function FleetMaintenanceScreen({ navigation }) {
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 18, gap: 14 }}>
-              {/* Vehicle Picker */}
+              {/* Searchable Vehicle Dropdown Trigger */}
               <View>
                 <Text style={s.inputLabel}>Select Vehicle *</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                  {vehicles.map((v) => {
-                    const isSel = addRecordModal.vehicleId === v.id;
-                    return (
-                      <TouchableOpacity
-                        key={v.id}
-                        style={[s.vehiclePickChip, isSel && s.vehiclePickChipActive]}
-                        onPress={() => setAddRecordModal((p) => ({ ...p, vehicleId: v.id }))}
-                      >
-                        <Text style={[s.vehiclePickChipText, isSel && s.vehiclePickChipTextActive]}>
-                          {v.plate}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
+                <TouchableOpacity
+                  style={[s.vehicleDropdownTrigger, !selectedVehicleObj && s.vehicleDropdownTriggerEmpty]}
+                  onPress={() => {
+                    setVehicleSearchText('');
+                    setVehiclePickerModalOpen(true);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={s.vehicleDropdownLeft}>
+                    <View style={s.truckIconCircle}>
+                      <Ionicons name="bus-outline" size={18} color="#1A56DB" />
+                    </View>
+                    {selectedVehicleObj ? (
+                      <View style={{ gap: 2 }}>
+                        <View style={s.plateBadge}>
+                          <View style={s.plateIndPill}>
+                            <Text style={s.plateIndText}>IND</Text>
+                          </View>
+                          <Text style={s.plateNumberText}>{selectedVehicleObj.plate}</Text>
+                        </View>
+                        <Text style={s.vehicleTapHint}>Tap to change selected truck</Text>
+                      </View>
+                    ) : (
+                      <Text style={s.vehiclePlaceholderText}>Search & Select Truck (e.g. UP64...)</Text>
+                    )}
+                  </View>
+
+                  <View style={s.dropdownChevronWrapper}>
+                    <Ionicons name="search" size={14} color="#1A56DB" />
+                    <Ionicons name="chevron-down" size={14} color="#64748B" />
+                  </View>
+                </TouchableOpacity>
               </View>
 
               {/* Date & Odometer Row */}
@@ -1168,6 +1201,106 @@ export default function FleetMaintenanceScreen({ navigation }) {
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* =====================================================================
+          MODAL: Searchable Vehicle Dropdown Picker
+      ===================================================================== */}
+      <Modal
+        visible={vehiclePickerModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setVehiclePickerModalOpen(false)}
+      >
+        <View style={s.modalOverlay}>
+          <View style={s.vehiclePickerSheet}>
+            {/* Picker Header */}
+            <View style={s.modalHeader}>
+              <View>
+                <Text style={s.modalHeaderTitle}>Select Vehicle</Text>
+                <Text style={s.modalHeaderSubtitle}>
+                  {vehicles.length} trucks available in fleet
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setVehiclePickerModalOpen(false)}
+                style={s.modalCloseBtn}
+              >
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Search Bar Input */}
+            <View style={s.pickerSearchWrapper}>
+              <Ionicons name="search-outline" size={18} color="#64748B" style={{ marginRight: 8 }} />
+              <TextInput
+                style={s.pickerSearchInput}
+                placeholder="Search truck plate (e.g. UP64, 1234)..."
+                placeholderTextColor="#94A3B8"
+                value={vehicleSearchText}
+                onChangeText={setVehicleSearchText}
+                autoCorrect={false}
+                autoCapitalize="characters"
+              />
+              {vehicleSearchText ? (
+                <TouchableOpacity onPress={() => setVehicleSearchText('')}>
+                  <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {/* Vehicle List */}
+            <ScrollView
+              contentContainerStyle={{ padding: 16, gap: 10 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              {filteredVehiclesForPicker.length === 0 ? (
+                <View style={s.pickerEmptyBox}>
+                  <Ionicons name="search-outline" size={36} color="#94A3B8" />
+                  <Text style={s.pickerEmptyTitle}>No truck found</Text>
+                  <Text style={s.pickerEmptySubtitle}>
+                    No vehicles matching "{vehicleSearchText}"
+                  </Text>
+                </View>
+              ) : (
+                filteredVehiclesForPicker.map((v) => {
+                  const isSel = addRecordModal.vehicleId === v.id;
+                  return (
+                    <TouchableOpacity
+                      key={v.id}
+                      style={[s.pickerVehicleRow, isSel && s.pickerVehicleRowSelected]}
+                      onPress={() => {
+                        setAddRecordModal((p) => ({ ...p, vehicleId: v.id }));
+                        setVehiclePickerModalOpen(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={s.pickerVehicleLeft}>
+                        <View style={[s.truckIconCircle, isSel && { backgroundColor: '#1A56DB' }]}>
+                          <Ionicons name="bus" size={18} color={isSel ? '#FFFFFF' : '#1A56DB'} />
+                        </View>
+                        <View style={s.plateBadge}>
+                          <View style={s.plateIndPill}>
+                            <Text style={s.plateIndText}>IND</Text>
+                          </View>
+                          <Text style={s.plateNumberText}>{v.plate}</Text>
+                        </View>
+                      </View>
+
+                      {isSel ? (
+                        <View style={s.checkedCircle}>
+                          <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                        </View>
+                      ) : (
+                        <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1829,5 +1962,122 @@ const s = StyleSheet.create({
   lightboxImage: {
     width: '92%',
     height: '75%',
+  },
+
+  // Searchable Vehicle Dropdown Trigger
+  vehicleDropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    padding: 10,
+    minHeight: 52,
+  },
+  vehicleDropdownTriggerEmpty: {
+    borderStyle: 'dashed',
+    borderColor: '#94A3B8',
+  },
+  vehicleDropdownLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  truckIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  vehicleTapHint: {
+    fontSize: 10.5,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  vehiclePlaceholderText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  dropdownChevronWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+
+  // Vehicle Picker Sheet
+  vehiclePickerSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    paddingBottom: 20,
+  },
+  pickerSearchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  pickerSearchInput: {
+    flex: 1,
+    fontSize: 13.5,
+    color: '#0F172A',
+    fontWeight: '600',
+  },
+  pickerVehicleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  pickerVehicleRowSelected: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+  },
+  pickerVehicleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  checkedCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#1A56DB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerEmptyBox: {
+    padding: 30,
+    alignItems: 'center',
+    gap: 6,
+  },
+  pickerEmptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  pickerEmptySubtitle: {
+    fontSize: 12,
+    color: '#64748B',
   },
 });
