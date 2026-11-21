@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Component } from 'react';
 import {
   View,
   Text,
@@ -56,54 +56,80 @@ const RISK_CONFIG = {
   OK: { label: 'On Track', color: '#16A34A', bg: '#DCFCE7', border: '#86EFAC' },
 };
 
+function safeFormatNumber(val) {
+  const n = Number(val);
+  if (!Number.isFinite(n)) return '0';
+  try {
+    return n.toLocaleString('en-IN');
+  } catch {
+    return String(Math.round(n));
+  }
+}
+
 function formatMoney(amount) {
   if (amount == null || isNaN(amount)) return '₹0';
-  return `₹${Number(amount).toLocaleString('en-IN')}`;
+  return `₹${safeFormatNumber(amount)}`;
 }
 
 function formatKm(km) {
   if (km == null || isNaN(km)) return '—';
-  return `${Number(km).toLocaleString('en-IN')} km`;
+  return `${safeFormatNumber(km)} km`;
 }
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return String(dateStr);
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return String(dateStr);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${String(d.getDate()).padStart(2, '0')} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  } catch {
+    return String(dateStr);
+  }
 }
 
-export default function FleetMaintenanceScreen({ navigation }) {
+// Error Boundary to prevent any unhandled crash from showing Redbox
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.warn('[FleetMaintenanceScreen ErrorBoundary]', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Ionicons name="alert-circle-outline" size={48} color="#DC2626" />
+          <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A', marginTop: 12, textAlign: 'center' }}>
+            Service Intelligence temporarily unavailable
+          </Text>
+          <Text style={{ fontSize: 12, color: '#64748B', marginTop: 6, textAlign: 'center' }}>
+            {this.state.error?.message || 'Something went wrong while rendering maintenance logs.'}
+          </Text>
+          <TouchableOpacity
+            style={{ marginTop: 16, backgroundColor: '#1A56DB', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 }}
+            onPress={() => this.setState({ hasError: false, error: null })}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function FleetMaintenanceContent({ navigation }) {
   const insets = useSafeAreaInsets();
   const { service, branchId, data: managerData } = useManagerData?.() || {};
 
   // Active Tab: UPCOMING (Upcoming Service), SERVICE (Service Records), REPAIR (Repairs & Issues)
   const [activeTab, setActiveTab] = useState('UPCOMING');
-
-  // Vehicles list for dropdowns
-  const vehicles = useMemo(() => {
-    return (managerData?.vehicles || []).map((v) => ({
-      id: v.id || v._id,
-      plate: v.plate || v.registrationNumber || 'Truck',
-    }));
-  }, [managerData]);
-
-  // Searchable Vehicle Picker state
-  const [vehicleSearchText, setVehicleSearchText] = useState('');
-  const [vehiclePickerModalOpen, setVehiclePickerModalOpen] = useState(false);
-
-  const filteredVehiclesForPicker = useMemo(() => {
-    if (!vehicleSearchText.trim()) return vehicles;
-    const q = vehicleSearchText.trim().toLowerCase().replace(/[\s-]/g, '');
-    return vehicles.filter((v) => {
-      const p = String(v.plate || '').toLowerCase().replace(/[\s-]/g, '');
-      return p.includes(q);
-    });
-  }, [vehicles, vehicleSearchText]);
-
-  const selectedVehicleObj = useMemo(() => {
-    return vehicles.find((v) => v.id === addRecordModal.vehicleId);
-  }, [vehicles, addRecordModal.vehicleId]);
 
   // General state
   const [loading, setLoading] = useState(true);
@@ -125,7 +151,7 @@ export default function FleetMaintenanceScreen({ navigation }) {
   // Lightbox Image Preview
   const [lightboxUri, setLightboxUri] = useState(null);
 
-  // Modals
+  // Modals state - MUST BE DECLARED BEFORE ANY MEMO USING IT!
   const [addRecordModal, setAddRecordModal] = useState({
     visible: false,
     recordType: 'SERVICE', // 'SERVICE' or 'REPAIR'
@@ -149,6 +175,43 @@ export default function FleetMaintenanceScreen({ navigation }) {
     submitting: false,
   });
 
+  // Searchable Vehicle Picker state
+  const [vehicleSearchText, setVehicleSearchText] = useState('');
+  const [vehiclePickerModalOpen, setVehiclePickerModalOpen] = useState(false);
+
+  // Vehicles list for dropdowns (memoized from managerData, augmented with predictions/records)
+  const vehicles = useMemo(() => {
+    const list = managerData?.vehicles || [];
+    const map = new Map();
+    list.forEach((v) => {
+      const id = v.id || v._id;
+      if (id) {
+        map.set(id, { id, plate: v.plate || v.registrationNumber || v.number || 'Truck' });
+      }
+    });
+    // augment from upcomingRecords if needed
+    (upcomingRecords || []).forEach((r) => {
+      const id = r.vehicleId || r.id;
+      if (id && !map.has(id)) {
+        map.set(id, { id, plate: r.registrationNumber || 'Truck' });
+      }
+    });
+    return Array.from(map.values());
+  }, [managerData, upcomingRecords]);
+
+  const filteredVehiclesForPicker = useMemo(() => {
+    if (!vehicleSearchText.trim()) return vehicles;
+    const q = vehicleSearchText.trim().toLowerCase().replace(/[\s-]/g, '');
+    return vehicles.filter((v) => {
+      const p = String(v.plate || '').toLowerCase().replace(/[\s-]/g, '');
+      return p.includes(q);
+    });
+  }, [vehicles, vehicleSearchText]);
+
+  const selectedVehicleObj = useMemo(() => {
+    return vehicles.find((v) => v.id === addRecordModal.vehicleId);
+  }, [vehicles, addRecordModal.vehicleId]);
+
   // --------------------------------------------------------------------------
   // Fetch Data according to Active Tab
   // --------------------------------------------------------------------------
@@ -169,14 +232,14 @@ export default function FleetMaintenanceScreen({ navigation }) {
             service.maintenanceRecords({ recordType: 'SERVICE', limit: 100 }, bId),
             service.maintenanceSummary({ recordType: 'SERVICE' }, bId),
           ]);
-          setServiceRecords(recRes.data || []);
+          setServiceRecords(recRes?.data || []);
           setSummary(sumRes || { total: 0, totalAmount: 0, last30: 0 });
         } else if (activeTab === 'REPAIR') {
           const [recRes, sumRes] = await Promise.all([
             service.maintenanceRecords({ recordType: 'REPAIR', limit: 100 }, bId),
             service.maintenanceSummary({ recordType: 'REPAIR' }, bId),
           ]);
-          setRepairRecords(recRes.data || []);
+          setRepairRecords(recRes?.data || []);
           setSummary(sumRes || { total: 0, totalAmount: 0, last30: 0 });
         }
       } catch (err) {
@@ -207,10 +270,11 @@ export default function FleetMaintenanceScreen({ navigation }) {
   const openAddModal = (recordType, preselectedVehicleId = '') => {
     const defaultType = recordType === 'SERVICE' ? 'PERIODIC' : 'Engine';
     const defaultPriority = recordType === 'SERVICE' ? 'ROUTINE' : 'P2';
+    const initialVehicle = preselectedVehicleId || addRecordModal.vehicleId || vehicles[0]?.id || '';
     setAddRecordModal({
       visible: true,
       recordType,
-      vehicleId: preselectedVehicleId || (vehicles[0]?.id || ''),
+      vehicleId: initialVehicle,
       date: new Date().toISOString().split('T')[0],
       currentKm: '',
       workshop: '',
@@ -321,7 +385,7 @@ export default function FleetMaintenanceScreen({ navigation }) {
   // --------------------------------------------------------------------------
   // Pick Photo Attachment (Camera or Gallery)
   // --------------------------------------------------------------------------
-  const handlePickAttachment = (source) => {
+  const handlePickAttachment = () => {
     Alert.alert('Attach Document / Bill', 'Select photo source:', [
       {
         text: 'Camera',
@@ -361,20 +425,21 @@ export default function FleetMaintenanceScreen({ navigation }) {
   // Filtered Data Computation
   // --------------------------------------------------------------------------
   const filteredUpcoming = useMemo(() => {
-    return upcomingRecords.filter((r) => {
-      if (upcomingFilter !== 'ALL' && r.risk !== upcomingFilter) return false;
+    return (upcomingRecords || []).filter((r) => {
+      const riskKey = String(r?.risk || 'OK').toUpperCase();
+      if (upcomingFilter !== 'ALL' && riskKey !== upcomingFilter) return false;
       if (search.trim()) {
         const q = search.trim().toLowerCase();
-        return (r.registrationNumber || '').toLowerCase().includes(q);
+        return (r?.registrationNumber || '').toLowerCase().includes(q);
       }
       return true;
     });
   }, [upcomingRecords, upcomingFilter, search]);
 
   const filteredServices = useMemo(() => {
-    return serviceRecords.filter((r) => {
+    return (serviceRecords || []).filter((r) => {
       if (serviceFilter !== 'ALL') {
-        const t = String(r.type || '').toUpperCase();
+        const t = String(r?.type || '').toUpperCase();
         if (serviceFilter === 'PERIODIC' && !t.includes('PERIODIC') && !t.includes('SCHEDULE')) return false;
         if (serviceFilter === 'OIL' && !t.includes('OIL') && !t.includes('LUB')) return false;
         if (serviceFilter === 'BRAKE' && !t.includes('BRAKE') && !t.includes('SUSP')) return false;
@@ -383,9 +448,9 @@ export default function FleetMaintenanceScreen({ navigation }) {
       }
       if (search.trim()) {
         const q = search.trim().toLowerCase();
-        const plate = String(r.vehicle?.registrationNumber || r.vehicleRegistrationNumber || r.vehicleId || '').toLowerCase();
-        const shop = String(r.workshop || '').toLowerCase();
-        const notes = String(r.notes || '').toLowerCase();
+        const plate = String(r?.vehicle?.registrationNumber || r?.vehicleRegistrationNumber || r?.vehicleId || '').toLowerCase();
+        const shop = String(r?.workshop || '').toLowerCase();
+        const notes = String(r?.notes || '').toLowerCase();
         return plate.includes(q) || shop.includes(q) || notes.includes(q);
       }
       return true;
@@ -393,20 +458,20 @@ export default function FleetMaintenanceScreen({ navigation }) {
   }, [serviceRecords, serviceFilter, search]);
 
   const filteredRepairs = useMemo(() => {
-    return repairRecords.filter((r) => {
+    return (repairRecords || []).filter((r) => {
       if (repairFilter !== 'ALL') {
-        if (repairFilter === 'OPEN' && r.status === 'RESOLVED') return false;
-        if (repairFilter === 'RESOLVED' && r.status !== 'RESOLVED') return false;
+        if (repairFilter === 'OPEN' && r?.status === 'RESOLVED') return false;
+        if (repairFilter === 'RESOLVED' && r?.status !== 'RESOLVED') return false;
         if (['P0', 'P1', 'P2', 'P3'].includes(repairFilter)) {
-          const prio = String(r.priority || '').toUpperCase();
+          const prio = String(r?.priority || '').toUpperCase();
           if (!prio.startsWith(repairFilter)) return false;
         }
       }
       if (search.trim()) {
         const q = search.trim().toLowerCase();
-        const plate = String(r.vehicle?.registrationNumber || r.vehicleRegistrationNumber || r.vehicleId || '').toLowerCase();
-        const shop = String(r.workshop || '').toLowerCase();
-        const notes = String(r.notes || '').toLowerCase();
+        const plate = String(r?.vehicle?.registrationNumber || r?.vehicleRegistrationNumber || r?.vehicleId || '').toLowerCase();
+        const shop = String(r?.workshop || '').toLowerCase();
+        const notes = String(r?.notes || '').toLowerCase();
         return plate.includes(q) || shop.includes(q) || notes.includes(q);
       }
       return true;
@@ -414,13 +479,13 @@ export default function FleetMaintenanceScreen({ navigation }) {
   }, [repairRecords, repairFilter, search]);
 
   // Counts for upcoming
-  const overdueCount = upcomingRecords.filter((r) => r.risk === 'OVERDUE').length;
-  const dueSoonCount = upcomingRecords.filter((r) => r.risk === 'DUE_SOON').length;
-  const onTrackCount = upcomingRecords.filter((r) => r.risk === 'OK').length;
+  const overdueCount = (upcomingRecords || []).filter((r) => String(r?.risk || '').toUpperCase() === 'OVERDUE').length;
+  const dueSoonCount = (upcomingRecords || []).filter((r) => String(r?.risk || '').toUpperCase() === 'DUE_SOON').length;
+  const onTrackCount = (upcomingRecords || []).filter((r) => String(r?.risk || '').toUpperCase() === 'OK').length;
 
   // Counts for repairs
-  const openRepairsCount = repairRecords.filter((r) => r.status !== 'RESOLVED').length;
-  const resolvedRepairsCount = repairRecords.filter((r) => r.status === 'RESOLVED').length;
+  const openRepairsCount = (repairRecords || []).filter((r) => r?.status !== 'RESOLVED').length;
+  const resolvedRepairsCount = (repairRecords || []).filter((r) => r?.status === 'RESOLVED').length;
 
   return (
     <View style={s.container}>
@@ -526,25 +591,27 @@ export default function FleetMaintenanceScreen({ navigation }) {
                 <Text style={s.emptySubtitle}>No vehicles due for maintenance in this selection.</Text>
               </View>
             ) : (
-              filteredUpcoming.map((r) => {
-                const risk = RISK_CONFIG[r.risk] || RISK_CONFIG.OK;
-                const kmDiff = r.kmUntilDue;
-                const kmLabel =
-                  kmDiff == null
-                    ? null
-                    : kmDiff < 0
-                    ? `${Math.abs(kmDiff).toLocaleString('en-IN')} km overdue`
-                    : `${kmDiff.toLocaleString('en-IN')} km remaining`;
+              filteredUpcoming.map((r, index) => {
+                const riskKey = String(r?.risk || 'OK').toUpperCase();
+                const risk = RISK_CONFIG[riskKey] || RISK_CONFIG.OK;
+                const kmDiff = r?.kmUntilDue;
+                let kmLabel = null;
+                if (kmDiff != null && !isNaN(kmDiff)) {
+                  const numDiff = Number(kmDiff);
+                  kmLabel = numDiff < 0
+                    ? `${safeFormatNumber(Math.abs(numDiff))} km overdue`
+                    : `${safeFormatNumber(numDiff)} km remaining`;
+                }
 
                 return (
-                  <View key={r.registrationNumber || r.vehicleId} style={s.predictionCard}>
+                  <View key={r?.id || r?._id || r?.vehicleId || r?.registrationNumber || `upcoming-${index}`} style={s.predictionCard}>
                     <View style={s.predictionHeader}>
                       {/* Plate Badge */}
                       <View style={s.plateBadge}>
                         <View style={s.plateIndPill}>
                           <Text style={s.plateIndText}>IND</Text>
                         </View>
-                        <Text style={s.plateNumberText}>{r.registrationNumber || 'TRUCK'}</Text>
+                        <Text style={s.plateNumberText}>{r?.registrationNumber || 'TRUCK'}</Text>
                       </View>
 
                       {/* Risk Badge */}
@@ -558,7 +625,7 @@ export default function FleetMaintenanceScreen({ navigation }) {
                       <View style={s.dueStatItem}>
                         <Text style={s.dueStatLabel}>SERVICE DUE</Text>
                         <Text style={[s.dueStatVal, { color: risk.color }]}>
-                          {r.daysUntilDue != null
+                          {r?.daysUntilDue != null
                             ? r.daysUntilDue < 0
                               ? `${Math.abs(r.daysUntilDue)} days overdue`
                               : `In ${r.daysUntilDue} days`
@@ -573,7 +640,7 @@ export default function FleetMaintenanceScreen({ navigation }) {
 
                       <View style={s.dueStatItem}>
                         <Text style={s.dueStatLabel}>CURRENT ODO</Text>
-                        <Text style={s.dueStatVal}>{formatKm(r.currentOdometer)}</Text>
+                        <Text style={s.dueStatVal}>{formatKm(r?.currentOdometer)}</Text>
                       </View>
                     </View>
 
@@ -581,16 +648,16 @@ export default function FleetMaintenanceScreen({ navigation }) {
                     <View style={s.predictionFooter}>
                       <View style={{ flex: 1 }}>
                         <Text style={s.predictionSubText}>
-                          Due at {formatKm(r.projectedServiceDueOdometer)} · Projected {formatDate(r.projectedServiceDueDate)}
+                          Due at {formatKm(r?.projectedServiceDueOdometer)} · Projected {formatDate(r?.projectedServiceDueDate)}
                         </Text>
-                        {r.avgKmPerDay ? (
+                        {r?.avgKmPerDay ? (
                           <Text style={s.predictionSubText}>{Math.round(r.avgKmPerDay)} km/day telemetry average</Text>
                         ) : null}
                       </View>
 
                       <TouchableOpacity
                         style={s.logServiceBtn}
-                        onPress={() => openAddModal('SERVICE', r.vehicleId)}
+                        onPress={() => openAddModal('SERVICE', r?.vehicleId)}
                         activeOpacity={0.8}
                       >
                         <Ionicons name="add" size={16} color="#FFFFFF" />
@@ -612,15 +679,15 @@ export default function FleetMaintenanceScreen({ navigation }) {
             {/* KPI Metrics */}
             <View style={s.kpiRow}>
               <View style={s.kpiCard}>
-                <Text style={s.kpiVal}>{summary.total || serviceRecords.length}</Text>
+                <Text style={s.kpiVal}>{summary?.total || serviceRecords.length}</Text>
                 <Text style={s.kpiLabel}>Total Services</Text>
               </View>
               <View style={s.kpiCard}>
-                <Text style={[s.kpiVal, { color: '#1A56DB' }]}>{formatMoney(summary.totalAmount)}</Text>
+                <Text style={[s.kpiVal, { color: '#1A56DB' }]}>{formatMoney(summary?.totalAmount)}</Text>
                 <Text style={s.kpiLabel}>Total Cost</Text>
               </View>
               <View style={s.kpiCard}>
-                <Text style={[s.kpiVal, { color: '#0284C7' }]}>{formatMoney(summary.last30)}</Text>
+                <Text style={[s.kpiVal, { color: '#0284C7' }]}>{formatMoney(summary?.last30)}</Text>
                 <Text style={s.kpiLabel}>Last 30 Days</Text>
               </View>
             </View>
@@ -679,28 +746,28 @@ export default function FleetMaintenanceScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
             ) : (
-              filteredServices.map((r) => {
-                const plate = r.vehicle?.registrationNumber || r.vehicleRegistrationNumber || r.vehiclePlate || 'TRUCK';
-                const attachUrl = r.attachments?.[0]?.url || r.attachments?.[0]?.fileUrl;
+              filteredServices.map((r, index) => {
+                const plate = r?.vehicle?.registrationNumber || r?.vehicleRegistrationNumber || r?.vehiclePlate || 'TRUCK';
+                const attachUrl = r?.attachments?.[0]?.url || r?.attachments?.[0]?.fileUrl;
 
                 return (
-                  <View key={r.id || r._id} style={s.recordCard}>
+                  <View key={r?.id || r?._id || `service-${index}`} style={s.recordCard}>
                     <View style={s.recordHeader}>
                       <View style={s.plateBadgeSmall}>
                         <Text style={s.plateNumberSmallText}>{plate}</Text>
                       </View>
                       <View style={s.categoryChip}>
-                        <Text style={s.categoryChipText}>{r.type || 'Routine Service'}</Text>
+                        <Text style={s.categoryChipText}>{r?.type || 'Routine Service'}</Text>
                       </View>
-                      <Text style={s.amountText}>{formatMoney(r.amount)}</Text>
+                      <Text style={s.amountText}>{formatMoney(r?.amount)}</Text>
                     </View>
 
                     <View style={s.recordBody}>
                       <View style={s.recordRow}>
                         <Ionicons name="calendar-outline" size={13} color="#64748B" />
                         <Text style={s.recordRowLabel}>Service Date:</Text>
-                        <Text style={s.recordRowVal}>{formatDate(r.date)}</Text>
-                        {r.currentKm ? (
+                        <Text style={s.recordRowVal}>{formatDate(r?.date)}</Text>
+                        {r?.currentKm ? (
                           <Text style={[s.recordRowVal, { marginLeft: 'auto', fontWeight: '700' }]}>
                             {formatKm(r.currentKm)}
                           </Text>
@@ -711,11 +778,11 @@ export default function FleetMaintenanceScreen({ navigation }) {
                         <Ionicons name="business-outline" size={13} color="#64748B" />
                         <Text style={s.recordRowLabel}>Workshop:</Text>
                         <Text style={s.recordRowVal} numberOfLines={1}>
-                          {r.workshop || 'Authorized Garage'}
+                          {r?.workshop || 'Authorized Garage'}
                         </Text>
                       </View>
 
-                      {r.notes ? (
+                      {r?.notes ? (
                         <View style={s.notesBox}>
                           <Text style={s.notesText}>{r.notes}</Text>
                         </View>
@@ -738,7 +805,7 @@ export default function FleetMaintenanceScreen({ navigation }) {
 
                       <TouchableOpacity
                         style={s.deleteRecordBtn}
-                        onPress={() => handleDeleteRecord(r.id || r._id)}
+                        onPress={() => handleDeleteRecord(r?.id || r?._id)}
                       >
                         <Ionicons name="trash-outline" size={16} color="#DC2626" />
                       </TouchableOpacity>
@@ -758,7 +825,7 @@ export default function FleetMaintenanceScreen({ navigation }) {
             {/* KPI Metrics */}
             <View style={s.kpiRow}>
               <View style={s.kpiCard}>
-                <Text style={s.kpiVal}>{summary.total || repairRecords.length}</Text>
+                <Text style={s.kpiVal}>{summary?.total || repairRecords.length}</Text>
                 <Text style={s.kpiLabel}>Total Issues</Text>
               </View>
               <View style={s.kpiCard}>
@@ -825,17 +892,17 @@ export default function FleetMaintenanceScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
             ) : (
-              filteredRepairs.map((r) => {
-                const plate = r.vehicle?.registrationNumber || r.vehicleRegistrationNumber || r.vehiclePlate || 'TRUCK';
-                const attachUrl = r.attachments?.[0]?.url || r.attachments?.[0]?.fileUrl;
-                const isResolved = r.status === 'RESOLVED';
-                const prio = String(r.priority || 'P2').toUpperCase();
+              filteredRepairs.map((r, index) => {
+                const plate = r?.vehicle?.registrationNumber || r?.vehicleRegistrationNumber || r?.vehiclePlate || 'TRUCK';
+                const attachUrl = r?.attachments?.[0]?.url || r?.attachments?.[0]?.fileUrl;
+                const isResolved = r?.status === 'RESOLVED';
+                const prio = String(r?.priority || 'P2').toUpperCase();
 
                 const isP0 = prio.startsWith('P0');
                 const isP1 = prio.startsWith('P1');
 
                 return (
-                  <View key={r.id || r._id} style={s.recordCard}>
+                  <View key={r?.id || r?._id || `repair-${index}`} style={s.recordCard}>
                     <View style={s.recordHeader}>
                       <View style={s.plateBadgeSmall}>
                         <Text style={s.plateNumberSmallText}>{plate}</Text>
@@ -869,26 +936,26 @@ export default function FleetMaintenanceScreen({ navigation }) {
                         </Text>
                       </View>
 
-                      <Text style={[s.amountText, { marginLeft: 'auto' }]}>{formatMoney(r.amount)}</Text>
+                      <Text style={[s.amountText, { marginLeft: 'auto' }]}>{formatMoney(r?.amount)}</Text>
                     </View>
 
                     <View style={s.recordBody}>
                       <View style={s.recordRow}>
                         <Ionicons name="alert-circle-outline" size={13} color="#64748B" />
                         <Text style={s.recordRowLabel}>Issue Type:</Text>
-                        <Text style={[s.recordRowVal, { fontWeight: '700' }]}>{r.type || 'Breakdown'}</Text>
-                        <Text style={[s.recordRowVal, { marginLeft: 'auto', color: '#64748B' }]}>{formatDate(r.date)}</Text>
+                        <Text style={[s.recordRowVal, { fontWeight: '700' }]}>{r?.type || 'Breakdown'}</Text>
+                        <Text style={[s.recordRowVal, { marginLeft: 'auto', color: '#64748B' }]}>{formatDate(r?.date)}</Text>
                       </View>
 
                       <View style={s.recordRow}>
                         <Ionicons name="business-outline" size={13} color="#64748B" />
                         <Text style={s.recordRowLabel}>Workshop:</Text>
                         <Text style={s.recordRowVal} numberOfLines={1}>
-                          {r.workshop || 'On-site Repair'}
+                          {r?.workshop || 'On-site Repair'}
                         </Text>
                       </View>
 
-                      {r.notes ? (
+                      {r?.notes ? (
                         <View style={s.notesBox}>
                           <Text style={s.notesText}>{r.notes}</Text>
                         </View>
@@ -922,7 +989,7 @@ export default function FleetMaintenanceScreen({ navigation }) {
 
                         <TouchableOpacity
                           style={s.deleteRecordBtn}
-                          onPress={() => handleDeleteRecord(r.id || r._id)}
+                          onPress={() => handleDeleteRecord(r?.id || r?._id)}
                         >
                           <Ionicons name="trash-outline" size={16} color="#DC2626" />
                         </TouchableOpacity>
@@ -1206,7 +1273,7 @@ export default function FleetMaintenanceScreen({ navigation }) {
       </Modal>
 
       {/* =====================================================================
-          MODAL: Searchable Vehicle Dropdown Picker
+          MODAL 4: Searchable Vehicle Dropdown Picker (Bottom Sheet)
       ===================================================================== */}
       <Modal
         visible={vehiclePickerModalOpen}
@@ -1306,7 +1373,7 @@ export default function FleetMaintenanceScreen({ navigation }) {
       </Modal>
 
       {/* =====================================================================
-          MODAL 4: Lightbox Full-screen Bill Preview
+          MODAL 5: Lightbox Full-screen Bill Preview
       ===================================================================== */}
       <Modal visible={!!lightboxUri} animationType="fade" transparent onRequestClose={() => setLightboxUri(null)}>
         <View style={s.lightboxOverlay}>
@@ -1319,6 +1386,14 @@ export default function FleetMaintenanceScreen({ navigation }) {
         </View>
       </Modal>
     </View>
+  );
+}
+
+export default function FleetMaintenanceScreen(props) {
+  return (
+    <ErrorBoundary>
+      <FleetMaintenanceContent {...props} />
+    </ErrorBoundary>
   );
 }
 
@@ -1646,6 +1721,10 @@ const s = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 4,
+  },
+  statusTagText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
   statusTagOpen: {
     backgroundColor: '#FEE2E2',

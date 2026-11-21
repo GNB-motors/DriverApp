@@ -1090,10 +1090,14 @@ export function createTelematicsApi({
       ).data.data;
     },
     async maintenanceRecords(params = {}, branchId) {
-      const res = await get('/maintenance', { params, headers: headersFor(branchId) });
-      const data = res?.data || res?.items || (Array.isArray(res) ? res : []);
-      const meta = res?.meta || { total: Array.isArray(data) ? data.length : 0 };
-      return { data: Array.isArray(data) ? data : [], meta };
+      try {
+        const res = await get('/maintenance', { params, headers: headersFor(branchId) });
+        const data = res?.data || res?.items || (Array.isArray(res) ? res : []);
+        const meta = res?.meta || { total: Array.isArray(data) ? data.length : 0 };
+        return { data: Array.isArray(data) ? data : [], meta };
+      } catch {
+        return { data: [], meta: { total: 0 } };
+      }
     },
     async maintenanceSummary(params = {}, branchId) {
       try {
