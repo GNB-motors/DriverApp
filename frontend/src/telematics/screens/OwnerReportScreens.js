@@ -84,6 +84,12 @@ export function OwnerReport({ navigation, route }) {
     () => service.ownerDaily(date, branch),
     60000,
   );
+  // The "Aaj ka hisab" boxes read the web Daily Digest's report, so app and web agree.
+  const digest = useOwnerRequest(
+    `${key}:${date}:digest`,
+    () => service.dailyDigest(date, branch),
+    60000,
+  );
   useEffect(() => {
     setSpeaking(false);
     return () => {
@@ -139,6 +145,7 @@ export function OwnerReport({ navigation, route }) {
       navigation={navigation}
       route={route}
       request={request}
+      digest={digest}
       date={date}
       onDateChange={setDate}
       user={user}
@@ -271,8 +278,24 @@ function RecordSummary({ item }) {
     </>
   );
 }
+// Record approvals, owner calls and escalations are OWNER-only on the server. A manager
+// reading the same report opens the branch screen that holds the same record instead.
+function openAsManager(navigation, metric, row) {
+  if (["diesel", "adblue", "fuelReviews"].includes(metric))
+    navigation.navigate("Fuel logs", { vehicleId: row.vehicleId });
+  else if (["expenses", "expenseReviews"].includes(metric))
+    navigation.navigate("Manager approvals");
+  else if (metric === "documents")
+    navigation.navigate("Fleet documents", {
+      vehicleId: row.entityType === "VEHICLE" ? row.entityId : undefined,
+    });
+  else if (metric === "people") navigation.navigate("Driver detail", { id: row._id });
+  else if (metric === "inbox") navigation.navigate("Manager tabs", { screen: "Alerts" });
+  else return false;
+  return true;
+}
 export function OwnerReportRows({ navigation, route }) {
-  const { service, branch, key } = useScope();
+  const { service, branch, key, user } = useScope();
   const [page, setPage] = useState(1);
   useEffect(() => setPage(1), [key, route.params.metric, route.params.date]);
   const request = useOwnerRequest(
@@ -285,6 +308,7 @@ export function OwnerReportRows({ navigation, route }) {
   );
   function open(row) {
     const metric = route.params.metric;
+    if (user?.role !== "OWNER" && openAsManager(navigation, metric, row)) return;
     if (["diesel", "adblue", "fuelReviews"].includes(metric))
       navigation.navigate("Owner record", { kind: "fuel", id: row._id });
     else if (["expenses", "expenseReviews"].includes(metric))

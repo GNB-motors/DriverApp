@@ -9,6 +9,84 @@ export const validBusinessDay = (value) => {
   const parsed = new Date(`${value}T00:00:00+05:30`);
   return Number.isFinite(+parsed) && istDay(parsed) === value;
 };
+const knownNumber = (v) =>
+  v == null || v === "" || !Number.isFinite(Number(v)) ? null : Number(v);
+
+/** Driver bills of the day: waiting + approved + recorded (rejected left out); null when none were read. */
+export function driverBillsInr(money = {}) {
+  const parts = [money.expensePendingInr, money.expenseApprovedInr, money.expenseRecordedInr].map(knownNumber);
+  return parts.every((v) => v == null) ? null : parts.reduce((total, v) => total + (v ?? 0), 0);
+}
+
+/**
+ * The four "Aaj ka hisab" boxes, built from GET /owner-report — the same report the
+ * web Daily Digest page reads (yesterdaysWork / moneyOut) — so owner, manager and web
+ * all show the same numbers under the same words.
+ * `trips` counts trips that LEFT a pickup in the day (web: "Trips started today");
+ * how many of those are complete is in the caption, like the web's separate figure.
+ */
+export function hisabTiles(report, { today = false } = {}) {
+  const byId = {};
+  for (const section of Array.isArray(report?.sections) ? report.sections : [])
+    if (section?.id) byId[section.id] = section;
+  const work = byId.yesterdaysWork?.numbers || {};
+  const money = byId.moneyOut?.numbers || {};
+  const started = knownNumber(work.trips);
+  const completed = knownNumber(work.completedTrips);
+  const open = knownNumber(work.openTrips);
+  const pendingCount = knownNumber(money.expensePendingCount);
+  const inr = (v) => `₹${Number(v).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  return [
+    {
+      key: "trips",
+      label: today ? "Trips started today" : "Trips started",
+      icon: "navigate-outline",
+      unit: "records",
+      value: started,
+      caption:
+        completed == null
+          ? today
+            ? "Includes trips still on the road"
+            : "Left a pickup this day"
+          : `${completed} completed${open ? ` · ${open} still open` : ""}`,
+      section: "trips",
+      route: "Fleet trips",
+    },
+    {
+      key: "km",
+      label: today ? "Loaded km today" : "Loaded km",
+      icon: "speedometer-outline",
+      unit: "km",
+      value: knownNumber(work.km),
+      caption: work.kmPartial ? "Loaded trip distance · partial" : "Loaded trip distance",
+      section: "trips",
+      route: "Fleet trips",
+    },
+    {
+      key: "diesel",
+      label: "Diesel billed",
+      icon: "water-outline",
+      unit: "INR",
+      value: knownNumber(money.dieselBillInr),
+      caption: "Bills handed in, not paid",
+      section: "diesel",
+      route: "Fuel logs",
+    },
+    {
+      key: "bills",
+      label: "Driver bills",
+      icon: "receipt-outline",
+      unit: "INR",
+      value: driverBillsInr(money),
+      caption: pendingCount
+        ? `${pendingCount} waiting · ${inr(knownNumber(money.expensePendingInr) ?? 0)}`
+        : "Submitted, rejected left out",
+      section: "expenses",
+      route: "Manager approvals",
+    },
+  ];
+}
+
 export const displayMetric = (metric) =>
   metric?.value == null
     ? "Unavailable"

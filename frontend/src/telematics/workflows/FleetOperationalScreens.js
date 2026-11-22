@@ -952,6 +952,9 @@ export function FleetRecords({ navigation, route }) {
         ? "fuel"
         : "bills";
   const [kind, setKind] = useState(defaultKind);
+  // Opened from a truck (Vehicle detail) the list starts filtered to it; "Clear" shows all.
+  const [activeFilterPlate, setActiveFilterPlate] = useState(route.params?.plate || null);
+  const vehicleId = activeFilterPlate ? route.params?.vehicleId : null;
   const [page, setPage] = useState(1);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");

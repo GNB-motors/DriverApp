@@ -2,6 +2,7 @@ import { ALERT_TITLES, alertSeverity } from "./alertMetadata";
 import axios from "axios";
 import { appLoginUrl } from "./authEndpoint";
 import { APP_VERSION, newIdempotencyKey } from "./appIdentity";
+import { driverBillsInr } from "./ownerReport";
 
 export const recordId = (value) => {
   const id = value && typeof value === "object" ? value._id || value.id : value;
@@ -293,39 +294,34 @@ function adaptWebOwnerReport(webReport) {
   }
   const work = byId.yesterdaysWork?.numbers || {};
   const money = byId.moneyOut?.numbers || {};
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const metric = (value, unit) => ({ value, unit });
+  const bills = driverBillsInr(money);
+  // Keys match what /owner-report really sends (ownerReport.sections.js yesterdaysWork /
+  // moneyOut). "Trips marked complete" is the completed count, never the started count.
   return {
     generatedAt: webReport.generatedAt || new Date().toISOString(),
     sections: {
       trips: {
         status: work.trips != null ? 'ok' : 'empty',
         metrics: {
-          count: { value: typeof work.trips === 'number' ? work.trips : null, unit: 'records' },
-        },
-      },
-      distance: {
-        status: work.km != null ? 'ok' : 'empty',
-        metrics: {
-          observedKm: { value: typeof work.km === 'number' ? work.km : null, unit: 'km' },
-          ladenKm: { value: typeof work.km === 'number' ? work.km : null, unit: 'km' },
+          count: metric(num(work.completedTrips), 'records'),
+          started: metric(num(work.trips), 'records'),
+          ladenKm: metric(num(work.km), 'km'),
         },
       },
       diesel: {
         status: money.dieselBillInr != null ? 'ok' : 'empty',
         metrics: {
-          amount: { value: typeof money.dieselBillInr === 'number' ? money.dieselBillInr : null, unit: 'INR' },
+          amount: metric(num(money.dieselBillInr), 'INR'),
+          litres: metric(num(money.dieselBillLitres), 'L'),
         },
       },
       expenses: {
-        status: (money.driverExpensesInr != null || money.maintenanceInr != null) ? 'ok' : 'empty',
+        status: bills != null ? 'ok' : 'empty',
         metrics: {
-          amount: {
-            value: typeof money.driverExpensesInr === 'number'
-              ? money.driverExpensesInr
-              : typeof money.maintenanceInr === 'number'
-                ? money.maintenanceInr
-                : null,
-            unit: 'INR',
-          },
+          amount: metric(bills, 'INR'),
+          pending: metric(num(money.expensePendingCount), 'records'),
         },
       },
       ...byId,
@@ -702,7 +698,16 @@ export function createTelematicsApi({
   // goes straight to the /owner-report fallback instead of repeating a refused call.
   // The service is rebuilt per sign-in, so a role or backend change is picked up then.
   let dailyRefused = false;
+  // GET /owner-report — the report the web Daily Digest page reads. OWNER and MANAGER
+  // (pinned to their branch by the server). Returns { sections: [{ id, state, numbers }] }.
+  async function dailyDigest(day, branchId) {
+    const res = await get('/owner-report', { params: { day }, headers: headersFor(branchId) });
+    const report = res?.data || res;
+    if (!Array.isArray(report?.sections)) throw new Error('Invalid daily report response.');
+    return report;
+  }
   return {
+    dailyDigest,
     async ownerDaily(date, branchId) {
       try {
         if (dailyRefused) throw Object.assign(new Error('Daily report not permitted for this role.'), { refused: true });
@@ -710,11 +715,7 @@ export function createTelematicsApi({
       } catch (err) {
         if (err?.response?.status === 403) dailyRefused = true;
         try {
-          const res = await get('/owner-report', { params: { day: date }, headers: headersFor(branchId) });
-          const report = res?.data || res;
-          if (report?.sections) {
-            return adaptWebOwnerReport(report);
-          }
+          return adaptWebOwnerReport(await dailyDigest(date, branchId));
         } catch {
           // Ignore fallback error
         }

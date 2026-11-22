@@ -9,7 +9,7 @@ import {
 } from "@react-google-maps/api";
 import { Ionicons } from "@expo/vector-icons";
 import { AppText, Card, colors, elevation, radius } from "../../components/ui";
-import { mapPoints, trailCoordinates, trailSegments } from "./mapGeometry";
+import { mapPoints, trailCoordinates, trailSegments, validCoordinate } from "./mapGeometry";
 import { truckSvg } from "./truckIcon";
 import { markerHeading, MARKER_SIZE } from "./liveMap";
 import { clusterVehicles } from "./clustering";

@@ -12,6 +12,7 @@ import FleetFuelLogsScreen from './screens/FleetFuelLogsScreen';
 import FleetTripsScreen from './screens/FleetTripsScreen';
 import FleetMaintenanceScreen from './screens/FleetMaintenanceScreen';
 import RouteReplayScreen from './screens/RouteReplayScreen';
+import { OwnerReport, OwnerReportSection, OwnerReportRows, OwnerTrends, OwnerFinance } from './screens/OwnerReportScreens';
 import * as Operations from './workflows/FleetOperationalScreens';
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -76,6 +77,13 @@ export default function ManagerNavigator() {
     <Stack.Screen name="Play route" component={RouteReplayScreen} />
     <Stack.Screen name="Route history" component={RouteReplayScreen} />
     <Stack.Screen name="Manager trip" component={HistoricalTripScreen} />
+    {/* The owner's daily report, unchanged; the server scopes it to the manager's branch. */}
+    <Stack.Screen name="Owner report" component={OwnerReport} />
+    <Stack.Screen name="Daily report" component={OwnerReport} />
+    <Stack.Screen name="Owner report section" component={OwnerReportSection} />
+    <Stack.Screen name="Owner report rows" component={OwnerReportRows} />
+    <Stack.Screen name="Owner trends" component={OwnerTrends} />
+    <Stack.Screen name="Owner finance" component={OwnerFinance} />
     <Stack.Screen name="AdBlue / DEF" component={DefLedgerScreen} />
     <Stack.Screen name="Team & access" component={TeamAccessScreen} />
     <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} options={{ presentation: 'transparentModal', animation: 'fade' }} />

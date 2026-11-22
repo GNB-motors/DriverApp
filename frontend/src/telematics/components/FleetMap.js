@@ -4,7 +4,7 @@ import MapView, { Marker, Polyline } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { SvgXml } from "react-native-svg";
 import { AppText, Card, colors, elevation, radius } from "../../components/ui";
-import { mapPoints, trailCoordinates, trailSegments } from "./mapGeometry";
+import { mapPoints, trailCoordinates, trailSegments, validCoordinate } from "./mapGeometry";
 import { truckSvg } from "./truckIcon";
 import { markerHeading } from "./liveMap";
 import { clusterVehicles } from "./clustering";

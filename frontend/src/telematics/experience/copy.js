@@ -2,6 +2,8 @@
 const rows = {
   navigationLabel: ['Navigate', 'रास्ता', 'নেভিগেট'],
   trips: ['Trips', 'यात्राएँ', 'যাত্রা'],
+  fullDailyReport: ['Full daily report', 'पूरी दैनिक रिपोर्ट', 'সম্পূর্ণ দৈনিক রিপোর্ট'],
+  dailyReportFailed: ['Figures could not load. Tap to try again.', 'आँकड़े लोड नहीं हुए। फिर से कोशिश करने के लिए टैप करें।', 'হিসাব লোড হয়নি। আবার চেষ্টা করতে ট্যাপ করুন।'],
   inboxLabel: ['Inbox', 'इनबॉक्स', 'ইনবক্স'],
   moreLabel: ['More', 'और', 'আরও'],
   stopToCapture: ['Stop safely before taking photos or filling forms.', 'फ़ोटो लेने या फ़ॉर्म भरने से पहले सुरक्षित जगह रुकें।', 'ছবি তোলা বা ফর্ম পূরণের আগে নিরাপদে থামুন।'],

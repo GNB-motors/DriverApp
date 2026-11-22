@@ -38,6 +38,7 @@ import {
   validBusinessDay,
   displayMetric,
   sectionNames,
+  hisabTiles,
 } from "../services/ownerReport";
 import {
   reportMeta,
@@ -430,6 +431,7 @@ export function OwnerReportDashboard({
   navigation,
   route,
   request,
+  digest = null,
   date,
   onDateChange,
   branchId,
@@ -516,41 +518,8 @@ export function OwnerReportDashboard({
   const detail = (name) =>
     navigation.navigate("Owner report section", { name, date });
   const group = groupSections(sections, tab);
-  const distanceSection = sections.distance ? "distance" : "trips";
-  const highlights = [
-    [
-      "trips",
-      "count",
-      "Completed trips",
-      "navigate-outline",
-      "records",
-      "Marked complete",
-    ],
-    [
-      distanceSection,
-      sections.distance ? "observedKm" : "ladenKm",
-      sections.distance ? "Observed distance" : "Laden trip distance",
-      "speedometer-outline",
-      "km",
-      sections.distance ? "Recorded intervals" : "Of completed trips",
-    ],
-    [
-      "diesel",
-      "amount",
-      "Diesel purchases",
-      "water-outline",
-      "INR",
-      "Recorded, not paid",
-    ],
-    [
-      "expenses",
-      "amount",
-      "Driver bills",
-      "receipt-outline",
-      "INR",
-      "Submitted for review",
-    ],
-  ];
+  // Same four boxes as the manager home and the web Daily Digest (GET /owner-report).
+  const highlights = hisabTiles(digest?.data, { today: date === istDay() });
 
   return (
     <View style={s.screen}>
@@ -640,61 +609,40 @@ export function OwnerReportDashboard({
             </Card>
           )}
 
-          {request.loading && !request.data && (
-            <View
-              accessibilityRole="progressbar"
-              accessibilityLabel="Loading report"
-              style={s.block}
-            >
-              <View style={s.grid}>
-                {[0, 1, 2, 3].map((i) => (
-                  <View
-                    key={i}
-                    style={[s.skeleton, s.highlight, { height: 110 }]}
-                  />
-                ))}
-              </View>
-              <AppText variant="small" muted>
-                Loading report figures…
+          {date === istDay() && (
+            <View style={s.notice}>
+              <Ionicons name="time-outline" size={16} color={colors.warning} />
+              <AppText variant="caption" color={colors.warning} style={s.grow}>
+                Today is still in progress. Daily totals are partial.
               </AppText>
             </View>
           )}
 
-          {request.data && (
-            <>
-              {request.data.partialDay && (
-                <View style={s.notice}>
-                  <Ionicons
-                    name="time-outline"
-                    size={16}
-                    color={colors.warning}
-                  />
-                  <AppText
-                    variant="caption"
-                    color={colors.warning}
-                    style={s.grow}
-                  >
-                    Today is still in progress. Daily totals are partial.
-                  </AppText>
-                </View>
-              )}
-
-              <View style={s.grid}>
-                {highlights.map(
-                  ([name, metric, label, icon, unit, caption]) => (
-                    <Highlight
-                      key={`${name}-${metric}`}
-                      label={label}
-                      icon={icon}
-                      unit={unit}
-                      caption={caption}
-                      value={metricValue(sections[name], metric)}
-                      onPress={() => detail(name)}
-                    />
-                  ),
-                )}
-              </View>
-            </>
+          {digest?.error ? (
+            <AppText variant="caption" color={colors.error}>
+              {digest.error}
+            </AppText>
+          ) : null}
+          {digest?.loading && !digest?.data ? (
+            <View style={s.grid} accessibilityRole="progressbar" accessibilityLabel="Loading report">
+              {[0, 1, 2, 3].map((i) => (
+                <View key={i} style={[s.skeleton, s.highlight, { height: 110 }]} />
+              ))}
+            </View>
+          ) : (
+            <View style={s.grid}>
+              {highlights.map((tile) => (
+                <Highlight
+                  key={tile.key}
+                  label={tile.label}
+                  icon={tile.icon}
+                  unit={tile.unit}
+                  caption={tile.caption}
+                  value={tile.value}
+                  onPress={() => detail(tile.section)}
+                />
+              ))}
+            </View>
           )}
         </View>
 

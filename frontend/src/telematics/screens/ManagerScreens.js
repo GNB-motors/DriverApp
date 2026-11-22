@@ -3,7 +3,7 @@ import HistoricalTripScreen from './HistoricalTripScreen';
 import PushSettings from '../../components/PushSettings';
 import Constants from 'expo-constants';
 import { APP_VERSION } from "../services/appIdentity";
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   ScrollView,

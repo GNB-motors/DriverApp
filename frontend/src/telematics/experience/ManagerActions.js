@@ -33,8 +33,7 @@ import {
 } from '../components/FleetDashboardElements';
 import ApprovalsScreen from '../screens/ApprovalsScreen';
 import { DateSelector, Highlight } from '../components/OwnerReportView';
-import { istDay } from '../services/ownerReport';
-import { metricValue } from '../services/ownerPresentation';
+import { istDay, hisabTiles } from '../services/ownerReport';
 
 function useCards() {
   const { service, branchId, lastPush } = useManagerData();
@@ -106,15 +105,10 @@ export function ManagerActionHome({ navigation }) {
   const branch = branchId === 'all' ? undefined : branchId;
   const currentBranchName = branches.find((b) => b.id === branchId)?.name || c('allBranches');
 
+  // Same source as the owner's boxes and the web Daily Digest: GET /owner-report.
   const dailyRequest = useOwnerRequest(
-    `manager-daily-report:${branchId}:${reportDate}`,
-    async () => {
-      try {
-        return await service.ownerDaily(reportDate, branch);
-      } catch {
-        return null;
-      }
-    },
+    `manager-daily-digest:${branchId}:${reportDate}`,
+    () => service.dailyDigest(reportDate, branch),
     60000
   );
 
@@ -126,46 +120,7 @@ export function ManagerActionHome({ navigation }) {
     setRefreshing(false);
   }, [request, refresh, actRateReq, dailyRequest]);
 
-  const dailySections = dailyRequest.data?.sections || {};
-  const dailyDistanceSection = dailySections.distance ? 'distance' : 'trips';
-  const dailyHighlights = [
-    [
-      'trips',
-      'count',
-      'Completed trips',
-      'navigate-outline',
-      'records',
-      'Marked complete',
-      'Fleet trips',
-    ],
-    [
-      dailyDistanceSection,
-      dailySections.distance ? 'observedKm' : 'ladenKm',
-      dailySections.distance ? 'Observed distance' : 'Laden trip distance',
-      'speedometer-outline',
-      'km',
-      dailySections.distance ? 'Recorded intervals' : 'Of completed trips',
-      'Fleet trips',
-    ],
-    [
-      'diesel',
-      'amount',
-      'Diesel purchases',
-      'water-outline',
-      'INR',
-      'Recorded, not paid',
-      'Fuel logs',
-    ],
-    [
-      'expenses',
-      'amount',
-      'Driver bills',
-      'receipt-outline',
-      'INR',
-      'Submitted for review',
-      'Manager approvals',
-    ],
-  ];
+  const dailyHighlights = hisabTiles(dailyRequest.data, { today: reportDate === istDay() });
 
   // Fleet Pulse metrics
   const vehicles = data?.vehicles || [];
@@ -393,6 +348,14 @@ export function ManagerActionHome({ navigation }) {
 
           <DateSelector date={reportDate} onChange={setReportDate} />
 
+          {dailyRequest.error ? (
+            <Pressable accessibilityRole="button" onPress={dailyRequest.reload} hitSlop={6}>
+              <AppText variant="caption" color={colors.error}>
+                {c('dailyReportFailed')}
+              </AppText>
+            </Pressable>
+          ) : null}
+
           {dailyRequest.loading && !dailyRequest.data ? (
             <View style={s.hisabGrid}>
               {[0, 1, 2, 3].map((i) => (
@@ -401,19 +364,17 @@ export function ManagerActionHome({ navigation }) {
             </View>
           ) : (
             <View style={s.hisabGrid}>
-              {dailyHighlights.map(
-                ([name, metric, label, icon, unit, caption, targetRoute]) => (
-                  <Highlight
-                    key={`${name}-${metric}`}
-                    label={label}
-                    icon={icon}
-                    unit={unit}
-                    caption={caption}
-                    value={metricValue(dailySections[name], metric)}
-                    onPress={() => targetRoute && navigation.navigate(targetRoute)}
-                  />
-                ),
-              )}
+              {dailyHighlights.map((tile) => (
+                <Highlight
+                  key={tile.key}
+                  label={tile.label}
+                  icon={tile.icon}
+                  unit={tile.unit}
+                  caption={tile.caption}
+                  value={tile.value}
+                  onPress={() => navigation.navigate(tile.route)}
+                />
+              ))}
             </View>
           )}
         </View>
