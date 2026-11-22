@@ -27,10 +27,10 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const FILTER_OPTIONS = [
   { key: 'ALL', label: 'All Approvals', icon: 'layers-outline' },
-  { key: 'WHATSAPP', label: 'WhatsApp', icon: 'chatbubbles-outline' },
-  { key: 'OFFICE', label: 'Owner & Manager', icon: 'briefcase-outline' },
-  { key: 'FIELD_AGENT', label: 'Field Agent', icon: 'person-outline' },
-  { key: 'TRIPS', label: 'Trip Approvals', icon: 'navigate-outline' },
+  { key: 'DRIVER', label: 'Driver Bills & WhatsApp', icon: 'person-outline' },
+  { key: 'OFFICE', label: 'Manager & Office', icon: 'briefcase-outline' },
+  { key: 'FIELD_AGENT', label: 'Field Agent', icon: 'shield-checkmark-outline' },
+  { key: 'TRIPS', label: 'Trip Authorizations', icon: 'navigate-outline' },
 ];
 
 const API_BASE = (process.env.EXPO_PUBLIC_API_URL || 'https://api.app.gnbedge.in/v1').replace(/\/+$/, '');
@@ -261,7 +261,14 @@ export default function ApprovalsScreen({ navigation, route = {} }) {
       const tripCount = tripRes.status === 'fulfilled' ? (tripRes.value?.total ?? tripList.length) : tripList.length;
       setTripItems(Array.isArray(tripList) ? tripList : []);
 
+      const driverOfficeCount = officeList.filter((it) => {
+        const role = String(it.uploadedBy?.role || it.uploaderRole || it.uploadedByRole || '').toUpperCase();
+        return role === 'DRIVER';
+      }).length;
+      const driverCount = waCount + driverOfficeCount;
+
       setCounts({
+        driver: driverCount,
         whatsapp: waCount,
         office: officeCount,
         fieldAgent: faCount,
@@ -284,8 +291,8 @@ export default function ApprovalsScreen({ navigation, route = {} }) {
   const displayItems = useMemo(() => {
     const list = [];
 
-    // ── 1. WHATSAPP DRAFTS ──
-    if (filter === 'ALL' || filter === 'WHATSAPP') {
+    // ── 1. WHATSAPP & DRIVER DRAFTS ──
+    if (filter === 'ALL' || filter === 'DRIVER' || filter === 'WHATSAPP') {
       whatsappItems.forEach((item) => {
         const photos = extractPhotos({ ...item, approvalCategory: 'WHATSAPP' });
 
@@ -380,8 +387,15 @@ export default function ApprovalsScreen({ navigation, route = {} }) {
     }
 
     // ── 2. OWNER & MANAGER (OFFICE BILLS) ──
-    if (filter === 'ALL' || filter === 'OFFICE') {
+    if (filter === 'ALL' || filter === 'OFFICE' || filter === 'MANAGER' || filter === 'DRIVER') {
       officeItems.forEach((item) => {
+        const uploaderObj = item.uploadedBy;
+        const uploaderRole = typeof uploaderObj === 'object' && uploaderObj?.role
+          ? uploaderObj.role
+          : item.uploaderRole || item.uploadedByRole || 'Manager';
+        const isDriverUpload = String(uploaderRole).toUpperCase() === 'DRIVER';
+        if (filter === 'DRIVER' && !isDriverUpload) return;
+        if ((filter === 'OFFICE' || filter === 'MANAGER') && isDriverUpload) return;
         const ocr = item.ocr || {};
         const photos = extractPhotos({ ...item, approvalCategory: 'OFFICE' });
 
@@ -417,14 +431,10 @@ export default function ApprovalsScreen({ navigation, route = {} }) {
         }
 
         // Uploaded by identity (name and role)
-        const uploaderObj = item.uploadedBy;
+        const roleDisplay = uploaderRole.charAt(0).toUpperCase() + uploaderRole.slice(1).toLowerCase();
         const uploaderName = typeof uploaderObj === 'object' && uploaderObj
           ? [uploaderObj.firstName, uploaderObj.lastName].filter(Boolean).join(' ') || uploaderObj.name || uploaderObj.fullName
           : (typeof uploaderObj === 'string' ? uploaderObj : null);
-        const uploaderRole = typeof uploaderObj === 'object' && uploaderObj?.role
-          ? uploaderObj.role
-          : item.uploaderRole || item.uploadedByRole || 'Manager';
-        const roleDisplay = uploaderRole.charAt(0).toUpperCase() + uploaderRole.slice(1).toLowerCase();
         const uploaderText = uploaderName
           ? `${uploaderName} · ${roleDisplay}`
           : (item.uploaderName || item.uploadedByName || `${roleDisplay} Upload`);
@@ -975,9 +985,9 @@ export default function ApprovalsScreen({ navigation, route = {} }) {
                 {FILTER_OPTIONS.find((o) => o.key === filter)?.label}
                 {filter === 'ALL'
                   ? ` (${counts.total})`
-                  : filter === 'WHATSAPP'
-                  ? ` (${counts.whatsapp})`
-                  : filter === 'OFFICE'
+                  : filter === 'DRIVER' || filter === 'WHATSAPP'
+                  ? ` (${counts.driver ?? counts.whatsapp})`
+                  : filter === 'OFFICE' || filter === 'MANAGER'
                   ? ` (${counts.office})`
                   : filter === 'FIELD_AGENT'
                   ? ` (${counts.fieldAgent})`
@@ -1299,24 +1309,36 @@ export default function ApprovalsScreen({ navigation, route = {} }) {
         <Pressable style={s.modalOverlay} onPress={() => setShowFilterPicker(false)}>
           <View style={s.pickerCard}>
             <Text style={s.pickerTitle}>Filter Approval Queue</Text>
-            {FILTER_OPTIONS.map((opt) => (
-              <TouchableOpacity
-                key={opt.key}
-                style={[s.pickerOption, filter === opt.key && s.pickerOptionActive]}
-                onPress={() => {
-                  setFilter(opt.key);
-                  setShowFilterPicker(false);
-                }}
-              >
-                <View style={s.pickerOptionLeft}>
-                  <Ionicons name={opt.icon} size={18} color={filter === opt.key ? '#1A56DB' : '#64748B'} />
-                  <Text style={[s.pickerOptionText, filter === opt.key && s.pickerOptionTextActive]}>
-                    {opt.label}
-                  </Text>
-                </View>
-                {filter === opt.key && <Ionicons name="checkmark-circle" size={18} color="#1A56DB" />}
-              </TouchableOpacity>
-            ))}
+            {FILTER_OPTIONS.map((opt) => {
+              const optCount =
+                opt.key === 'ALL'
+                  ? counts.total
+                  : opt.key === 'DRIVER' || opt.key === 'WHATSAPP'
+                  ? (counts.driver ?? counts.whatsapp)
+                  : opt.key === 'OFFICE' || opt.key === 'MANAGER'
+                  ? counts.office
+                  : opt.key === 'FIELD_AGENT'
+                  ? counts.fieldAgent
+                  : counts.trips;
+              return (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[s.pickerOption, filter === opt.key && s.pickerOptionActive]}
+                  onPress={() => {
+                    setFilter(opt.key);
+                    setShowFilterPicker(false);
+                  }}
+                >
+                  <View style={s.pickerOptionLeft}>
+                    <Ionicons name={opt.icon} size={18} color={filter === opt.key ? '#1A56DB' : '#64748B'} />
+                    <Text style={[s.pickerOptionText, filter === opt.key && s.pickerOptionTextActive]}>
+                      {opt.label} ({optCount})
+                    </Text>
+                  </View>
+                  {filter === opt.key && <Ionicons name="checkmark-circle" size={18} color="#1A56DB" />}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </Pressable>
       </Modal>

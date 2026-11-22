@@ -9,14 +9,34 @@ import React, {
 } from "react";
 import { useTelematicsApi } from "./TelematicsApiContext";
 import { useDriverStream } from "../realtime/useDriverStream";
+import { useAuth } from "../../context/AuthContext";
 const Context = createContext(null);
+const idOf = (value) =>
+  value && typeof value === "object" ? String(value._id || value.id || "") || null : value ? String(value) : null;
 export function ManagerDataProvider({ children, audience = "manager" }) {
   const service = useTelematicsApi();
+  const { user } = useAuth();
+  // A manager works one branch — the one on their user record — and cannot switch.
+  // An owner starts on all branches and may narrow the whole app to one.
+  const locked = audience !== "owner" && user?.role === "MANAGER";
+  const assignedBranch = locked ? idOf(user?.branchId) : null;
   const [lastPush, setLastPush] = useState(null);
   const [branches, setBranches] = useState([
     { id: "all", name: "Authorized branches" },
   ]);
-  const [branchId, setBranchId] = useState("all");
+  const [chosenBranch, setChosenBranch] = useState("all");
+  const branchId = locked ? assignedBranch || "all" : chosenBranch;
+  const setBranchId = useCallback(
+    (id) => {
+      if (!locked) setChosenBranch(id || "all");
+    },
+    [locked],
+  );
+  // Every request a page makes without naming a branch carries the active one, so no
+  // screen can read outside it. Runs before the fleet load below.
+  useEffect(() => {
+    service.setActiveBranch?.(branchId === "all" ? null : branchId);
+  }, [service, branchId]);
   const [state, setState] = useState({
     branchId: null,
     data: null,
@@ -54,8 +74,12 @@ export function ManagerDataProvider({ children, audience = "manager" }) {
     service
       .branches()
       .then((items) => {
-        if (active)
-          setBranches([{ id: "all", name: "Authorized branches" }, ...items]);
+        if (!active) return;
+        if (locked) {
+          // The list endpoint returns the whole organisation; a manager sees only theirs.
+          const own = items.filter((b) => String(b.id) === String(assignedBranch));
+          setBranches(own.length ? own : [{ id: branchId, name: "Your branch" }]);
+        } else setBranches([{ id: "all", name: "Authorized branches" }, ...items]);
       })
       .catch(() => {
         /* The fleet requests still enforce server-side branch authorization. */
@@ -63,7 +87,7 @@ export function ManagerDataProvider({ children, audience = "manager" }) {
     return () => {
       active = false;
     };
-  }, [service]);
+  }, [service, locked, assignedBranch, branchId]);
   useEffect(() => {
     let active = true;
     let pending = false;
@@ -152,6 +176,8 @@ export function ManagerDataProvider({ children, audience = "manager" }) {
         error: matching ? state.error : null,
         branchId,
         branches,
+        canSwitchBranch: !locked,
+        branchName: branches.find((b) => String(b.id) === String(branchId))?.name || null,
         roleLabel: audience === "owner" ? "OWNER" : "FLEET MANAGER",
         selectBranch: setBranchId,
         setBranchId,

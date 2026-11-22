@@ -143,11 +143,13 @@ export function FleetPulseSection({
           </AppText>
         </View>
 
+        {/* Without onOpenBranch (a manager, fixed to one branch) the pill only names it. */}
         <Pressable
           style={styles.branchPillPulse}
           onPress={onOpenBranch}
-          accessibilityRole="button"
-          accessibilityLabel={branchLabel}
+          disabled={!onOpenBranch}
+          accessibilityRole={onOpenBranch ? "button" : "text"}
+          accessibilityLabel={onOpenBranch ? branchLabel : branchName}
         >
           <Ionicons name="business" size={13} color={colors.primary} />
           <AppText
@@ -159,7 +161,7 @@ export function FleetPulseSection({
           >
             {branchName}
           </AppText>
-          <Ionicons name="chevron-down" size={11} color={colors.primary} />
+          {onOpenBranch ? <Ionicons name="chevron-down" size={11} color={colors.primary} /> : null}
         </Pressable>
       </View>
 

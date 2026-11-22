@@ -123,17 +123,22 @@ export default function FleetFuelLogsScreen({ navigation, route = {} }) {
 
   // Search & Filter state
   const [search, setSearch] = useState(route?.params?.plate || '');
-  const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, VERIFIED, FLAGGED, SLIP_ONLY, UNVERIFIED
+  const [statusFilter, setStatusFilter] = useState(
+    route?.params?.statusFilter || route?.params?.filter || 'ALL'
+  ); // ALL, VERIFIED, FLAGGED, SLIP_ONLY, UNVERIFIED
   const [fuelTypeFilter, setFuelTypeFilter] = useState(route?.params?.fuelType || 'ALL'); // ALL, DIESEL, DEF
 
   useEffect(() => {
+    if (route?.params?.statusFilter || route?.params?.filter) {
+      setStatusFilter(route.params.statusFilter || route.params.filter);
+    }
     if (route?.params?.fuelType) {
       setFuelTypeFilter(route.params.fuelType);
     }
     if (route?.params?.plate) {
       setSearch(route.params.plate);
     }
-  }, [route?.params?.fuelType, route?.params?.plate]);
+  }, [route?.params?.statusFilter, route?.params?.filter, route?.params?.fuelType, route?.params?.plate]);
 
   // Data states
   const [loading, setLoading] = useState(true);

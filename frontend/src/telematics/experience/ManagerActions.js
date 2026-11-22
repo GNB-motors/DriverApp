@@ -90,7 +90,7 @@ export function ManagerActionHome({ navigation }) {
   const rawRole = (user?.role || '').toLowerCase();
   const userRole = rawRole === 'owner' ? 'Owner' : rawRole === 'manager' ? 'Branch Manager' : rawRole ? (rawRole.charAt(0).toUpperCase() + rawRole.slice(1)) : 'Branch Manager';
   const insets = useSafeAreaInsets();
-  const { service, branchId, selectBranch, setBranchId, branches, data, refresh, loading: fleetLoading } = useManagerData();
+  const { service, branchId, selectBranch, setBranchId, branches, canSwitchBranch, data, refresh, loading: fleetLoading } = useManagerData();
   const request = useCards();
   const actRateReq = useActRate();
 
@@ -311,7 +311,7 @@ export function ManagerActionHome({ navigation }) {
         <FleetPulseSection
           title={c('fleetPulse')}
           branchName={currentBranchName}
-          onOpenBranch={() => setBranchSheetOpen(true)}
+          onOpenBranch={canSwitchBranch ? () => setBranchSheetOpen(true) : undefined}
           branchLabel={c('branchFilter')}
           movingCount={movingVehicles}
           idlingCount={idlingVehicles}
@@ -604,7 +604,7 @@ export function ManagerActionHome({ navigation }) {
       </ScrollView>
 
       {/* Branch Selector BottomSheet */}
-      <BottomSheet visible={branchSheetOpen} onClose={() => setBranchSheetOpen(false)}>
+      <BottomSheet visible={canSwitchBranch && branchSheetOpen} onClose={() => setBranchSheetOpen(false)}>
         <AppText variant="h3" weight="extrabold" style={s.sheetTitle}>
           {c('branchFilter')}
         </AppText>

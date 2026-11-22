@@ -148,6 +148,93 @@ export function comparisonNotes(comparison) {
         : "The selected day has missing inputs.",
   );
 }
+
+export function adaptWebOwnerReport(webReport) {
+  if (!webReport) return null;
+  const sectionsList = Array.isArray(webReport.sections) ? webReport.sections : [];
+  const byId = {};
+  for (const s of sectionsList) {
+    if (s?.id) byId[s.id] = s;
+  }
+  const work = byId.yesterdaysWork?.numbers || {};
+  const money = byId.moneyOut?.numbers || {};
+  const exceptions = byId.exceptions?.numbers || {};
+  const people = byId.people?.numbers || {};
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const metric = (value, unit) => ({ value, unit });
+  const bills = driverBillsInr(money);
+
+  return {
+    generatedAt: webReport.generatedAt || new Date().toISOString(),
+    sections: {
+      trips: {
+        status: work.trips != null ? 'ok' : 'empty',
+        metrics: {
+          count: metric(num(work.completedTrips), 'records'),
+          started: metric(num(work.trips), 'records'),
+          ladenKm: metric(num(work.km), 'km'),
+        },
+      },
+      distance: {
+        status: work.km != null ? 'ok' : 'empty',
+        metrics: {
+          observedKm: metric(num(work.km), 'km'),
+        },
+      },
+      diesel: {
+        status: money.dieselBillInr != null ? 'ok' : 'empty',
+        metrics: {
+          amount: metric(num(money.dieselBillInr), 'INR'),
+          litres: metric(num(money.dieselBillLitres), 'L'),
+        },
+      },
+      expenses: {
+        status: bills != null ? 'ok' : 'empty',
+        metrics: {
+          amount: metric(bills, 'INR'),
+          pending: metric(num(money.expensePendingCount), 'records'),
+        },
+      },
+      fuelReviews: {
+        status: exceptions.moneyTheft != null ? 'ok' : 'empty',
+        metrics: {
+          count: metric(num(exceptions.moneyTheft) ?? 0, 'records'),
+        },
+      },
+      expenseReviews: {
+        status: money.expensePendingCount != null ? 'ok' : 'empty',
+        metrics: {
+          count: metric(num(money.expensePendingCount) ?? num(exceptions.papersWaiting) ?? 0, 'records'),
+        },
+      },
+      documents: {
+        status: exceptions.documentsExpiring != null ? 'ok' : 'empty',
+        metrics: {
+          count: metric(num(exceptions.documentsExpiring) ?? 0, 'records'),
+        },
+      },
+      issues: {
+        status: exceptions.sos != null ? 'ok' : 'empty',
+        metrics: {
+          count: metric(num(exceptions.sos) ?? 0, 'records'),
+        },
+      },
+      deviations: {
+        status: exceptions.routeDeviations != null ? 'ok' : 'empty',
+        metrics: {
+          count: metric(num(exceptions.routeDeviations) ?? 0, 'records'),
+        },
+      },
+      people: {
+        status: people.driversCount != null ? 'ok' : 'empty',
+        metrics: {
+          count: metric(num(people.driversCount), 'records'),
+        },
+      },
+      ...byId,
+    },
+  };
+}
 export function reportSpeech(report, language = "en") {
   const words = {
     en: {

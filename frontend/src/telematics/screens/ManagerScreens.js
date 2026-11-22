@@ -139,6 +139,7 @@ export function ManagerPage({ navigation, title, subtitle, action, children, all
     branches,
     roleLabel,
     selectBranch,
+    canSwitchBranch,
   } = useManagerData();
   const showBack = navigation.getState().type === "stack" && navigation.canGoBack();
   return (
@@ -176,7 +177,7 @@ export function ManagerPage({ navigation, title, subtitle, action, children, all
               </View>
               {action ? <View style={s.heroAction}>{action}</View> : null}
             </View>
-            {branches.length > 1 ? (
+            {canSwitchBranch !== false && branches.length > 1 ? (
               <ScrollView horizontal style={s.branchScroller} showsHorizontalScrollIndicator={false} contentContainerStyle={s.branchRow}>
                 {branches.map((branch) => {
                   const selected = branchId === branch.id;
@@ -1034,12 +1035,12 @@ export function Handover({ navigation }) {
     </ManagerPage>
   );
 }
-export function Alerts({ navigation }) {
+export function Alerts({ navigation, route = {} }) {
   const { service, branchId } = useManagerData();
-  const [filter, setFilter] = useState("Pending");
-  const [days, setDays] = useState("30 days");
-  const [type, setType] = useState("");
-  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState(route?.params?.filter || "Pending");
+  const [days, setDays] = useState(route?.params?.days || "30 days");
+  const [type, setType] = useState(route?.params?.type || "");
+  const [search, setSearch] = useState(route?.params?.search || route?.params?.plate || "");
   const [page, setPage] = useState(1);
   const [storedResult, setResult] = useState(null);
   const resultScope = `${branchId}:${page}:${filter}:${days}:${search}:${type}`;
@@ -1047,6 +1048,13 @@ export function Alerts({ navigation }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
+
+  useEffect(() => {
+    if (route?.params?.filter) setFilter(route.params.filter);
+    if (route?.params?.type) setType(route.params.type);
+    if (route?.params?.search || route?.params?.plate) setSearch(route.params.search || route.params.plate);
+  }, [route?.params?.filter, route?.params?.type, route?.params?.search, route?.params?.plate]);
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -1088,8 +1096,8 @@ export function Alerts({ navigation }) {
   return (
     <ManagerPage
       navigation={navigation}
-      title="Owner alerts"
-      subtitle="The same owner-alert feed as the web dashboard."
+      title={route?.params?.title || "Fleet Alerts & Exceptions"}
+      subtitle="Live GPS & sensor safety alarms matching the web dashboard."
     >
       <Filters
         values={["Pending", "All", "Acknowledged"]}

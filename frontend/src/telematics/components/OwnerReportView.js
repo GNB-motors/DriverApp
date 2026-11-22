@@ -39,6 +39,7 @@ import {
   displayMetric,
   sectionNames,
   hisabTiles,
+  adaptWebOwnerReport,
 } from "../services/ownerReport";
 import {
   reportMeta,
@@ -514,9 +515,94 @@ export function OwnerReportDashboard({
     await Promise.allSettled([request.reload(), managerContext?.refresh?.()]);
   }, [request, managerContext]);
 
-  const sections = request.data?.sections || {};
+  const sections = useMemo(() => {
+    const webAdapted = digest?.data ? adaptWebOwnerReport(digest.data)?.sections : {};
+    return {
+      ...webAdapted,
+      ...(request.data?.sections || {}),
+    };
+  }, [digest?.data, request.data?.sections]);
+
   const detail = (name) =>
     navigation.navigate("Owner report section", { name, date });
+
+  const handleSectionOpen = (name) => {
+    switch (name) {
+      case 'diesel':
+        navigation.navigate('Fuel logs', {
+          fuelType: 'DIESEL',
+          date,
+          title: 'Diesel Purchases',
+        });
+        break;
+      case 'adblue':
+        navigation.navigate('Fuel logs', {
+          fuelType: 'DEF',
+          date,
+          title: 'AdBlue Purchases',
+        });
+        break;
+      case 'expenses':
+      case 'expenseReviews':
+        navigation.navigate('Manager approvals', {
+          filter: 'DRIVER',
+          date,
+          title: 'Driver Bills & Claims',
+        });
+        break;
+      case 'fuelReviews':
+      case 'sensorReconciliation':
+        navigation.navigate('Fuel logs', {
+          statusFilter: 'FLAGGED',
+          filter: 'FLAGGED',
+          date,
+          title: 'Fuel Audits & Discrepancies',
+        });
+        break;
+      case 'documents':
+        navigation.navigate('Fleet documents', {
+          filter: 'EXPIRING',
+          title: 'Expiring Fleet Papers',
+        });
+        break;
+      case 'trips':
+        navigation.navigate('Fleet trips', {
+          timePreset: 'TODAY',
+          date,
+          title: 'Completed Trips',
+        });
+        break;
+      case 'distance':
+        navigation.navigate('Fleet trips', {
+          timePreset: 'TODAY',
+          highlightMetric: 'distance',
+          date,
+          title: 'Distance Driven',
+        });
+        break;
+      case 'issues':
+      case 'issuesRaised':
+      case 'inbox':
+      case 'deviations':
+      case 'deviationsRaised':
+        navigation.navigate('Alerts', {
+          title: 'Fleet Alerts & Exceptions',
+          filter: 'Pending',
+        });
+        break;
+      case 'people':
+      case 'pairedDrivers':
+      case 'crew':
+        navigation.navigate('Duty board');
+        break;
+      case 'driverTrends':
+        navigation.navigate('Owner trends', { date });
+        break;
+      default:
+        detail(name);
+        break;
+    }
+  };
 
   const handleHighlightPress = (tile) => {
     if (tile.key === 'trips') {
@@ -541,7 +627,7 @@ export function OwnerReportDashboard({
       });
     } else if (tile.key === 'bills') {
       navigation.navigate('Manager approvals', {
-        filter: 'ALL',
+        filter: 'DRIVER',
         category: 'BILLS',
         date,
         title: 'Driver Bills & Advances',
@@ -549,7 +635,7 @@ export function OwnerReportDashboard({
     } else if (tile.route) {
       navigation.navigate(tile.route);
     } else {
-      detail(tile.section);
+      handleSectionOpen(tile.section);
     }
   };
 
@@ -596,7 +682,7 @@ export function OwnerReportDashboard({
         <FleetPulseSection
           title="Fleet Pulse"
           branchName={currentBranchName}
-          onOpenBranch={() => setBranchOpen(true)}
+          onOpenBranch={managerContext?.canSwitchBranch === false ? undefined : () => setBranchOpen(true)}
           movingCount={movingVehicles}
           idlingCount={idlingVehicles}
           stoppedCount={stoppedVehicles}
@@ -711,12 +797,8 @@ export function OwnerReportDashboard({
                 right={
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Open full inbox"
-                    onPress={() =>
-                      isOwner
-                        ? navigation.navigate("Owner escalations")
-                        : navigation.navigate("Manager tabs", { screen: "Alerts" })
-                    }
+                    accessibilityLabel="Open alerts"
+                    onPress={() => navigation.navigate("Alerts")}
                     hitSlop={8}
                   >
                     <AppText
@@ -724,41 +806,89 @@ export function OwnerReportDashboard({
                       weight="semibold"
                       color={colors.rage700}
                     >
-                      View inbox
+                      View all alerts
                     </AppText>
                   </Pressable>
                 }
               />
               <Card padding={0}>
                 {[
-                  ["fuelReviews", "Fuel captures", "water-outline"],
-                  ["expenseReviews", "Driver bills", "receipt-outline"],
-                  ["documents", "Papers & renewals", "document-text-outline"],
-                ].map(([name, title, icon], index) => {
-                  const count = metricValue(sections[name], "count");
-                  return (
-                    <OwnerGroupRow
-                      key={name}
-                      title={title}
-                      icon={icon}
-                      subtitle={
-                        count == null
-                          ? "Review data unavailable"
-                          : count === 0
-                            ? "No items in this queue"
-                            : "Current review queue"
-                      }
-                      right={
-                        <Badge
-                          tone={count > 0 ? "pending" : "neutral"}
-                          label={count == null ? "—" : String(count)}
-                        />
-                      }
-                      onPress={() => detail(name)}
-                      last={index === 2}
-                    />
-                  );
-                })}
+                  {
+                    id: 'driverClaims',
+                    title: 'Driver Expense Claims',
+                    icon: 'receipt-outline',
+                    count: metricValue(sections.expenseReviews, 'count') ?? metricValue(sections.expenses, 'pending') ?? null,
+                    subtitle: 'Awaiting approval · Driver bills & WhatsApp slips',
+                    badgeTone: (metricValue(sections.expenseReviews, 'count') ?? metricValue(sections.expenses, 'pending') ?? 0) > 0 ? 'pending' : 'neutral',
+                    onPress: () =>
+                      navigation.navigate('Manager approvals', {
+                        filter: 'DRIVER',
+                        category: 'BILLS',
+                        title: 'Driver Bills & Claims',
+                      }),
+                  },
+                  {
+                    id: 'fuelAudits',
+                    title: 'Fuel Audits & Discrepancies',
+                    icon: 'water-outline',
+                    count: metricValue(sections.fuelReviews, 'count') ?? (lowFuelVehicles.length > 0 ? lowFuelVehicles.length : null),
+                    subtitle: 'Sensor variance & unverified fuel entries',
+                    badgeTone: (metricValue(sections.fuelReviews, 'count') ?? lowFuelVehicles.length) > 0 ? 'warning' : 'neutral',
+                    onPress: () =>
+                      navigation.navigate('Fuel logs', {
+                        statusFilter: 'FLAGGED',
+                        filter: 'FLAGGED',
+                        title: 'Fuel Audits & Discrepancies',
+                      }),
+                  },
+                  {
+                    id: 'expiringDocs',
+                    title: 'Expiring Compliance & Papers',
+                    icon: 'document-text-outline',
+                    count: metricValue(sections.documents, 'count') ?? null,
+                    subtitle: 'RC, Fitness, Insurance due within 7 days',
+                    badgeTone: (metricValue(sections.documents, 'count') ?? 0) > 0 ? 'expired' : 'neutral',
+                    onPress: () =>
+                      navigation.navigate('Fleet documents', {
+                        filter: 'EXPIRING',
+                        title: 'Expiring Fleet Papers',
+                      }),
+                  },
+                  {
+                    id: 'criticalAlerts',
+                    title: 'Critical Fleet Escalations',
+                    icon: 'warning-outline',
+                    count: unreadAlertsCount,
+                    subtitle: 'SOS, speed & safety alarms needing attention',
+                    badgeTone: unreadAlertsCount > 0 ? 'expired' : 'neutral',
+                    onPress: () =>
+                      navigation.navigate('Alerts', {
+                        filter: 'Pending',
+                        title: 'Critical Fleet Alerts',
+                      }),
+                  },
+                ].map((item, index) => (
+                  <OwnerGroupRow
+                    key={item.id}
+                    title={item.title}
+                    icon={item.icon}
+                    subtitle={
+                      item.count == null
+                        ? 'Review data unavailable'
+                        : item.count === 0
+                          ? 'All items cleared · Queue clean'
+                          : `${item.count} waiting · ${item.subtitle}`
+                    }
+                    right={
+                      <Badge
+                        tone={item.badgeTone}
+                        label={item.count == null ? '—' : String(item.count)}
+                      />
+                    }
+                    onPress={item.onPress}
+                    last={index === 3}
+                  />
+                ))}
               </Card>
 
               <SectionHeader label="Your workspace" />
@@ -840,7 +970,7 @@ export function OwnerReportDashboard({
                     key={name}
                     name={name}
                     section={sections[name]}
-                    onOpen={() => detail(name)}
+                    onOpen={() => handleSectionOpen(name)}
                     last={i === group.length - 1}
                   />
                 ))}
@@ -897,7 +1027,10 @@ export function OwnerReportDashboard({
           </Pressable>
         </View>
       </ScrollView>
-      <BottomSheet visible={branchOpen} onClose={() => setBranchOpen(false)}>
+      <BottomSheet
+        visible={managerContext?.canSwitchBranch !== false && branchOpen}
+        onClose={() => setBranchOpen(false)}
+      >
         <View style={s.sheetHeading}>
           <AppText variant="h2">Your branches</AppText>
           <IconAction

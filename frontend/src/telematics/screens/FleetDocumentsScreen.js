@@ -67,7 +67,15 @@ export default function FleetDocumentsScreen({ navigation, route = {} }) {
 
   // Search & Filter state
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('ALL'); // ALL, COMPLIANT, EXPIRING, ACTION_REQUIRED
+  const [filter, setFilter] = useState(
+    route?.params?.filter ? String(route.params.filter).toUpperCase() : 'ALL'
+  ); // ALL, COMPLIANT, EXPIRING, ACTION_REQUIRED
+
+  useEffect(() => {
+    if (route?.params?.filter) {
+      setFilter(String(route.params.filter).toUpperCase());
+    }
+  }, [route?.params?.filter]);
 
   // Data states
   const [loading, setLoading] = useState(true);
@@ -314,7 +322,7 @@ export default function FleetDocumentsScreen({ navigation, route = {} }) {
       }
 
       if (filter === 'COMPLIANT') return v.isFullyCompliant;
-      if (filter === 'EXPIRING') return v.expiringCount > 0 && v.expiredCount === 0;
+      if (filter === 'EXPIRING') return v.expiringCount > 0 || v.expiredCount > 0;
       if (filter === 'ACTION_REQUIRED') return v.needsAction;
 
       return true;

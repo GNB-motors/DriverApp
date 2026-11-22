@@ -356,6 +356,22 @@ export function createTelematicsApi({
       ...(APP_VERSION && { 'X-App-Version': APP_VERSION }),
     },
   });
+  // The branch the owner/manager is working in (null = all branches). Requests that do
+  // not name a branch themselves carry it, so every screen reads the same scope.
+  let activeBranch = null;
+  client.interceptors.request.use((config) => {
+    if (!activeBranch) return config;
+    const headers = config.headers || {};
+    const named =
+      typeof headers.has === "function"
+        ? headers.has("X-Branch-Id")
+        : Object.keys(headers).some((key) => key.toLowerCase() === "x-branch-id");
+    if (!named) {
+      if (typeof headers.set === "function") headers.set("X-Branch-Id", activeBranch);
+      else config.headers = { ...headers, "X-Branch-Id": activeBranch };
+    }
+    return config;
+  });
   client.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -713,6 +729,9 @@ export function createTelematicsApi({
     return report;
   }
   return {
+    setActiveBranch(id) {
+      activeBranch = id && id !== "all" ? String(id) : null;
+    },
     dailyDigest,
     async ownerDaily(date, branchId) {
       try {

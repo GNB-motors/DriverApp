@@ -30,14 +30,13 @@ import ChooseLanguageScreen from '../screens/driver/account/ChooseLanguageScreen
 const Tab = createBottomTabNavigator(); const Stack = createNativeStackNavigator();
 const icons = { Home: 'home-outline', Today: 'sunny-outline', Live: 'map-outline', Fleet: 'bus-outline', Alerts: 'notifications-outline', More: 'grid-outline' };
 function OwnerTabs() {
-  const { service, branchId } = useManagerData();
-  const inbox = useOwnerRequest(`owner-tab-inbox:${branchId}`, () => service.ownerEscalations(branchId === 'all' ? undefined : branchId), 60000);
-  const unread = inbox.data?.activeCount;
+  const { data } = useManagerData();
+  const unread = data?.alertFeed?.unacknowledgedCount || 0;
   return <Tab.Navigator tabBar={(props) => <CurvedTabBar {...props} />} screenOptions={({ route }) => ({ headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name={icons[route.name]} size={size} color={color} /> })}>
     <Tab.Screen name="Home" component={OwnerReport} />
     <Tab.Screen name="Live" component={Screens.ManagerLive} />
     <Tab.Screen name="Fleet" component={Screens.Fleet} />
-    <Tab.Screen name="Alerts" component={OwnerEscalations} options={{ tabBarBadge: unread || undefined }} />
+    <Tab.Screen name="Alerts" component={Screens.Alerts} options={{ tabBarBadge: unread || undefined }} />
     <Tab.Screen name="More" component={Owner.More} />
   </Tab.Navigator>;
 }
@@ -80,7 +79,7 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Owner trends" component={OwnerTrends} />
     <Stack.Screen name="Report settings" component={ReportSettings} />
     <Stack.Screen name="Owner escalations" component={OwnerEscalations} />
-    <Stack.Screen name="Alerts" component={OwnerEscalations} />
+    <Stack.Screen name="Alerts" component={Screens.Alerts} />
     <Stack.Screen name="Owner escalation" component={OwnerEscalation} />
     <Stack.Screen name="Owner calls" component={OwnerCalls} />
     <Stack.Screen name="Messages" component={Messages} />

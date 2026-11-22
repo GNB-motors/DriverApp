@@ -433,7 +433,65 @@ export function DriverRow({ driver }) {
 }
 export function AlertRow({ alert, onPress }) {
   const tone = tones[alert.severity] || tones.info;
-  return <Card onPress={onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={alert.title} style={s.rowCard}><View style={[s.alertIcon, { backgroundColor: tone.background }]}><Ionicons name={tone.icon} color={tone.color} size={21} /></View><View style={s.flex}><AppText weight="semibold">{alert.title}</AppText><AppText variant="small" muted style={s.description}>{alert.description}</AppText><AppText variant="caption" color={tone.color}>{alert.acknowledged ? 'Acknowledged' : `${tone.label} · Tap to acknowledge`}</AppText></View>{onPress && <Ionicons name="chevron-forward" color={colors.textMuted} size={17} />}</Card>;
+  const dateStr = alert.createdAt
+    ? new Date(alert.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : '';
+  return (
+    <Card
+      onPress={onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={alert.title}
+      style={s.rowCard}
+    >
+      <View style={[s.alertIcon, { backgroundColor: tone.background }]}>
+        <Ionicons name={tone.icon} color={tone.color} size={22} />
+      </View>
+      <View style={s.flex}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 2 }}>
+          <AppText weight="bold" color={colors.text} numberOfLines={1} style={{ flex: 1, fontSize: 14 }}>
+            {alert.title}
+          </AppText>
+          {alert.vehicleNumber ? (
+            <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#E2E8F0' }}>
+              <AppText variant="caption" weight="bold" mono color="#334155" style={{ fontSize: 11 }}>
+                {alert.vehicleNumber}
+              </AppText>
+            </View>
+          ) : null}
+        </View>
+
+        <AppText variant="small" muted style={s.description} numberOfLines={2}>
+          {alert.description}
+        </AppText>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <View
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: alert.acknowledged ? '#10B981' : tone.color,
+              }}
+            />
+            <AppText
+              variant="caption"
+              color={alert.acknowledged ? '#10B981' : tone.color}
+              weight="bold"
+            >
+              {alert.acknowledged ? 'Acknowledged' : `${tone.label} · Action Needed`}
+            </AppText>
+          </View>
+          {dateStr ? (
+            <AppText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>
+              {dateStr}
+            </AppText>
+          ) : null}
+        </View>
+      </View>
+      {onPress && <Ionicons name="chevron-forward" color={colors.textMuted} size={16} />}
+    </Card>
+  );
 }
 export function DutyCard({ driver }) {
   const progress = Math.min(1, Math.max(0, driver.drivingMinutes / driver.limitMinutes || 0));

@@ -92,11 +92,12 @@ export default function TeamAccessScreen({ navigation, route }) {
     selectBranch,
     setBranchId,
     branches = [],
+    canSwitchBranch = true,
   } = useManagerData?.() || {};
 
-  // Active branch scope
+  // Active branch scope. A manager is fixed to their own branch, whatever a link says.
   const [selectedBranch, setSelectedBranch] = useState(
-    route?.params?.branchId || contextBranchId || 'all'
+    (canSwitchBranch && route?.params?.branchId) || contextBranchId || 'all'
   );
   const [branchSelectorVisible, setBranchSelectorVisible] = useState(false);
 
@@ -197,6 +198,7 @@ export default function TeamAccessScreen({ navigation, route }) {
 
   // Branch switcher handler
   const handleSelectBranch = (bId) => {
+    if (!canSwitchBranch) return;
     setSelectedBranch(bId);
     const switchFn = setBranchId || selectBranch;
     if (switchFn) switchFn(bId);
@@ -509,14 +511,16 @@ export default function TeamAccessScreen({ navigation, route }) {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={s.switchBranchBtn}
-            onPress={() => setBranchSelectorVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={s.switchBranchBtnText}>Switch</Text>
-            <Ionicons name="chevron-down" size={14} color="#1A56DB" />
-          </TouchableOpacity>
+          {canSwitchBranch ? (
+            <TouchableOpacity
+              style={s.switchBranchBtn}
+              onPress={() => setBranchSelectorVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={s.switchBranchBtnText}>Switch</Text>
+              <Ionicons name="chevron-down" size={14} color="#1A56DB" />
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         {/* Quick KPI Stats */}
