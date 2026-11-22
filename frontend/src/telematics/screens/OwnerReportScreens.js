@@ -1,6 +1,6 @@
 import { captureKindLabel, captureWarnings } from "../services/documentCapture";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, View } from "react-native";
+import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import ApprovalsScreen from "./ApprovalsScreen";
 import KhataLedgerScreen from "./KhataLedgerScreen";
 import * as Speech from "expo-speech";
@@ -1155,7 +1155,8 @@ export { KhataLedgerScreen };
 export function OwnerTrends({ navigation, route }) {
   const { service, branch, key } = useScope();
   const date = route.params?.date || yesterday();
-  const [expanded, setExpanded] = useState(null);
+  const [modalBreakdown, setModalBreakdown] = useState(null);
+  const [activeMetricKey, setActiveMetricKey] = useState(null);
   const request = useOwnerRequest(`${key}:${date}:trends`, () =>
     service.ownerTrends(date, branch),
   );
@@ -1418,46 +1419,6 @@ export function OwnerTrends({ navigation, route }) {
                             {note}
                           </AppText>
                         ))}
-
-                        {/* Expandable 14-Day Detailed Daily Audit Table */}
-                        {expanded === name && (
-                          <View style={{ marginTop: 8, gap: 4, backgroundColor: "#F1F5F9", padding: 8, borderRadius: 12 }}>
-                            <AppText variant="caption" weight="bold" color="#475569" style={{ marginBottom: 2 }}>
-                              Full 14-Day Daily Audit Logs:
-                            </AppText>
-                            {series.map((point) => (
-                              <View
-                                key={point.date}
-                                style={{
-                                  flexDirection: "row",
-                                  justifyContent: "space-between",
-                                  alignItems: "center",
-                                  paddingVertical: 5,
-                                  paddingHorizontal: 8,
-                                  backgroundColor: "#FFFFFF",
-                                  borderRadius: 8,
-                                }}
-                              >
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                                  <AppText variant="caption" mono weight="bold" color="#1E293B">
-                                    {point.date}
-                                  </AppText>
-                                  {point.partialDay ? (
-                                    <Badge tone="warning" label="Partial day" />
-                                  ) : null}
-                                </View>
-                                <View style={{ alignItems: "flex-end" }}>
-                                  <AppText variant="caption" mono weight="bold" color={colors.text}>
-                                    {trendPointText(point, trend.unit)}
-                                  </AppText>
-                                  <AppText variant="caption" color="#94A3B8" style={{ fontSize: 10 }}>
-                                    {point.rows} rows{point.missingRows ? ` · ${point.missingRows} missing` : ""}
-                                  </AppText>
-                                </View>
-                              </View>
-                            ))}
-                          </View>
-                        )}
                       </View>
                     );
                   }
@@ -1478,25 +1439,32 @@ export function OwnerTrends({ navigation, route }) {
               {section.availability === "available" && (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={
-                    expanded === name ? "Hide 14 days" : "Show 14 days"
-                  }
-                  onPress={() =>
-                    setExpanded(expanded === name ? null : name)
-                  }
+                  accessibilityLabel="Show 14 days"
+                  onPress={() => {
+                    const metricsKeys = Object.keys(section.metrics || {});
+                    setActiveMetricKey(metricsKeys[0] || null);
+                    setModalBreakdown({
+                      name,
+                      title: sectionNames[name] || name,
+                      section,
+                    });
+                  }}
                   style={{
                     backgroundColor: "#EEF2FF",
                     borderRadius: 999,
-                    paddingVertical: 8,
-                    paddingHorizontal: 16,
+                    paddingVertical: 9,
+                    paddingHorizontal: 18,
                     alignSelf: "center",
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "center",
                     marginTop: 14,
                     gap: 6,
+                    borderWidth: 1,
+                    borderColor: "#C7D2FE",
                   }}
                 >
+                  <Ionicons name="bar-chart-outline" size={16} color="#4F46E5" />
                   <AppText
                     style={{
                       color: "#4F46E5",
@@ -1504,11 +1472,11 @@ export function OwnerTrends({ navigation, route }) {
                       fontSize: 13,
                     }}
                   >
-                    {expanded === name ? "Hide 14-day daily breakdown" : "Show full 14-day daily breakdown"}
+                    View 14-day daily breakdown
                   </AppText>
                   <Ionicons
-                    name={expanded === name ? "chevron-up" : "chevron-down"}
-                    size={16}
+                    name="chevron-forward"
+                    size={15}
                     color="#4F46E5"
                   />
                 </Pressable>
@@ -1524,6 +1492,196 @@ export function OwnerTrends({ navigation, route }) {
             : {group.note}
           </AppText>
         ))}
+
+        {/* 14-Day Breakdown Popup Modal */}
+        <Modal
+          visible={Boolean(modalBreakdown)}
+          animationType="slide"
+          transparent
+          statusBarTranslucent
+          onRequestClose={() => setModalBreakdown(null)}
+        >
+          <View style={trendsStyles.modalBackdrop}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setModalBreakdown(null)}
+            />
+            <View style={trendsStyles.modalContainer}>
+              {/* Top Drag Pill */}
+              <View style={trendsStyles.modalHandle} />
+
+              {/* Header */}
+              <View style={trendsStyles.modalHeader}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <View style={trendsStyles.modalIconBox}>
+                      <Ionicons name="stats-chart" size={18} color="#4F46E5" />
+                    </View>
+                    <AppText variant="bodyStrong" weight="bold" color="#0F172A">
+                      {modalBreakdown?.title}
+                    </AppText>
+                  </View>
+                  <AppText variant="caption" color="#64748B">
+                    14-Day Daily Performance & Audit Log
+                  </AppText>
+                </View>
+                <Pressable
+                  onPress={() => setModalBreakdown(null)}
+                  hitSlop={10}
+                  style={trendsStyles.closeBtn}
+                >
+                  <Ionicons name="close" size={20} color="#64748B" />
+                </Pressable>
+              </View>
+
+              {modalBreakdown && (() => {
+                const metricsEntries = Object.entries(modalBreakdown.section?.metrics || {});
+                const selectedKey = activeMetricKey || metricsEntries[0]?.[0];
+                const selectedTrend = modalBreakdown.section?.metrics?.[selectedKey] || metricsEntries[0]?.[1];
+                const series = Array.isArray(selectedTrend?.series) ? selectedTrend.series : [];
+                const todayPoint = series.at(-1) || {};
+                const weekdayPoint = series.at(-8) || {};
+                const avgVal = selectedTrend?.comparison?.previousSevenDays?.dailyAverage;
+                const reversedSeries = [...series].reverse();
+
+                return (
+                  <>
+                    {/* Metric Selector Tabs (if more than 1 metric in this section) */}
+                    {metricsEntries.length > 1 && (
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
+                        style={{ maxHeight: 42, marginBottom: 10 }}
+                      >
+                        {metricsEntries.map(([mKey]) => {
+                          const isCurrent = selectedKey === mKey;
+                          return (
+                            <Pressable
+                              key={mKey}
+                              onPress={() => setActiveMetricKey(mKey)}
+                              style={[
+                                trendsStyles.metricPill,
+                                isCurrent && trendsStyles.metricPillActive,
+                              ]}
+                            >
+                              <AppText
+                                variant="caption"
+                                weight="bold"
+                                color={isCurrent ? "#FFFFFF" : "#64748B"}
+                              >
+                                {mKey.replace(/([A-Z])/g, " $1")}
+                              </AppText>
+                            </Pressable>
+                          );
+                        })}
+                      </ScrollView>
+                    )}
+
+                    {/* KPI Stat Cards Strip */}
+                    <View style={trendsStyles.statsStrip}>
+                      <View style={trendsStyles.statBox}>
+                        <AppText variant="caption" color="#64748B">Today</AppText>
+                        <AppText variant="small" weight="bold" color="#4F46E5">
+                          {trendPointText(todayPoint, selectedTrend?.unit)}
+                        </AppText>
+                      </View>
+                      <View style={trendsStyles.statDivider} />
+                      <View style={trendsStyles.statBox}>
+                        <AppText variant="caption" color="#64748B">Same Weekday</AppText>
+                        <AppText variant="small" weight="bold" color="#0F172A">
+                          {trendPointText(weekdayPoint, selectedTrend?.unit)}
+                        </AppText>
+                      </View>
+                      <View style={trendsStyles.statDivider} />
+                      <View style={trendsStyles.statBox}>
+                        <AppText variant="caption" color="#64748B">7-Day Avg</AppText>
+                        <AppText variant="small" weight="bold" color="#0F172A">
+                          {displayMetric({ value: avgVal, unit: selectedTrend?.unit })}
+                        </AppText>
+                      </View>
+                    </View>
+
+                    {/* Comparison Notes */}
+                    {comparisonNotes(selectedTrend?.comparison).map((note) => (
+                      <AppText
+                        key={note}
+                        variant="caption"
+                        color={colors.warning}
+                        style={{ marginBottom: 6 }}
+                      >
+                        {note}
+                      </AppText>
+                    ))}
+
+                    {/* Daily Rows List */}
+                    <ScrollView
+                      style={{ maxHeight: 360, marginVertical: 6 }}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <View style={{ gap: 6 }}>
+                        {reversedSeries.map((point, idx) => {
+                          const isTodayRow = idx === 0;
+                          return (
+                            <View
+                              key={point.date || idx}
+                              style={[
+                                trendsStyles.rowItem,
+                                isTodayRow && trendsStyles.rowItemToday,
+                              ]}
+                            >
+                              <View style={{ gap: 2 }}>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                  <AppText
+                                    variant="small"
+                                    weight="bold"
+                                    color={isTodayRow ? "#4F46E5" : "#1E293B"}
+                                  >
+                                    {point.date}
+                                  </AppText>
+                                  {isTodayRow && <Badge tone="primary" label="Today" />}
+                                  {point.partialDay ? (
+                                    <Badge tone="warning" label="Partial day" />
+                                  ) : null}
+                                </View>
+                                <AppText variant="caption" color="#94A3B8" style={{ fontSize: 11 }}>
+                                  {point.rows} rows recorded{point.missingRows ? ` · ${point.missingRows} missing` : ""}
+                                </AppText>
+                              </View>
+
+                              <View style={{ alignItems: "flex-end" }}>
+                                <AppText
+                                  variant="small"
+                                  weight="bold"
+                                  color="#0F172A"
+                                >
+                                  {trendPointText(point, selectedTrend?.unit)}
+                                </AppText>
+                                {point.status === "empty" && (
+                                  <AppText variant="caption" color="#94A3B8" style={{ fontSize: 10 }}>
+                                    No activity
+                                  </AppText>
+                                )}
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </ScrollView>
+
+                    {/* Close Action Button */}
+                    <Button
+                      label="Done"
+                      variant="primary"
+                      onPress={() => setModalBreakdown(null)}
+                      style={{ marginTop: 10 }}
+                    />
+                  </>
+                );
+              })()}
+            </View>
+          </View>
+        </Modal>
       </Screen>
     );
   return (
@@ -1559,6 +1717,105 @@ export function OwnerTrends({ navigation, route }) {
     </Screen>
   );
 }
+
+const trendsStyles = StyleSheet.create({
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.65)",
+    justifyContent: "flex-end",
+  },
+  modalContainer: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 28,
+    maxHeight: "85%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#CBD5E1",
+    alignSelf: "center",
+    marginBottom: 14,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  modalIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "#EFF6FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  metricPill: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  metricPillActive: {
+    backgroundColor: "#4F46E5",
+    borderColor: "#4F46E5",
+  },
+  statsStrip: {
+    flexDirection: "row",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 10,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: "center",
+    gap: 2,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: "#E2E8F0",
+    marginVertical: 4,
+  },
+  rowItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  rowItemToday: {
+    backgroundColor: "#EFF6FF",
+    borderColor: "#BFDBFE",
+  },
+});
+
 export function ReportSettings({ navigation }) {
   const { service, branches, key, user } = useScope();
   const { setLanguage: setAppLanguage } = useLanguage();
