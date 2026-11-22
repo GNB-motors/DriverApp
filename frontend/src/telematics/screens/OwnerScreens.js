@@ -9,6 +9,8 @@ import { summarizeOwner } from '../services/ownerSummary';
 import { ManagerPage, RecentTrips } from './ManagerScreens';
 import { OwnerReport } from './OwnerReportScreens';
 import { ManagerHome } from './ManagerScreens';
+import FleetHomeSummaryScreen from './FleetHomeSummaryScreen';
+import DailyBusinessReportScreen from './DailyBusinessReportScreen';
 import { MenuRow } from './DriverScreens';
 import { KpiCard, SectionHeading, DataState } from '../components';
 import { formatLitres } from '../../utils/format';
@@ -156,7 +158,8 @@ export function More({ navigation }) {
     </OwnerScreen>
   );
 }
-// Keep these existing entry points on the connected report/fleet surfaces.
-export function OwnerHomeSummary(props) { return <ManagerHome {...props} />; }
-export function OwnerDailyReport(props) { return <OwnerReport {...props} />; }
+// Dedicated Fleet home summary and Today's business report screens.
+export function OwnerHomeSummary(props) { return <FleetHomeSummaryScreen {...props} />; }
+export function OwnerDailyReport(props) { return <DailyBusinessReportScreen {...props} />; }
+export { FleetHomeSummaryScreen, DailyBusinessReportScreen };
 const s = StyleSheet.create({ hero: { padding: 24, gap: 12, borderRadius: radius.xl }, heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }, metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, cost: { padding: 24, gap: 12, borderColor: colors.border }, digest: { padding: 24, gap: 16, borderColor: colors.border }, digestIcon: { backgroundColor: colors.blueTint, width: 56, height: 56, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' } });

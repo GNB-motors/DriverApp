@@ -1270,19 +1270,15 @@ export function OwnerTrends({ navigation, route }) {
                 borderWidth: 1,
                 borderColor: "#E2E8F0",
                 marginBottom: 16,
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.04,
-                shadowRadius: 6,
                 elevation: 2,
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
                 <View
                   style={{
-                    width: 46,
-                    height: 46,
-                    borderRadius: 23,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 14,
                     backgroundColor: isTrips
                       ? "#DBEAFE"
                       : isDiesel
@@ -1296,37 +1292,33 @@ export function OwnerTrends({ navigation, route }) {
                   }}
                 >
                   {isTrips ? (
-                    <Ionicons name="car" size={24} color="#2563EB" />
+                    <Ionicons name="car" size={22} color="#2563EB" />
                   ) : isDiesel ? (
                     <MaterialCommunityIcons
                       name="gas-station"
-                      size={24}
+                      size={22}
                       color="#059669"
                     />
                   ) : name === "expenses" ? (
-                    <Ionicons name="receipt" size={22} color="#EA580C" />
+                    <Ionicons name="receipt" size={20} color="#EA580C" />
                   ) : (
-                    <Ionicons name="analytics" size={22} color="#475569" />
+                    <Ionicons name="analytics" size={20} color="#475569" />
                   )}
                 </View>
-                <View
-                  style={{
-                    width: 1,
-                    height: 32,
-                    backgroundColor: "#E2E8F0",
-                    marginRight: 12,
-                  }}
-                />
-                <AppText
-                  style={{
-                    fontSize: 16,
-                    fontWeight: "700",
-                    color: "#0F172A",
-                    flex: 1,
-                  }}
-                >
-                  {sectionNames[name]}
-                </AppText>
+                <View style={{ flex: 1 }}>
+                  <AppText
+                    style={{
+                      fontSize: 16,
+                      fontWeight: "800",
+                      color: "#0F172A",
+                    }}
+                  >
+                    {sectionNames[name]}
+                  </AppText>
+                  <AppText variant="caption" muted>
+                    14-day history and weekday baseline
+                  </AppText>
+                </View>
               </View>
 
               {section.availability === "unavailable" ? (
@@ -1340,192 +1332,134 @@ export function OwnerTrends({ navigation, route }) {
               ) : (
                 Object.entries(section.metrics).map(
                   ([metric, trend], index) => {
-                    let metricIcon = null;
-                    if (metric === "ladenKm" || metric === "observedKm") {
-                      metricIcon = (
-                        <View
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 16,
-                            backgroundColor: "#F3E8FF",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            marginRight: 10,
-                          }}
-                        >
-                          <Ionicons
-                            name="location"
-                            size={17}
-                            color="#9333EA"
-                          />
-                        </View>
-                      );
-                    } else if (metric === "litres") {
-                      metricIcon = (
-                        <View
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 16,
-                            backgroundColor: "#D1FAE5",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            marginRight: 10,
-                          }}
-                        >
-                          <Ionicons
-                            name="water"
-                            size={17}
-                            color="#059669"
-                          />
-                        </View>
-                      );
-                    } else if (metric === "amount") {
-                      metricIcon = (
-                        <View
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 16,
-                            backgroundColor: "#D1FAE5",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            marginRight: 10,
-                          }}
-                        >
-                          <MaterialCommunityIcons
-                            name="currency-inr"
-                            size={17}
-                            color="#059669"
-                          />
-                        </View>
-                      );
-                    }
+                    const todayPoint = trend.series.at(-1);
+                    const weekdayPoint = trend.series.at(-8);
+                    const avgVal = trend.comparison.previousSevenDays.dailyAverage;
+                    const maxVal = Math.max(
+                      ...trend.series.map((p) => Number(p.value || 0)),
+                      1
+                    );
 
                     return (
-                      <View key={metric}>
-                        {index === 0 ? (
-                          <View style={{ marginTop: 10 }}>
-                            <AppText
-                              style={{
-                                fontSize: 14,
-                                fontWeight: "700",
-                                color: "#0F172A",
-                              }}
-                            >
-                              {metric}:{" "}
-                              {trendPointText(trend.series.at(-1), trend.unit)}
+                      <View key={metric} style={{ marginTop: index > 0 ? 16 : 4 }}>
+                        {/* Metric Title & Today Value */}
+                        <View style={{ backgroundColor: "#F8FAFC", padding: 12, borderRadius: 14, borderWidth: 1, borderColor: "#E2E8F0" }}>
+                          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                            <AppText variant="caption" weight="bold" color="#64748B" style={{ textTransform: "uppercase", letterSpacing: 0.5 }}>
+                              {metric.replace(/([A-Z])/g, " $1")}
                             </AppText>
-                            <AppText
-                              style={{
-                                fontSize: 12,
-                                color: "#64748B",
-                                marginTop: 3,
-                              }}
-                            >
-                              Same weekday (
-                              {trend.comparison.sameWeekday.date}):{" "}
-                              {trendPointText(trend.series.at(-8), trend.unit)}{" "}
-                              · 7-day average:{" "}
-                              {displayMetric({
-                                value:
-                                  trend.comparison.previousSevenDays
-                                    .dailyAverage,
-                                unit: trend.unit,
-                              })}
-                            </AppText>
+                            <Badge tone="primary" label="Today" />
                           </View>
-                        ) : (
-                          <View
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              marginTop: 12,
-                            }}
-                          >
-                            {metricIcon}
-                            <View
-                              style={{
-                                width: 1,
-                                height: 26,
-                                backgroundColor: "#E2E8F0",
-                                marginRight: 10,
-                              }}
-                            />
-                            <View style={{ flex: 1 }}>
-                              <AppText
-                                style={{
-                                  fontSize: 14,
-                                  fontWeight: "700",
-                                  color: "#0F172A",
-                                }}
-                              >
-                                {metric.replace(/([A-Z])/g, " $1")}:{" "}
-                                {trendPointText(
-                                  trend.series.at(-1),
-                                  trend.unit,
-                                )}
+                          <AppText variant="h1" weight="extrabold" color="#0F172A" style={{ marginTop: 2 }}>
+                            {trendPointText(todayPoint, trend.unit)}
+                          </AppText>
+
+                          {/* Comparison Grid */}
+                          <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+                            <View style={{ flex: 1, backgroundColor: "#FFFFFF", padding: 8, borderRadius: 10, borderWidth: 1, borderColor: "#E2E8F0" }}>
+                              <AppText variant="caption" color="#64748B" numberOfLines={1}>
+                                Same weekday ({trend.comparison.sameWeekday.date})
                               </AppText>
-                              <AppText
-                                style={{
-                                  fontSize: 12,
-                                  color: "#64748B",
-                                  marginTop: 2,
-                                }}
-                              >
-                                Same weekday (
-                                {trend.comparison.sameWeekday.date}):{" "}
-                                {trendPointText(
-                                  trend.series.at(-8),
-                                  trend.unit,
-                                )}{" "}
-                                · 7-day average:{" "}
-                                {displayMetric({
-                                  value:
-                                    trend.comparison.previousSevenDays
-                                      .dailyAverage,
-                                  unit: trend.unit,
-                                })}
+                              <AppText variant="small" weight="bold" color="#1E293B">
+                                {trendPointText(weekdayPoint, trend.unit)}
+                              </AppText>
+                            </View>
+
+                            <View style={{ flex: 1, backgroundColor: "#FFFFFF", padding: 8, borderRadius: 10, borderWidth: 1, borderColor: "#E2E8F0" }}>
+                              <AppText variant="caption" color="#64748B" numberOfLines={1}>
+                                7-day average
+                              </AppText>
+                              <AppText variant="small" weight="bold" color="#1E293B">
+                                {displayMetric({ value: avgVal, unit: trend.unit })}
                               </AppText>
                             </View>
                           </View>
-                        )}
+
+                          {/* Visual 14-Day Sparkline Bar Chart */}
+                          <View style={{ marginTop: 12 }}>
+                            <AppText variant="caption" color="#64748B" style={{ marginBottom: 6 }}>
+                              14-Day Performance Timeline:
+                            </AppText>
+                            <View style={{ flexDirection: "row", alignItems: "flex-end", height: 48, gap: 3, paddingVertical: 2 }}>
+                              {trend.series.map((pt, i) => {
+                                const val = Number(pt.value || 0);
+                                const heightPct = Math.max(10, Math.round((val / maxVal) * 100));
+                                const isCurrent = i === trend.series.length - 1;
+                                return (
+                                  <View key={pt.date || i} style={{ flex: 1, alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
+                                    <View
+                                      style={{
+                                        width: "100%",
+                                        height: `${heightPct}%`,
+                                        backgroundColor: isCurrent ? colors.primary : pt.partialDay ? "#CBD5E1" : "#93C5FD",
+                                        borderRadius: 3,
+                                      }}
+                                    />
+                                  </View>
+                                );
+                              })}
+                            </View>
+                            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+                              <AppText variant="caption" mono muted style={{ fontSize: 9 }}>{trend.series[0]?.date?.slice(5)}</AppText>
+                              <AppText variant="caption" mono muted style={{ fontSize: 9 }}>7d ago</AppText>
+                              <AppText variant="caption" mono weight="bold" color={colors.primary} style={{ fontSize: 9 }}>Today</AppText>
+                            </View>
+                          </View>
+                        </View>
 
                         {comparisonNotes(trend.comparison).map((note) => (
                           <AppText
                             key={note}
                             variant="caption"
                             color={colors.warning}
-                            style={{ marginTop: 2 }}
+                            style={{ marginTop: 4 }}
                           >
                             {note}
                           </AppText>
                         ))}
 
-                        {expanded === name &&
-                          trend.series.map((point) => (
-                            <AppText
-                              key={point.date}
-                              variant="caption"
-                              style={{
-                                color: "#475569",
-                                marginTop: 2,
-                                marginLeft: 4,
-                              }}
-                            >
-                              {point.date}
-                              {point.partialDay ? " (partial day)" : ""}:{" "}
-                              {trendPointText(point, trend.unit)} · {point.rows}{" "}
-                              rows
-                              {point.missingRows
-                                ? ` · ${point.missingRows} missing`
-                                : ""}
+                        {/* Expandable 14-Day Detailed Daily Audit Table */}
+                        {expanded === name && (
+                          <View style={{ marginTop: 8, gap: 4, backgroundColor: "#F1F5F9", padding: 8, borderRadius: 12 }}>
+                            <AppText variant="caption" weight="bold" color="#475569" style={{ marginBottom: 2 }}>
+                              Full 14-Day Daily Audit Logs:
                             </AppText>
-                          ))}
+                            {trend.series.map((point) => (
+                              <View
+                                key={point.date}
+                                style={{
+                                  flexDirection: "row",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  paddingVertical: 5,
+                                  paddingHorizontal: 8,
+                                  backgroundColor: "#FFFFFF",
+                                  borderRadius: 8,
+                                }}
+                              >
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                  <AppText variant="caption" mono weight="bold" color="#1E293B">
+                                    {point.date}
+                                  </AppText>
+                                  {point.partialDay ? (
+                                    <Badge tone="warning" label="Partial day" />
+                                  ) : null}
+                                </View>
+                                <View style={{ alignItems: "flex-end" }}>
+                                  <AppText variant="caption" mono weight="bold" color={colors.text}>
+                                    {trendPointText(point, trend.unit)}
+                                  </AppText>
+                                  <AppText variant="caption" color="#94A3B8" style={{ fontSize: 10 }}>
+                                    {point.rows} rows{point.missingRows ? ` · ${point.missingRows} missing` : ""}
+                                  </AppText>
+                                </View>
+                              </View>
+                            ))}
+                          </View>
+                        )}
                       </View>
                     );
-                  },
+                  }
                 )
               )}
 
@@ -1534,7 +1468,7 @@ export function OwnerTrends({ navigation, route }) {
                   key={note}
                   variant="caption"
                   muted
-                  style={{ marginTop: 4 }}
+                  style={{ marginTop: 6 }}
                 >
                   {note}
                 </AppText>
@@ -1552,24 +1486,24 @@ export function OwnerTrends({ navigation, route }) {
                   style={{
                     backgroundColor: "#EEF2FF",
                     borderRadius: 999,
-                    paddingVertical: 7,
+                    paddingVertical: 8,
                     paddingHorizontal: 16,
                     alignSelf: "center",
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "center",
                     marginTop: 14,
+                    gap: 6,
                   }}
                 >
                   <AppText
                     style={{
                       color: "#4F46E5",
                       fontWeight: "700",
-                      fontSize: 13.5,
-                      marginRight: 4,
+                      fontSize: 13,
                     }}
                   >
-                    {expanded === name ? "Hide 14 days" : "Show 14 days"}
+                    {expanded === name ? "Hide 14-day daily breakdown" : "Show full 14-day daily breakdown"}
                   </AppText>
                   <Ionicons
                     name={expanded === name ? "chevron-up" : "chevron-down"}
@@ -1632,7 +1566,9 @@ export function ReportSettings({ navigation }) {
   );
   const [form, setForm] = useState(null),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [saved, setSaved] = useState(false);
+
   useEffect(() => {
     if (request.data)
       setForm({
@@ -1647,102 +1583,168 @@ export function ReportSettings({ navigation }) {
       });
     else setForm(null);
   }, [request.data, user]);
+
   return (
     <Screen navigation={navigation} title="Morning report">
       <RequestState request={request} />
       {form && (
         <>
+          {/* Hero Explainer Card */}
+          <Card elevated="sm" padding={16} style={{ backgroundColor: "#FFFFFF", borderRadius: 18, borderWidth: 1, borderColor: "#E2E8F0", gap: 10 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#FEF3C7", alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name="sunny" size={22} color="#D97706" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AppText variant="bodyStrong" weight="bold">Daily Morning Executive Briefing</AppText>
+                <AppText variant="caption" color="#64748B">60-second summary delivered every morning</AppText>
+              </View>
+            </View>
+            <AppText variant="caption" color="#475569" style={{ lineHeight: 18 }}>
+              Every morning at your chosen time, GNB Motors compiles yesterday's completed trips, loaded kilometers, fuel expenditures, pending driver claims, and safety alerts into an executive summary so you start your day fully informed.
+            </AppText>
+          </Card>
+
+          {/* Master Enable Choice */}
           <Choice
-            label="Daily notification"
+            label="Daily briefing status"
             value={String(form.enabled)}
             onChange={(value) =>
               setForm({ ...form, enabled: value === "true" })
             }
             options={[
-              ["true", "Enabled"],
-              ["false", "Disabled"],
+              ["true", "Enabled (Active)"],
+              ["false", "Disabled (Paused)"],
             ]}
           />
-          <TextField
-            label="Time in IST (HH:mm)"
-            value={form.time}
-            onChangeText={(time) => setForm({ ...form, time })}
-            maxLength={5}
-          />
+
+          {/* Delivery Channels */}
+          <Card elevated="sm" padding={14} style={{ backgroundColor: "#FFFFFF", borderRadius: 16, borderWidth: 1, borderColor: "#E2E8F0", gap: 12 }}>
+            <AppText variant="label" weight="bold" color="#1E293B">Delivery Channels</AppText>
+
+            <Choice
+              label="WhatsApp delivery"
+              value={String(form.whatsappEnabled)}
+              onChange={(value) =>
+                setForm({ ...form, whatsappEnabled: value === "true" })
+              }
+              options={[
+                ["true", "Enabled"],
+                ["false", "Disabled"],
+              ]}
+            />
+            {form.whatsappEnabled && (
+              <TextField
+                label="WhatsApp recipient number"
+                value={form.whatsappNumber}
+                onChangeText={(whatsappNumber) =>
+                  setForm({ ...form, whatsappNumber })
+                }
+                keyboardType="phone-pad"
+                maxLength={15}
+                placeholder="+91 98765 43210"
+              />
+            )}
+
+            <Choice
+              label="Email delivery"
+              value={String(form.emailEnabled)}
+              onChange={(value) =>
+                setForm({ ...form, emailEnabled: value === "true" })
+              }
+              options={[
+                ["true", "Enabled"],
+                ["false", "Disabled"],
+              ]}
+            />
+            {form.emailEnabled && (
+              <TextField
+                label="Recipient email address"
+                value={form.email}
+                onChangeText={(email) => setForm({ ...form, email })}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                maxLength={100}
+                placeholder="owner@fleet.com"
+              />
+            )}
+          </Card>
+
+          {/* Schedule & Time */}
+          <Card elevated="sm" padding={14} style={{ backgroundColor: "#FFFFFF", borderRadius: 16, borderWidth: 1, borderColor: "#E2E8F0", gap: 10 }}>
+            <AppText variant="label" weight="bold" color="#1E293B">Delivery Schedule</AppText>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {["07:00", "07:30", "08:00", "08:30", "09:00"].map((t) => {
+                const on = form.time === t;
+                return (
+                  <Pressable
+                    key={t}
+                    onPress={() => setForm({ ...form, time: t })}
+                    style={{
+                      paddingVertical: 6,
+                      paddingHorizontal: 12,
+                      borderRadius: 12,
+                      backgroundColor: on ? colors.primary : "#F1F5F9",
+                    }}
+                  >
+                    <AppText variant="small" weight={on ? "bold" : "semibold"} color={on ? colors.white : "#475569"}>
+                      {t} IST
+                    </AppText>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <TextField
+              label="Custom Time (HH:mm IST)"
+              value={form.time}
+              onChangeText={(time) => setForm({ ...form, time })}
+              maxLength={5}
+            />
+          </Card>
+
+          {/* Language & Scope */}
           <Choice
-            label="Language"
+            label="Briefing language"
             value={form.language}
             onChange={(language) => setForm({ ...form, language })}
             options={[
               ["en", "English"],
-              ["hi", "हिन्दी"],
-              ["bn", "বাংলা"],
+              ["hi", "हिन्दी (Hindi)"],
+              ["bn", "বাংলা (Bengali)"],
             ]}
           />
+
           <Choice
-            label="Report branch"
+            label="Report branch scope"
             value={form.branchId || "all"}
             onChange={(value) =>
               setForm({ ...form, branchId: value === "all" ? null : value })
             }
             options={branches.map((b) => [b.id, b.name])}
           />
-          <Choice
-            label="Email delivery"
-            value={String(form.emailEnabled)}
-            onChange={(value) =>
-              setForm({ ...form, emailEnabled: value === "true" })
-            }
-            options={[
-              ["true", "Enabled"],
-              ["false", "Disabled"],
-            ]}
-          />
-          {form.emailEnabled && (
-            <TextField
-              label="Recipient email"
-              value={form.email}
-              onChangeText={(email) => setForm({ ...form, email })}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              maxLength={100}
-            />
-          )}
-          <Choice
-            label="WhatsApp delivery"
-            value={String(form.whatsappEnabled)}
-            onChange={(value) =>
-              setForm({ ...form, whatsappEnabled: value === "true" })
-            }
-            options={[
-              ["true", "Enabled"],
-              ["false", "Disabled"],
-            ]}
-          />
-          {form.whatsappEnabled && (
-            <TextField
-              label="WhatsApp number"
-              value={form.whatsappNumber}
-              onChangeText={(whatsappNumber) =>
-                setForm({ ...form, whatsappNumber })
-              }
-              keyboardType="phone-pad"
-              maxLength={15}
-            />
-          )}
-          <AppText muted>
-            Opens yesterday's report. Historical reports are recomputed; device
-            notification permission is also required for push delivery.
-          </AppText>
+
+          {/* Quick Preview Button */}
           <Button
-            label="Save preference"
+            label="Preview Today's Business Report"
+            variant="secondary"
+            onPress={() => navigation.navigate("Aaj ka hisaab")}
+          />
+
+          {saved && (
+            <Badge tone="positive" label="Preferences saved successfully" />
+          )}
+
+          <Button
+            label="Save preferences"
             loading={busy}
             onPress={async () => {
               setBusy(true);
               setError("");
+              setSaved(false);
               try {
                 await service.ownerPreferences(form);
                 if (form.language) setAppLanguage(form.language);
+                setSaved(true);
                 request.reload();
               } catch (failure) {
                 setError(failure.message);

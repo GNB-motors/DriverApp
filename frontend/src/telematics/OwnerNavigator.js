@@ -96,6 +96,9 @@ export default function OwnerNavigator() {
     <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} options={{ presentation: 'transparentModal', animation: 'fade' }} />
     <Stack.Screen name="Owner settings" component={Screens.Settings} />
     <Stack.Screen name="Owner home" component={Owner.OwnerHomeSummary} />
+    <Stack.Screen name="Fleet home summary" component={Owner.OwnerHomeSummary} />
     <Stack.Screen name="Aaj ka hisaab" component={Owner.OwnerDailyReport} />
+    <Stack.Screen name="Today's business report" component={Owner.OwnerDailyReport} />
+    <Stack.Screen name="Daily digest" component={Owner.OwnerDailyReport} />
   </Stack.Navigator></ManagerDataProvider></TelematicsApiProvider>;
 }
