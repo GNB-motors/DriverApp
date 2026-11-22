@@ -86,6 +86,9 @@ export default function OwnerNavigator() {
     <Stack.Screen name="New conversation" component={NewConversation} />
     <Stack.Screen name="Conversation" component={Conversation} />
     <Stack.Screen name="Fuel & AdBlue" component={DefLedgerScreen} />
+    <Stack.Screen name="AdBlue & DEF Ledger" component={DefLedgerScreen} />
+    <Stack.Screen name="AdBlue / DEF" component={DefLedgerScreen} />
+    <Stack.Screen name="Def ledger" component={DefLedgerScreen} />
     <Stack.Screen name="Branch overview" component={Owner.BranchOverview} />
     <Stack.Screen name="Capture reviews" component={ManagerReviews} />
     <Stack.Screen name="Team & access" component={TeamAccessScreen} />

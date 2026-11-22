@@ -3,7 +3,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AppText, Card, Button, colors, radius } from '../../components/ui';
+import { AppText, Card, Button, Badge, colors, radius } from '../../components/ui';
 import { useManagerData } from '../context/ManagerDataContext';
 import { summarizeOwner } from '../services/ownerSummary';
 import { ManagerPage, RecentTrips } from './ManagerScreens';
@@ -109,24 +109,56 @@ export function More({ navigation }) {
   const currentLangLabel = language === 'hi' ? 'हिन्दी' : language === 'bn' ? 'বাংলা' : 'English';
   const groups = [
     ['App', [
-      ['LanguageScreen', 'Language', 'language-outline', currentLangLabel],
-      ['Experience settings', 'Language & voice', 'settings-outline'],
+      ['Experience settings', 'Language & voice', 'language-outline', currentLangLabel],
     ]],
     ['Fleet & people', [
       ['Branch overview', 'Branch overview', 'business-outline'],
       ['Drivers', 'Driver roster', 'people-outline'],
       ['Crew & driving', 'Crew & driving', 'swap-horizontal-outline'],
       ['Fleet trips', 'Trip history', 'navigate-outline'],
-      ['Fuel & AdBlue', 'Fuel & AdBlue', 'water-outline'],
+      ['Fuel logs', 'Fuel', 'water-outline'],
+      ['AdBlue & DEF Ledger', 'AdBlue & DEF ledger', 'flask-outline'],
       ['Maintenance', 'Maintenance', 'construct-outline'],
     ]],
-    ['Money & records', [['Capture reviews', 'Capture reviews', 'scan-outline'], ['Owner finance', 'Billing & cash flow', 'wallet-outline'], ['Fleet documents', 'Fleet documents', 'document-text-outline']]],
-    ['Conversations', [/* ['Messages', 'Messages & broadcasts', 'chatbubbles-outline'], */ ['Owner calls', 'Calls & follow-ups', 'call-outline'], ['Owner escalations', 'Owner inbox', 'notifications-outline']]],
-    ['Your workspace', [['Owner home', 'Fleet home summary', 'home-outline'], ['Aaj ka hisaab', "Today's business report", 'document-text-outline'], ['Owner trends', 'Reports & trends', 'trending-up-outline'], ['Report settings', 'Morning report', 'sunny-outline'], ['Team & access', 'Team & access', 'person-add-outline'], ['Owner settings', 'Settings & support', 'settings-outline']]],
+    ['Money & records', [
+      ['Capture reviews', 'Approvals & reviews', 'receipt-outline'],
+      ['Owner finance', 'Billing & cash flow', 'wallet-outline'],
+      ['Fleet documents', 'Fleet documents', 'document-text-outline'],
+    ]],
+    ['Conversations', [
+      ['Owner calls', 'Calls & follow-ups', 'call-outline'],
+      ['Owner escalations', 'Owner inbox', 'notifications-outline'],
+    ]],
+    ['Your workspace', [
+      ['Owner home', 'Fleet home summary', 'home-outline'],
+      ['Aaj ka hisaab', "Today's business report", 'document-text-outline'],
+      ['Owner trends', 'Reports & trends', 'trending-up-outline'],
+      ['Report settings', 'Morning report', 'sunny-outline'],
+      ['Team & access', 'Team & access', 'person-add-outline'],
+      ['Owner settings', 'Settings & support', 'settings-outline'],
+    ]],
   ];
-  return <OwnerScreen navigation={navigation} title="Your workspace" subtitle="Fleet, finances and your team.">
-    {groups.map(([label, links]) => <View key={label} style={{ gap: 10 }}><AppText variant="label" muted>{label}</AppText><Card padding={0}>{links.map(([route, title, icon, detail], index) => <OwnerGroupRow key={route} title={title} icon={icon} detail={detail} last={index === links.length - 1} onPress={() => navigation.navigate(route)} />)}</Card></View>)}
-  </OwnerScreen>;
+  return (
+    <OwnerScreen navigation={navigation} title="Your workspace" subtitle="Fleet, finances and your team.">
+      {groups.map(([label, links]) => (
+        <View key={label} style={{ gap: 10 }}>
+          <AppText variant="label" muted>{label}</AppText>
+          <Card padding={0}>
+            {links.map(([route, title, icon, detail], index) => (
+              <OwnerGroupRow
+                key={route}
+                title={title}
+                icon={icon}
+                right={detail ? <Badge tone="neutral" label={detail} /> : undefined}
+                last={index === links.length - 1}
+                onPress={() => navigation.navigate(route)}
+              />
+            ))}
+          </Card>
+        </View>
+      ))}
+    </OwnerScreen>
+  );
 }
 // Keep these existing entry points on the connected report/fleet surfaces.
 export function OwnerHomeSummary(props) { return <ManagerHome {...props} />; }
