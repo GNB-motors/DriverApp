@@ -451,7 +451,7 @@ export function OwnerReportDashboard({
     route?.name === "Aaj ka hisaab" ||
       route?.name === "Digest" ||
       route?.name === "Owner report" ||
-      (navigation?.canGoBack?.() && route?.name !== "Today") ||
+      (navigation?.canGoBack?.() && route?.name !== "Today" && route?.name !== "Home") ||
       (navigation?.getState?.()?.type === "stack" && navigation?.canGoBack?.()),
   );
   const [tab, setTab] = useState("Summary");
@@ -517,6 +517,42 @@ export function OwnerReportDashboard({
   const sections = request.data?.sections || {};
   const detail = (name) =>
     navigation.navigate("Owner report section", { name, date });
+
+  const handleHighlightPress = (tile) => {
+    if (tile.key === 'trips') {
+      navigation.navigate('Fleet trips', {
+        timePreset: 'TODAY',
+        date,
+        title: 'Trips Started Today',
+      });
+    } else if (tile.key === 'km') {
+      navigation.navigate('Fleet trips', {
+        timePreset: 'TODAY',
+        filter: 'distance',
+        highlightMetric: 'distance',
+        date,
+        title: 'Loaded Kilometers',
+      });
+    } else if (tile.key === 'diesel') {
+      navigation.navigate('Fuel logs', {
+        fuelType: 'DIESEL',
+        date,
+        title: 'Diesel Billed',
+      });
+    } else if (tile.key === 'bills') {
+      navigation.navigate('Manager approvals', {
+        filter: 'ALL',
+        category: 'BILLS',
+        date,
+        title: 'Driver Bills & Advances',
+      });
+    } else if (tile.route) {
+      navigation.navigate(tile.route);
+    } else {
+      detail(tile.section);
+    }
+  };
+
   const group = groupSections(sections, tab);
   // Same four boxes as the manager home and the web Daily Digest (GET /owner-report).
   const highlights = hisabTiles(digest?.data, { today: date === istDay() });
@@ -639,7 +675,7 @@ export function OwnerReportDashboard({
                   unit={tile.unit}
                   caption={tile.caption}
                   value={tile.value}
-                  onPress={() => detail(tile.section)}
+                  onPress={() => handleHighlightPress(tile)}
                 />
               ))}
             </View>

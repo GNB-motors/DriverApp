@@ -121,14 +121,20 @@ function extractPhotos(item) {
   return photos;
 }
 
-export default function ApprovalsScreen({ navigation }) {
+export default function ApprovalsScreen({ navigation, route = {} }) {
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
   const { service, branchId, data: managerData } = useManagerData();
 
   // Active filter
-  const [filter, setFilter] = useState('ALL');
+  const [filter, setFilter] = useState(route?.params?.filter || 'ALL');
   const [showFilterPicker, setShowFilterPicker] = useState(false);
+
+  useEffect(() => {
+    if (route?.params?.filter) {
+      setFilter(route.params.filter);
+    }
+  }, [route?.params?.filter]);
 
   // Data states
   const [loading, setLoading] = useState(true);
@@ -878,6 +884,10 @@ export default function ApprovalsScreen({ navigation }) {
     }
   };
 
+  const totalBillValue = useMemo(() => {
+    return displayItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+  }, [displayItems]);
+
   const activePhoto = photoViewer.photos[photoViewer.activeIndex] || null;
 
   return (
@@ -892,6 +902,43 @@ export default function ApprovalsScreen({ navigation }) {
         contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 32 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadApprovals(true)} />}
       >
+        {/* Context Banner for Driver Bills & Approvals */}
+        {(route?.params?.title || route?.params?.category === 'BILLS') && (
+          <View style={s.contextBanner}>
+            <View style={s.contextBannerHeader}>
+              <View style={s.contextBannerIconWrap}>
+                <Ionicons name="receipt" size={20} color="#7C3AED" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.contextBannerTitle}>
+                  {route?.params?.title || 'Driver Bills & Expense Approvals'}
+                </Text>
+                <Text style={s.contextBannerSubtitle}>
+                  Submitted driver fuel slips, highway toll receipts, repair vouchers and cash advances
+                </Text>
+              </View>
+            </View>
+
+            <View style={s.contextBannerKpiRow}>
+              <View style={s.contextBannerKpiCol}>
+                <Text style={s.contextBannerKpiLabel}>PENDING BILLS</Text>
+                <Text style={s.contextBannerKpiVal}>{counts.total}</Text>
+              </View>
+              <View style={s.contextBannerDivider} />
+              <View style={s.contextBannerKpiCol}>
+                <Text style={s.contextBannerKpiLabel}>TOTAL VALUE</Text>
+                <Text style={s.contextBannerKpiVal}>
+                  ₹{totalBillValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </Text>
+              </View>
+              <View style={s.contextBannerDivider} />
+              <View style={s.contextBannerKpiCol}>
+                <Text style={s.contextBannerKpiLabel}>WHATSAPP / OFFICE</Text>
+                <Text style={s.contextBannerKpiVal}>{counts.whatsapp + counts.office}</Text>
+              </View>
+            </View>
+          </View>
+        )}
         {/* Trip Approval Action Bar (visible when Trip Approvals is selected in filter dropdown) */}
         {filter === 'TRIPS' && (
           <View style={s.tripApprovalBar}>
@@ -2597,5 +2644,70 @@ const s = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#1A56DB',
+  },
+  contextBanner: {
+    backgroundColor: '#FAF5FF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+    gap: 12,
+  },
+  contextBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  contextBannerIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F3E8FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contextBannerTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#6B21A8',
+  },
+  contextBannerSubtitle: {
+    fontSize: 12,
+    color: '#9333EA',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  contextBannerKpiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  contextBannerKpiCol: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  contextBannerKpiLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 2,
+    letterSpacing: 0.5,
+  },
+  contextBannerKpiVal: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  contextBannerDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E2E8F0',
   },
 });

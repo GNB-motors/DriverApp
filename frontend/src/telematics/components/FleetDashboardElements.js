@@ -504,8 +504,9 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingLeft: 8,
+    paddingRight: 16,
+    paddingBottom: 8,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
@@ -513,11 +514,12 @@ export const styles = StyleSheet.create({
   headerLeftLogo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'flex-start',
+    gap: 6,
   },
   headerLogo: {
-    width: 130,
-    height: 38,
+    width: 86,
+    height: 44,
   },
   backBtn: {
     width: 34,

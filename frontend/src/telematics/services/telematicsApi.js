@@ -2,7 +2,13 @@ import { ALERT_TITLES, alertSeverity } from "./alertMetadata";
 import axios from "axios";
 import { appLoginUrl } from "./authEndpoint";
 import { APP_VERSION, newIdempotencyKey } from "./appIdentity";
-import { driverBillsInr } from "./ownerReport";
+
+const knownNumber = (v) =>
+  v == null || v === "" || !Number.isFinite(Number(v)) ? null : Number(v);
+export function driverBillsInr(money = {}) {
+  const parts = [money?.expensePendingInr, money?.expenseApprovedInr, money?.expenseRecordedInr].map(knownNumber);
+  return parts.every((v) => v == null) ? null : parts.reduce((total, v) => total + (v ?? 0), 0);
+}
 
 export const recordId = (value) => {
   const id = value && typeof value === "object" ? value._id || value.id : value;

@@ -122,6 +122,39 @@ export function ManagerActionHome({ navigation }) {
 
   const dailyHighlights = hisabTiles(dailyRequest.data, { today: reportDate === istDay() });
 
+  const handleHighlightPress = (tile) => {
+    if (tile.key === 'trips') {
+      navigation.navigate('Fleet trips', {
+        timePreset: 'TODAY',
+        date: reportDate,
+        title: 'Trips Started Today',
+      });
+    } else if (tile.key === 'km') {
+      navigation.navigate('Fleet trips', {
+        timePreset: 'TODAY',
+        filter: 'distance',
+        highlightMetric: 'distance',
+        date: reportDate,
+        title: 'Loaded Kilometers',
+      });
+    } else if (tile.key === 'diesel') {
+      navigation.navigate('Fuel logs', {
+        fuelType: 'DIESEL',
+        date: reportDate,
+        title: 'Diesel Billed',
+      });
+    } else if (tile.key === 'bills') {
+      navigation.navigate('Manager approvals', {
+        filter: 'ALL',
+        category: 'BILLS',
+        date: reportDate,
+        title: 'Driver Bills & Advances',
+      });
+    } else if (tile.route) {
+      navigation.navigate(tile.route);
+    }
+  };
+
   // Fleet Pulse metrics
   const vehicles = data?.vehicles || [];
   const movingVehicles = vehicles.filter((v) => v.status === 'moving').length;
@@ -372,7 +405,7 @@ export function ManagerActionHome({ navigation }) {
                   unit={tile.unit}
                   caption={tile.caption}
                   value={tile.value}
-                  onPress={() => navigation.navigate(tile.route)}
+                  onPress={() => handleHighlightPress(tile)}
                 />
               ))}
             </View>
@@ -1301,8 +1334,8 @@ export function ActionDetail({ navigation, route }) {
 export const ManagerLiveSurface = ManagerLive;
 export const DriverTimeline = UnavailableScreen;
 export const DriverHelpfulCards = UnavailableScreen;
-export function ManagerReviews({ navigation }) {
-  return <ApprovalsScreen navigation={navigation} />;
+export function ManagerReviews({ navigation, route }) {
+  return <ApprovalsScreen navigation={navigation} route={route} />;
 }
 export function ManagerDriverDetail(props) {
   return (

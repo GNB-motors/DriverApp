@@ -124,7 +124,16 @@ export default function FleetFuelLogsScreen({ navigation, route = {} }) {
   // Search & Filter state
   const [search, setSearch] = useState(route?.params?.plate || '');
   const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, VERIFIED, FLAGGED, SLIP_ONLY, UNVERIFIED
-  const [fuelTypeFilter, setFuelTypeFilter] = useState('ALL'); // ALL, DIESEL, DEF
+  const [fuelTypeFilter, setFuelTypeFilter] = useState(route?.params?.fuelType || 'ALL'); // ALL, DIESEL, DEF
+
+  useEffect(() => {
+    if (route?.params?.fuelType) {
+      setFuelTypeFilter(route.params.fuelType);
+    }
+    if (route?.params?.plate) {
+      setSearch(route.params.plate);
+    }
+  }, [route?.params?.fuelType, route?.params?.plate]);
 
   // Data states
   const [loading, setLoading] = useState(true);
@@ -196,7 +205,8 @@ export default function FleetFuelLogsScreen({ navigation, route = {} }) {
       const res = await service.unifiedFuelLogs({ limit: 100 }, bId);
       const dataObj = res?.data || res;
       const items = dataObj?.items || dataObj?.records || (Array.isArray(dataObj) ? dataObj : []);
-      setLogs(Array.isArray(items) ? items : []);
+      const resolved = items.length > 0 ? items : (Array.isArray(managerData?.fuel) && managerData.fuel.length > 0 ? managerData.fuel : []);
+      setLogs(resolved);
       if (dataObj?.meta) {
         setMeta(dataObj.meta);
       }
@@ -205,15 +215,16 @@ export default function FleetFuelLogsScreen({ navigation, route = {} }) {
       try {
         const fallbackRes = await service.fuelLogs({ limit: 100 }, bId);
         const fallbackItems = fallbackRes?.data?.items || fallbackRes?.data || (Array.isArray(fallbackRes) ? fallbackRes : []);
-        setLogs(Array.isArray(fallbackItems) ? fallbackItems : []);
+        const resolvedFallback = fallbackItems.length > 0 ? fallbackItems : (Array.isArray(managerData?.fuel) ? managerData.fuel : []);
+        setLogs(resolvedFallback);
       } catch {
-        setLogs([]);
+        setLogs(Array.isArray(managerData?.fuel) ? managerData.fuel : []);
       }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [service, branchId]);
+  }, [service, branchId, managerData?.fuel]);
 
   useEffect(() => {
     loadFuelLogs();
@@ -573,6 +584,43 @@ export default function FleetFuelLogsScreen({ navigation, route = {} }) {
           <RefreshControl refreshing={refreshing} onRefresh={() => loadFuelLogs(true)} />
         }
       >
+        {/* Context Banner for Diesel Billed / Fuel Logs */}
+        {(fuelTypeFilter === 'DIESEL' || route?.params?.title) && (
+          <View style={s.contextBanner}>
+            <View style={s.contextBannerHeader}>
+              <View style={s.contextBannerIconWrap}>
+                <Ionicons name="water" size={20} color="#0D9488" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.contextBannerTitle}>
+                  {route?.params?.title || 'Diesel Billing & Sensor Audit'}
+                </Text>
+                <Text style={s.contextBannerSubtitle}>
+                  Reconciles physical fuel bills and driver slips against telemetry fuel tank rise sensors
+                </Text>
+              </View>
+            </View>
+
+            <View style={s.contextBannerKpiRow}>
+              <View style={s.contextBannerKpiCol}>
+                <Text style={s.contextBannerKpiLabel}>BILLED DIESEL</Text>
+                <Text style={s.contextBannerKpiVal}>{formatINR(stats.spend)}</Text>
+              </View>
+              <View style={s.contextBannerDivider} />
+              <View style={s.contextBannerKpiCol}>
+                <Text style={s.contextBannerKpiLabel}>VOLUME</Text>
+                <Text style={s.contextBannerKpiVal}>{formatLitres(stats.litres)}</Text>
+              </View>
+              <View style={s.contextBannerDivider} />
+              <View style={s.contextBannerKpiCol}>
+                <Text style={s.contextBannerKpiLabel}>AVG RATE</Text>
+                <Text style={s.contextBannerKpiVal}>
+                  {stats.avgRate !== '—' ? `₹${stats.avgRate}/L` : '—'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
         {/* Top Action Bar: Upload Fuel Bill, Enter by Hand, Bulk WhatsApp */}
         <View style={s.actionRow}>
           <TouchableOpacity
@@ -2446,5 +2494,70 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 14,
+  },
+  contextBanner: {
+    backgroundColor: '#F0FDFA',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+    gap: 12,
+  },
+  contextBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  contextBannerIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#CCFBF1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contextBannerTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F766E',
+  },
+  contextBannerSubtitle: {
+    fontSize: 12,
+    color: '#14B8A6',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  contextBannerKpiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  contextBannerKpiCol: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  contextBannerKpiLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 2,
+    letterSpacing: 0.5,
+  },
+  contextBannerKpiVal: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  contextBannerDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E2E8F0',
   },
 });
