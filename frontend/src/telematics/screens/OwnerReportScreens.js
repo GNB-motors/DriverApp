@@ -1198,13 +1198,13 @@ export function OwnerTrends({ navigation, route }) {
               flex: 1,
             }}
           >
-            {data.days[0].date} to {data.date} IST · selected branch
+            {data.days?.[0]?.date || data.date} to {data.date} IST · selected branch
           </AppText>
           <Ionicons name="chevron-down" size={18} color="#0F172A" />
         </View>
 
         {/* Notice cards */}
-        {data.notes.map((note, index) => {
+        {(data.notes || []).map((note, index) => {
           const isBulb =
             index === 1 ||
             note.toLowerCase().includes("average") ||
@@ -1332,11 +1332,12 @@ export function OwnerTrends({ navigation, route }) {
               ) : (
                 Object.entries(section.metrics).map(
                   ([metric, trend], index) => {
-                    const todayPoint = trend.series.at(-1);
-                    const weekdayPoint = trend.series.at(-8);
-                    const avgVal = trend.comparison.previousSevenDays.dailyAverage;
+                    const series = Array.isArray(trend?.series) ? trend.series : [];
+                    const todayPoint = series.at(-1) || {};
+                    const weekdayPoint = series.at(-8) || {};
+                    const avgVal = trend?.comparison?.previousSevenDays?.dailyAverage;
                     const maxVal = Math.max(
-                      ...trend.series.map((p) => Number(p.value || 0)),
+                      ...series.map((p) => Number(p?.value || 0)),
                       1
                     );
 
@@ -1358,7 +1359,7 @@ export function OwnerTrends({ navigation, route }) {
                           <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
                             <View style={{ flex: 1, backgroundColor: "#FFFFFF", padding: 8, borderRadius: 10, borderWidth: 1, borderColor: "#E2E8F0" }}>
                               <AppText variant="caption" color="#64748B" numberOfLines={1}>
-                                Same weekday ({trend.comparison.sameWeekday.date})
+                                Same weekday ({trend?.comparison?.sameWeekday?.date || '—'})
                               </AppText>
                               <AppText variant="small" weight="bold" color="#1E293B">
                                 {trendPointText(weekdayPoint, trend.unit)}
@@ -1381,17 +1382,17 @@ export function OwnerTrends({ navigation, route }) {
                               14-Day Performance Timeline:
                             </AppText>
                             <View style={{ flexDirection: "row", alignItems: "flex-end", height: 48, gap: 3, paddingVertical: 2 }}>
-                              {trend.series.map((pt, i) => {
-                                const val = Number(pt.value || 0);
+                              {series.map((pt, i) => {
+                                const val = Number(pt?.value || 0);
                                 const heightPct = Math.max(10, Math.round((val / maxVal) * 100));
-                                const isCurrent = i === trend.series.length - 1;
+                                const isCurrent = i === series.length - 1;
                                 return (
-                                  <View key={pt.date || i} style={{ flex: 1, alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
+                                  <View key={pt?.date || i} style={{ flex: 1, alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
                                     <View
                                       style={{
                                         width: "100%",
                                         height: `${heightPct}%`,
-                                        backgroundColor: isCurrent ? colors.primary : pt.partialDay ? "#CBD5E1" : "#93C5FD",
+                                        backgroundColor: isCurrent ? colors.primary : pt?.partialDay ? "#CBD5E1" : "#93C5FD",
                                         borderRadius: 3,
                                       }}
                                     />
@@ -1400,7 +1401,7 @@ export function OwnerTrends({ navigation, route }) {
                               })}
                             </View>
                             <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
-                              <AppText variant="caption" mono muted style={{ fontSize: 9 }}>{trend.series[0]?.date?.slice(5)}</AppText>
+                              <AppText variant="caption" mono muted style={{ fontSize: 9 }}>{series[0]?.date?.slice(5) || '—'}</AppText>
                               <AppText variant="caption" mono muted style={{ fontSize: 9 }}>7d ago</AppText>
                               <AppText variant="caption" mono weight="bold" color={colors.primary} style={{ fontSize: 9 }}>Today</AppText>
                             </View>
@@ -1424,7 +1425,7 @@ export function OwnerTrends({ navigation, route }) {
                             <AppText variant="caption" weight="bold" color="#475569" style={{ marginBottom: 2 }}>
                               Full 14-Day Daily Audit Logs:
                             </AppText>
-                            {trend.series.map((point) => (
+                            {series.map((point) => (
                               <View
                                 key={point.date}
                                 style={{
@@ -1720,7 +1721,7 @@ export function ReportSettings({ navigation }) {
             onChange={(value) =>
               setForm({ ...form, branchId: value === "all" ? null : value })
             }
-            options={branches.map((b) => [b.id, b.name])}
+            options={(branches || []).map((b) => [b.id, b.name])}
           />
 
           {/* Quick Preview Button */}

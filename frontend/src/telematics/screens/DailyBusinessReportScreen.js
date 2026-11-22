@@ -5,6 +5,7 @@ import {
   Pressable,
   StyleSheet,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
@@ -32,6 +33,7 @@ import {
   shiftDay,
   reportSpeech,
   hisabTiles,
+  adaptWebOwnerReport,
 } from '../services/ownerReport';
 
 const money = (v) => `₹${Number(v || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
@@ -51,7 +53,7 @@ export default function DailyBusinessReportScreen({ navigation, route }) {
 
   const key = `${user?._id}:${typeof user?.orgId === 'object' ? user.orgId._id : user?.orgId}:${branch || 'all'}`;
 
-  // Requests
+  // Requests: daily report (API v2) & daily digest (web /owner-report)
   const dailyReq = useOwnerRequest(
     `${key}:${date}:daily`,
     () => service.ownerDaily(date, branch),
@@ -87,7 +89,10 @@ export default function DailyBusinessReportScreen({ navigation, route }) {
     try {
       await Speech.stop();
       const lang = { en: 'en-IN', hi: 'hi-IN', bn: 'bn-IN' }[language] || 'en-IN';
-      const text = reportSpeech(dailyReq.data, language);
+      const targetReport = dailyReq.data || (digestReq.data ? adaptWebOwnerReport(digestReq.data) : null);
+      if (!targetReport) return;
+      const text = reportSpeech(targetReport, language);
+      if (!text) return;
       Speech.speak(text, {
         language: lang,
         onStart: () => { if (speechSequence.current === seq) setSpeaking(true); },
@@ -100,31 +105,66 @@ export default function DailyBusinessReportScreen({ navigation, route }) {
     }
   }
 
-  // Canonical Hisab Tiles
+  // Canonical Hisab Tiles (safe fallback from either digest or daily report)
   const tiles = useMemo(() => {
-    return hisabTiles(dailyReq.data, { today: isToday });
-  }, [dailyReq.data, isToday]);
+    const reportData = digestReq.data || dailyReq.data;
+    return hisabTiles(reportData, { today: isToday });
+  }, [digestReq.data, dailyReq.data, isToday]);
 
-  // Operational numbers
+  // Operational numbers (safely extracts from array or object sections)
   const workNumbers = useMemo(() => {
-    const sections = dailyReq.data?.sections || [];
-    const work = sections.find((s) => s.id === 'yesterdaysWork')?.numbers || {};
-    return work;
-  }, [dailyReq.data]);
+    const rawSections = digestReq.data?.sections || dailyReq.data?.sections;
+    if (Array.isArray(rawSections)) {
+      const found = rawSections.find((s) => s?.id === 'yesterdaysWork' || s?.id === 'trips');
+      if (found?.numbers) return found.numbers;
+      if (found?.metrics) {
+        return {
+          trips: found.metrics.started?.value ?? found.metrics.count?.value,
+          completedTrips: found.metrics.count?.value,
+          km: found.metrics.ladenKm?.value,
+        };
+      }
+    } else if (rawSections && typeof rawSections === 'object') {
+      if (rawSections.yesterdaysWork?.numbers) return rawSections.yesterdaysWork.numbers;
+      if (rawSections.trips?.metrics) {
+        return {
+          trips: rawSections.trips.metrics.started?.value ?? rawSections.trips.metrics.count?.value,
+          completedTrips: rawSections.trips.metrics.count?.value,
+          openTrips: null,
+          km: rawSections.trips.metrics.ladenKm?.value,
+        };
+      }
+    }
+    return {};
+  }, [digestReq.data, dailyReq.data]);
 
-  // Financial numbers
+  // Financial numbers (safely extracts from array or object sections)
   const moneyNumbers = useMemo(() => {
-    const sections = dailyReq.data?.sections || [];
-    const m = sections.find((s) => s.id === 'moneyOut')?.numbers || {};
-    return m;
-  }, [dailyReq.data]);
+    const rawSections = digestReq.data?.sections || dailyReq.data?.sections;
+    if (Array.isArray(rawSections)) {
+      const found = rawSections.find((s) => s?.id === 'moneyOut' || s?.id === 'diesel' || s?.id === 'expenses');
+      if (found?.numbers) return found.numbers;
+    } else if (rawSections && typeof rawSections === 'object') {
+      if (rawSections.moneyOut?.numbers) return rawSections.moneyOut.numbers;
+      return {
+        dieselBillInr: rawSections.diesel?.metrics?.amount?.value,
+        expenseApprovedInr: rawSections.expenses?.metrics?.amount?.value,
+        expensePendingInr: null,
+        expensePendingCount: rawSections.expenses?.metrics?.pending?.value,
+      };
+    }
+    return {};
+  }, [digestReq.data, dailyReq.data]);
 
   const onRefresh = () => {
     dailyReq.reload();
     digestReq.reload();
   };
 
-  const branchLabel = branch ? context.branches.find((b) => b.id === branch)?.name || 'Selected branch' : 'All branches';
+  const branchesList = Array.isArray(context?.branches) ? context.branches : [];
+  const branchLabel = branch
+    ? branchesList.find((b) => String(b.id) === String(branch))?.name || context?.branchName || 'Selected branch'
+    : 'All branches';
 
   return (
     <View style={s.screen}>
@@ -139,7 +179,7 @@ export default function DailyBusinessReportScreen({ navigation, route }) {
         contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + spacing.xl }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={dailyReq.loading} onRefresh={onRefresh} tintColor={colors.primary} />
+          <RefreshControl refreshing={Boolean(dailyReq.loading || digestReq.loading)} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
         {/* Date Selector Navigation Bar */}
@@ -190,7 +230,7 @@ export default function DailyBusinessReportScreen({ navigation, route }) {
 
         {/* 4 Core Business Tiles (Aaj Ka Hisab) */}
         <View style={s.tilesGrid}>
-          {tiles.map((tile) => {
+          {(tiles || []).map((tile) => {
             const valDisplay = tile.value == null
               ? '—'
               : tile.unit === 'INR'

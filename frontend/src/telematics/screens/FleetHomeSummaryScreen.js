@@ -32,10 +32,10 @@ export default function FleetHomeSummaryScreen({ navigation }) {
   const [statusFilter, setStatusFilter] = useState('ALL'); // ALL | MOVING | STOPPED | IDLING | OFFLINE
   const [search, setSearch] = useState('');
 
-  const vehicles = useMemo(() => data?.vehicles || [], [data?.vehicles]);
-  const drivers = useMemo(() => data?.drivers || [], [data?.drivers]);
-  const trips = useMemo(() => data?.trips || [], [data?.trips]);
-  const alerts = useMemo(() => data?.alertFeed?.alerts || [], [data?.alertFeed]);
+  const vehicles = useMemo(() => (Array.isArray(data?.vehicles) ? data.vehicles : []), [data?.vehicles]);
+  const drivers = useMemo(() => (Array.isArray(data?.drivers) ? data.drivers : []), [data?.drivers]);
+  const trips = useMemo(() => (Array.isArray(data?.trips) ? data.trips : []), [data?.trips]);
+  const alerts = useMemo(() => (Array.isArray(data?.alertFeed?.alerts) ? data.alertFeed.alerts : []), [data?.alertFeed]);
 
   // Telematics status counts
   const counts = useMemo(() => {
@@ -89,9 +89,10 @@ export default function FleetHomeSummaryScreen({ navigation }) {
     });
   }, [vehicles, statusFilter, q]);
 
+  const branchesList = Array.isArray(branches) ? branches : [];
   const activeBranchLabel = branchId === 'all'
     ? 'All branches'
-    : branches.find((b) => b.id === branchId)?.name || 'Selected branch';
+    : branchesList.find((b) => String(b.id) === String(branchId))?.name || 'Selected branch';
 
   return (
     <View style={s.screen}>

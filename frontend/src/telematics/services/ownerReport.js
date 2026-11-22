@@ -27,14 +27,31 @@ export function driverBillsInr(money = {}) {
  */
 export function hisabTiles(report, { today = false } = {}) {
   const byId = {};
-  for (const section of Array.isArray(report?.sections) ? report.sections : [])
-    if (section?.id) byId[section.id] = section;
+  if (Array.isArray(report?.sections)) {
+    for (const section of report.sections) {
+      if (section?.id) byId[section.id] = section;
+    }
+  } else if (report?.sections && typeof report.sections === "object") {
+    for (const [key, section] of Object.entries(report.sections)) {
+      if (section && typeof section === "object") {
+        byId[section.id || key] = section;
+      }
+    }
+  }
   const work = byId.yesterdaysWork?.numbers || {};
-  const money = byId.moneyOut?.numbers || {};
-  const started = knownNumber(work.trips);
-  const completed = knownNumber(work.completedTrips);
+  const tripsMetrics = byId.trips?.metrics || {};
+  const started = knownNumber(work.trips ?? tripsMetrics.started?.value ?? tripsMetrics.count?.value);
+  const completed = knownNumber(work.completedTrips ?? tripsMetrics.count?.value);
   const open = knownNumber(work.openTrips);
-  const pendingCount = knownNumber(money.expensePendingCount);
+  const kmVal = knownNumber(work.km ?? tripsMetrics.ladenKm?.value ?? byId.distance?.metrics?.observedKm?.value);
+
+  const money = byId.moneyOut?.numbers || {};
+  const dieselMetrics = byId.diesel?.metrics || {};
+  const expensesMetrics = byId.expenses?.metrics || {};
+  const dieselVal = knownNumber(money.dieselBillInr ?? dieselMetrics.amount?.value);
+  const pendingCount = knownNumber(money.expensePendingCount ?? expensesMetrics.pending?.value);
+  const billsVal = driverBillsInr(money) ?? knownNumber(expensesMetrics.amount?.value);
+
   const inr = (v) => `₹${Number(v).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
   return [
     {
@@ -57,7 +74,7 @@ export function hisabTiles(report, { today = false } = {}) {
       label: today ? "Loaded km today" : "Loaded km",
       icon: "speedometer-outline",
       unit: "km",
-      value: knownNumber(work.km),
+      value: kmVal,
       caption: work.kmPartial ? "Loaded trip distance · partial" : "Loaded trip distance",
       section: "trips",
       route: "Fleet trips",
@@ -67,7 +84,7 @@ export function hisabTiles(report, { today = false } = {}) {
       label: "Diesel billed",
       icon: "water-outline",
       unit: "INR",
-      value: knownNumber(money.dieselBillInr),
+      value: dieselVal,
       caption: "Bills handed in, not paid",
       section: "diesel",
       route: "Fuel logs",
@@ -77,9 +94,9 @@ export function hisabTiles(report, { today = false } = {}) {
       label: "Driver bills",
       icon: "receipt-outline",
       unit: "INR",
-      value: driverBillsInr(money),
+      value: billsVal,
       caption: pendingCount
-        ? `${pendingCount} waiting · ${inr(knownNumber(money.expensePendingInr) ?? 0)}`
+        ? `${pendingCount} waiting · ${inr(knownNumber(money.expensePendingInr ?? billsVal) ?? 0)}`
         : "Submitted, rejected left out",
       section: "expenses",
       route: "Manager approvals",
@@ -139,8 +156,9 @@ export const trendPointText = (point, unit) =>
     ? "No records"
     : displayMetric({ value: point.value, unit });
 export function comparisonNotes(comparison) {
-  const missing = comparison.previousSevenDays.missingDays;
-  return comparison.reasons.map((reason) =>
+  if (!comparison) return [];
+  const missing = comparison.previousSevenDays?.missingDays || [];
+  return (comparison.reasons || []).map((reason) =>
     reason === "SELECTED_PARTIAL_DAY"
       ? "The selected day is still in progress."
       : missing.length
@@ -295,7 +313,10 @@ export function reportSpeech(report, language = "en") {
       end: "ক্রয়, অনুমোদিত বিল, অগ্রিম ও নগদ লেনদেন আলাদা হিসাব। অজানা মানে শূন্য নয়।",
     },
   }[language];
+  const sectionsObj = Array.isArray(report?.sections)
+    ? Object.fromEntries(report.sections.filter((s) => s?.id).map((s) => [s.id, s]))
+    : (report?.sections || {});
   const read = (section, metric) =>
-    report.sections[section]?.metrics[metric]?.value ?? words.unavailable;
-  return `${words.intro} ${report.date}. ${words.fleet}: ${read("fleet", "total")}. ${words.moving}: ${read("fleet", "moving")}. ${words.offline}: ${read("fleet", "offline")}. ${words.trips}: ${read("trips", "count")}. ${words.diesel}: ${read("diesel", "amount")}. ${words.adblue}: ${read("adblue", "amount")}. ${words.advances}: ${read("advances", "amount")}. ${words.tolls}: ${read("tolls", "knownSubtotal")}. ${words.unpriced}: ${read("tolls", "unpriced")}. ${words.fuelReviews}: ${read("fuelReviews", "count")}. ${words.expenseReviews}: ${read("expenseReviews", "count")}. ${Object.values(report.sections).some((s) => s.coverage !== "complete") ? words.partial : ""} ${words.evidence} ${words.end}`;
+    sectionsObj[section]?.metrics?.[metric]?.value ?? words.unavailable;
+  return `${words.intro} ${report?.date || ''}. ${words.fleet}: ${read("fleet", "total")}. ${words.moving}: ${read("fleet", "moving")}. ${words.offline}: ${read("fleet", "offline")}. ${words.trips}: ${read("trips", "count")}. ${words.diesel}: ${read("diesel", "amount")}. ${words.adblue}: ${read("adblue", "amount")}. ${words.advances}: ${read("advances", "amount")}. ${words.tolls}: ${read("tolls", "knownSubtotal")}. ${words.unpriced}: ${read("tolls", "unpriced")}. ${words.fuelReviews}: ${read("fuelReviews", "count")}. ${words.expenseReviews}: ${read("expenseReviews", "count")}. ${Object.values(sectionsObj).some((s) => s?.coverage !== "complete") ? words.partial : ""} ${words.evidence} ${words.end}`;
 }
