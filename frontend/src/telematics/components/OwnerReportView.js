@@ -49,6 +49,13 @@ import {
 } from "../services/ownerPresentation";
 import { GNB_LOGO_URI } from "../experience/gnbLogoUri";
 import { useManagerData } from "../context/ManagerDataContext";
+import {
+  FleetTopBar,
+  FleetPulseSection,
+  FleetTodayHighlights,
+  OperationalHubSection,
+  RecentExceptionsSection,
+} from "./FleetDashboardElements";
 
 export function OwnerScreen({ navigation, title, subtitle, action, children }) {
   const insets = useSafeAreaInsets();
@@ -485,6 +492,10 @@ export function OwnerReportDashboard({
   }, [fleetVehicles]);
 
   const unreadAlertsCount = managerContext?.data?.alertFeed?.unacknowledgedCount || 0;
+  const recentAlerts = useMemo(() => {
+    const list = managerContext?.data?.alertFeed?.items || managerContext?.data?.alerts || [];
+    return list.slice(0, 3);
+  }, [managerContext?.data?.alertFeed?.items, managerContext?.data?.alerts]);
 
   const currentBranchName =
     (branches || managerContext?.branches || []).find(
@@ -495,6 +506,7 @@ export function OwnerReportDashboard({
     user?.name || user?.firstName || (user?.phone ? `+${user.phone}` : "Owner");
   const rawRole = (user?.role || "").toLowerCase();
   const userRole = rawRole === "manager" ? "Branch Manager" : "Owner";
+  const isOwner = rawRole === "owner";
 
   const onRefresh = useCallback(async () => {
     await Promise.allSettled([request.reload(), managerContext?.refresh?.()]);
@@ -544,53 +556,20 @@ export function OwnerReportDashboard({
     <View style={s.screen}>
       {focused && <StatusBar style="dark" />}
 
-      {/* Top Header - Same as Manager */}
-      <View style={[s.topBar, { paddingTop: insets.top + 6 }]}>
-        <View style={s.headerLeftLogo}>
-          {showBack && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-              hitSlop={10}
-              onPress={() => {
-                if (navigation?.canGoBack?.()) {
-                  navigation.goBack();
-                } else {
-                  navigation?.navigate?.("More");
-                }
-              }}
-              style={s.backBtn}
-            >
-              <Ionicons name="chevron-back" size={22} color="#0F172A" />
-            </Pressable>
-          )}
-          <Image
-            source={{ uri: GNB_LOGO_URI }}
-            style={s.headerLogo}
-            resizeMode="contain"
-            accessibilityLabel="GNB Motors"
-          />
-        </View>
-
-        <View style={s.headerRightUser}>
-          <AppText
-            weight="extrabold"
-            color={colors.text}
-            numberOfLines={1}
-            style={s.userNameText}
-          >
-            {userName}
-          </AppText>
-          <AppText
-            weight="semibold"
-            color={colors.textMuted}
-            numberOfLines={1}
-            style={s.userRoleText}
-          >
-            {userRole}
-          </AppText>
-        </View>
-      </View>
+      {/* Top Header */}
+      <FleetTopBar
+        insets={insets}
+        userName={userName}
+        userRole={userRole}
+        showBack={showBack}
+        onBack={() => {
+          if (navigation?.canGoBack?.()) {
+            navigation.goBack();
+          } else {
+            navigation?.navigate?.("More");
+          }
+        }}
+      />
 
       <ScrollView
         keyboardShouldPersistTaps="handled"
@@ -609,286 +588,26 @@ export function OwnerReportDashboard({
         }
       >
         {/* Fleet Pulse KPI Bar */}
-        <View style={s.pulseSection}>
-          <View style={s.pulseHeader}>
-            <View style={s.pulseTitleRow}>
-              <View style={s.liveDot} />
-              <AppText variant="label" weight="extrabold" color={colors.text}>
-                Fleet Pulse
-              </AppText>
-            </View>
+        <FleetPulseSection
+          title="Fleet Pulse"
+          branchName={currentBranchName}
+          onOpenBranch={() => setBranchOpen(true)}
+          movingCount={movingVehicles}
+          idlingCount={idlingVehicles}
+          stoppedCount={stoppedVehicles}
+          offlineCount={offlineVehicles}
+          onDutyCount={driversOnDuty}
+          navigation={navigation}
+        />
 
-            {/* Authorised Branches Dropdown Pill right in Fleet Pulse */}
-            <Pressable
-              style={s.branchPillPulse}
-              onPress={() => setBranchOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Branch Filter"
-            >
-              <Ionicons name="business" size={13} color={colors.primary} />
-              <AppText
-                variant="caption"
-                weight="bold"
-                color={colors.primaryDeep}
-                numberOfLines={1}
-                style={s.branchPillPulseText}
-              >
-                {currentBranchName}
-              </AppText>
-              <Ionicons name="chevron-down" size={11} color={colors.primary} />
-            </Pressable>
-          </View>
-
-          {/* 5-column Status Card */}
-          <Card style={s.pulseCardRow} padding={0}>
-            <Pressable
-              style={s.pulseCol}
-              onPress={() => navigation.navigate("Fleet map", { filter: "moving" })}
-              accessibilityRole="button"
-              accessibilityLabel={`Moving: ${movingVehicles}`}
-            >
-              <View style={s.pulseColTop}>
-                <View style={[s.statusDot, { backgroundColor: "#0C9F41" }]} />
-                <AppText
-                  variant="caption"
-                  weight="bold"
-                  color={colors.textMuted}
-                  numberOfLines={1}
-                  style={s.pulseColLabel}
-                >
-                  Moving
-                </AppText>
-              </View>
-              <AppText
-                variant="h3"
-                weight="extrabold"
-                color={colors.text}
-                style={s.pulseColNumber}
-              >
-                {movingVehicles}
-              </AppText>
-            </Pressable>
-
-            <View style={s.pulseDivider} />
-
-            <Pressable
-              style={s.pulseCol}
-              onPress={() => navigation.navigate("Fleet map", { filter: "idling" })}
-              accessibilityRole="button"
-              accessibilityLabel={`Idling: ${idlingVehicles}`}
-            >
-              <View style={s.pulseColTop}>
-                <View style={[s.statusDot, { backgroundColor: "#F97316" }]} />
-                <AppText
-                  variant="caption"
-                  weight="bold"
-                  color={colors.textMuted}
-                  numberOfLines={1}
-                  style={s.pulseColLabel}
-                >
-                  Idling
-                </AppText>
-              </View>
-              <AppText
-                variant="h3"
-                weight="extrabold"
-                color={colors.text}
-                style={s.pulseColNumber}
-              >
-                {idlingVehicles}
-              </AppText>
-            </Pressable>
-
-            <View style={s.pulseDivider} />
-
-            <Pressable
-              style={s.pulseCol}
-              onPress={() => navigation.navigate("Fleet map", { filter: "stopped" })}
-              accessibilityRole="button"
-              accessibilityLabel={`Stopped: ${stoppedVehicles}`}
-            >
-              <View style={s.pulseColTop}>
-                <View style={[s.statusDot, { backgroundColor: "#9333EA" }]} />
-                <AppText
-                  variant="caption"
-                  weight="bold"
-                  color={colors.textMuted}
-                  numberOfLines={1}
-                  style={s.pulseColLabel}
-                >
-                  Stopped
-                </AppText>
-              </View>
-              <AppText
-                variant="h3"
-                weight="extrabold"
-                color={colors.text}
-                style={s.pulseColNumber}
-              >
-                {stoppedVehicles}
-              </AppText>
-            </Pressable>
-
-            <View style={s.pulseDivider} />
-
-            <Pressable
-              style={s.pulseCol}
-              onPress={() => navigation.navigate("Fleet map", { filter: "offline" })}
-              accessibilityRole="button"
-              accessibilityLabel={`Offline: ${offlineVehicles}`}
-            >
-              <View style={s.pulseColTop}>
-                <View style={[s.statusDot, { backgroundColor: "#9CA3AF" }]} />
-                <AppText
-                  variant="caption"
-                  weight="bold"
-                  color={colors.textMuted}
-                  numberOfLines={1}
-                  style={s.pulseColLabel}
-                >
-                  Offline
-                </AppText>
-              </View>
-              <AppText
-                variant="h3"
-                weight="extrabold"
-                color={colors.text}
-                style={s.pulseColNumber}
-              >
-                {offlineVehicles}
-              </AppText>
-            </Pressable>
-
-            <View style={s.pulseDivider} />
-
-            <Pressable
-              style={s.pulseCol}
-              onPress={() => navigation.navigate("Duty board")}
-              accessibilityRole="button"
-              accessibilityLabel={`On Duty: ${driversOnDuty}`}
-            >
-              <View style={s.pulseColTop}>
-                <Ionicons name="people-outline" size={11} color={colors.primary} />
-                <AppText
-                  variant="caption"
-                  weight="bold"
-                  color={colors.primary}
-                  numberOfLines={1}
-                  style={s.pulseColLabel}
-                >
-                  On Duty
-                </AppText>
-              </View>
-              <AppText
-                variant="h3"
-                weight="extrabold"
-                color={colors.primaryDeep}
-                style={s.pulseColNumber}
-              >
-                {driversOnDuty}
-              </AppText>
-            </Pressable>
-          </Card>
-
-          {/* Fleet Today Highlights Bar */}
-          <View style={s.highlightsCard}>
-            <View style={s.highlightItem}>
-              <View style={[s.highlightIconCircle, { backgroundColor: "#EFF6FF" }]}>
-                <Ionicons name="speedometer-outline" size={17} color={colors.primary} />
-              </View>
-              <View style={s.highlightCol}>
-                <AppText
-                  variant="caption"
-                  color={colors.textMuted}
-                  weight="bold"
-                  style={s.highlightLabel}
-                >
-                  TODAY'S RUN
-                </AppText>
-                <AppText variant="h3" weight="extrabold" color={colors.text}>
-                  {totalDistanceToday.toLocaleString("en-IN")}{" "}
-                  <AppText variant="caption" weight="bold" color={colors.textMuted}>
-                    km
-                  </AppText>
-                </AppText>
-              </View>
-            </View>
-
-            <View style={s.highlightDivider} />
-
-            <View style={s.highlightItem}>
-              <View style={[s.highlightIconCircle, { backgroundColor: "#F0FDF4" }]}>
-                <Ionicons name="git-network-outline" size={17} color={colors.success} />
-              </View>
-              <View style={s.highlightCol}>
-                <AppText
-                  variant="caption"
-                  color={colors.textMuted}
-                  weight="bold"
-                  style={s.highlightLabel}
-                >
-                  ON ROAD
-                </AppText>
-                <AppText variant="h3" weight="extrabold" color={colors.text}>
-                  {movingVehicles + idlingVehicles}{" "}
-                  <AppText variant="caption" weight="bold" color={colors.textMuted}>
-                    / {fleetVehicles.length}
-                  </AppText>
-                </AppText>
-              </View>
-            </View>
-
-            <View style={s.highlightDivider} />
-
-            <View style={s.highlightItem}>
-              <View
-                style={[
-                  s.highlightIconCircle,
-                  {
-                    backgroundColor:
-                      lowFuelVehicles.length > 0 || unreadAlertsCount > 0
-                        ? "#FEF2F2"
-                        : "#F8FAFC",
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="warning-outline"
-                  size={17}
-                  color={
-                    lowFuelVehicles.length > 0 || unreadAlertsCount > 0
-                      ? colors.warning
-                      : colors.textMuted
-                  }
-                />
-              </View>
-              <View style={s.highlightCol}>
-                <AppText
-                  variant="caption"
-                  color={colors.textMuted}
-                  weight="bold"
-                  style={s.highlightLabel}
-                >
-                  EXCEPTIONS
-                </AppText>
-                <AppText
-                  variant="h3"
-                  weight="extrabold"
-                  color={
-                    lowFuelVehicles.length > 0 || unreadAlertsCount > 0
-                      ? colors.warning
-                      : colors.text
-                  }
-                >
-                  {unreadAlertsCount + lowFuelVehicles.length}{" "}
-                  <AppText variant="caption" weight="bold" color={colors.textMuted}>
-                    events
-                  </AppText>
-                </AppText>
-              </View>
-            </View>
-          </View>
-        </View>
+        {/* Fleet Today Highlights Bar */}
+        <FleetTodayHighlights
+          totalDistanceToday={totalDistanceToday}
+          onRoadCount={movingVehicles + idlingVehicles}
+          totalVehiclesCount={fleetVehicles.length}
+          exceptionsCount={unreadAlertsCount + lowFuelVehicles.length}
+          hasAlertsOrLowFuel={lowFuelVehicles.length > 0 || unreadAlertsCount > 0}
+        />
 
         {/* Section: Aaj ka hisab */}
         <View style={s.sectionWrap}>
@@ -981,18 +700,25 @@ export function OwnerReportDashboard({
 
         {/* Section: Operational Hub */}
         <View style={s.sectionWrap}>
-          <View style={s.sectionHeaderBar}>
-            <AppText variant="h2" weight="extrabold" color={colors.text}>
-              Operational Hub
-            </AppText>
-          </View>
+          <OperationalHubSection navigation={navigation} />
 
-          <SegmentedControl
-            variant="pill"
-            options={["Summary", "Money", "Work", "People"]}
-            value={tab}
-            onChange={setTab}
+          {/* Recent Exceptions */}
+          <RecentExceptionsSection
+            alerts={recentAlerts}
+            unacknowledgedCount={unreadAlertsCount}
+            navigation={navigation}
+            onViewAll={() => navigation.navigate("Alerts")}
+            onSelectAlert={() => navigation.navigate("Alerts")}
           />
+
+          <View style={{ marginTop: 14 }}>
+            <SegmentedControl
+              variant="pill"
+              options={["Summary", "Money", "Work", "People"]}
+              value={tab}
+              onChange={setTab}
+            />
+          </View>
 
           {tab === "Summary" ? (
             <View style={s.hubContent}>
@@ -1002,7 +728,11 @@ export function OwnerReportDashboard({
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Open full inbox"
-                    onPress={() => navigation.navigate("Owner escalations")}
+                    onPress={() =>
+                      isOwner
+                        ? navigation.navigate("Owner escalations")
+                        : navigation.navigate("Manager tabs", { screen: "Alerts" })
+                    }
                     hitSlop={8}
                   >
                     <AppText
@@ -1214,16 +944,18 @@ export function OwnerReportDashboard({
             />
           ))}
         </ScrollView>
-        <View style={{ paddingTop: spacing.md }}>
-          <Button
-            label="Inspect branch overview"
-            variant="secondary"
-            onPress={() => {
-              setBranchOpen(false);
-              navigation.navigate('Branch overview', { id: branchId === 'all' ? undefined : branchId });
-            }}
-          />
-        </View>
+        {isOwner && (
+          <View style={{ paddingTop: spacing.md }}>
+            <Button
+              label="Inspect branch overview"
+              variant="secondary"
+              onPress={() => {
+                setBranchOpen(false);
+                navigation.navigate('Branch overview', { id: branchId === 'all' ? undefined : branchId });
+              }}
+            />
+          </View>
+        )}
       </BottomSheet>
       <BottomSheet visible={aboutOpen} onClose={() => setAboutOpen(false)}>
         <View style={s.sheetHeading}>

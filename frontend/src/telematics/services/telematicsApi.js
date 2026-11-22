@@ -698,11 +698,17 @@ export function createTelematicsApi({
     else body.append(field, { uri: asset.uri, name: asset.name || 'photo.jpg', type: asset.mimeType || asset.type || 'image/jpeg' });
     return (await client.post(path, body, { timeout: 120000 })).data.data;
   }
+  // Once /app/v2/reports/daily answers 403 for this signed-in role, every later poll
+  // goes straight to the /owner-report fallback instead of repeating a refused call.
+  // The service is rebuilt per sign-in, so a role or backend change is picked up then.
+  let dailyRefused = false;
   return {
     async ownerDaily(date, branchId) {
       try {
+        if (dailyRefused) throw Object.assign(new Error('Daily report not permitted for this role.'), { refused: true });
         return (await get('/app/v2/reports/daily', { params: { date }, headers: headersFor(branchId) })).data;
       } catch (err) {
+        if (err?.response?.status === 403) dailyRefused = true;
         try {
           const res = await get('/owner-report', { params: { day: date }, headers: headersFor(branchId) });
           const report = res?.data || res;
@@ -1416,6 +1422,44 @@ export function createTelematicsApi({
           }
         }
         throw err;
+      }
+    },
+    /**
+     * One truck's Track & Replay over a range — the same endpoint the web
+     * Live Tracking "Track" mode uses: { points:[{t,lat,lng,speedKmh,ign}],
+     * segments, stops, events, summary }. A backend that has not deployed it
+     * (404) falls back to the live breadcrumb trail, mapped to the same shape.
+     */
+    async getVehicleTrack(registration, { branchId, from, to } = {}) {
+      const reg = String(registration || "").replace(/^position:/i, "").trim().toUpperCase();
+      if (!reg) throw new Error("Vehicle registration number could not be determined.");
+      try {
+        const body = await get(`/fleet-view/vehicles/${encodeURIComponent(reg)}/track`, {
+          params: { from, to },
+          headers: headersFor(branchId),
+          timeout: 60000,
+        });
+        const data = body?.data ?? body;
+        if (data?.held === true) return { held: true, why: data.why ?? null, points: [] };
+        if (!Array.isArray(data?.points)) throw new Error("Invalid track response.");
+        return data;
+      } catch (err) {
+        if (err?.response?.status !== 404) throw err;
+        const cleanReg = reg.replace(/[^A-Z0-9]/g, "");
+        const res = await get(
+          `/livetracking/positions/${encodeURIComponent(cleanReg)}/trail`,
+          { params: { from, to, limit: 10000 }, headers: headersFor(branchId), timeout: 60000 },
+        );
+        const payload = res?.data?.points ? res.data : res?.points ? res : res?.data || {};
+        const points = (Array.isArray(payload.points) ? payload.points : []).map((p) => ({
+          t: p.eventDateTime || p.timestamp || p.at,
+          lat: p.latitude ?? p.lat,
+          lng: p.longitude ?? p.lng,
+          speedKmh: p.speed ?? p.speedKmh ?? null,
+          ign: typeof p.ignition === "boolean" ? p.ignition : null,
+          gap: Boolean(p.gap || p.break || p.gapType),
+        }));
+        return { from, to, points, source: "livetracking", truncated: Boolean(payload.truncated) };
       }
     },
     async branches() {

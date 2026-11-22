@@ -24,6 +24,13 @@ import { DriverDetail, ManagerLive } from '../screens/ManagerScreens';
 import FleetMap from '../components/FleetMap';
 import { ActionButton, ExperiencePage, UnavailableScreen, useExperienceCopy } from './ExperienceUI';
 import { GNB_LOGO_URI } from './gnbLogoUri';
+import {
+  FleetTopBar,
+  FleetPulseSection,
+  FleetTodayHighlights,
+  OperationalHubSection,
+  RecentExceptionsSection,
+} from '../components/FleetDashboardElements';
 import ApprovalsScreen from '../screens/ApprovalsScreen';
 import { DateSelector, Highlight } from '../components/OwnerReportView';
 import { istDay } from '../services/ownerReport';
@@ -301,25 +308,11 @@ export function ManagerActionHome({ navigation }) {
   return (
     <View style={s.container}>
       {/* Top Header */}
-      <View style={[s.topBar, { paddingTop: insets.top + 6 }]}>
-        <View style={s.headerLeftLogo}>
-          <Image
-            source={{ uri: GNB_LOGO_URI }}
-            style={s.headerLogo}
-            resizeMode="contain"
-            accessibilityLabel="GNB Motors"
-          />
-        </View>
-
-        <View style={s.headerRightUser}>
-          <AppText weight="extrabold" color={colors.text} numberOfLines={1} style={s.userNameText}>
-            {userName}
-          </AppText>
-          <AppText weight="semibold" color={colors.textMuted} numberOfLines={1} style={s.userRoleText}>
-            {userRole}
-          </AppText>
-        </View>
-      </View>
+      <FleetTopBar
+        insets={insets}
+        userName={userName}
+        userRole={userRole}
+      />
 
       <ScrollView
         contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 80 }]}
@@ -327,196 +320,34 @@ export function ManagerActionHome({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Fleet Pulse KPI Bar */}
-        <View style={s.pulseSection}>
-          <View style={s.pulseHeader}>
-            <View style={s.pulseTitleRow}>
-              <View style={s.liveDot} />
-              <AppText variant="label" weight="extrabold" color={colors.text}>
-                {c('fleetPulse')}
-              </AppText>
-            </View>
-
-            {/* Authorised Branches Dropdown Pill right in Fleet Pulse */}
-            <Pressable
-              style={s.branchPillPulse}
-              onPress={() => setBranchSheetOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel={c('branchFilter')}
-            >
-              <Ionicons name="business" size={13} color={colors.primary} />
-              <AppText variant="caption" weight="bold" color={colors.primaryDeep} numberOfLines={1} style={s.branchPillPulseText}>
-                {currentBranchName}
-              </AppText>
-              <Ionicons name="chevron-down" size={11} color={colors.primary} />
-            </Pressable>
-          </View>
-
-          <Card style={s.pulseCardRow} padding={0}>
-            <Pressable
-              style={s.pulseCol}
-              onPress={() => navigation.navigate('Fleet map', { filter: 'moving' })}
-              accessibilityRole="button"
-              accessibilityLabel={`${c('moving')}: ${movingVehicles}`}
-            >
-              <View style={s.pulseColTop}>
-                <View style={[s.statusDot, { backgroundColor: '#0C9F41' }]} />
-                <AppText variant="caption" weight="bold" color={colors.textMuted} numberOfLines={1} style={s.pulseColLabel}>
-                  {c('moving')}
-                </AppText>
-              </View>
-              <AppText variant="h3" weight="extrabold" color={colors.text} style={s.pulseColNumber}>
-                {movingVehicles}
-              </AppText>
-            </Pressable>
-
-            <View style={s.pulseDivider} />
-
-            <Pressable
-              style={s.pulseCol}
-              onPress={() => navigation.navigate('Fleet map', { filter: 'idling' })}
-              accessibilityRole="button"
-              accessibilityLabel={`${c('idling')}: ${idlingVehicles}`}
-            >
-              <View style={s.pulseColTop}>
-                <View style={[s.statusDot, { backgroundColor: '#F97316' }]} />
-                <AppText variant="caption" weight="bold" color={colors.textMuted} numberOfLines={1} style={s.pulseColLabel}>
-                  {c('idling')}
-                </AppText>
-              </View>
-              <AppText variant="h3" weight="extrabold" color={colors.text} style={s.pulseColNumber}>
-                {idlingVehicles}
-              </AppText>
-            </Pressable>
-
-            <View style={s.pulseDivider} />
-
-            <Pressable
-              style={s.pulseCol}
-              onPress={() => navigation.navigate('Fleet map', { filter: 'stopped' })}
-              accessibilityRole="button"
-              accessibilityLabel={`${c('stopped')}: ${stoppedVehicles}`}
-            >
-              <View style={s.pulseColTop}>
-                <View style={[s.statusDot, { backgroundColor: '#9333EA' }]} />
-                <AppText variant="caption" weight="bold" color={colors.textMuted} numberOfLines={1} style={s.pulseColLabel}>
-                  {c('stopped')}
-                </AppText>
-              </View>
-              <AppText variant="h3" weight="extrabold" color={colors.text} style={s.pulseColNumber}>
-                {stoppedVehicles}
-              </AppText>
-            </Pressable>
-
-            <View style={s.pulseDivider} />
-
-            <Pressable
-              style={s.pulseCol}
-              onPress={() => navigation.navigate('Fleet map', { filter: 'offline' })}
-              accessibilityRole="button"
-              accessibilityLabel={`${c('offline')}: ${offlineVehicles}`}
-            >
-              <View style={s.pulseColTop}>
-                <View style={[s.statusDot, { backgroundColor: '#9CA3AF' }]} />
-                <AppText variant="caption" weight="bold" color={colors.textMuted} numberOfLines={1} style={s.pulseColLabel}>
-                  {c('offline')}
-                </AppText>
-              </View>
-              <AppText variant="h3" weight="extrabold" color={colors.text} style={s.pulseColNumber}>
-                {offlineVehicles}
-              </AppText>
-            </Pressable>
-
-            <View style={s.pulseDivider} />
-
-            <Pressable
-              style={s.pulseCol}
-              onPress={() => navigation.navigate('Duty board')}
-              accessibilityRole="button"
-              accessibilityLabel={`${c('onDuty')}: ${driversOnDuty}`}
-            >
-              <View style={s.pulseColTop}>
-                <Ionicons name="people-outline" size={11} color={colors.primary} />
-                <AppText variant="caption" weight="bold" color={colors.primary} numberOfLines={1} style={s.pulseColLabel}>
-                  {c('onDuty')}
-                </AppText>
-              </View>
-              <AppText variant="h3" weight="extrabold" color={colors.primaryDeep} style={s.pulseColNumber}>
-                {driversOnDuty}
-              </AppText>
-            </Pressable>
-          </Card>
-        </View>
+        <FleetPulseSection
+          title={c('fleetPulse')}
+          branchName={currentBranchName}
+          onOpenBranch={() => setBranchSheetOpen(true)}
+          branchLabel={c('branchFilter')}
+          movingCount={movingVehicles}
+          idlingCount={idlingVehicles}
+          stoppedCount={stoppedVehicles}
+          offlineCount={offlineVehicles}
+          onDutyCount={driversOnDuty}
+          navigation={navigation}
+          labels={{
+            moving: c('moving'),
+            idling: c('idling'),
+            stopped: c('stopped'),
+            offline: c('offline'),
+            onDuty: c('onDuty'),
+          }}
+        />
 
         {/* Fleet Today Highlights Bar */}
-        <View style={s.highlightsCard}>
-          <View style={s.highlightItem}>
-            <View style={[s.highlightIconCircle, { backgroundColor: '#EFF6FF' }]}>
-              <Ionicons name="speedometer-outline" size={17} color={colors.primary} />
-            </View>
-            <View style={s.highlightCol}>
-              <AppText variant="caption" color={colors.textMuted} weight="bold" style={s.highlightLabel}>
-                TODAY'S RUN
-              </AppText>
-              <AppText variant="h3" weight="extrabold" color={colors.text}>
-                {totalDistanceToday.toLocaleString('en-IN')}{' '}
-                <AppText variant="caption" weight="bold" color={colors.textMuted}>
-                  km
-                </AppText>
-              </AppText>
-            </View>
-          </View>
-
-          <View style={s.highlightDivider} />
-
-          <View style={s.highlightItem}>
-            <View style={[s.highlightIconCircle, { backgroundColor: '#F0FDF4' }]}>
-              <Ionicons name="git-network-outline" size={17} color={colors.success} />
-            </View>
-            <View style={s.highlightCol}>
-              <AppText variant="caption" color={colors.textMuted} weight="bold" style={s.highlightLabel}>
-                ON ROAD
-              </AppText>
-              <AppText variant="h3" weight="extrabold" color={colors.text}>
-                {movingVehicles + idlingVehicles}{' '}
-                <AppText variant="caption" weight="bold" color={colors.textMuted}>
-                  / {vehicles.length}
-                </AppText>
-              </AppText>
-            </View>
-          </View>
-
-          <View style={s.highlightDivider} />
-
-          <View style={s.highlightItem}>
-            <View
-              style={[
-                s.highlightIconCircle,
-                { backgroundColor: lowFuelVehicles.length > 0 || (data?.alertFeed?.unacknowledgedCount || 0) > 0 ? '#FEF2F2' : '#F8FAFC' },
-              ]}
-            >
-              <Ionicons
-                name="warning-outline"
-                size={17}
-                color={lowFuelVehicles.length > 0 || (data?.alertFeed?.unacknowledgedCount || 0) > 0 ? colors.warning : colors.textMuted}
-              />
-            </View>
-            <View style={s.highlightCol}>
-              <AppText variant="caption" color={colors.textMuted} weight="bold" style={s.highlightLabel}>
-                EXCEPTIONS
-              </AppText>
-              <AppText
-                variant="h3"
-                weight="extrabold"
-                color={lowFuelVehicles.length > 0 || (data?.alertFeed?.unacknowledgedCount || 0) > 0 ? colors.warning : colors.text}
-              >
-                {(data?.alertFeed?.unacknowledgedCount || 0) + lowFuelVehicles.length}{' '}
-                <AppText variant="caption" weight="bold" color={colors.textMuted}>
-                  events
-                </AppText>
-              </AppText>
-            </View>
-          </View>
-        </View>
+        <FleetTodayHighlights
+          totalDistanceToday={totalDistanceToday}
+          onRoadCount={movingVehicles + idlingVehicles}
+          totalVehiclesCount={vehicles.length}
+          exceptionsCount={(data?.alertFeed?.unacknowledgedCount || 0) + lowFuelVehicles.length}
+          hasAlertsOrLowFuel={lowFuelVehicles.length > 0 || (data?.alertFeed?.unacknowledgedCount || 0) > 0}
+        />
 
         {/* Act-Rate Performance Tile (M17) */}
         {overallRate !== null && (
@@ -548,6 +379,16 @@ export function ManagerActionHome({ navigation }) {
             <AppText variant="h3" weight="extrabold" color={colors.text}>
               Aaj ka hisab
             </AppText>
+            {/* Managers get the same report the owner reads, scoped by the server to their branch. */}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('Owner report', { date: reportDate })}
+              hitSlop={8}
+            >
+              <AppText variant="small" weight="bold" color={colors.primary}>
+                {c('fullDailyReport')}
+              </AppText>
+            </Pressable>
           </View>
 
           <DateSelector date={reportDate} onChange={setReportDate} />
@@ -732,162 +573,14 @@ export function ManagerActionHome({ navigation }) {
         )}
 
         {/* Quick Operational Launchpad */}
-        <View style={s.launchpadSection}>
-          <View style={s.launchpadHeader}>
-            <AppText variant="label" weight="extrabold" color={colors.text}>
-              OPERATIONAL HUB
-            </AppText>
-            <AppText variant="caption" color={colors.textMuted}>
-              Everyday Tools & Workflows
-            </AppText>
-          </View>
-
-          <View style={s.launchpadGrid}>
-            <Pressable
-              style={s.launchpadTile}
-              onPress={() => navigation.navigate('Fleet map')}
-              accessibilityRole="button"
-            >
-              <View style={[s.tileIconCircle, { backgroundColor: '#EFF6FF' }]}>
-                <Ionicons name="map" size={20} color={colors.primary} />
-              </View>
-              <AppText variant="body" weight="extrabold" color={colors.text}>
-                Live Fleet
-              </AppText>
-              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
-                Map & Tracking
-              </AppText>
-            </Pressable>
-
-            <Pressable
-              style={s.launchpadTile}
-              onPress={() => navigation.navigate('Duty board')}
-              accessibilityRole="button"
-            >
-              <View style={[s.tileIconCircle, { backgroundColor: '#F0FDF4' }]}>
-                <Ionicons name="people" size={20} color={colors.success} />
-              </View>
-              <AppText variant="body" weight="extrabold" color={colors.text}>
-                Duty Board
-              </AppText>
-              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
-                Drivers & Hours
-              </AppText>
-            </Pressable>
-
-            <Pressable
-              style={s.launchpadTile}
-              onPress={() => navigation.navigate('Manager approvals')}
-              accessibilityRole="button"
-            >
-              <View style={[s.tileIconCircle, { backgroundColor: '#FAF5FF' }]}>
-                <Ionicons name="checkmark-done-circle" size={20} color="#9333EA" />
-              </View>
-              <AppText variant="body" weight="extrabold" color={colors.text}>
-                Approvals
-              </AppText>
-              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
-                Bills & Advances
-              </AppText>
-            </Pressable>
-
-            <Pressable
-              style={s.launchpadTile}
-              onPress={() => navigation.navigate('Fleet documents', { kind: 'documents' })}
-              accessibilityRole="button"
-            >
-              <View style={[s.tileIconCircle, { backgroundColor: '#FFFBEB' }]}>
-                <Ionicons name="document-text" size={20} color="#D97706" />
-              </View>
-              <AppText variant="body" weight="extrabold" color={colors.text}>
-                Documents
-              </AppText>
-              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
-                Permit, Tax, PUC
-              </AppText>
-            </Pressable>
-
-            <Pressable
-              style={s.launchpadTile}
-              onPress={() => navigation.navigate('Fuel review', { kind: 'fuel' })}
-              accessibilityRole="button"
-            >
-              <View style={[s.tileIconCircle, { backgroundColor: '#FEF2F2' }]}>
-                <Ionicons name="speedometer" size={20} color="#EF4444" />
-              </View>
-              <AppText variant="body" weight="extrabold" color={colors.text}>
-                Fuel Logs
-              </AppText>
-              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
-                Diesel & Mileage
-              </AppText>
-            </Pressable>
-
-            <Pressable
-              style={s.launchpadTile}
-              onPress={() => navigation.navigate('Alerts')}
-              accessibilityRole="button"
-            >
-              <View style={[s.tileIconCircle, { backgroundColor: '#FFF1F2' }]}>
-                <Ionicons name="notifications" size={20} color="#E11D48" />
-              </View>
-              <AppText variant="body" weight="extrabold" color={colors.text}>
-                Alerts
-              </AppText>
-              <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
-                Alarms & Geofence
-              </AppText>
-            </Pressable>
-          </View>
-        </View>
+        <OperationalHubSection navigation={navigation} />
 
         {/* Recent Critical Alerts Ticker */}
-        {recentAlerts.length > 0 && (
-          <View style={s.recentAlertsSection}>
-            <View style={s.recentAlertsHeader}>
-              <View style={s.inlineCenter}>
-                <Ionicons name="notifications-circle" size={18} color={colors.error} />
-                <AppText variant="label" weight="extrabold" color={colors.text}>
-                  RECENT EXCEPTIONS
-                </AppText>
-              </View>
-              <Pressable onPress={() => navigation.navigate('Alerts')} hitSlop={8}>
-                <AppText variant="small" weight="bold" color={colors.primary}>
-                  View All ({data?.alertFeed?.unacknowledgedCount || recentAlerts.length}) →
-                </AppText>
-              </Pressable>
-            </View>
-
-            <Card padding={0} style={s.recentAlertsCard}>
-              {recentAlerts.map((alert, idx) => {
-                const isUrgent = alert.severity === 'CRITICAL' || alert.severity === 'HIGH' || alert.type?.includes('SPEED') || alert.type?.includes('THEFT');
-                return (
-                  <Pressable
-                    key={alert.id || alert._id || idx}
-                    style={[s.recentAlertRow, idx > 0 && s.recentAlertBorder]}
-                    onPress={() => navigation.navigate('Alerts')}
-                  >
-                    <View style={[s.recentAlertDot, { backgroundColor: isUrgent ? colors.error : colors.warning }]} />
-                    <View style={s.recentAlertMain}>
-                      <View style={s.recentAlertTitleRow}>
-                        <AppText variant="body" weight="bold" numberOfLines={1} color={colors.text}>
-                          {alert.title || alert.type?.replace(/_/g, ' ') || 'Fleet Exception'}
-                        </AppText>
-                        <AppText variant="caption" mono color={colors.textMuted}>
-                          {alert.plate || alert.vehicle?.registrationNumber || ''}
-                        </AppText>
-                      </View>
-                      <AppText variant="caption" color={colors.textMuted} numberOfLines={1}>
-                        {alert.message || alert.description || 'Action recommended'}
-                      </AppText>
-                    </View>
-                    <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
-                  </Pressable>
-                );
-              })}
-            </Card>
-          </View>
-        )}
+        <RecentExceptionsSection
+          alerts={recentAlerts}
+          unacknowledgedCount={data?.alertFeed?.unacknowledgedCount || recentAlerts.length}
+          navigation={navigation}
+        />
 
         {/* Compliance Warning Banner */}
         {complianceIssuesCount > 0 && (

@@ -80,6 +80,7 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Owner trends" component={OwnerTrends} />
     <Stack.Screen name="Report settings" component={ReportSettings} />
     <Stack.Screen name="Owner escalations" component={OwnerEscalations} />
+    <Stack.Screen name="Alerts" component={OwnerEscalations} />
     <Stack.Screen name="Owner escalation" component={OwnerEscalation} />
     <Stack.Screen name="Owner calls" component={OwnerCalls} />
     <Stack.Screen name="Messages" component={Messages} />
