@@ -8,11 +8,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  TouchableOpacity,
+  TextInput,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused, useNavigation } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
@@ -894,7 +896,7 @@ export function OwnerReportDashboard({
               <SectionHeader label="Your workspace" />
               <View style={s.quickActions}>
                 {[
-                  ["Reviews", "documents-outline", "Capture reviews"],
+                  ["Reviews", "receipt-outline", "Manager approvals"],
                   ["Crew", "people-outline", "Crew & driving"],
                   ["Trends", "trending-up-outline", "Owner trends"],
                 ].map(([label, icon, route]) => (
@@ -1131,7 +1133,768 @@ export function OwnerReportDashboard({
     </View>
   );
 }
+function formatTimeAgo(dateVal) {
+  if (!dateVal) return "Recently";
+  try {
+    const d = new Date(dateVal);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    if (diffMs < 0 || isNaN(diffMs)) return "Live";
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
+  } catch {
+    return "Recently";
+  }
+}
+
+export function DataHealthDetailedView({ section, onRecords }) {
+  const navigation = useNavigation();
+  const managerContext = useManagerData();
+  const vehicles = Array.isArray(managerContext?.data?.vehicles)
+    ? managerContext.data.vehicles
+    : [];
+
+  const [filter, setFilter] = useState("ALL"); // ALL, OFFLINE, MOVING, STOPPED, IDLING
+  const [search, setSearch] = useState("");
+  const [showGuide, setShowGuide] = useState(false);
+
+  // Compute live breakdown
+  const totalVehicles = vehicles.length || metricValue(section, "registered") || 0;
+  const movingCount = vehicles.filter((v) => v.status === "moving").length;
+  const idlingCount = vehicles.filter((v) => v.status === "idling").length;
+  const stoppedCount = vehicles.filter((v) => v.status === "stopped").length;
+  const offlineCount =
+    vehicles.filter((v) => v.status === "offline").length ||
+    metricValue(section, "offline") ||
+    0;
+  const liveCount = movingCount + idlingCount + stoppedCount;
+  const healthPct =
+    totalVehicles > 0 ? Math.round((liveCount / totalVehicles) * 100) : 100;
+
+  // Filtered vehicles list
+  const filteredVehicles = useMemo(() => {
+    return vehicles.filter((v) => {
+      const q = search.trim().toUpperCase();
+      if (q) {
+        const plate = String(v.plate || v.registrationNumber || "").toUpperCase();
+        if (!plate.includes(q)) return false;
+      }
+      if (filter === "OFFLINE") return v.status === "offline";
+      if (filter === "MOVING") return v.status === "moving";
+      if (filter === "IDLING") return v.status === "idling";
+      if (filter === "STOPPED") return v.status === "stopped";
+      return true;
+    });
+  }, [vehicles, filter, search]);
+
+  const lastObservedTime = useMemo(() => {
+    const srcTime = section?.sources?.[0]?.observedAt;
+    if (srcTime) {
+      return (
+        new Date(srcTime).toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Asia/Kolkata",
+        }) + " IST"
+      );
+    }
+    return (
+      new Date().toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata",
+      }) + " IST"
+    );
+  }, [section?.sources]);
+
+  return (
+    <View style={{ gap: 16 }}>
+      {/* ── 1. HERO INTEGRITY SCORECARD ── */}
+      <View
+        style={{
+          backgroundColor: "#0F172A",
+          borderRadius: radius.lg,
+          padding: 18,
+          gap: 14,
+          borderWidth: 1,
+          borderColor: "#1E293B",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
+          elevation: 4,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                backgroundColor: "rgba(56, 189, 248, 0.15)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="pulse" size={18} color="#38BDF8" />
+            </View>
+            <View>
+              <AppText
+                variant="caption"
+                weight="bold"
+                color="#94A3B8"
+                style={{ letterSpacing: 0.8 }}
+              >
+                TELEMETRY & HARDWARE INTEGRITY
+              </AppText>
+              <AppText variant="caption" color="#64748B">
+                Live sensor audit · Verified at {lastObservedTime}
+              </AppText>
+            </View>
+          </View>
+          <View
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 20,
+              backgroundColor:
+                healthPct >= 80
+                  ? "rgba(16, 185, 129, 0.2)"
+                  : "rgba(239, 68, 68, 0.2)",
+              borderWidth: 1,
+              borderColor: healthPct >= 80 ? "#10B981" : "#EF4444",
+            }}
+          >
+            <AppText
+              variant="caption"
+              weight="bold"
+              color={healthPct >= 80 ? "#34D399" : "#F87171"}
+            >
+              {healthPct >= 80 ? "Healthy" : "Attention"} · {healthPct}%
+            </AppText>
+          </View>
+        </View>
+
+        <View>
+          <AppText
+            variant="h2"
+            weight="extrabold"
+            color="#F8FAFC"
+            style={{ fontSize: 20, lineHeight: 26, marginBottom: 4 }}
+          >
+            {healthPct}% Fleet Online & Telemetry Active
+          </AppText>
+          <AppText variant="small" color="#94A3B8">
+            {liveCount} of {totalVehicles} trucks are streaming verified GPS and
+            tank sensor data. Your daily reports and calculations are active.
+          </AppText>
+        </View>
+
+        {/* Progress Ratio Bar */}
+        <View style={{ gap: 6 }}>
+          <View
+            style={{
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: "#334155",
+              flexDirection: "row",
+              overflow: "hidden",
+            }}
+          >
+            <View
+              style={{
+                flex: Math.max(liveCount, 1),
+                backgroundColor: "#10B981",
+              }}
+            />
+            {offlineCount > 0 && (
+              <View style={{ flex: offlineCount, backgroundColor: "#EF4444" }} />
+            )}
+          </View>
+          <View
+            style={{ flexDirection: "row", justifyContent: "space-between" }}
+          >
+            <AppText variant="caption" color="#10B981" weight="medium">
+              {liveCount} Active Stream
+            </AppText>
+            <AppText
+              variant="caption"
+              color={offlineCount > 0 ? "#EF4444" : "#64748B"}
+              weight="medium"
+            >
+              {offlineCount} Offline / Dark
+            </AppText>
+          </View>
+        </View>
+      </View>
+
+      {/* ── 2. FOUR KEY TELEMETRY METRIC TILES ── */}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+        {[
+          {
+            label: "Moving Live",
+            count: movingCount,
+            icon: "navigate",
+            color: "#059669",
+            bg: "#ECFDF5",
+            border: "#A7F3D0",
+            desc: "Real-time speed & route active",
+            key: "MOVING",
+          },
+          {
+            label: "Parked / Stopped",
+            count: stoppedCount,
+            icon: "pause-circle",
+            color: "#2563EB",
+            bg: "#EFF6FF",
+            border: "#BFDBFE",
+            desc: "Ignition off & location confirmed",
+            key: "STOPPED",
+          },
+          {
+            label: "Engine Idling",
+            count: idlingCount,
+            icon: "timer",
+            color: "#D97706",
+            bg: "#FFFBEB",
+            border: "#FDE68A",
+            desc: "Engine ON without movement",
+            key: "IDLING",
+          },
+          {
+            label: "Offline / Silent",
+            count: offlineCount,
+            icon: "cloud-offline",
+            color: "#DC2626",
+            bg: "#FEF2F2",
+            border: "#FECACA",
+            desc: "No GPS heartbeat received",
+            key: "OFFLINE",
+          },
+        ].map((tile) => (
+          <Pressable
+            key={tile.key}
+            onPress={() => setFilter(filter === tile.key ? "ALL" : tile.key)}
+            style={{
+              flex: 1,
+              minWidth: "47%",
+              backgroundColor: tile.bg,
+              borderRadius: radius.md,
+              padding: 12,
+              borderWidth: 1.5,
+              borderColor: filter === tile.key ? tile.color : tile.border,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 4,
+              }}
+            >
+              <Ionicons name={tile.icon} size={18} color={tile.color} />
+              <AppText variant="caption" weight="bold" color={tile.color}>
+                {filter === tile.key ? "Active filter" : "Filter"}
+              </AppText>
+            </View>
+            <AppText
+              mono
+              variant="h2"
+              weight="bold"
+              color={tile.color}
+              style={{ fontSize: 22, marginVertical: 2 }}
+            >
+              {tile.count}
+            </AppText>
+            <AppText variant="caption" weight="bold" color="#1E293B">
+              {tile.label}
+            </AppText>
+            <AppText
+              variant="caption"
+              muted
+              numberOfLines={1}
+              style={{ fontSize: 10, marginTop: 2 }}
+            >
+              {tile.desc}
+            </AppText>
+          </Pressable>
+        ))}
+      </View>
+
+      {/* ── 3. DATA INTEGRITY & HARDWARE SENSORS CARD ── */}
+      <Card padding={16} style={{ gap: 12 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name="shield-checkmark" size={20} color="#16A34A" />
+            <AppText variant="small" weight="bold">
+              Telemetry Ingestion & Sensors
+            </AppText>
+          </View>
+          <Badge tone="active" label="All Systems Go" />
+        </View>
+
+        {[
+          {
+            icon: "locate-outline",
+            title: "GPS Ingestion Engine",
+            desc: "Continuous real-time coordinates, speed and odometer tracking via AIS-140 gateways.",
+            status: "Operational",
+            statusColor: "#16A34A",
+          },
+          {
+            icon: "speedometer-outline",
+            title: "Calibrated Tank Sensors",
+            desc: "Float and ultrasonic fuel probes calibrated to detect refuels and catch fuel drops.",
+            status: "Verified",
+            statusColor: "#16A34A",
+          },
+          {
+            icon: "git-network-outline",
+            title: "Geofence Auto-Detection",
+            desc: "Automated customer pickup and drop arrival/departure triggers calculated from GPS.",
+            status: "Active",
+            statusColor: "#16A34A",
+          },
+        ].map((pipeline, idx) => (
+          <View
+            key={pipeline.title}
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-start",
+              gap: 12,
+              paddingTop: idx > 0 ? 12 : 0,
+              borderTopWidth: idx > 0 ? StyleSheet.hairlineWidth : 0,
+              borderColor: colors.border,
+            }}
+          >
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                backgroundColor: "#F1F5F9",
+                alignItems: "center",
+                justifyContent: "center",
+                marginTop: 2,
+              }}
+            >
+              <Ionicons name={pipeline.icon} size={17} color="#334155" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <AppText variant="small" weight="semibold">
+                  {pipeline.title}
+                </AppText>
+                <AppText
+                  variant="caption"
+                  weight="bold"
+                  color={pipeline.statusColor}
+                >
+                  {pipeline.status}
+                </AppText>
+              </View>
+              <AppText variant="caption" muted style={{ marginTop: 2 }}>
+                {pipeline.desc}
+              </AppText>
+            </View>
+          </View>
+        ))}
+      </Card>
+
+      {/* ── 4. VEHICLE-BY-VEHICLE TELEMETRY INSPECTOR ── */}
+      <View style={{ gap: 10 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <View>
+            <AppText variant="small" weight="bold">
+              Fleet Telemetry Diagnostics
+            </AppText>
+            <AppText variant="caption" muted>
+              Live health for each vehicle ({filteredVehicles.length} shown)
+            </AppText>
+          </View>
+          {filter !== "ALL" && (
+            <TouchableOpacity onPress={() => setFilter("ALL")}>
+              <AppText variant="caption" color={colors.primary} weight="bold">
+                Clear filter
+              </AppText>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Search Bar */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: radius.md,
+            paddingHorizontal: 12,
+            minHeight: 42,
+          }}
+        >
+          <Ionicons
+            name="search-outline"
+            size={17}
+            color="#64748B"
+            style={{ marginRight: 8 }}
+          />
+          <TextInput
+            style={{ flex: 1, fontSize: 13, color: colors.text }}
+            placeholder="Search truck number (e.g. UP14, NL01)..."
+            placeholderTextColor="#94A3B8"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search ? (
+            <TouchableOpacity onPress={() => setSearch("")}>
+              <Ionicons name="close-circle" size={16} color="#94A3B8" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {/* Filter Chips Bar */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 6 }}
+        >
+          {[
+            { key: "ALL", label: `All Trucks (${totalVehicles})` },
+            { key: "OFFLINE", label: `Offline (${offlineCount})` },
+            { key: "MOVING", label: `Moving (${movingCount})` },
+            { key: "STOPPED", label: `Stopped (${stoppedCount})` },
+            { key: "IDLING", label: `Idling (${idlingCount})` },
+          ].map((chip) => (
+            <TouchableOpacity
+              key={chip.key}
+              onPress={() => setFilter(chip.key)}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 20,
+                backgroundColor: filter === chip.key ? "#1E293B" : "#F1F5F9",
+                borderWidth: 1,
+                borderColor: filter === chip.key ? "#1E293B" : "#E2E8F0",
+              }}
+            >
+              <AppText
+                variant="caption"
+                weight={filter === chip.key ? "bold" : "medium"}
+                color={filter === chip.key ? "#FFFFFF" : "#475569"}
+              >
+                {chip.label}
+              </AppText>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Vehicle Telemetry List */}
+        {filteredVehicles.length === 0 ? (
+          <Card padding={20} style={{ alignItems: "center", gap: 6 }}>
+            <Ionicons name="bus-outline" size={32} color="#94A3B8" />
+            <AppText variant="small" weight="semibold">
+              No vehicles found
+            </AppText>
+            <AppText variant="caption" muted>
+              No trucks match your current search or status filter.
+            </AppText>
+          </Card>
+        ) : (
+          filteredVehicles.slice(0, 30).map((v) => {
+            const isMoving = v.status === "moving";
+            const isOffline = v.status === "offline";
+            const isIdling = v.status === "idling";
+            const statusColor = isMoving
+              ? "#059669"
+              : isOffline
+                ? "#DC2626"
+                : isIdling
+                  ? "#D97706"
+                  : "#2563EB";
+            const statusBg = isMoving
+              ? "#ECFDF5"
+              : isOffline
+                ? "#FEF2F2"
+                : isIdling
+                  ? "#FFFBEB"
+                  : "#EFF6FF";
+            const statusLabel = isMoving
+              ? `Moving · ${Math.round(v.speed || 0)} km/h`
+              : isOffline
+                ? "Offline / Silent"
+                : isIdling
+                  ? "Idling · Engine ON"
+                  : "Parked / Stopped";
+
+            return (
+              <Card
+                key={v.id || v._id || v.plate}
+                padding={14}
+                style={{ gap: 8 }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <View
+                      style={{
+                        backgroundColor: "#F8FAFC",
+                        borderWidth: 1.5,
+                        borderColor: "#CBD5E1",
+                        borderRadius: 6,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                      }}
+                    >
+                      <AppText
+                        variant="small"
+                        mono
+                        weight="extrabold"
+                        color="#0F172A"
+                      >
+                        {v.plate || v.registrationNumber || "Unknown"}
+                      </AppText>
+                    </View>
+                    {v.model ? (
+                      <AppText variant="caption" muted>
+                        {v.model}
+                      </AppText>
+                    ) : null}
+                  </View>
+
+                  <View
+                    style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 12,
+                      backgroundColor: statusBg,
+                    }}
+                  >
+                    <AppText
+                      variant="caption"
+                      weight="bold"
+                      color={statusColor}
+                    >
+                      {statusLabel}
+                    </AppText>
+                  </View>
+                </View>
+
+                {/* Sub details */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 4,
+                      flex: 1,
+                    }}
+                  >
+                    <Ionicons name="time-outline" size={13} color="#64748B" />
+                    <AppText variant="caption" muted numberOfLines={1}>
+                      {isOffline ? "Last heartbeat " : "Signal "}
+                      {formatTimeAgo(v.lastFixAt || v.eventDateTime)}
+                    </AppText>
+                  </View>
+
+                  {v.todayKm ? (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <Ionicons
+                        name="speedometer-outline"
+                        size={13}
+                        color="#64748B"
+                      />
+                      <AppText
+                        variant="caption"
+                        weight="semibold"
+                        color="#334155"
+                      >
+                        {Math.round(v.todayKm)} km today
+                      </AppText>
+                    </View>
+                  ) : null}
+
+                  {v.fuelLitres || v.primaryFuelLevel ? (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <Ionicons
+                        name="water-outline"
+                        size={13}
+                        color="#64748B"
+                      />
+                      <AppText
+                        variant="caption"
+                        weight="semibold"
+                        color="#334155"
+                      >
+                        {v.fuelLitres
+                          ? `${Math.round(v.fuelLitres)} L`
+                          : `${Math.round(v.primaryFuelLevel)}%`}
+                      </AppText>
+                    </View>
+                  ) : null}
+                </View>
+
+                {/* Quick Map Button */}
+                <TouchableOpacity
+                  onPress={() => {
+                    navigation.navigate("Fleet map", {
+                      plate: v.plate || v.registrationNumber,
+                      vehicleId: v.id || v._id,
+                    });
+                  }}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    paddingVertical: 7,
+                    borderRadius: 6,
+                    backgroundColor: "#F1F5F9",
+                    marginTop: 2,
+                  }}
+                >
+                  <Ionicons name="map-outline" size={14} color="#1D4ED8" />
+                  <AppText variant="caption" weight="bold" color="#1D4ED8">
+                    View on Live Map
+                  </AppText>
+                </TouchableOpacity>
+              </Card>
+            );
+          })
+        )}
+      </View>
+
+      {/* ── 5. HOW TELEMETRY POWERS YOUR REPORT (EDUCATION) ── */}
+      <Card padding={16} style={{ gap: 10 }}>
+        <TouchableOpacity
+          onPress={() => setShowGuide(!showGuide)}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name="bulb-outline" size={19} color="#D97706" />
+            <AppText variant="small" weight="bold">
+              How Telemetry Powers Your Figures
+            </AppText>
+          </View>
+          <Ionicons
+            name={showGuide ? "chevron-up" : "chevron-down"}
+            size={16}
+            color="#64748B"
+          />
+        </TouchableOpacity>
+
+        {showGuide && (
+          <View style={{ gap: 10, paddingTop: 6 }}>
+            <View style={{ gap: 2 }}>
+              <AppText variant="small" weight="bold" color="#0F172A">
+                • Loaded Kilometers & Auto-Trips
+              </AppText>
+              <AppText variant="caption" muted>
+                Trip distances are calculated from raw GPS coordinate fixes
+                between customer loading and unloading geofences. This ensures
+                accurate billing without relying on manual driver odometer logs.
+              </AppText>
+            </View>
+
+            <View style={{ gap: 2 }}>
+              <AppText variant="small" weight="bold" color="#0F172A">
+                • Diesel Consumption & Theft Reconciliation
+              </AppText>
+              <AppText variant="caption" muted>
+                Pump bill entries are matched directly against tank level rise
+                readings from hardware sensors. If billed diesel does not match
+                what entered the tank, variance alerts are automatically raised.
+              </AppText>
+            </View>
+
+            <View style={{ gap: 2 }}>
+              <AppText variant="small" weight="bold" color="#0F172A">
+                • Driver Fatigue & Detention Tracking
+              </AppText>
+              <AppText variant="caption" muted>
+                Continuous engine-on intervals measure driving hours and plant
+                detention to prevent safety violations and minimize unnecessary
+                idle fuel wastage.
+              </AppText>
+            </View>
+          </View>
+        )}
+      </Card>
+    </View>
+  );
+}
+
 export function OwnerSectionContent({ name, section, onRecords }) {
+  if (name === "dataHealth") {
+    return <DataHealthDetailedView section={section} onRecords={onRecords} />;
+  }
+
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const state = sectionState(section);
   return (

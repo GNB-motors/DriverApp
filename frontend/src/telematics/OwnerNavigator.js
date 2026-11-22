@@ -87,7 +87,7 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Conversation" component={Conversation} />
     <Stack.Screen name="Fuel & AdBlue" component={DefLedgerScreen} />
     <Stack.Screen name="Branch overview" component={Owner.BranchOverview} />
-    <Stack.Screen name="Capture reviews" component={OwnerCaptures} />
+    <Stack.Screen name="Capture reviews" component={ManagerReviews} />
     <Stack.Screen name="Team & access" component={TeamAccessScreen} />
     <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} options={{ presentation: 'transparentModal', animation: 'fade' }} />
     <Stack.Screen name="Owner settings" component={Screens.Settings} />
