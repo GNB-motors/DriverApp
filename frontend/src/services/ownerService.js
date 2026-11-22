@@ -38,6 +38,48 @@ export async function listKhataDrivers(params = {}) {
   return res.data?.data ?? res.data;
 }
 
+/** → { results: [{ _id, registrationNumber, model, totalAmount, entryCount, driverSplit }] } */
+export async function listKhataVehicles(params = {}) {
+  const res = await client.get('/khata/vehicles', { params });
+  return res.data?.data ?? res.data;
+}
+
+/** Driver itemized khata ledger → { results: [...], total, page, totalPages } */
+export async function getKhataDriverLedger(driverId, params = {}) {
+  const res = await client.get(`/khata/drivers/${driverId}/ledger`, { params });
+  return res.data?.data ?? res.data;
+}
+
+/** Driver khata summary → { totalAmount, entryCount, vehicleSplit } */
+export async function getKhataDriverSummary(driverId, params = {}) {
+  const res = await client.get(`/khata/drivers/${driverId}/summary`, { params });
+  return res.data?.data ?? res.data;
+}
+
+/** Vehicle itemized khata ledger → { results: [...], total, page, totalPages } */
+export async function getKhataVehicleLedger(vehicleId, params = {}) {
+  const res = await client.get(`/khata/vehicles/${vehicleId}/ledger`, { params });
+  return res.data?.data ?? res.data;
+}
+
+/** Vehicle khata summary → { totalAmount, entryCount, driverSplit } */
+export async function getKhataVehicleSummary(vehicleId, params = {}) {
+  const res = await client.get(`/khata/vehicles/${vehicleId}/summary`, { params });
+  return res.data?.data ?? res.data;
+}
+
+/** All khata expenses feed → { results: [...], totalResults, totalPages } */
+export async function getKhataExpenses(params = {}) {
+  const res = await client.get('/expenses', { params });
+  return res.data?.data ?? res.data;
+}
+
+/** Overall expense summary */
+export async function getKhataExpenseSummary(params = {}) {
+  const res = await client.get('/expenses/summary', { params });
+  return res.data?.data ?? res.data;
+}
+
 /** → [{ billNumber, partyId: { name }, netAmount, outstandingAmount, status, dueDate }] */
 export async function listSaleBills(params = {}) {
   const res = await client.get('/erp/sale-bills', { params });
@@ -66,6 +108,13 @@ export default {
   getFinanceSummary,
   getFinanceAgeing,
   listKhataDrivers,
+  listKhataVehicles,
+  getKhataDriverLedger,
+  getKhataDriverSummary,
+  getKhataVehicleLedger,
+  getKhataVehicleSummary,
+  getKhataExpenses,
+  getKhataExpenseSummary,
   listSaleBills,
   listOutstanding,
   getLedgerEntries,

@@ -75,6 +75,7 @@ export default function OwnerNavigator() {
     <Stack.Screen name="Owner report section" component={OwnerReportSection} />
     <Stack.Screen name="Owner report rows" component={OwnerReportRows} />
     <Stack.Screen name="Owner record" component={OwnerRecord} />
+    <Stack.Screen name="Khata ledger" component={OwnerFinance} />
     <Stack.Screen name="Owner finance" component={OwnerFinance} />
     <Stack.Screen name="Owner trends" component={OwnerTrends} />
     <Stack.Screen name="Report settings" component={ReportSettings} />

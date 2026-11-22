@@ -83,6 +83,7 @@ export default function ManagerNavigator() {
     <Stack.Screen name="Owner report section" component={OwnerReportSection} />
     <Stack.Screen name="Owner report rows" component={OwnerReportRows} />
     <Stack.Screen name="Owner trends" component={OwnerTrends} />
+    <Stack.Screen name="Khata ledger" component={OwnerFinance} />
     <Stack.Screen name="Owner finance" component={OwnerFinance} />
     <Stack.Screen name="AdBlue / DEF" component={DefLedgerScreen} />
     <Stack.Screen name="Team & access" component={TeamAccessScreen} />

@@ -122,12 +122,8 @@ export function More({ navigation }) {
     ]],
     ['Money & records', [
       ['Capture reviews', 'Approvals & reviews', 'receipt-outline'],
-      ['Owner finance', 'Billing & cash flow', 'wallet-outline'],
+      ['Khata ledger', 'Khata ledger', 'book-outline'],
       ['Fleet documents', 'Fleet documents', 'document-text-outline'],
-    ]],
-    ['Conversations', [
-      ['Owner calls', 'Calls & follow-ups', 'call-outline'],
-      ['Owner escalations', 'Owner inbox', 'notifications-outline'],
     ]],
     ['Your workspace', [
       ['Owner home', 'Fleet home summary', 'home-outline'],

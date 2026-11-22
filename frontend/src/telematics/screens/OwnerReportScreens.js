@@ -2,6 +2,7 @@ import { captureKindLabel, captureWarnings } from "../services/documentCapture";
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, View } from "react-native";
 import ApprovalsScreen from "./ApprovalsScreen";
+import KhataLedgerScreen from "./KhataLedgerScreen";
 import * as Speech from "expo-speech";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Select from "../../components/ui/SelectField";
@@ -1147,33 +1148,10 @@ export function OwnerRecord({ navigation, route }) {
     </Screen>
   );
 }
-export function OwnerFinance({ navigation, route }) {
-  const date = route.params?.date || yesterday();
-  return (
-    <Screen navigation={navigation} title="Billing and cash evidence">
-      <AppText>
-        {date} IST. Billed margin excludes overheads; payments and purchases are
-        separate.
-      </AppText>
-      {[
-        ["billed", "Freight billed"],
-        ["purchaseCosts", "Purchase bills"],
-        ["supplierCosts", "Supplier invoices"],
-        ["cashIn", "Cash received"],
-        ["cashOut", "Cash paid"],
-        ["receivables", "Outstanding receivables now"],
-      ].map(([metric, label]) => (
-        <MenuRow
-          key={metric}
-          title={label}
-          onPress={() =>
-            navigation.navigate("Owner report rows", { metric, date })
-          }
-        />
-      ))}
-    </Screen>
-  );
+export function OwnerFinance(props) {
+  return <KhataLedgerScreen {...props} />;
 }
+export { KhataLedgerScreen };
 export function OwnerTrends({ navigation, route }) {
   const { service, branch, key } = useScope();
   const date = route.params?.date || yesterday();
