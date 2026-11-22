@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Platform, Pressable, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, Badge, Button, Card, TextField, colors } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTelematicsApi } from "../context/TelematicsApiContext";
 import { useManagerData } from "../context/ManagerDataContext";
+import { useDriverData } from "../context/DriverDataContext";
 import useOwnerRequest from "../hooks/useOwnerRequest";
 import useOwnerWrite from "../hooks/useOwnerWrite";
 import { Screen, Choice, RequestState } from "../components/FormControls";
@@ -48,7 +51,7 @@ function confirm(message, action) {
     ]);
 }
 function nameFor(data, id) {
-  const person = [...(data.members || []), ...(data.people || [])].find(
+  const person = [...(data?.members || []), ...(data?.people || [])].find(
     (row) => String(row._id) === String(id),
   );
   return person
@@ -188,7 +191,8 @@ export function VehicleCrewCard({ navigation, vehicleId }) {
   );
 }
 export function DriverCrewScreen({ navigation }) {
-  return <CrewScreen navigation={navigation} driver />;
+  const driverCtx = useDriverData();
+  return <CrewScreen navigation={navigation} driver driverData={driverCtx?.data} />;
 }
 export function FleetCrewScreen({ navigation, route }) {
   const { branchId, data, loading, error, refresh } = useManagerData();
@@ -209,7 +213,8 @@ export function FleetCrewScreen({ navigation, route }) {
     />
   );
 }
-function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
+function CrewScreen({ navigation, driver = false, vehicleId, branch, driverData }) {
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const service = useTelematicsApi();
   const owner = !driver && user.role === "OWNER";
@@ -278,6 +283,294 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
       setNotice(actions[result.applied?.action] || "Action saved.");
     }
     request.reload();
+  }
+  if (driver) {
+    const vehicleReg =
+      data?.vehicle?.registrationNumber ||
+      data?.vehicle?.plate ||
+      driverData?.vehicle?.registrationNumber ||
+      driverData?.vehicle?.plate ||
+      "AS15AC6474";
+    const currentStatus = data?.status || "UNKNOWN";
+    const statusTitle = labels[currentStatus] || "Driving unconfirmed";
+    const hasMembers = Boolean(data?.members && data.members.length > 0);
+    const crewSubtitle = hasMembers
+      ? data.currentDriverId
+        ? `At the wheel: ${nameFor(data, data.currentDriverId)}`
+        : data.members.map((m) => nameFor(data, m._id)).join(", ")
+      : "No crew assigned.";
+    const isDriving =
+      currentStatus === "DRIVING" &&
+      String(data?.currentDriverId) === String(user?._id);
+
+    return (
+      <View style={driverStyles.screenContainer}>
+        <View style={[driverStyles.headerContainer, { paddingTop: insets.top + 8 }]}>
+          <Pressable
+            onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Home"))}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            style={driverStyles.headerBackBtn}
+          >
+            <Ionicons name="chevron-back" size={22} color="#0F172A" />
+          </Pressable>
+          <AppText style={driverStyles.headerTitleText}>Crew & driving</AppText>
+        </View>
+
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentInsetAdjustmentBehavior="never"
+          contentContainerStyle={[
+            driverStyles.scrollContent,
+            { paddingBottom: insets.bottom + 24 },
+          ]}
+        >
+          {request.loading && !data ? <AppText muted style={{ marginBottom: 12 }}>Loading crew status…</AppText> : null}
+          {request.error ? (
+            <View style={{ marginBottom: 12 }}>
+              <AppText color={colors.error}>{request.error}</AppText>
+              <Button label="Retry" variant="secondary" onPress={request.reload} style={{ marginTop: 6 }} />
+            </View>
+          ) : null}
+
+          {/* Top Amber Status Card */}
+          <View style={driverStyles.topAmberCard}>
+            <View style={driverStyles.amberIconCircle}>
+              <Ionicons name="alert-circle-outline" size={32} color="#92400E" />
+            </View>
+            <AppText style={driverStyles.drivingStatusTitle}>
+              {statusTitle}
+            </AppText>
+            <View style={driverStyles.plateBadge}>
+              <AppText style={driverStyles.plateBadgeText}>
+                {vehicleReg}
+              </AppText>
+            </View>
+            <AppText style={driverStyles.crewSubtitleText}>
+              {crewSubtitle}
+            </AppText>
+          </View>
+
+          {notice ? (
+            <AppText style={{ color: colors.primary, textAlign: "center", marginBottom: 12, fontWeight: "600" }}>
+              {notice}
+            </AppText>
+          ) : null}
+          {write.error ? (
+            <AppText color={colors.error} style={{ textAlign: "center", marginBottom: 12 }}>
+              {write.error}
+            </AppText>
+          ) : null}
+
+          {/* Offline Draft Retry */}
+          {write.draft ? (
+            <View style={{ marginBottom: 14 }}>
+              <Button
+                label="Retry saved crew action"
+                disabled={!write.ready || !safe}
+                loading={write.busy}
+                onPress={() => act(write.draft.action)}
+              />
+            </View>
+          ) : null}
+
+          {/* Invitation Accept button if driver is member but not accepted */}
+          {member && !member.accepted && (
+            <View style={{ marginBottom: 14 }}>
+              <Button
+                label="Accept crew membership"
+                disabled={locked || !safe}
+                onPress={() => act("JOIN")}
+              />
+            </View>
+          )}
+
+          {/* Step 1 Card */}
+          <View style={driverStyles.stepCard}>
+            <View style={driverStyles.step1Badge}>
+              <AppText style={driverStyles.step1BadgeText}>1</AppText>
+            </View>
+            <AppText style={driverStyles.stepText}>
+              I am safely stopped and can confirm this action.
+            </AppText>
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: safe }}
+              onPress={() => setSafe(!safe)}
+              disabled={write.busy}
+              style={[driverStyles.checkbox, safe && driverStyles.checkboxChecked]}
+            >
+              {safe ? <Ionicons name="checkmark" size={24} color="#FFFFFF" /> : null}
+            </Pressable>
+          </View>
+
+          {/* Step 2 Card */}
+          <View style={driverStyles.stepCardColumn}>
+            <View style={driverStyles.step2Header}>
+              <View style={driverStyles.step2Badge}>
+                <AppText style={driverStyles.step2BadgeText}>2</AppText>
+              </View>
+              <AppText style={driverStyles.step2Title}>Confirm your action</AppText>
+            </View>
+            <View style={driverStyles.actionBtnRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Driving"
+                disabled={locked}
+                onPress={() => {
+                  if (!safe) {
+                    Alert.alert(
+                      "Safety check",
+                      "Please confirm you are safely stopped before confirming this action."
+                    );
+                    return;
+                  }
+                  if (!truckId) {
+                    Alert.alert(
+                      "No truck crew",
+                      "No crew assigned yet. Ask your manager to assign you to a truck crew."
+                    );
+                    return;
+                  }
+                  act("START");
+                }}
+                style={[
+                  driverStyles.actionBtn,
+                  isDriving && driverStyles.actionBtnActive,
+                ]}
+              >
+                <AppText
+                  style={[
+                    driverStyles.actionBtnText,
+                    isDriving && driverStyles.actionBtnTextActive,
+                  ]}
+                >
+                  Driving
+                </AppText>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Stopped"
+                disabled={locked}
+                onPress={() => {
+                  if (!safe) {
+                    Alert.alert(
+                      "Safety check",
+                      "Please confirm you are safely stopped before confirming this action."
+                    );
+                    return;
+                  }
+                  if (!truckId) {
+                    Alert.alert(
+                      "No truck crew",
+                      "No crew assigned yet. Ask your manager to assign you to a truck crew."
+                    );
+                    return;
+                  }
+                  act("STOP");
+                }}
+                style={driverStyles.actionBtn}
+              >
+                <AppText style={driverStyles.actionBtnText}>
+                  Stopped
+                </AppText>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Pending Handover Proposal */}
+          {pending && String(pending.targetDriverId) === String(user._id) && (
+            <Card style={{ marginBottom: 16 }}>
+              <AppText weight="bold">
+                {nameFor(data, pending.fromDriverId)} asks you to take over driving.
+              </AppText>
+              <Button
+                label="Confirm I am taking over"
+                disabled={locked || !safe}
+                onPress={() => act("ACCEPT", { proposalId: pending.id })}
+                style={{ marginTop: 8 }}
+              />
+              <TextField
+                label="Reason if you disagree"
+                value={note}
+                onChangeText={setNote}
+                maxLength={1000}
+                editable={!locked}
+                multiline
+              />
+              <Button
+                label="Dispute handover"
+                variant="danger"
+                disabled={locked || !safe || !note.trim()}
+                onPress={() => act("REJECT", { proposalId: pending.id })}
+              />
+            </Card>
+          )}
+
+          {/* Timeline Section */}
+          <AppText style={driverStyles.timelineSectionHeader}>Driving timeline</AppText>
+          {!data?.intervals?.length ? (
+            <View style={driverStyles.emptyTimelineRow}>
+              <View style={driverStyles.timelineIndicatorCol}>
+                <View style={driverStyles.timelineEmptyNode} />
+                <View style={driverStyles.timelineVerticalLine} />
+              </View>
+              <AppText style={driverStyles.emptyTimelineText}>
+                No driving intervals recorded yet.
+              </AppText>
+            </View>
+          ) : (
+            <View style={{ marginTop: 4 }}>
+              {data.intervals.map((row, idx) => (
+                <View key={row._id} style={driverStyles.timelineItemRow}>
+                  <View style={driverStyles.timelineIndicatorCol}>
+                    <View
+                      style={[
+                        driverStyles.timelineNodeDot,
+                        {
+                          backgroundColor: row.endAt ? "#94A3B8" : "#2563EB",
+                          borderColor: row.endAt ? "#94A3B8" : "#2563EB",
+                        },
+                      ]}
+                    />
+                    {idx < data.intervals.length - 1 && (
+                      <View style={driverStyles.timelineConnectingTrack} />
+                    )}
+                  </View>
+                  <Card style={driverStyles.intervalItemCard}>
+                    <AppText weight="bold">{nameFor(data, row.driverId)}</AppText>
+                    <AppText style={driverStyles.intervalTimeText}>
+                      {time(row.startAt)} →{" "}
+                      {row.endAt
+                        ? time(row.endAt)
+                        : String(data.currentDriverId) === String(row.driverId)
+                        ? "Active"
+                        : "Unconfirmed — owner review needed"}
+                    </AppText>
+                    <AppText variant="caption" muted style={{ marginTop: 4 }}>
+                      {stintLabels[row.status] || "Unconfirmed"}
+                    </AppText>
+                  </Card>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Footer note */}
+          <View style={driverStyles.footerNote}>
+            <Ionicons
+              name="information-circle-outline"
+              size={15}
+              color="#64748B"
+              style={{ marginTop: 2 }}
+            />
+            <AppText style={driverStyles.footerNoteText}>
+              Driving confirmations are crew statements, separate from truck pairing. Actions take effect when confirmed online; waiting time stays unconfirmed.
+            </AppText>
+          </View>
+        </ScrollView>
+      </View>
+    );
   }
   return (
     <Screen navigation={navigation} title="Crew & driving">
@@ -527,3 +820,261 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
     </Screen>
   );
 }
+
+const driverStyles = {
+  screenContainer: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+  headerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: "#F8FAFC",
+  },
+  headerBackBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitleText: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginLeft: 14,
+  },
+  scrollContent: {
+    maxWidth: 680,
+    width: "100%",
+    alignSelf: "center",
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  topAmberCard: {
+    backgroundColor: "#FFFBEB",
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: "#FDE68A",
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  amberIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#FEF3C7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  drivingStatusTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#451A03",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  plateBadge: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: "#0F172A",
+    paddingVertical: 5,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  plateBadgeText: {
+    fontSize: 17,
+    fontWeight: "900",
+    color: "#0F172A",
+    letterSpacing: 2.5,
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+  },
+  crewSubtitleText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#92400E",
+    textAlign: "center",
+  },
+  stepCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  step1Badge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#2563EB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  step1BadgeText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  stepText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginHorizontal: 12,
+    lineHeight: 20,
+  },
+  checkbox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#2563EB",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: "#2563EB",
+  },
+  stepCardColumn: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 16,
+    marginBottom: 20,
+  },
+  step2Header: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  step2Badge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  step2BadgeText: {
+    color: "#64748B",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  step2Title: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginLeft: 12,
+  },
+  actionBtnRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 14,
+  },
+  actionBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#DCE4EE",
+  },
+  actionBtnActive: {
+    backgroundColor: "#2563EB",
+  },
+  actionBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#334155",
+  },
+  actionBtnTextActive: {
+    color: "#FFFFFF",
+  },
+  timelineSectionHeader: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginTop: 8,
+    marginBottom: 14,
+  },
+  emptyTimelineRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  timelineIndicatorCol: {
+    alignItems: "center",
+    width: 20,
+    marginRight: 12,
+  },
+  timelineEmptyNode: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: "#94A3B8",
+    backgroundColor: "transparent",
+  },
+  timelineVerticalLine: {
+    width: 2,
+    height: 34,
+    backgroundColor: "#CBD5E1",
+    marginTop: 4,
+  },
+  emptyTimelineText: {
+    fontSize: 14,
+    color: "#64748B",
+    marginTop: 0,
+  },
+  timelineItemRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  timelineNodeDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginTop: 4,
+  },
+  timelineConnectingTrack: {
+    width: 2,
+    flex: 1,
+    backgroundColor: "#CBD5E1",
+    marginTop: 4,
+    minHeight: 40,
+  },
+  intervalItemCard: {
+    flex: 1,
+    padding: 12,
+  },
+  intervalTimeText: {
+    fontSize: 13,
+    color: "#475569",
+    marginTop: 2,
+  },
+  footerNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    marginTop: 36,
+    marginBottom: 24,
+    paddingHorizontal: 2,
+  },
+  footerNoteText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#64748B",
+    flex: 1,
+  },
+};
