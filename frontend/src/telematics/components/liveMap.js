@@ -38,7 +38,7 @@ export function fleetOverview(coordinates) {
   };
 }
 
-export const MARKER_SIZE = 52;
+export const MARKER_SIZE = 58;
 
 // Status palette of the web Live Tracking page (main-frontend vehicleMarkerIcon.js).
 export const TRUCK_THEME = {

@@ -26,16 +26,33 @@ export async function getBill(id) {
  * Submit a bill from the app. `photo` is an RN file part { uri, name, type }
  * (from utils/pickImage). Returns the created PENDING bill.
  */
-export async function submitBill({ amount, category, description, expenseDate, tripId, vehicleId, photo } = {}) {
+export async function submitBill({ amount, category, description, expenseDate, tripId, vehicleId, photo, clientRequestId } = {}) {
   const fd = new FormData();
+  if (clientRequestId) fd.append('clientRequestId', clientRequestId);
   fd.append('amount', String(amount));
   if (category) fd.append('category', category);
   if (description) fd.append('description', description);
   if (expenseDate) fd.append('expenseDate', expenseDate);
   if (tripId) fd.append('tripId', tripId);
   if (vehicleId) fd.append('vehicleId', vehicleId);
-  if (photo) fd.append('receipt', photo);
+  if (photo) await appendReceipt(fd, photo);
   return postForm('/app/v1/bills', fd);
+}
+
+export async function resubmitBill(id, { amount, category, description, expenseDate, photo, clientRequestId }) {
+  const fd = new FormData();
+  if (clientRequestId) fd.append('clientRequestId', clientRequestId);
+  fd.append('amount', String(amount));
+  fd.append('category', category);
+  fd.append('description', description);
+  fd.append('expenseDate', expenseDate);
+  await appendReceipt(fd, photo);
+  return postForm(`/app/v1/bills/${id}/resubmit`, fd);
+}
+
+async function appendReceipt(form, photo) {
+  if (typeof document !== 'undefined') form.append('receipt', await (await fetch(photo.uri)).blob(), photo.name);
+  else form.append('receipt', photo);
 }
 
 /** Owner/manager confirms a pending bill → credits the driver's wallet. */
@@ -50,4 +67,4 @@ export async function rejectBill(id, reason) {
   return res.data?.data ?? res.data;
 }
 
-export default { listBills, getBill, submitBill, confirmBill, rejectBill };
+export default { listBills, getBill, submitBill, resubmitBill, confirmBill, rejectBill };

@@ -40,7 +40,21 @@ export function useDriverStream({ service, enabled = true, onEvent } = {}) {
     let ticket;
     try {
       ticket = await service.streamTicket();
-    } catch {
+    } catch (err) {
+      const status = err?.response?.status || err?.status;
+      if (
+        status === 401 ||
+        status === 403 ||
+        status === 404 ||
+        err?.message?.includes('driver session') ||
+        err?.message?.includes('permission')
+      ) {
+        stoppedRef.current = true;
+        closeStream();
+        clearTimer();
+        setConnected(false);
+        return;
+      }
       scheduleReconnect();
       return;
     }
@@ -57,8 +71,14 @@ export function useDriverStream({ service, enabled = true, onEvent } = {}) {
         if (frame.event === 'freshness') return; // keep-alive only, no payload to surface
         onEventRef.current?.(frame);
       },
-      onError: () => {
+      onError: (err) => {
         setConnected(false);
+        if (err?.message?.includes('401') || err?.message?.includes('403') || err?.message?.includes('404')) {
+          stoppedRef.current = true;
+          closeStream();
+          clearTimer();
+          return;
+        }
         scheduleReconnect();
       },
     });

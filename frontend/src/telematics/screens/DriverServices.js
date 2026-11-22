@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import * as Crypto from 'expo-crypto';
+import { useDriverData } from '../context/DriverDataContext';
 import { View, Linking } from 'react-native';
-import { AppText, Button, Card, colors } from '../../components/ui';
+import { AppText, Button, Card, TextField, colors } from '../../components/ui';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTelematicsApi } from '../context/TelematicsApiContext';
 import { useExperienceCopy } from '../experience/ExperienceUI';
@@ -33,11 +35,15 @@ export function RoadReport({ navigation }) {
   const [busy, setBusy] = useState('');
   const [sent, setSent] = useState('');
   const [error, setError] = useState('');
+  const attempt = useRef(null);
+  const { data } = useDriverData();
   async function report(type, label) {
-    if (busy) return;
+    if (busy || data?.vehicle?.speed > 0) return;
     setBusy(type); setSent(''); setError('');
     try {
-      await service.createRoadReport({ type, clientId: `${type}-${Date.now()}` });
+      if (attempt.current?.type !== type) attempt.current = { type, clientId: Crypto.randomUUID() };
+      await service.createRoadReport(attempt.current, attempt.current.clientId);
+      attempt.current = null;
       setSent(`${c('reported')}: ${label}. ${c('thankYou')}`);
     } catch (e) { setError(e.message); }
     finally { setBusy(''); }
@@ -45,7 +51,8 @@ export function RoadReport({ navigation }) {
   return <Screen navigation={navigation} title={c('reportRoad')}>
     <Card style={{ gap: 10 }}>
       <AppText variant="label" muted>{c('whatAhead')}</AppText>
-      {REPORT_TYPES.map(([type, key]) => <Button key={type} label={c(key)} variant="secondary" loading={busy === type} disabled={!!busy} onPress={() => report(type, c(key))} />)}
+      {data?.vehicle?.speed > 0 && <AppText>Stop safely before reporting.</AppText>}
+      {REPORT_TYPES.map(([type, key]) => <Button key={type} label={c(key)} variant="secondary" loading={busy === type} disabled={!!busy || data?.vehicle?.speed > 0} onPress={() => report(type, c(key))} />)}
     </Card>
     {sent ? <AppText color={colors.success}>{sent}</AppText> : null}
     {error ? <AppText color={colors.error}>{error}</AppText> : null}
@@ -59,6 +66,7 @@ export function DriverRestHours({ navigation }) {
   const request = useRequest(() => service.dutyToday(), [service]);
   const duty = request.data;
   return <Screen navigation={navigation} title={c('restHours')}>
+    <Button label="Plan a break" variant="secondary" onPress={() => navigation.navigate('Break planner')} />
     <RequestState request={request} />
     {duty && <>
       <Card style={{ gap: 6 }}>
@@ -88,6 +96,7 @@ export function DriverRestHours({ navigation }) {
 export function PrivacyConsent({ navigation }) {
   const c = useExperienceCopy();
   const service = useTelematicsApi();
+  const { tracking } = useDriverData();
   const { language } = useLanguage();
   const request = useRequest(() => service.consent(), [service]);
   const [busy, setBusy] = useState(false);
@@ -105,7 +114,7 @@ export function PrivacyConsent({ navigation }) {
   }
   async function withdraw() {
     setBusy(true); setError('');
-    try { await service.withdrawConsent(); request.reload(); }
+    try { await tracking.stop(); await service.withdrawConsent(); request.reload(); }
     catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
@@ -155,6 +164,7 @@ export function DriverHelp({ navigation }) {
     }
   }
   return <Screen navigation={navigation} title={c('help')}>
+    <Button label="Cards from the office / add your side" variant="secondary" onPress={() => navigation.navigate('Helpful cards')} />
     <RequestState request={request} />
     {data && <>
       <Card style={{ gap: 10 }}>
@@ -190,6 +200,21 @@ export function HelpfulCards({ navigation }) {
   const service = useTelematicsApi();
   const request = useRequest(() => service.helpMenu(), [service]);
   const cards = request.data?.cards || [];
+  const { data } = useDriverData();
+  const [selected, setSelected] = useState(null);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const attempt = useRef(null);
+  async function reply() {
+    if (busy || !note.trim() || data?.vehicle?.speed > 0) return;
+    if (attempt.current?.note !== note.trim() || attempt.current?.id !== selected)
+      attempt.current = { id: selected, note: note.trim(), clientId: Crypto.randomUUID() };
+    setBusy(true); setFeedback('');
+    try { await service.replyToHelpfulCard(selected, { note: attempt.current.note, clientId: attempt.current.clientId }); setFeedback('Your explanation is saved on this card for your office.'); setSelected(null); setNote(''); attempt.current = null; }
+    catch (e) { setFeedback(e.message); }
+    finally { setBusy(false); }
+  }
   return <Screen navigation={navigation} title={c('helpfulCards')}>
     <RequestState request={request} />
     {request.data && (cards.length
@@ -197,9 +222,11 @@ export function HelpfulCards({ navigation }) {
         <AppText weight="semibold">{card.label || card.type}</AppText>
         {card.fact ? <AppText muted>{card.fact}</AppText> : null}
         {card.raisedAt ? <AppText variant="caption" muted>{new Date(card.raisedAt).toLocaleString()}</AppText> : null}
-        {card.canReply ? <Button label={c('crewMessages')} variant="secondary" onPress={() => navigation.navigate('Messages')} /> : null}
+        {card.canReply ? <Button label="Add your side" variant="secondary" disabled={busy || data?.vehicle?.speed > 0} onPress={() => { setSelected(card.id); setNote(''); setFeedback(''); }} /> : null}
+        {selected === card.id && <><TextField label="Your explanation" value={note} onChangeText={setNote} multiline maxLength={2000} editable={!busy} /><Button label="Send explanation" loading={busy} disabled={busy || !note.trim() || data?.vehicle?.speed > 0} onPress={reply} /></>}
       </Card>)
       : <AppText muted>{c('noHelpfulCards')}</AppText>)}
+    {feedback ? <AppText accessibilityRole="alert">{feedback}</AppText> : null}
   </Screen>;
 }
 
@@ -212,22 +239,28 @@ export function SiteCard({ navigation, route }) {
   const paramSiteId = route?.params?.siteId;
   const request = useRequest(async () => {
     let siteId = paramSiteId;
+    let visit = null;
     if (!siteId) {
-      const active = await service.visitsActive();
+      let active;
+      try { active = await service.visitsActive(); }
+      catch (error) { if (error.response?.status === 404) return { none: true }; throw error; }
       siteId = active?.visit?.siteId;
+      visit = active?.visit;
     }
     if (!siteId) return { none: true };
     const result = await service.siteCard(siteId);
-    return { card: result?.card || null };
+    return { card: result?.card || null, visit };
   }, [service, paramSiteId]);
   const card = request.data?.card;
   const queue = card?.queue;
   return <Screen navigation={navigation} title={c('siteCard')}>
+    <Button label="Upload gate papers / POD" variant="secondary" onPress={() => navigation.navigate('Photo any paper', { cameraFirst: true })} />
     <RequestState request={request} />
     {request.data?.none ? <Card><AppText muted>{c('notAtPlant')}</AppText></Card> : null}
     {card && <>
       <Card style={{ gap: 6 }}>
         <AppText variant="h3">{card.name || c('siteCard')}</AppText>
+        {request.data?.visit?.state && <AppText>Visit: {request.data.visit.state.replaceAll('_', ' ')}</AppText>}
         {queue?.now ? <AppText>{c('queueNow')}: {queue.now.count} {c('trucks')}</AppText> : null}
         {queue && (queue.p20 != null || queue.p80 != null) ? <AppText muted>{c('usually')} {queue.p20 ?? '—'}–{queue.p80 ?? '—'}</AppText> : null}
       </Card>

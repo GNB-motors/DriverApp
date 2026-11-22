@@ -144,6 +144,18 @@ const service = createTelematicsApi({
   user: { _id: "signed-in-user", firstName: "Test" },
   audience: "driver",
 });
+await service.stopQuestions('truck-1', { clientId: 'stop-attempt' }, 'stop-attempt');
+assert.equal(requests.at(-1).method, 'post');
+assert.equal(requests.at(-1).url, '/app/v2/stops/truck-1/questions');
+assert.deepEqual(JSON.parse(requests.at(-1).data), { topic: 'STOP', clientId: 'stop-attempt' });
+assert.equal(requests.at(-1).headers['Idempotency-Key'], 'stop-attempt');
+await service.createRoadReport({ type: 'JAM', clientId: 'road-attempt' }, 'road-attempt');
+assert.equal(requests.at(-1).headers['Idempotency-Key'], 'road-attempt');
+await service.replyToHelpfulCard('office-card', { clientId: 'reply-attempt', note: 'At gate' });
+assert.equal(requests.at(-1).url, '/app/v1/helpful-cards/office-card/reply');
+await service.nearbyRoadReports();
+assert.equal(requests.at(-1).method, 'get');
+assert.equal(requests.at(-1).url, '/app/v2/reports');
 const data = await service.loadDriver();
 assert.equal(data.driver.id, "signed-in-user");
 assert.equal(data.vehicle, null);

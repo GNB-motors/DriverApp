@@ -9,6 +9,101 @@ export const validBusinessDay = (value) => {
   const parsed = new Date(`${value}T00:00:00+05:30`);
   return Number.isFinite(+parsed) && istDay(parsed) === value;
 };
+const knownNumber = (v) =>
+  v == null || v === "" || !Number.isFinite(Number(v)) ? null : Number(v);
+
+/** Driver bills of the day: waiting + approved + recorded (rejected left out); null when none were read. */
+export function driverBillsInr(money = {}) {
+  const parts = [money.expensePendingInr, money.expenseApprovedInr, money.expenseRecordedInr].map(knownNumber);
+  return parts.every((v) => v == null) ? null : parts.reduce((total, v) => total + (v ?? 0), 0);
+}
+
+/**
+ * The four "Aaj ka hisab" boxes, built from GET /owner-report — the same report the
+ * web Daily Digest page reads (yesterdaysWork / moneyOut) — so owner, manager and web
+ * all show the same numbers under the same words.
+ * `trips` counts trips that LEFT a pickup in the day (web: "Trips started today");
+ * how many of those are complete is in the caption, like the web's separate figure.
+ */
+export function hisabTiles(report, { today = false } = {}) {
+  const byId = {};
+  if (Array.isArray(report?.sections)) {
+    for (const section of report.sections) {
+      if (section?.id) byId[section.id] = section;
+    }
+  } else if (report?.sections && typeof report.sections === "object") {
+    for (const [key, section] of Object.entries(report.sections)) {
+      if (section && typeof section === "object") {
+        byId[section.id || key] = section;
+      }
+    }
+  }
+  const work = byId.yesterdaysWork?.numbers || {};
+  const tripsMetrics = byId.trips?.metrics || {};
+  const started = knownNumber(work.trips ?? tripsMetrics.started?.value ?? tripsMetrics.count?.value);
+  const completed = knownNumber(work.completedTrips ?? tripsMetrics.count?.value);
+  const open = knownNumber(work.openTrips);
+  const kmVal = knownNumber(work.km ?? tripsMetrics.ladenKm?.value ?? byId.distance?.metrics?.observedKm?.value);
+
+  const money = byId.moneyOut?.numbers || {};
+  const dieselMetrics = byId.diesel?.metrics || {};
+  const expensesMetrics = byId.expenses?.metrics || {};
+  const dieselVal = knownNumber(money.dieselBillInr ?? dieselMetrics.amount?.value);
+  const pendingCount = knownNumber(money.expensePendingCount ?? expensesMetrics.pending?.value);
+  const billsVal = driverBillsInr(money) ?? knownNumber(expensesMetrics.amount?.value);
+
+  const inr = (v) => `₹${Number(v).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  return [
+    {
+      key: "trips",
+      label: today ? "Trips started today" : "Trips started",
+      icon: "navigate-outline",
+      unit: "records",
+      value: started,
+      caption:
+        completed == null
+          ? today
+            ? "Includes trips still on the road"
+            : "Left a pickup this day"
+          : `${completed} completed${open ? ` · ${open} still open` : ""}`,
+      section: "trips",
+      route: "Fleet trips",
+    },
+    {
+      key: "km",
+      label: today ? "Loaded km today" : "Loaded km",
+      icon: "speedometer-outline",
+      unit: "km",
+      value: kmVal,
+      caption: work.kmPartial ? "Loaded trip distance · partial" : "Loaded trip distance",
+      section: "trips",
+      route: "Fleet trips",
+    },
+    {
+      key: "diesel",
+      label: "Diesel billed",
+      icon: "water-outline",
+      unit: "INR",
+      value: dieselVal,
+      caption: "Bills handed in, not paid",
+      section: "diesel",
+      route: "Fuel logs",
+    },
+    {
+      key: "bills",
+      label: "Driver bills",
+      icon: "receipt-outline",
+      unit: "INR",
+      value: billsVal,
+      caption: pendingCount
+        ? `${pendingCount} waiting · ${inr(knownNumber(money.expensePendingInr ?? billsVal) ?? 0)}`
+        : "Submitted, rejected left out",
+      section: "expenses",
+      route: "Manager approvals",
+    },
+  ];
+}
+
 export const displayMetric = (metric) =>
   metric?.value == null
     ? "Unavailable"
@@ -61,14 +156,102 @@ export const trendPointText = (point, unit) =>
     ? "No records"
     : displayMetric({ value: point.value, unit });
 export function comparisonNotes(comparison) {
-  const missing = comparison.previousSevenDays.missingDays;
-  return comparison.reasons.map((reason) =>
+  if (!comparison) return [];
+  const missing = comparison.previousSevenDays?.missingDays || [];
+  return (comparison.reasons || []).map((reason) =>
     reason === "SELECTED_PARTIAL_DAY"
       ? "The selected day is still in progress."
       : missing.length
         ? `Missing inputs on ${missing.join(", ")}; no average is shown.`
         : "The selected day has missing inputs.",
   );
+}
+
+export function adaptWebOwnerReport(webReport) {
+  if (!webReport) return null;
+  const sectionsList = Array.isArray(webReport.sections) ? webReport.sections : [];
+  const byId = {};
+  for (const s of sectionsList) {
+    if (s?.id) byId[s.id] = s;
+  }
+  const work = byId.yesterdaysWork?.numbers || {};
+  const money = byId.moneyOut?.numbers || {};
+  const exceptions = byId.exceptions?.numbers || {};
+  const people = byId.people?.numbers || {};
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const metric = (value, unit) => ({ value, unit });
+  const bills = driverBillsInr(money);
+
+  return {
+    generatedAt: webReport.generatedAt || new Date().toISOString(),
+    sections: {
+      trips: {
+        status: work.trips != null ? 'ok' : 'empty',
+        metrics: {
+          count: metric(num(work.completedTrips), 'records'),
+          started: metric(num(work.trips), 'records'),
+          ladenKm: metric(num(work.km), 'km'),
+        },
+      },
+      distance: {
+        status: work.km != null ? 'ok' : 'empty',
+        metrics: {
+          observedKm: metric(num(work.km), 'km'),
+        },
+      },
+      diesel: {
+        status: money.dieselBillInr != null ? 'ok' : 'empty',
+        metrics: {
+          amount: metric(num(money.dieselBillInr), 'INR'),
+          litres: metric(num(money.dieselBillLitres), 'L'),
+        },
+      },
+      expenses: {
+        status: bills != null ? 'ok' : 'empty',
+        metrics: {
+          amount: metric(bills, 'INR'),
+          pending: metric(num(money.expensePendingCount), 'records'),
+        },
+      },
+      fuelReviews: {
+        status: exceptions.moneyTheft != null ? 'ok' : 'empty',
+        metrics: {
+          count: metric(num(exceptions.moneyTheft) ?? 0, 'records'),
+        },
+      },
+      expenseReviews: {
+        status: money.expensePendingCount != null ? 'ok' : 'empty',
+        metrics: {
+          count: metric(num(money.expensePendingCount) ?? num(exceptions.papersWaiting) ?? 0, 'records'),
+        },
+      },
+      documents: {
+        status: exceptions.documentsExpiring != null ? 'ok' : 'empty',
+        metrics: {
+          count: metric(num(exceptions.documentsExpiring) ?? 0, 'records'),
+        },
+      },
+      issues: {
+        status: exceptions.sos != null ? 'ok' : 'empty',
+        metrics: {
+          count: metric(num(exceptions.sos) ?? 0, 'records'),
+        },
+      },
+      deviations: {
+        status: exceptions.routeDeviations != null ? 'ok' : 'empty',
+        metrics: {
+          count: metric(num(exceptions.routeDeviations) ?? 0, 'records'),
+        },
+      },
+      people: {
+        status: people.driversCount != null ? 'ok' : 'empty',
+        metrics: {
+          count: metric(num(people.driversCount), 'records'),
+        },
+      },
+      ...byId,
+    },
+  };
 }
 export function reportSpeech(report, language = "en") {
   const words = {
@@ -130,7 +313,10 @@ export function reportSpeech(report, language = "en") {
       end: "ক্রয়, অনুমোদিত বিল, অগ্রিম ও নগদ লেনদেন আলাদা হিসাব। অজানা মানে শূন্য নয়।",
     },
   }[language];
+  const sectionsObj = Array.isArray(report?.sections)
+    ? Object.fromEntries(report.sections.filter((s) => s?.id).map((s) => [s.id, s]))
+    : (report?.sections || {});
   const read = (section, metric) =>
-    report.sections[section]?.metrics[metric]?.value ?? words.unavailable;
-  return `${words.intro} ${report.date}. ${words.fleet}: ${read("fleet", "total")}. ${words.moving}: ${read("fleet", "moving")}. ${words.offline}: ${read("fleet", "offline")}. ${words.trips}: ${read("trips", "count")}. ${words.diesel}: ${read("diesel", "amount")}. ${words.adblue}: ${read("adblue", "amount")}. ${words.advances}: ${read("advances", "amount")}. ${words.tolls}: ${read("tolls", "knownSubtotal")}. ${words.unpriced}: ${read("tolls", "unpriced")}. ${words.fuelReviews}: ${read("fuelReviews", "count")}. ${words.expenseReviews}: ${read("expenseReviews", "count")}. ${Object.values(report.sections).some((s) => s.coverage !== "complete") ? words.partial : ""} ${words.evidence} ${words.end}`;
+    sectionsObj[section]?.metrics?.[metric]?.value ?? words.unavailable;
+  return `${words.intro} ${report?.date || ''}. ${words.fleet}: ${read("fleet", "total")}. ${words.moving}: ${read("fleet", "moving")}. ${words.offline}: ${read("fleet", "offline")}. ${words.trips}: ${read("trips", "count")}. ${words.diesel}: ${read("diesel", "amount")}. ${words.adblue}: ${read("adblue", "amount")}. ${words.advances}: ${read("advances", "amount")}. ${words.tolls}: ${read("tolls", "knownSubtotal")}. ${words.unpriced}: ${read("tolls", "unpriced")}. ${words.fuelReviews}: ${read("fuelReviews", "count")}. ${words.expenseReviews}: ${read("expenseReviews", "count")}. ${Object.values(sectionsObj).some((s) => s?.coverage !== "complete") ? words.partial : ""} ${words.evidence} ${words.end}`;
 }

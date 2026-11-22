@@ -7,6 +7,12 @@ import { FleetCrewScreen } from "./screens/CrewScreens";
 import DefLedgerScreen from './screens/DefLedgerScreen';
 import TeamAccessScreen from './screens/TeamAccessScreen';
 import HistoricalTripScreen from './screens/HistoricalTripScreen';
+import FleetDocumentsScreen from './screens/FleetDocumentsScreen';
+import FleetFuelLogsScreen from './screens/FleetFuelLogsScreen';
+import FleetTripsScreen from './screens/FleetTripsScreen';
+import FleetMaintenanceScreen from './screens/FleetMaintenanceScreen';
+import RouteReplayScreen from './screens/RouteReplayScreen';
+import { OwnerReport, OwnerReportSection, OwnerReportRows, OwnerTrends, OwnerFinance } from './screens/OwnerReportScreens';
 import * as Operations from './workflows/FleetOperationalScreens';
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -19,6 +25,7 @@ import { TelematicsApiProvider } from './context/TelematicsApiContext';
 import { ManagerDataProvider, useManagerData } from './context/ManagerDataContext';
 import * as Screens from './screens/ManagerScreens';
 import FleetMapScreen from './screens/FleetMapScreen';
+import ChooseLanguageScreen from '../screens/driver/account/ChooseLanguageScreen';
 const Tab = createBottomTabNavigator(); const Stack = createNativeStackNavigator();
 const icons = { Home: 'home-outline', Live: 'map-outline', Drivers: 'people-outline', Alerts: 'notifications-outline', More: 'grid-outline' };
 function ManagerTabs() {
@@ -57,16 +64,30 @@ export default function ManagerNavigator() {
     <Stack.Screen name="Duty board" component={Operations.DriverRoster} />
     <Stack.Screen name="Truck handover" component={Operations.Handover} />
     <Stack.Screen name="Manager alert" component={Screens.AlertDetail} />
-    <Stack.Screen name="Fuel review" component={Operations.FleetRecords} />
-    <Stack.Screen name="Maintenance" component={Operations.FleetRecords} />
+    <Stack.Screen name="Fuel review" component={FleetFuelLogsScreen} />
+    <Stack.Screen name="Fuel logs" component={FleetFuelLogsScreen} />
+    <Stack.Screen name="Maintenance" component={FleetMaintenanceScreen} />
     <Stack.Screen name="New maintenance record" component={Operations.NewMaintenance} />
     <Stack.Screen name="Review detail" component={Operations.FleetRecordDetail} />
-    <Stack.Screen name="Fleet documents" component={Operations.FleetRecords} />
+    <Stack.Screen name="Fleet documents" component={FleetDocumentsScreen} />
+    <Stack.Screen name="Documents" component={FleetDocumentsScreen} />
     <Stack.Screen name="Manager document" component={Operations.FleetRecordDetail} />
-    <Stack.Screen name="Fleet trips" component={Screens.Trips} />
+    <Stack.Screen name="Fleet trips" component={FleetTripsScreen} />
+    <Stack.Screen name="Route replay" component={RouteReplayScreen} />
+    <Stack.Screen name="Play route" component={RouteReplayScreen} />
+    <Stack.Screen name="Route history" component={RouteReplayScreen} />
     <Stack.Screen name="Manager trip" component={HistoricalTripScreen} />
+    {/* The owner's daily report, unchanged; the server scopes it to the manager's branch. */}
+    <Stack.Screen name="Owner report" component={OwnerReport} />
+    <Stack.Screen name="Daily report" component={OwnerReport} />
+    <Stack.Screen name="Owner report section" component={OwnerReportSection} />
+    <Stack.Screen name="Owner report rows" component={OwnerReportRows} />
+    <Stack.Screen name="Owner trends" component={OwnerTrends} />
+    <Stack.Screen name="Khata ledger" component={OwnerFinance} />
+    <Stack.Screen name="Owner finance" component={OwnerFinance} />
     <Stack.Screen name="AdBlue / DEF" component={DefLedgerScreen} />
     <Stack.Screen name="Team & access" component={TeamAccessScreen} />
+    <Stack.Screen name="LanguageScreen" component={ChooseLanguageScreen} options={{ presentation: 'transparentModal', animation: 'fade' }} />
     <Stack.Screen name="Manager settings" component={Screens.Settings} />
     <Stack.Screen name="SOS centre" component={UnavailableScreen} />
     <Stack.Screen name="SOS detail" component={UnavailableScreen} />

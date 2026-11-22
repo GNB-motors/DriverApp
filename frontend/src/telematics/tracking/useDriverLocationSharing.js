@@ -61,10 +61,14 @@ export function useDriverLocationSharing({ user, token, service }) {
       } catch (failure) {
         setError(failure.message);
       }
-      if (forget) await AsyncStorage.removeItem(preference);
+      if (forget) {
+        await AsyncStorage.removeItem(preference);
+        await AsyncStorage.removeItem(queueKey(user));
+        setPending(0);
+      }
       setMode("off");
     },
-    [preference],
+    [preference, user],
   );
   const start = useCallback(
     async (nextMode = "foreground", requestPermission = true) => {
@@ -76,6 +80,9 @@ export function useDriverLocationSharing({ user, token, service }) {
         ticket = lease.current;
         await stopped;
         if (ticket !== lease.current) return;
+        const consent = await service.consent();
+        if (!consent?.state?.grantedAt || consent.state.withdrawnAt)
+          throw new Error('Open Privacy & consent and agree before sharing your location.');
         const permission = requestPermission
           ? await Location.requestForegroundPermissionsAsync()
           : await Location.getForegroundPermissionsAsync();
@@ -100,6 +107,12 @@ export function useDriverLocationSharing({ user, token, service }) {
             return;
           running = true;
           try {
+            const consent = await service.consent();
+            if (!consent?.state?.grantedAt || consent.state.withdrawnAt) {
+              await stop();
+              throw new Error('Location sharing stopped because consent is not active.');
+            }
+            if (ticket !== lease.current) return;
             const location = await Location.getCurrentPositionAsync({
               accuracy: Location.Accuracy.Balanced,
             });
@@ -218,6 +231,6 @@ export function useDriverLocationSharing({ user, token, service }) {
       mounted = false;
       stop(false).catch(() => {});
     };
-  }, [start, stop, preference]);
+  }, [start, stop, preference, user, service.sendLocationBatch]);
   return { mode, error, pending, lastSent, canBackground, busy, start, stop };
 }

@@ -36,6 +36,17 @@ TaskManager.defineTask(TASK, async ({ data, error }) => {
         /\/app\/v1\/auth\/login$/,
         "",
       );
+      const consent = (await axios.get(`${root}/app/v2/consent`, {
+        timeout: 20000, headers: { Authorization: `Bearer ${session.token}`, 'X-App-Version': '2.0.0' },
+      })).data.data;
+      if (!consent?.state?.grantedAt || consent.state.withdrawnAt) {
+        await SecureStore.deleteItemAsync(CREDENTIALS);
+        await AsyncStorage.removeItem(queueKey(session.user));
+        await AsyncStorage.removeItem(`${queueKey(session.user)}:mode`);
+        await Location.stopLocationUpdatesAsync(TASK);
+        throw new Error('Location consent is not active. Sharing stopped.');
+      }
+      if (!(await active())) throw new Error('Tracking session ended.');
       return (
         await axios.post(
           `${root}/driver/location/batch`,

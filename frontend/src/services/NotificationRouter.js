@@ -31,7 +31,9 @@ export default function NotificationRouter({ navigationRef, ready }) {
         if (['CREW_HANDOVER', 'CREW_INVITATION'].includes(alert.kind)) {
           await service.crewMine();
           if (active) navigationRef.navigate('Crew & driving');
-        } else if (active) navigationRef.navigate('Alert detail', { id: data.alertId });
+        } else if (alert.kind === 'VISIT_INSIDE' && active) navigationRef.navigate('Site card');
+        else if (alert.kind === 'VISIT_EXITED' && active) navigationRef.navigate('Photo any paper', { cameraFirst: true });
+        else if (active) navigationRef.navigate('Alert detail', { id: data.alertId });
       } else if (data.kind === 'OWNER_REPORT' && user.role === 'OWNER' && /^\d{4}-\d{2}-\d{2}$/.test(data.reportDate)) {
         await service.ownerDaily(data.reportDate, data.branchId || undefined);
         if (active) navigationRef.navigate('Owner report', { date: data.reportDate, branchId: data.branchId || null });
