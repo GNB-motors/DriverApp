@@ -214,7 +214,7 @@ export const fmtNumber = (value, digits = 1) => {
   return Number.isInteger(n) ? String(n) : n.toFixed(digits).replace(/\.0+$/, '');
 };
 
-export const initialsOf = (name) => String(name || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '•';
+export const initialsOf = (name) => String(name || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || '').join('') || '•';
 
 export const s = StyleSheet.create({
   btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: r.xl, paddingHorizontal: 16 },

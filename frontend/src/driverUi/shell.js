@@ -11,7 +11,7 @@ import { useDriverData } from '../telematics/context/DriverDataContext';
 export function useLocationHealthy() {
   const setup = useDriverSetup();
   const { tracking } = useDriverData();
-  return !!setup?.status?.ok && (tracking.mode !== 'off' || tracking.busy);
+  return !!setup?.status?.ok && (tracking?.mode !== 'off' || tracking?.busy);
 }
 
 /**

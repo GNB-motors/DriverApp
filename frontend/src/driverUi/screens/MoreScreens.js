@@ -22,9 +22,9 @@ export function MoreScreen({ navigation }) {
   const { data } = useDriverData();
   const setup = useDriverSetup();
   const docs = useDriverDocuments();
-  const status = setup.status;
+  const status = setup?.status || {};
   const name = driverName(user);
-  const expiring = attentionDocs(docs.data).length;
+  const expiring = attentionDocs(docs?.data).length;
   const month = monthTrips(data);
   const unread = data?.unreadCount || 0;
   const work = [
@@ -37,11 +37,11 @@ export function MoreScreen({ navigation }) {
     { label: t('inbox'), meta: unread ? t('unreadCount', { n: unread }) : '', route: 'Existing alerts', metaColor: unread ? c.primary : c.muted },
     { label: t('otherTools'), route: 'Existing tools' },
   ];
-  const locationMeta = status.location === 'always' ? t('allTheTime') : status.location === 'whileUsing' ? t('whileUsing') : t('notAllowed');
+  const locationMeta = status?.location === 'always' ? t('allTheTime') : status?.location === 'whileUsing' ? t('whileUsing') : t('notAllowed');
   const app = [
     { label: t('language'), meta: LANGUAGE_NAMES[language] || 'English', onPress: () => navigation.navigate('App language', { mode: 'settings' }) },
-    { label: t('location'), meta: locationMeta, ok: status.locationOk && status.gpsOn, onPress: () => (status.locationOk && status.gpsOn ? navigation.navigate('Location sharing') : navigation.navigate('Location guide', { mode: 'guard' })) },
-    { label: t('notifications'), meta: status.notifications ? t('on') : t('off'), ok: status.notifications, onPress: () => openFixSettings({ ...status, locationOk: true, gpsOn: true, notifications: status.notifications }) },
+    { label: t('location'), meta: locationMeta, ok: !!(status?.locationOk && status?.gpsOn), onPress: () => (status?.locationOk && status?.gpsOn ? navigation.navigate('Location sharing') : navigation.navigate('Location guide', { mode: 'guard' })) },
+    { label: t('notifications'), meta: status?.notifications ? t('on') : t('off'), ok: !!status?.notifications, onPress: () => openFixSettings({ ...status, locationOk: true, gpsOn: true, notifications: status?.notifications }) },
     { label: t('helpSupport'), onPress: () => navigation.navigate('Driver help') },
   ];
   const confirmLogout = () => Alert.alert(t('logout'), t('logoutConfirm'), [
@@ -110,9 +110,9 @@ export function ProfileScreen({ navigation }) {
   const [error, setError] = useState('');
   const name = driverName(user);
   const vehicle = data?.vehicle;
-  const licence = docs.data?.find((row) => row.type === 'DRIVER_LICENSE');
-  const licenceValue = !licence?.doc ? t('notUploaded') : licence.state.expiry ? fmtLongDate(licence.state.expiry, lang) : t('valid');
-  const assigned = mileage.data?.assignedVehicle;
+  const licence = docs?.data?.find((row) => row?.type === 'DRIVER_LICENSE');
+  const licenceValue = !licence?.doc ? t('notUploaded') : licence?.state?.expiry ? fmtLongDate(licence.state.expiry, lang) : t('valid');
+  const assigned = mileage?.data?.assignedVehicle;
   const range = assigned?.expectedGoodRange;
   const expected = range ? `${fmtNumber(range[0])}–${fmtNumber(range[1])} km/L` : assigned?.expectedKmPerL ? `${fmtNumber(assigned.expectedKmPerL)} km/L` : t('notSet');
   const live = vehicle && !vehicle.isStale && vehicle.coordinates;
@@ -168,13 +168,13 @@ const pill = (bg, fg) => ({ backgroundColor: bg, color: fg });
 function DocumentRow({ row, first, onPress }) {
   const { t, lang } = useDriverCopy();
   const { state, doc } = row;
-  const meta = state.kind === 'missing' ? t('notUploaded')
-    : state.kind === 'expired' ? t('expiredOn', { date: fmtLongDate(state.expiry, lang) })
-      : state.kind === 'expiring' ? t('expiresOn', { date: fmtLongDate(state.expiry, lang) })
-        : state.expiry ? t('validTill', { date: fmtLongDate(state.expiry, lang) }) : t('uploadedOn', { date: fmtLongDate(doc.createdAt, lang) });
-  const tag = state.kind === 'missing' ? [t('missing'), pill(c.missingBg, c.badText)]
-    : state.kind === 'expired' ? [t('expired'), pill(c.missingBg, c.badText)]
-      : state.kind === 'expiring' ? [t('days', { n: state.days }), pill(c.amberBg, c.watchInk)]
+  const meta = state?.kind === 'missing' ? t('notUploaded')
+    : state?.kind === 'expired' ? t('expiredOn', { date: fmtLongDate(state?.expiry, lang) })
+      : state?.kind === 'expiring' ? t('expiresOn', { date: fmtLongDate(state?.expiry, lang) })
+        : state?.expiry ? t('validTill', { date: fmtLongDate(state?.expiry, lang) }) : t('uploadedOn', { date: fmtLongDate(doc?.createdAt, lang) });
+  const tag = state?.kind === 'missing' ? [t('missing'), pill(c.missingBg, c.badText)]
+    : state?.kind === 'expired' ? [t('expired'), pill(c.missingBg, c.badText)]
+      : state?.kind === 'expiring' ? [t('days', { n: state?.days }), pill(c.amberBg, c.watchInk)]
         : [t('valid'), pill(c.okBg, c.okText)];
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${t(row.label)}, ${meta}, ${tag[0]}`} style={({ pressed }) => [st.docRow, !first && st.divider, pressed && { backgroundColor: '#F7F8FB' }]}>
@@ -193,11 +193,11 @@ export function DocumentsScreen({ navigation }) {
   const { t } = useDriverCopy();
   const { data } = useDriverData();
   const docs = useDriverDocuments();
-  const rows = (docs.data || []).filter((row) => row.scope === 'personal' || data?.vehicle);
+  const rows = (Array.isArray(docs?.data) ? docs.data : []).filter((row) => row?.scope === 'personal' || data?.vehicle);
   const first = attentionDocs(rows)[0];
-  const open = (row) => (row.doc
+  const open = (row) => (row?.doc
     ? navigation.navigate('Document detail', { kind: 'documents', id: row.doc.id || row.doc._id })
-    : navigation.navigate('Upload document', { scope: row.scope }));
+    : navigation.navigate('Upload document', { scope: row?.scope }));
   return (
     <Page scroll top={20} padding={16} refreshControl={<RefreshControl refreshing={docs.loading && !!docs.data} onRefresh={docs.reload} />}>
       <StatusBar style="dark" />
@@ -209,7 +209,7 @@ export function DocumentsScreen({ navigation }) {
         <View style={st.expiryBanner} accessibilityRole="alert">
           <ClockIcon color={c.watchInk} />
           <Txt size={14} weight="semibold" color={c.watchInk} style={{ flex: 1 }}>
-            {first.state.kind === 'expired' ? t('docExpired', { name: t(first.label) }) : t('docExpiresIn', { name: t(first.label), n: first.state.days })}
+            {first?.state?.kind === 'expired' ? t('docExpired', { name: t(first.label) }) : t('docExpiresIn', { name: t(first.label), n: first?.state?.days })}
           </Txt>
         </View>
       ) : null}

@@ -41,17 +41,18 @@ export function useDriverMileage() {
 
 // ── Today and this month (IST) ───────────────────────────────────────────
 const HIDDEN_TRIPS = new Set(['DISMISSED', 'SUPERSEDED']);
-export const tripDone = (trip) => trip.status === 'COMPLETE' || trip.status === 'CONFIRMED';
-export const visibleTrips = (trips = []) => trips.filter((trip) => !HIDDEN_TRIPS.has(trip.status));
-const newestFirst = (a, b) => new Date(b.startedAt || 0) - new Date(a.startedAt || 0);
+export const tripDone = (trip) => trip?.status === 'COMPLETE' || trip?.status === 'CONFIRMED';
+export const visibleTrips = (trips = []) => (Array.isArray(trips) ? trips : []).filter((trip) => trip && !HIDDEN_TRIPS.has(trip.status));
+const newestFirst = (a, b) => new Date(b?.startedAt || 0) - new Date(a?.startedAt || 0);
 
 export function todaySummary(data, now = new Date()) {
   const today = istDayKey(now);
-  const fuel = (data?.fuel || []).filter((row) => istDayKey(row.refuelTime || row.createdAt) === today && Number(row.litres) > 0);
-  const trips = visibleTrips(data?.trips).filter((trip) => istDayKey(trip.startedAt) === today);
-  const distances = trips.map((trip) => Number(trip.distanceKm)).filter(Number.isFinite);
+  const fuelList = Array.isArray(data?.fuel) ? data.fuel : [];
+  const fuel = fuelList.filter((row) => row && istDayKey(row.refuelTime || row.createdAt) === today && Number(row.litres) > 0);
+  const trips = visibleTrips(data?.trips).filter((trip) => istDayKey(trip?.startedAt) === today);
+  const distances = trips.map((trip) => Number(trip?.distanceKm)).filter(Number.isFinite);
   return {
-    litres: fuel.reduce((sum, row) => sum + Number(row.litres), 0),
+    litres: fuel.reduce((sum, row) => sum + Number(row?.litres || 0), 0),
     refills: fuel.length,
     distanceKm: distances.length ? distances.reduce((sum, km) => sum + km, 0) : null,
     completedTrips: trips.filter(tripDone).length,
@@ -60,7 +61,7 @@ export function todaySummary(data, now = new Date()) {
 
 export function monthTrips(data, now = new Date()) {
   const month = istMonthKey(now);
-  const rows = visibleTrips(data?.trips).filter((trip) => istMonthKey(trip.startedAt) === month).sort(newestFirst);
+  const rows = visibleTrips(data?.trips).filter((trip) => istMonthKey(trip?.startedAt) === month).sort(newestFirst);
   return { rows, total: rows.length, completed: rows.filter(tripDone).length };
 }
 
@@ -90,12 +91,14 @@ export function docState(doc, now = new Date()) {
   return { kind: 'valid', expiry, days };
 }
 
-const newestDoc = (rows, type) => rows
-  .filter((row) => row.docType === type)
-  .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0] || null;
+const newestDoc = (rows, type) => (Array.isArray(rows) ? rows : [])
+  .filter((row) => row?.docType === type)
+  .sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0))[0] || null;
 
 export function documentChecklist(personal = [], vehicle = []) {
-  const pick = (slot) => newestDoc(slot.scope === 'personal' ? personal : vehicle, slot.type);
+  const pList = Array.isArray(personal) ? personal : [];
+  const vList = Array.isArray(vehicle) ? vehicle : [];
+  const pick = (slot) => newestDoc(slot.scope === 'personal' ? pList : vList, slot.type);
   const rows = DOC_SLOTS.map((slot) => ({ ...slot, doc: pick(slot) }));
   for (const slot of OPTIONAL_SLOTS) { const doc = pick(slot); if (doc) rows.push({ ...slot, doc }); }
   return rows.map((row) => ({ ...row, state: docState(row.doc) }));
@@ -113,9 +116,9 @@ export function useDriverDocuments() {
   }, [service, hasTruck]);
 }
 
-export const attentionDocs = (rows = []) => rows
-  .filter((row) => row.state.kind === 'expiring' || row.state.kind === 'expired')
-  .sort((a, b) => a.state.days - b.state.days);
+export const attentionDocs = (rows = []) => (Array.isArray(rows) ? rows : [])
+  .filter((row) => row?.state?.kind === 'expiring' || row?.state?.kind === 'expired')
+  .sort((a, b) => (a?.state?.days ?? 0) - (b?.state?.days ?? 0));
 
 // ── Calling the owner ────────────────────────────────────────────────────
 /** The owner's number comes from the driver Help menu (CALL_OWNER action). */
