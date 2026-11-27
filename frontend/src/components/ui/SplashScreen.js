@@ -1,135 +1,90 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, Animated, StyleSheet, Easing } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useContext, useEffect, useRef } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import BrandMark from '../../Assets/BrandMark';
-import { colors, radius, fontFamily } from '../../theme/tokens';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { fontFamily } from '../../theme/tokens';
 
 /**
- * SplashScreen — the branded launch moment (screen 01 in the design set).
+ * SplashScreen — design screen 01 (Splash).
  *
- * Used as the loading fallback while fonts (App.js) and auth/language
- * (AppNavigator) resolve. Deliberately self-contained: it does NOT use
- * AppText / useLanguage, because the font gate in App.js renders ABOVE the
- * LanguageProvider. Brand type is pinned to explicit families so it reads
- * the same regardless of the active language.
+ * Shown while fonts (App.js) and auth/language (AppNavigator) resolve, and as
+ * the first onboarding step. Deliberately self-contained: no AppText or
+ * useLanguage, because the font gate renders above LanguageProvider. Pass
+ * fontsReady={false} before fonts load so no unloaded family is referenced.
  *
- *   <SplashScreen />                 // fonts loaded — uses brand type
- *   <SplashScreen fontsReady={false} /> // during the font gate — system type
- *
- * Pass fontsReady={false} when shown before fonts resolve so we don't
- * reference unloaded families (avoids RN "font not loaded" warnings).
+ * Without `progress` the bar loops on its own (boot); the onboarding intro
+ * passes an Animated value it drives itself, plus `onPress`.
  */
 export default function SplashScreen({
-  brand = 'HIGHWAY SAHAYAK',
-  tagline = 'हाईवे सहायक · Driver Portal',
-  footer = 'GNB FLEET TECHNOLOGY',
-  showDots = true,
+  brand = 'Highway Sahayak',
+  tagline = 'Your trip partner on every road',
+  footer = 'GNB · Since 1980',
   fontsReady = true,
+  script = 'latin',
+  progress,
+  onPress,
+  pressLabel,
 }) {
-  const brandFont = fontsReady ? { fontFamily: fontFamily.display.extrabold } : { fontWeight: '800' };
-  const taglineFont = fontsReady ? { fontFamily: fontFamily.hi.medium } : { fontWeight: '500' };
-  const footerFont = fontsReady ? { fontFamily: fontFamily.display.bold } : { fontWeight: '700' };
-
-  return (
-    <LinearGradient
-      colors={['#213EA7', '#2F58EE', '#4469F0']}
-      locations={[0, 0.6, 1]}
-      start={{ x: 0.2, y: 0 }}
-      end={{ x: 0.55, y: 1 }}
-      style={styles.fill}
-    >
-      <StatusBar style="light" />
-
-      {/* Logo tile */}
-      <View style={styles.logoTile}>
-        <BrandMark size={58} color={colors.white} />
-      </View>
-
-      <Text style={[styles.brand, brandFont]}>{brand}</Text>
-      {tagline ? <Text style={[styles.tagline, taglineFont]}>{tagline}</Text> : null}
-
-      {showDots ? <LoadingDots /> : null}
-
-      <Text style={[styles.footer, footerFont]}>{footer}</Text>
-    </LinearGradient>
-  );
-}
-
-/** Three white dots pulsing in sequence (the hs-dot animation). */
-function LoadingDots() {
-  const dots = [useRef(new Animated.Value(0.25)).current, useRef(new Animated.Value(0.25)).current, useRef(new Animated.Value(0.25)).current];
-
+  // The font gate renders this above SafeAreaProvider, where the hook would throw.
+  const insets = useContext(SafeAreaInsetsContext) || { top: 24, bottom: 0 };
+  const own = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const make = (val) =>
-      Animated.sequence([
-        Animated.timing(val, { toValue: 1, duration: 480, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(val, { toValue: 0.25, duration: 720, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ]);
-    const loop = Animated.loop(Animated.stagger(200, dots.map(make)));
+    if (progress) return undefined;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(own, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+      Animated.timing(own, { toValue: 0, duration: 0, useNativeDriver: false }),
+    ]));
     loop.start();
     return () => loop.stop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  }, [own, progress]);
+  const value = progress || own;
+  const families = !fontsReady ? null : script === 'hi' ? fontFamily.hi : script === 'bn' ? fontFamily.bn : null;
+  const brandFont = !fontsReady ? { fontWeight: '800' } : { fontFamily: families ? families.bold : fontFamily.heading.extrabold, letterSpacing: families ? 0 : -1 };
+  const bodyFont = !fontsReady ? null : { fontFamily: families ? families.regular : fontFamily.display.regular };
+  const mark = (
+    <>
+      <View style={styles.tile}>
+        <Svg width={60} height={60} viewBox="0 0 48 48" fill="none" stroke="#213EA7" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+          <Path d="M4 14h22v18H4z" /><Path d="M26 20h9l7 7v5H26z" />
+          <Circle cx="12" cy="35" r="4" fill="#fff" /><Circle cx="34" cy="35" r="4" fill="#fff" /><Path d="M9 22h10" />
+        </Svg>
+      </View>
+      <View style={styles.titles}>
+        <Text style={[styles.brand, brandFont, families && { lineHeight: 50 }]}>{brand}</Text>
+        {tagline ? <Text style={[styles.tagline, bodyFont]}>{tagline}</Text> : null}
+      </View>
+    </>
+  );
   return (
-    <View style={styles.dotsRow}>
-      {dots.map((val, i) => (
-        <Animated.View key={i} style={[styles.dot, { opacity: val }]} />
-      ))}
+    <View style={[styles.fill, { paddingTop: insets.top + 64, paddingBottom: insets.bottom + 48 }]}>
+      <StatusBar style="light" />
+      <View />
+      {onPress ? (
+        <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={pressLabel || brand} style={styles.center}>{mark}</Pressable>
+      ) : <View style={styles.center} accessible accessibilityLabel={brand}>{mark}</View>}
+      <View style={styles.bottom}>
+        <View style={styles.track} accessibilityRole="progressbar">
+          <Animated.View style={[styles.bar, { width: value.interpolate({ inputRange: [0, 1], outputRange: ['8%', '100%'] }) }]} />
+        </View>
+        {footer ? <Text style={[styles.footer, bodyFont]}>{footer}</Text> : null}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
+  fill: { flex: 1, backgroundColor: '#213EA7', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32 },
+  center: { alignItems: 'center', gap: 20 },
+  tile: {
+    width: 104, height: 104, borderRadius: 30, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#08103C', shadowOpacity: 0.35, shadowRadius: 15, shadowOffset: { width: 0, height: 12 }, elevation: 10,
   },
-  logoTile: {
-    width: 104,
-    height: 104,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.28)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brand: {
-    fontSize: 28,
-    letterSpacing: 1.5,
-    color: colors.white,
-    marginTop: 26,
-    textAlign: 'center',
-  },
-  tagline: {
-    // Hind renders both Devanagari + Latin; system fallback before fonts load.
-    fontSize: 14,
-    letterSpacing: 0.3,
-    color: 'rgba(255,255,255,0.78)',
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 46,
-  },
-  dot: {
-    width: 9,
-    height: 9,
-    borderRadius: radius.full,
-    backgroundColor: colors.white,
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 46,
-    fontSize: 13,
-    letterSpacing: 3,
-    color: 'rgba(255,255,255,0.55)',
-    textAlign: 'center',
-  },
+  titles: { alignItems: 'center' },
+  brand: { fontSize: 34, lineHeight: 38, color: '#FFFFFF', textAlign: 'center' },
+  tagline: { marginTop: 8, fontSize: 15, lineHeight: 22, color: '#CBD6FF', textAlign: 'center' },
+  bottom: { alignItems: 'center', gap: 18, width: '100%' },
+  track: { width: 140, height: 4, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' },
+  bar: { height: '100%', borderRadius: 4, backgroundColor: '#FFFFFF' },
+  footer: { fontSize: 13, lineHeight: 18, color: '#CBD6FF', textAlign: 'center' },
 });
