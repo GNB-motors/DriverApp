@@ -133,6 +133,16 @@ export function MobileLoginScreen({ navigation, route }) {
         {error ? <View style={{ marginTop: 10 }}><ErrorLine>{error}</ErrorLine></View> : <Txt size={14} color={c.muted} style={{ marginTop: 10 }}>{t('mobileHint')}</Txt>}
         <View style={{ flex: 1, minHeight: 32 }} />
         <Btn label={t('getOtp')} onPress={submit} loading={busy} disabled={!valid} />
+        <Pressable
+          onPress={() => navigation.navigate('Password login')}
+          accessibilityRole="button"
+          style={{ marginTop: 14, paddingVertical: 10, alignItems: 'center' }}
+          hitSlop={8}
+        >
+          <Txt size={15} weight="bold" color={c.primary} center>
+            {t('loginWithPassword')}
+          </Txt>
+        </Pressable>
         <Txt size={13} color={c.muted} center style={{ marginTop: 14 }}>
           {t('agreePre')}<PolicyLink label={t('terms')} url={TERMS_URL} />{t('and')}<PolicyLink label={t('privacy')} url={PRIVACY_URL} />{t('agreePost')}
         </Txt>
@@ -241,6 +251,16 @@ export function OtpScreen({ navigation, route }) {
         </View>
         <View style={{ flex: 1, minHeight: 32 }} />
         <Btn label={t('verify')} onPress={() => verify()} loading={busy} disabled={code.length !== 6} />
+        <Pressable
+          onPress={() => navigation.navigate('Password login')}
+          accessibilityRole="button"
+          hitSlop={8}
+          style={{ marginTop: 18, alignSelf: 'center', paddingVertical: 8 }}
+        >
+          <Txt size={14} weight="semibold" color={c.primary} center>
+            {t('loginWithPasswordInstead')}
+          </Txt>
+        </Pressable>
       </Page>
     </KeyboardAvoidingView>
   );

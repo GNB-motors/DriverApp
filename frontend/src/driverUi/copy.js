@@ -35,6 +35,8 @@ const en = {
   privacy: 'Privacy policy',
   agreePost: '.',
   staffLogin: 'Owner, manager or field agent? Sign in with password',
+  loginWithPassword: 'Login with password',
+  loginWithPasswordInstead: 'Login with password instead',
 
   otpTitle: 'Enter the code',
   otpSentTo: 'Sent to +91 {phone} · ',
@@ -311,6 +313,8 @@ const hi = {
   privacy: 'गोपनीयता नीति',
   agreePost: ' मानते हैं।',
   staffLogin: 'मालिक, मैनेजर या फ़ील्ड एजेंट? पासवर्ड से लॉगिन करें',
+  loginWithPassword: 'पासवर्ड से लॉगिन करें',
+  loginWithPasswordInstead: 'इसके बजाय पासवर्ड से लॉगिन करें',
 
   otpTitle: 'कोड डालें',
   otpSentTo: '+91 {phone} पर भेजा गया · ',
@@ -587,6 +591,8 @@ const bn = {
   privacy: 'গোপনীয়তা নীতি',
   agreePost: ' মেনে নিচ্ছেন।',
   staffLogin: 'মালিক, ম্যানেজার বা ফিল্ড এজেন্ট? পাসওয়ার্ড দিয়ে লগইন করুন',
+  loginWithPassword: 'পাসওয়ার্ড দিয়ে লগইন করুন',
+  loginWithPasswordInstead: 'পরিবর্তে পাসওয়ার্ড দিয়ে লগইন করুন',
 
   otpTitle: 'কোডটি দিন',
   otpSentTo: '+91 {phone}-এ পাঠানো হয়েছে · ',

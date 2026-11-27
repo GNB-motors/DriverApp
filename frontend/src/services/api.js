@@ -4,7 +4,8 @@ import axios from "axios";
 import logger from "../utils/logger";
 import { appLoginUrl } from "../telematics/services/authEndpoint";
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+const RAW_URL = (process.env.EXPO_PUBLIC_API_URL || '').trim().replace(/\/+$/, '');
+const API_BASE_URL = RAW_URL ? appLoginUrl(RAW_URL).replace(/\/app\/v1\/auth\/login$/, '') : '';
 
 export class ApiError extends Error {
   constructor(message, statusCode) {
