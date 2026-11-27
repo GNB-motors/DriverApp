@@ -14,7 +14,9 @@ const mocks = {
   logger: { warn() {}, info() {} },
 };
 globalThis.__pushTestDependencies = mocks;
-const source = (await readFile(new URL('../src/services/pushNotifications.js', import.meta.url), 'utf8')).replace(/^import .*;\r?\n/gm, '');
+const source = (await readFile(new URL('../src/services/pushNotifications.js', import.meta.url), 'utf8'))
+  .replace(/\r\n/g, '\n')
+  .replace(/^import .*;\n/gm, '');
 const prefix = 'const { Crypto, Device, Notifications, Platform, AsyncStorage, Constants, logger } = globalThis.__pushTestDependencies;\n';
 const service = await import(`data:text/javascript;base64,${Buffer.from(prefix + source).toString('base64')}`);
 const options = {

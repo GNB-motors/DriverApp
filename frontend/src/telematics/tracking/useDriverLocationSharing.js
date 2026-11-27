@@ -37,7 +37,7 @@ export async function capturePairingFix() {
     mocked: !!location.mocked,
   };
 }
-export function useDriverLocationSharing({ user, token, service }) {
+export function useDriverLocationSharing({ user, token, service, copy }) {
   const [mode, setMode] = useState("off");
   const [error, setError] = useState("");
   const [lastSent, setLastSent] = useState(null);
@@ -145,6 +145,7 @@ export function useDriverLocationSharing({ user, token, service }) {
               },
               token,
               apiURL: process.env.EXPO_PUBLIC_API_URL,
+              ...(copy && { notification: copy.notification, nudge: copy.nudge }),
             },
             () => ticket === lease.current,
             requestPermission,
@@ -190,7 +191,7 @@ export function useDriverLocationSharing({ user, token, service }) {
         if (ticket === lease.current || !current.current) setBusy(false);
       }
     },
-    [user, token, service, stop, preference],
+    [user, token, service, stop, preference, copy],
   );
   useEffect(() => {
     let mounted = true;

@@ -13,9 +13,8 @@ import ManagerNavigator from '../telematics/ManagerNavigator';
 import OwnerNavigator from '../telematics/OwnerNavigator';
 import { selectAppShell } from '../telematics/services/appShell';
 import UnsupportedRoleScreen from '../telematics/screens/UnsupportedRoleScreen';
-import GetStartedScreen from '../screens/onboarding/GetStartedScreen';
-import OnboardingLanguageScreen from '../screens/onboarding/OnboardingLanguageScreen';
 import LoginScreen from '../screens/onboarding/LoginScreen';
+import { IntroScreen, LanguageScreen, MobileLoginScreen, OtpScreen } from '../driverUi/screens/OnboardingScreens';
 import SOSOptionsScreen from '../screens/driver/sos/SOSOptionsScreen';
 import SOSEmergencyActiveScreen from '../screens/driver/sos/SOSEmergencyActiveScreen';
 import ChooseLanguageScreen from '../screens/driver/account/ChooseLanguageScreen';
@@ -32,11 +31,16 @@ import SplashScreen from '../components/ui/SplashScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const tabIcon = (routeName) => ({ color, size }) => { const Icon = NAV_ICONS[routeName] || NAV_ICONS.Home; return <Icon size={size} color={color} />; };
+// Design screens 01–04: splash → language → mobile number → OTP. Drivers sign
+// in by SMS code; owners, managers and field agents keep password sign-in.
 function AuthStack({ initialRoute }) {
   return (
-    <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false, animation: 'fade' }}>
-      <Stack.Screen name="GetStarted" component={GetStartedScreen} />
-      <Stack.Screen name="OnboardingLanguage" component={OnboardingLanguageScreen} />
+    <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+      <Stack.Screen name="Intro" component={IntroScreen} options={{ animation: 'fade' }} />
+      <Stack.Screen name="Choose language" component={LanguageScreen} options={{ animation: 'fade' }} />
+      <Stack.Screen name="Mobile login" component={MobileLoginScreen} />
+      <Stack.Screen name="Otp" component={OtpScreen} />
+      <Stack.Screen name="Password login" component={LoginScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
     </Stack.Navigator>
   );
@@ -101,7 +105,7 @@ export default function AppNavigator() {
   const { user, loading, activeOrgId } = useAuth();
   if (!isLoaded || loading) return <SplashScreen />;
   const shell = selectAppShell(user);
-  if (shell === 'login') return <AuthStack initialRoute={onboarded ? 'Login' : 'GetStarted'} />;
+  if (shell === 'login') return <AuthStack initialRoute={onboarded ? 'Mobile login' : 'Intro'} />;
   if (shell === 'driver') return <DriverNavigator />;
   if (shell === 'manager') return <ManagerNavigator />;
   if (shell === 'owner') return <OwnerNavigator />;

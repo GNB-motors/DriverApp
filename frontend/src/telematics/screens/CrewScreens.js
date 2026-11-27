@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-import React, { useEffect, useState } from "react";
-import { Alert, Platform, Pressable, ScrollView, View } from "react-native";
-=======
 import React, { useEffect, useState, useMemo } from "react";
 import {
   Alert,
@@ -16,7 +12,6 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
->>>>>>> afa3e690aa25abb636803a64a51453e8739612bf
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, Badge, Button, Card, TextField, colors } from "../../components/ui";
@@ -528,16 +523,8 @@ export function FleetCrewScreen({ navigation, route }) {
     />
   );
 }
-<<<<<<< HEAD
 function CrewScreen({ navigation, driver = false, vehicleId, branch, driverData }) {
   const insets = useSafeAreaInsets();
-=======
-
-// ----------------------------------------------------------------------------
-// Detailed Crew Screen for Single Truck (Driver or Manager/Owner)
-// ----------------------------------------------------------------------------
-function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
->>>>>>> afa3e690aa25abb636803a64a51453e8739612bf
   const { user } = useAuth();
   const service = useTelematicsApi();
   const owner = !driver && user.role === "OWNER";
@@ -611,7 +598,7 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
     }
     request.reload();
   }
-<<<<<<< HEAD
+
   if (driver) {
     const vehicleReg =
       data?.vehicle?.registrationNumber ||
@@ -900,7 +887,6 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
       </View>
     );
   }
-=======
 
   async function askCrew() {
     if (asking || !safe || !truckId) return;
@@ -921,7 +907,6 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
 
   const regNo = data?.vehicle?.registrationNumber || "Truck";
 
->>>>>>> afa3e690aa25abb636803a64a51453e8739612bf
   return (
     <View style={s.container}>
       <BackHeader
@@ -1267,7 +1252,6 @@ function CrewScreen({ navigation, driver = false, vehicleId, branch }) {
   );
 }
 
-<<<<<<< HEAD
 const driverStyles = {
   screenContainer: {
     flex: 1,
@@ -1525,7 +1509,7 @@ const driverStyles = {
     flex: 1,
   },
 };
-=======
+
 // ----------------------------------------------------------------------------
 // Styles
 // ----------------------------------------------------------------------------
@@ -1980,4 +1964,3 @@ const s = StyleSheet.create({
     gap: 8,
   },
 });
->>>>>>> afa3e690aa25abb636803a64a51453e8739612bf
