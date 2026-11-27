@@ -10,7 +10,7 @@ const PUSH_TOKEN_KEY = 'expo_push_token';
 
 async function accountKey(token) { return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, token || ''); }
 
-// Foreground notification display — show banner + sound while app is open.
+// Foreground notification display â€” show banner + sound while app is open.
 Notifications?.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -28,6 +28,14 @@ export function setupAndroidChannel() {
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#EF4444',
   }).catch(() => {});
+  // Driver "Location is off" alerts (design screen 09 B). Same id as
+  // LOCATION_ALERT_CHANNEL in telematics/tracking/driverBackground.js.
+  Notifications.setNotificationChannelAsync('location-alerts', {
+    name: 'Location alerts',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 200, 150, 200],
+    lightColor: '#C83240',
+  }).catch(() => {});
 }
 
 async function getProjectId() {
@@ -40,7 +48,7 @@ async function getProjectId() {
 
 /**
  * Request permissions and register this device's Expo push token with the
- * backend. Safe to call after every login — the backend upserts on token.
+ * backend. Safe to call after every login â€” the backend upserts on token.
  *
  * Returns the Expo push token string, or null when push is unavailable
  * (simulator, permission denied, no project ID).
@@ -71,7 +79,7 @@ async function register(authToken, { registerDevice, unregisterDevice, isCurrent
 
   const projectId = await getProjectId();
   if (!projectId) {
-    logger.warn('Push', 'No EAS project ID found — push token unavailable.');
+    logger.warn('Push', 'No EAS project ID found â€” push token unavailable.');
     return null;
   }
 

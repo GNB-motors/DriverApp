@@ -6,9 +6,12 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
+import { useLanguage } from "../../context/LanguageContext";
+import { driverUiCopy } from "../../driverUi/copy";
 import { useTelematicsApi } from "./TelematicsApiContext";
 import { useDriverStream } from "../realtime/useDriverStream";
 const Context = createContext(null);
@@ -18,7 +21,16 @@ const REFRESHING_EVENTS = new Set(["card", "message", "prompt", "visit", "eta", 
 export function DriverDataProvider({ children }) {
   const service = useTelematicsApi();
   const { user, token } = useAuth();
-  const tracking = useDriverLocationSharing({ user, token, service });
+  const { language } = useLanguage();
+  // Memoised per language: the tracking hook restarts when this identity changes.
+  const trackingCopy = useMemo(() => {
+    const copy = driverUiCopy[language] || driverUiCopy.en;
+    return {
+      notification: { title: copy.fgNotifTitle, body: copy.fgNotifBody },
+      nudge: { title: copy.nudgeTitle, body: copy.nudgeBody, gpsTitle: copy.nudgeGpsTitle, gpsBody: copy.nudgeGpsBody },
+    };
+  }, [language]);
+  const tracking = useDriverLocationSharing({ user, token, service, copy: trackingCopy });
   const sequence = useRef(0);
   const mounted = useRef(true);
   const refreshDebounce = useRef(null);

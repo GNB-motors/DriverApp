@@ -788,6 +788,7 @@ export function createTelematicsApi({
       const row = (await get(`/driver/alerts/${encodeURIComponent(id)}`)).data;
       return { ...normalize(row), description: row.message, acknowledged: !!row.acknowledgedAt };
     },
+    async myMileage() { return (await get('/driver/me/mileage')).data; },
     async sosStatus(id) { return (await get(`/driver/incidents/${encodeURIComponent(id)}/push-status`)).data; },
     async reportSos({ clientIncidentId, type, note, reportedAt, latitude, longitude, accuracy }) {
       const body = { clientIncidentId, type, reportedAt };

@@ -1,10 +1,12 @@
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 import * as TaskManager from "expo-task-manager";
 import * as Location from "expo-location";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { appLoginUrl } from "../services/authEndpoint";
+import Notifications from "../../services/notificationsModule";
 import {
   createLocationQueue,
   queueKey,
@@ -13,10 +15,38 @@ import {
 } from "./locationQueue";
 const TASK = "gnb-driver-location-batch-v1";
 const CREDENTIALS = "gnb.driver.tracking.session";
+const NUDGE_EVERY_MS = 30 * 60 * 1000;
+export const LOCATION_ALERT_CHANNEL = "location-alerts";
+
+// Design screen 09 (B): when permission or the GPS switch goes off while
+// tracking runs, post "Location is off" at most once every 30 minutes. Tapping
+// it opens the app, whose permission guard (screen 08) then shows the fix.
+async function nudgeIfLocationOff(session) {
+  if (!Notifications || !session?.nudge) return;
+  const [gpsOn, background] = await Promise.all([
+    Location.hasServicesEnabledAsync().catch(() => true),
+    Location.getBackgroundPermissionsAsync().catch(() => ({ status: "granted" })),
+  ]);
+  if (gpsOn && background.status === "granted") return;
+  const key = `${queueKey(session.user)}:nudgedAt`;
+  const last = Number(await AsyncStorage.getItem(key).catch(() => 0)) || 0;
+  if (Date.now() - last < NUDGE_EVERY_MS) return;
+  await AsyncStorage.setItem(key, String(Date.now())).catch(() => {});
+  const gpsOnly = background.status === "granted" && !gpsOn;
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: gpsOnly ? session.nudge.gpsTitle : session.nudge.title,
+      body: gpsOnly ? session.nudge.gpsBody : session.nudge.body,
+      data: { kind: "LOCATION_OFF" },
+    },
+    trigger: Platform.OS === "android" ? { channelId: LOCATION_ALERT_CHANNEL } : null,
+  }).catch(() => {});
+}
 TaskManager.defineTask(TASK, async ({ data, error }) => {
   const saved = await SecureStore.getItemAsync(CREDENTIALS);
   if (!saved) return;
   const session = JSON.parse(saved);
+  await nudgeIfLocationOff(session).catch(() => {});
   if (error) {
     await AsyncStorage.setItem(
       `${queueKey(session.user)}:error`,
@@ -112,9 +142,15 @@ export async function startBackground(
         deferredUpdatesInterval: 120000,
         pausesUpdatesAutomatically: false,
         showsBackgroundLocationIndicator: true,
+        // Design screen 09 (A): the quiet ongoing notification. Android keeps
+        // a foreground-service notification on screen and not swipeable;
+        // tapping it opens the app.
         foregroundService: {
-          notificationTitle: "GNB location sharing",
-          notificationBody: "Your location is being shared with your fleet.",
+          notificationTitle:
+            session.notification?.title || "Sharing location for your trip",
+          notificationBody:
+            session.notification?.body || "Your location is being shared with your fleet.",
+          notificationColor: "#213EA7",
         },
       });
     } catch (error) {
