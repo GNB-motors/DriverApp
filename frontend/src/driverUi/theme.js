@@ -1,0 +1,56 @@
+// Design tokens for the driver interface, taken from the design file's CSS.
+export const c = {
+  primary: '#213EA7',
+  primaryDark: '#172D85',
+  accent: '#2F58EE',
+  accentSoft: '#6D8AF3',
+  tint: '#EAEEFF',
+  tintAlt: '#EDF2FF',
+  tintBorder: '#CBD7FB',
+  bg: '#F3F3F6',
+  surface: '#FFFFFF',
+  ink: '#171C30',
+  muted: '#555E74',
+  border: '#E2E6EF',
+  inputBorder: '#A6AFC5',
+  track: '#D4D9E6',
+  splashSub: '#CBD6FF',
+
+  okBg: '#E7F4EA',
+  okInk: '#17652E',
+  okDot: '#218653',
+  okText: '#176040',
+  goodPill: '#EAF6EE',
+  goodTile: '#DCEFE4',
+
+  watchBg: '#FDF6E5',
+  watchInk: '#725000',
+  watchDot: '#B47A00',
+  amberBg: '#FDF3E0',
+  amberBorder: '#F3D9A6',
+
+  badBg: '#FBE9EB',
+  badBorder: '#EFC0C6',
+  badInk: '#AB2533',
+  badDot: '#C83240',
+  badText: '#A22532',
+  lowBg: '#FCEEF0',
+  missingBg: '#FBEAEA',
+  sos: '#B72835',
+  sosText: '#A5202C',
+  sosSelectedBg: '#FFF3F3',
+  sosSelectedBorder: '#DC9CA3',
+
+  docBg: '#FFF3DF',
+  docInk: '#9B550A',
+  issueBg: '#FBEAF0',
+  issueInk: '#A42A4F',
+  billBg: '#EAF0FF',
+  tripOpen: '#BC6A13',
+  tripDone: '#22814B',
+
+  scrim: 'rgba(74,82,114,0.92)',
+  shadow: '#172758',
+};
+
+export const r = { sm: 10, md: 12, lg: 14, xl: 16, card: 18, big: 20, sheet: 28 };

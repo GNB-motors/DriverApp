@@ -1,3 +1,5 @@
+import { driverUiCopy } from '../driverUi/copy';
+
 export const translations = {
   en: {
     login: {
@@ -760,3 +762,7 @@ export const translations = {
     },
   }
 };
+
+// Driver interface copy (design 2026-11-23) lives in driverUi/copy.js and is
+// exposed here as t('driverUi', key) like every other screen.
+for (const lang of ['en', 'hi', 'bn']) translations[lang].driverUi = driverUiCopy[lang];
